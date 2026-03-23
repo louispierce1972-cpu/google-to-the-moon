@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Tracker — Premium Dashboard</title>
+    <meta name="description" content="Premium card management and tracking dashboard for media buying operations">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-particles"></div>
+        <div class="login-card">
+            <div class="login-logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 40 40" fill="none">
+                        <rect x="4" y="8" width="32" height="24" rx="4" stroke="currentColor" stroke-width="2.5"/>
+                        <line x1="4" y1="16" x2="36" y2="16" stroke="currentColor" stroke-width="2.5"/>
+                        <circle cx="12" cy="24" r="2" fill="currentColor"/>
+                        <line x1="18" y1="23" x2="28" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="18" y1="26" x2="24" y2="26" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1>CARD TRACKER</h1>
+                <p class="login-subtitle">Premium Management System</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="input-group">
+                    <label for="login-user">Username</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0H3z"/></svg>
+                        <input type="text" id="login-user" placeholder="Enter username" autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="login-pass">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                        <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login">
+                    <span>Sign In</span>
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+                <p id="login-error" class="login-error"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app" class="app hidden">
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="logo-icon-small">
+                        <svg viewBox="0 0 40 40" fill="none"><rect x="4" y="8" width="32" height="24" rx="4" stroke="currentColor" stroke-width="2.5"/><line x1="4" y1="16" x2="36" y2="16" stroke="currentColor" stroke-width="2.5"/><circle cx="12" cy="24" r="2" fill="currentColor"/></svg>
+                    </div>
+                    <span class="brand-text">CARD TRACKER</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <h3 class="nav-section-title">COUNTRIES</h3>
+                    <div id="countries-list" class="countries-list">
+                        <!-- Countries rendered by JS -->
+                    </div>
+                    <button id="add-country-btn" class="nav-item add-country-btn">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                        <span>Add Country</span>
+                    </button>
+                </div>
+
+                <div class="nav-section">
+                    <h3 class="nav-section-title">COLLECTIONS</h3>
+                    <button class="nav-item" data-view="my-card">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+                        <span>My Card</span>
+                        <span class="nav-badge" id="badge-my-card">0</span>
+                    </button>
+                    <button class="nav-item" data-view="favorites">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/></svg>
+                        <span>Favorites</span>
+                        <span class="nav-badge" id="badge-favorites">0</span>
+                    </button>
+                    <button class="nav-item" data-view="active-now">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+                        <span>Active Now</span>
+                        <span class="nav-badge" id="badge-active">0</span>
+                    </button>
+                    <button class="nav-item" data-view="notes">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                        <span>Notes</span>
+                    </button>
+                    <button class="nav-item" data-view="trash">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                        <span>Trash</span>
+                        <span class="nav-badge" id="badge-trash">0</span>
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="backup-btn" class="sidebar-action">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+                    <span>Backup</span>
+                </button>
+                <button id="delete-project-btn" class="sidebar-action danger">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                    <span>Delete Project</span>
+                </button>
+                <button id="logout-btn" class="sidebar-action logout">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main id="main-content" class="main-content">
+            <!-- TOP BAR -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button id="toggle-sidebar" class="toggle-sidebar-btn">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <h2 id="page-title" class="page-title">
+                        <span class="page-flag" id="page-flag"></span>
+                        <span id="page-title-text">Canada — Cards</span>
+                    </h2>
+                </div>
+                <div class="top-bar-right">
+                    <div class="search-box">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                        <input type="text" id="search-input" placeholder="Search (2+ chars)..." class="search-input">
+                    </div>
+                    <button id="add-card-btn" class="btn-primary" style="display:none;">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                        <span id="add-btn-text">+ ADD</span>
+                    </button>
+                    <div class="dropdown" id="import-dropdown" style="display:none;">
+                        <button class="btn-secondary dropdown-toggle" id="import-btn">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                            <span>IMPORT</span>
+                            <svg class="chevron" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                        </button>
+                        <div class="dropdown-menu" id="import-menu">
+                            <button class="dropdown-item" id="import-cards-btn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                                Import Cards
+                            </button>
+                            <button class="dropdown-item" id="restore-backup-btn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+                                Restore Backup
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dropdown" id="export-dropdown" style="display:none;">
+                        <button class="btn-secondary dropdown-toggle" id="export-btn">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+                            <span>EXPORT</span>
+                            <svg class="chevron" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                        </button>
+                        <div class="dropdown-menu" id="export-menu">
+                            <button class="dropdown-item" id="export-csv-btn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6z" clip-rule="evenodd"/></svg>
+                                Download CSV
+                            </button>
+                            <button class="dropdown-item" id="create-backup-btn">
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+                                Create Backup
+                            </button>
+                        </div>
+                    </div>
+                    <button id="delete-all-btn" class="btn-icon btn-danger-icon" style="display:none;" title="Delete All">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button id="trash-view-btn" class="btn-secondary" style="display:none;">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" clip-rule="evenodd"/></svg>
+                        <span>TRASH</span>
+                    </button>
+                    <div class="user-badge">
+                        <span>ADMIN</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- STATS BAR -->
+            <div id="stats-bar" class="stats-bar">
+                <!-- Stats rendered by JS -->
+            </div>
+
+            <!-- CONTENT AREA -->
+            <div id="content-area" class="content-area">
+                <!-- Cards table / Notes / etc rendered by JS -->
+            </div>
+
+            <!-- FOOTER -->
+            <footer id="table-footer" class="table-footer">
+                <span id="records-count">0 records</span>
+                <div class="pagination">
+                    <button id="prev-page" class="btn-page" disabled>
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <span id="page-info">Page 1 of 1</span>
+                    <button id="next-page" class="btn-page" disabled>
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+                    </button>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- ADD CARD MODAL -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="add-card-modal" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">ADD FULL INFO</h3>
+                <p class="modal-subtitle">Add one card or paste a list</p>
+                <button class="modal-close" id="modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="form">FORM</button>
+                <button class="modal-tab" data-tab="list">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                    LIST
+                </button>
+            </div>
+
+            <!-- FORM TAB -->
+            <div id="form-tab" class="modal-body tab-content active">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Country</label>
+                        <select id="form-country" class="form-select">
+                            <!-- Options filled by JS -->
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="form-name" placeholder="First name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Surname *</label>
+                        <input type="text" id="form-surname" placeholder="Last name" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width card-number-group">
+                        <label>Card Number *</label>
+                        <input type="text" id="form-card" placeholder="0000 0000 0000 0000" maxlength="19" required>
+                        <span id="card-type-badge" class="card-type-badge"></span>
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Month *</label>
+                        <input type="text" id="form-month" placeholder="MM" maxlength="2" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Year *</label>
+                        <input type="text" id="form-year" placeholder="YY" maxlength="2" required>
+                    </div>
+                    <div class="form-group">
+                        <label>CVV *</label>
+                        <input type="password" id="form-cvv" placeholder="•••" maxlength="4" required>
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Doc Type</label>
+                        <select id="form-doc-type" class="form-select">
+                            <option value="">—</option>
+                            <option value="DL">DL (Driver License)</option>
+                            <option value="PP">PP (Passport)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Document</label>
+                        <select id="form-doc" class="form-select">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" id="form-amount" placeholder="0.00" step="0.01">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <input type="text" id="form-notes" placeholder="Add note...">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Status</label>
+                        <div class="status-checkboxes">
+                            <label class="checkbox-label cb-green">
+                                <input type="checkbox" id="form-status-add"> CARD ADD
+                            </label>
+                            <label class="checkbox-label cb-blue">
+                                <input type="checkbox" id="form-status-ads"> RUN ADS
+                            </label>
+                            <label class="checkbox-label cb-amber">
+                                <input type="checkbox" id="form-status-verify"> VERIFY
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIST TAB -->
+            <div id="list-tab" class="modal-body tab-content">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Country</label>
+                        <select id="list-country" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Paste card list</label>
+                    <textarea id="list-textarea" class="list-textarea" rows="10" placeholder="Format: Name|CardNumber|MM|YY|CVV|Amount|Notes&#10;&#10;Example:&#10;John Smith|5326102343559988|12|28|456|5000|Test card&#10;Maria Johnson|5326102354669988|03|27|789|3500|Another card"></textarea>
+                </div>
+                <div class="list-info">
+                    <span id="list-parsed-count">0 cards detected</span>
+                    <div class="list-tags">
+                        <span class="tag">Separator: | or ,</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" id="modal-cancel">Cancel</button>
+                <button class="btn-primary" id="modal-save">
+                    <span id="save-btn-text">Add Card</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT CARD MODAL -->
+    <div id="edit-modal-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>EDIT CARD</h3>
+                <button class="modal-close" id="edit-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" id="edit-name">
+                    </div>
+                    <div class="form-group">
+                        <label>Surname</label>
+                        <input type="text" id="edit-surname">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width card-number-group">
+                        <label>Card Number</label>
+                        <input type="text" id="edit-card" maxlength="19">
+                        <span id="edit-card-type-badge" class="card-type-badge"></span>
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Month</label>
+                        <input type="text" id="edit-month" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>Year</label>
+                        <input type="text" id="edit-year" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>CVV</label>
+                        <input type="password" id="edit-cvv" maxlength="4">
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Doc Type</label>
+                        <select id="edit-doc-type" class="form-select">
+                            <option value="">—</option>
+                            <option value="DL">DL</option>
+                            <option value="PP">PP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" id="edit-amount" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <input type="text" id="edit-notes">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="edit-cancel">Cancel</button>
+                <button class="btn-primary" id="edit-save">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTEXT MENU -->
+    <div id="context-menu" class="context-menu hidden">
+        <button class="ctx-item" data-action="copy">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            Copy
+        </button>
+        <button class="ctx-item" data-action="edit">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+            Edit
+        </button>
+        <button class="ctx-item" data-action="clone">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"/><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z"/></svg>
+            Clone
+        </button>
+        <div class="ctx-divider"></div>
+        <button class="ctx-item danger" data-action="delete">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            Delete
+        </button>
+    </div>
+
+    <!-- BACKUP IMPORT MODAL -->
+    <div id="backup-import-overlay" class="modal-overlay hidden">
+        <div class="modal backup-modal">
+            <div class="modal-header">
+                <div class="backup-modal-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M2 8h20"/><circle cx="12" cy="14" r="2"/><path d="M12 16v2"/></svg>
+                </div>
+                <div>
+                    <h3>FULL PROJECT BACKUP</h3>
+                    <p class="modal-subtitle">This file contains a complete backup of all tables.</p>
+                </div>
+                <button class="modal-close" id="backup-import-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body backup-body">
+                <div class="backup-meta" id="backup-meta">
+                    <!-- Filled by JS: date, version -->
+                </div>
+                <div class="backup-stats" id="backup-stats">
+                    <!-- Filled by JS: cards, mycards, docs, notes counts -->
+                </div>
+                <div class="backup-mode-label">Choose import mode:</div>
+                <div class="backup-modes">
+                    <button class="backup-mode-btn replace" id="backup-replace">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115.36-6.36L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15.36 6.36L3 16"/></svg>
+                        <span class="mode-title">REPLACE ALL</span>
+                        <span class="mode-desc">Clear database & restore</span>
+                    </button>
+                    <button class="backup-mode-btn merge" id="backup-merge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 00-1.172-2.872L3 3"/><path d="M15 9l6-6"/></svg>
+                        <span class="mode-title">MERGE</span>
+                        <span class="mode-desc">Add only new records</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer backup-footer">
+                <button class="btn-cancel" id="backup-import-cancel">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                    CANCEL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD COUNTRY MODAL -->
+    <div id="add-country-overlay" class="modal-overlay hidden">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header">
+                <h3>ADD COUNTRY</h3>
+                <p class="modal-subtitle">Add a new country to your tracker</p>
+                <button class="modal-close" id="add-country-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Country Name</label>
+                    <input type="text" id="new-country-name" class="form-input" placeholder="e.g. Germany, France..." autofocus />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Flag Emoji (optional)</label>
+                    <input type="text" id="new-country-flag" class="form-input" placeholder="🌍" maxlength="4" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="add-country-cancel">Cancel</button>
+                <button class="btn-primary" id="add-country-confirm">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                    Add Country
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE PROJECT MODAL -->
+    <div id="delete-project-overlay" class="modal-overlay hidden">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h3 style="color:var(--red);">⚠️ DELETE PROJECT</h3>
+                <p class="modal-subtitle">This will permanently delete ALL data from ALL countries</p>
+                <button class="modal-close" id="delete-project-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="delete-warning">
+                    <p>This action <strong>CANNOT</strong> be undone. It will:</p>
+                    <ul style="margin:8px 0;padding-left:20px;color:var(--text-secondary);font-size:13px;">
+                        <li>Delete ALL cards from ALL countries</li>
+                        <li>Delete ALL documents</li>
+                        <li>Delete ALL notes</li>
+                        <li>Empty the trash</li>
+                    </ul>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type <strong style="color:var(--red);">DELETE</strong> to confirm</label>
+                    <input type="text" id="delete-confirm-input" class="form-input" placeholder="Type DELETE here..." />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="delete-project-cancel">Cancel</button>
+                <button class="btn-primary" id="delete-project-confirm" style="background:var(--red);border-color:var(--red);" disabled>
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                    Delete Everything
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHECKER MODAL -->
+    <div id="checker-overlay" class="modal-overlay hidden">
+        <div class="modal checker-modal">
+            <div class="modal-header">
+                <h3>CARD CHECKER</h3>
+                <p class="modal-subtitle">Paste cards in any format — get clean output</p>
+                <button class="modal-close" id="checker-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body checker-body">
+                <div class="checker-section">
+                    <label class="checker-label">INPUT — paste cards in any format</label>
+                    <textarea id="checker-input" class="checker-textarea" rows="8" placeholder="💳 CC: 4221 7400 5168 2165&#10;📅 Validity: 02/30&#10;🔐 CVV: 290&#10;&#10;Or any format with card data..."></textarea>
+                </div>
+                <div class="checker-section">
+                    <div class="checker-output-header">
+                        <label class="checker-label">OUTPUT — clean format</label>
+                        <button class="btn-copy-sm" id="checker-copy">Copy</button>
+                    </div>
+                    <pre id="checker-output" class="checker-output">Results will appear here...</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="checker-cancel">Cancel</button>
+                <button class="btn-primary" id="checker-convert">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+                    CONVERT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
