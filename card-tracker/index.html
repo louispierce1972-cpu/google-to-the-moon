@@ -26,26 +26,23 @@
                     </svg>
                 </div>
                 <h1>CARD TRACKER</h1>
-                <p class="login-subtitle">Premium Management System</p>
+                <p class="login-subtitle">Sign in to continue</p>
             </div>
             <form id="login-form" class="login-form">
                 <div class="input-group">
-                    <label for="login-user">Username</label>
                     <div class="input-wrapper">
                         <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0H3z"/></svg>
-                        <input type="text" id="login-user" placeholder="Enter username" autocomplete="username" required>
+                        <input type="text" id="login-user" placeholder="Username" autocomplete="username" required>
                     </div>
                 </div>
                 <div class="input-group">
-                    <label for="login-pass">Password</label>
                     <div class="input-wrapper">
                         <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                        <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" required>
+                        <input type="password" id="login-pass" placeholder="Password" autocomplete="current-password" required>
                     </div>
                 </div>
                 <button type="submit" class="btn-login">
-                    <span>Sign In</span>
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                    <span>SIGN IN</span>
                 </button>
                 <p id="login-error" class="login-error"></p>
             </form>
@@ -155,7 +152,7 @@
                                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
                                 Import Cards
                             </button>
-                            <button class="dropdown-item" id="restore-backup-btn">
+                            <button class="dropdown-item restore-backup-item" id="restore-backup-btn">
                                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
                                 Restore Backup
                             </button>
@@ -489,26 +486,22 @@
         <div class="modal" style="max-width:420px;">
             <div class="modal-header">
                 <h3>ADD COUNTRY</h3>
-                <p class="modal-subtitle">Add a new country to your tracker</p>
+                <p class="modal-subtitle">Enter ISO 2-letter code (CA, US, AE, IT, DE...)</p>
                 <button class="modal-close" id="add-country-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">Country Name</label>
-                    <input type="text" id="new-country-name" class="form-input" placeholder="e.g. Germany, France..." autofocus />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Flag Emoji (optional)</label>
-                    <input type="text" id="new-country-flag" class="form-input" placeholder="🌍" maxlength="4" />
+                    <label class="form-label">Country Code *</label>
+                    <input type="text" id="new-country-code" class="form-input country-code-input" placeholder="AE" maxlength="2" autofocus style="text-align:center;text-transform:uppercase;font-size:24px;font-weight:800;letter-spacing:8px;padding:16px;" />
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" id="add-country-cancel">Cancel</button>
                 <button class="btn-primary" id="add-country-confirm">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
-                    Add Country
+                    ADD COUNTRY
                 </button>
             </div>
         </div>
@@ -577,6 +570,84 @@
                 <button class="btn-primary" id="checker-convert">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
                     CONVERT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD DOCUMENT MODAL -->
+    <div id="add-doc-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="doc-modal-title">ADD DOCUMENT</h3>
+                <p class="modal-subtitle">Add one document or paste a list</p>
+                <button class="modal-close" id="doc-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-doc-tab="doc-form">FORM</button>
+                <button class="modal-tab" data-doc-tab="doc-list">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                    LIST
+                </button>
+            </div>
+
+            <!-- DOC FORM TAB -->
+            <div id="doc-form-tab" class="modal-body tab-content active">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="doc-form-name" placeholder="JOHN" style="text-transform:uppercase;" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Surname</label>
+                        <input type="text" id="doc-form-surname" placeholder="DOE" style="text-transform:uppercase;">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Document Type</label>
+                        <select id="doc-form-type" class="form-select">
+                            <option value="">Select...</option>
+                            <option value="PP">PP (Passport)</option>
+                            <option value="DL">DL (Driver License)</option>
+                            <option value="ID">ID (ID Card)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="doc-form-status" class="form-select">
+                            <option value="waiting">Waiting</option>
+                            <option value="verified">Verified</option>
+                            <option value="suspended">Suspended</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <input type="text" id="doc-form-notes" placeholder="Add note...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- DOC LIST TAB -->
+            <div id="doc-list-tab" class="modal-body tab-content">
+                <div class="form-group full-width">
+                    <label>Paste document list</label>
+                    <textarea id="doc-list-textarea" class="list-textarea" rows="10" placeholder="Format: NAME SURNAME [TYPE] [STATUS] [notes]&#10;&#10;Example:&#10;JOHN DOE PP V&#10;MARIA SMITH DL W&#10;&#10;Types: PP, DL, ID&#10;Status: V=Verified, S=Suspended, W=Waiting"></textarea>
+                </div>
+                <div class="list-info">
+                    <span id="doc-list-parsed-count">0 documents detected</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" id="doc-modal-cancel">Cancel</button>
+                <button class="btn-primary" id="doc-modal-save">
+                    <span id="doc-save-btn-text">Add Document</span>
                 </button>
             </div>
         </div>
