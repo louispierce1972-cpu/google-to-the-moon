@@ -572,7 +572,12 @@ function renderDocs() {
     const flag = country?.flag || '';
     const geoCode = STATE.currentCountry === 'canada' ? 'CA' : STATE.currentCountry === 'usa' ? 'US' : STATE.currentCountry.slice(0, 2).toUpperCase();
 
-    let rows = docs.map((d, i) => `
+    let rows = docs.map((d, i) => {
+        const qualityVal = d.quality || 'original';
+        const qualityImg = qualityVal === 'psd' ? 'img-psd.png' : 'img-original.png';
+        const qualityLabel = qualityVal === 'psd' ? 'PSD' : 'OG';
+        const qualityClass = qualityVal === 'psd' ? 'quality-psd' : 'quality-original';
+        return `
         <tr>
             <td class="td-num">${i + 1}</td>
             <td>
@@ -585,6 +590,12 @@ function renderDocs() {
             </td>
             <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}')">${d.notes || '<span style="color:var(--text-dim)">+ note</span>'}</span></td>
             <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
+            <td>
+                <div class="quality-cell ${qualityClass}" onclick="cycleDocQuality('${d.id}')" title="Click to toggle quality">
+                    <img src="${qualityImg}" alt="${qualityLabel}" class="quality-icon" width="22" height="22" style="width:22px;height:22px;">
+                    <span class="quality-label">${qualityLabel}</span>
+                </div>
+            </td>
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell">${d.use || 0}x</td>
             <td>
@@ -597,7 +608,7 @@ function renderDocs() {
             <td class="date-cell">${d.date}</td>
             <td><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">⋯</button></td>
         </tr>
-    `).join('');
+    `}).join('');
 
     const docSortIcon = (field) => {
         if (STATE.docSortField !== field) return '↕';
@@ -612,6 +623,7 @@ function renderDocs() {
                     <th class="sortable-doc" data-sort="name">Name ${docSortIcon('name')}</th>
                     <th>Notes</th>
                     <th>Type</th>
+                    <th>Quality</th>
                     <th>Geo</th>
                     <th>Use</th>
                     <th>V / S</th>
@@ -1082,6 +1094,16 @@ window.cycleDocType = function (docId) {
     renderAll();
 };
 
+// ──── DOC QUALITY CYCLE ────
+window.cycleDocQuality = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.quality = doc.quality === 'psd' ? 'original' : 'psd';
+    save();
+    renderAll();
+    toast(`Quality: ${doc.quality === 'psd' ? 'PSD / FS' : 'Original'}`, 'success');
+};
+
 // ──── DOC MODAL ────
 function openDocModal() {
     const overlay = document.getElementById('add-doc-overlay');
@@ -1099,6 +1121,8 @@ function openDocModal() {
     document.getElementById('doc-form-tab').style.display = '';
     document.getElementById('doc-list-tab').classList.remove('active');
     document.getElementById('doc-list-tab').style.display = 'none';
+    // Update quality preview
+    updateQualityPreview();
     // Focus name
     setTimeout(() => document.getElementById('doc-form-name').focus(), 100);
 }
@@ -1120,12 +1144,30 @@ document.querySelectorAll('[data-doc-tab]').forEach(tab => {
         document.querySelectorAll('[data-doc-tab]').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         const target = tab.getAttribute('data-doc-tab');
-        document.getElementById('doc-form-tab').classList.toggle('active', target === 'doc-form');
-        document.getElementById('doc-form-tab').style.display = target === 'doc-form' ? '' : 'none';
-        document.getElementById('doc-list-tab').classList.toggle('active', target === 'doc-list');
-        document.getElementById('doc-list-tab').style.display = target === 'doc-list' ? '' : 'none';
+        const formTab = document.getElementById('doc-form-tab');
+        const listTab = document.getElementById('doc-list-tab');
+        if (target === 'doc-form') {
+            formTab.classList.add('active');
+            formTab.style.display = 'block';
+            listTab.classList.remove('active');
+            listTab.style.display = 'none';
+        } else {
+            formTab.classList.remove('active');
+            formTab.style.display = 'none';
+            listTab.classList.add('active');
+            listTab.style.display = 'block';
+        }
     });
 });
+
+// Quality preview update
+function updateQualityPreview() {
+    const select = document.getElementById('doc-form-status');
+    const preview = document.getElementById('quality-preview-img');
+    if (!select || !preview) return;
+    preview.src = select.value === 'psd' ? 'img-psd.png' : 'img-original.png';
+}
+document.getElementById('doc-form-status')?.addEventListener('change', updateQualityPreview);
 
 // Doc modal save
 document.getElementById('doc-modal-save').addEventListener('click', () => {
@@ -1178,29 +1220,42 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
         
         let count = 0;
         lines.forEach(line => {
-            const parts = line.trim().split(/\s+/);
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            // Support both space-separated and pipe-separated formats
+            const parts = trimmed.includes('|') ? trimmed.split('|').map(p => p.trim()) : trimmed.split(/\s+/);
             if (parts.length === 0) return;
             const name = parts[0].toUpperCase();
-            const surname = parts.length > 1 && !['PP', 'DL', 'V', 'S', 'W'].includes(parts[1].toUpperCase()) ? parts[1].toUpperCase() : '';
+            const keywords = ['PP', 'DL', 'ID', 'V', 'S', 'W', 'PSD', 'FS', 'ORIGINAL', 'OG'];
+            const surname = parts.length > 1 && !keywords.includes(parts[1].toUpperCase()) ? parts[1].toUpperCase() : '';
             const fullName = surname ? `${name} ${surname}` : name;
             
             let type = '-';
             let quality = 'original';
             let verified = 0;
             let suspended = 0;
-            parts.forEach(p => {
-                const up = p.toUpperCase();
-                if (up === 'PP' || up === 'DL') type = up;
-                if (up === 'V') verified = 1;
-                if (up === 'S') suspended = 1;
-            });
+            let notes = '';
+            const startIdx = surname ? 2 : 1;
+            for (let pi = startIdx; pi < parts.length; pi++) {
+                const up = parts[pi].toUpperCase();
+                if (up === 'PP' || up === 'DL' || up === 'ID') type = up;
+                else if (up === 'V') verified = 1;
+                else if (up === 'S') suspended = 1;
+                else if (up === 'PSD' || up === 'FS') quality = 'psd';
+                else if (up === 'ORIGINAL' || up === 'OG') quality = 'original';
+                else if (up !== 'W') {
+                    // Remaining parts are notes
+                    notes = parts.slice(pi).join(' ');
+                    break;
+                }
+            }
             
             STATE.docs.push({
                 id: 'doc_' + Date.now() + '_' + count,
                 fullName: fullName,
                 type: type,
                 quality: quality,
-                notes: '',
+                notes: notes,
                 verified: verified,
                 suspended: suspended,
                 use: 1,
@@ -1216,6 +1271,15 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
         textarea.value = '';
     }
 });
+
+// ──── DOC LIST LIVE COUNTER ────
+window.updateDocListCount = function () {
+    const textarea = document.getElementById('doc-list-textarea');
+    const countEl = document.getElementById('doc-list-parsed-count');
+    if (!textarea || !countEl) return;
+    const lines = textarea.value.trim().split('\n').filter(l => l.trim().length > 0);
+    countEl.textContent = `${lines.length} document${lines.length !== 1 ? 's' : ''} detected`;
+};
 
 // ──── SIDEBAR TOGGLE (Mobile) ────
 document.getElementById('toggle-sidebar').addEventListener('click', () => {
