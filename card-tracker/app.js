@@ -581,14 +581,14 @@ function renderDocs() {
                 </div>
             </td>
             <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}')">${d.notes || '<span style="color:var(--text-dim)">+ note</span>'}</span></td>
-            <td class="doc-type">${d.type !== '-' ? `<span class="doc-type-badge ${(d.type || '').toLowerCase()}">${d.type}</span>` : '-'}</td>
+            <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell">${d.use || 0}x</td>
             <td>
                 <div class="status-btns">
-                    <span style="font-size:12px;color:var(--text-muted)">${d.verified || 0}</span>
+                    <span class="vs-counter vs-verified" onclick="incrementDocV('${d.id}')" title="Click to verify">${d.verified || 0}</span>
                     <span style="font-size:12px;color:var(--text-dim)">|</span>
-                    <span style="font-size:12px;color:var(--text-dim)">${d.suspended || 0}</span>
+                    <span class="vs-counter vs-suspended" onclick="incrementDocS('${d.id}')" title="Click to mark failed">${d.suspended || 0}</span>
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
@@ -998,13 +998,65 @@ window.openInlineNote = function (cardId) {
 window.openDocNote = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
-    const newNote = prompt('Edit note for ' + doc.fullName + ':', doc.notes || '');
-    if (newNote !== null) {
-        doc.notes = newNote;
-        save();
-        renderAll();
-        toast('Doc note updated', 'success');
-    }
+    // Find the note span and replace with inline input
+    const noteSpans = document.querySelectorAll('.editable-note');
+    noteSpans.forEach(span => {
+        if (span.getAttribute('onclick')?.includes(docId)) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = doc.notes || '';
+            input.placeholder = 'Add note...';
+            input.className = 'inline-note-input';
+            input.style.cssText = 'background:var(--surface-2);border:1px solid var(--accent);color:var(--text-primary);padding:2px 6px;border-radius:4px;font-size:12px;width:120px;outline:none;';
+            
+            const saveNote = () => {
+                doc.notes = input.value.trim();
+                save();
+                renderAll();
+                if (doc.notes) toast('Note updated', 'success');
+            };
+            
+            input.addEventListener('blur', saveNote);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { saveNote(); }
+                if (e.key === 'Escape') { renderAll(); }
+            });
+            
+            span.innerHTML = '';
+            span.appendChild(input);
+            span.onclick = null;
+            input.focus();
+        }
+    });
+};
+
+// ──── DOC V/S COUNTERS ────
+window.incrementDocV = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.verified = (doc.verified || 0) + 1;
+    save();
+    renderAll();
+};
+
+window.incrementDocS = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.suspended = (doc.suspended || 0) + 1;
+    save();
+    renderAll();
+};
+
+// ──── DOC TYPE CYCLE ────
+window.cycleDocType = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    const types = ['-', 'PP', 'DL'];
+    const current = doc.type || '-';
+    const idx = types.indexOf(current);
+    doc.type = types[(idx + 1) % types.length];
+    save();
+    renderAll();
 };
 
 // ──── SIDEBAR TOGGLE (Mobile) ────
