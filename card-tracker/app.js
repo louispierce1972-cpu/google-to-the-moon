@@ -300,11 +300,14 @@ function getMyCardStats() {
 }
 
 function getDocStats(docs) {
+    const totalV = docs.reduce((sum, d) => sum + (d.verified || 0), 0);
+    const totalS = docs.reduce((sum, d) => sum + (d.suspended || 0), 0);
+    const waiting = docs.filter(d => (d.verified || 0) === 0 && (d.suspended || 0) === 0).length;
     return {
         total: docs.length,
-        verified: docs.filter(d => d.status === 'verified').length,
-        failed: docs.filter(d => d.status === 'failed').length,
-        waiting: docs.filter(d => d.status === 'waiting').length,
+        verified: totalV,
+        failed: totalS,
+        waiting: waiting,
     };
 }
 
@@ -1059,6 +1062,141 @@ window.cycleDocType = function (docId) {
     renderAll();
 };
 
+// ──── DOC MODAL ────
+function openDocModal() {
+    const overlay = document.getElementById('add-doc-overlay');
+    overlay.classList.remove('hidden');
+    // Reset form
+    document.getElementById('doc-form-name').value = '';
+    document.getElementById('doc-form-surname').value = '';
+    document.getElementById('doc-form-type').value = '';
+    document.getElementById('doc-form-status').value = 'original';
+    document.getElementById('doc-form-notes').value = '';
+    // Reset to form tab
+    document.querySelectorAll('[data-doc-tab]').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-doc-tab="doc-form"]').classList.add('active');
+    document.getElementById('doc-form-tab').classList.add('active');
+    document.getElementById('doc-form-tab').style.display = '';
+    document.getElementById('doc-list-tab').classList.remove('active');
+    document.getElementById('doc-list-tab').style.display = 'none';
+    // Focus name
+    setTimeout(() => document.getElementById('doc-form-name').focus(), 100);
+}
+
+function closeDocModal() {
+    document.getElementById('add-doc-overlay').classList.add('hidden');
+}
+
+// Doc modal close btn
+document.getElementById('doc-modal-close').addEventListener('click', closeDocModal);
+document.getElementById('doc-modal-cancel').addEventListener('click', closeDocModal);
+document.getElementById('add-doc-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'add-doc-overlay') closeDocModal();
+});
+
+// Doc modal tabs
+document.querySelectorAll('[data-doc-tab]').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('[data-doc-tab]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.getAttribute('data-doc-tab');
+        document.getElementById('doc-form-tab').classList.toggle('active', target === 'doc-form');
+        document.getElementById('doc-form-tab').style.display = target === 'doc-form' ? '' : 'none';
+        document.getElementById('doc-list-tab').classList.toggle('active', target === 'doc-list');
+        document.getElementById('doc-list-tab').style.display = target === 'doc-list' ? '' : 'none';
+    });
+});
+
+// Doc modal save
+document.getElementById('doc-modal-save').addEventListener('click', () => {
+    const activeTab = document.querySelector('[data-doc-tab].active');
+    const tabName = activeTab ? activeTab.getAttribute('data-doc-tab') : 'doc-form';
+    
+    if (tabName === 'doc-form') {
+        // Single doc form
+        const name = document.getElementById('doc-form-name').value.trim().toUpperCase();
+        const surname = document.getElementById('doc-form-surname').value.trim().toUpperCase();
+        if (!name) {
+            toast('Name is required', 'error');
+            return;
+        }
+        const fullName = surname ? `${name} ${surname}` : name;
+        const type = document.getElementById('doc-form-type').value || '-';
+        const quality = document.getElementById('doc-form-status').value || 'original';
+        const notes = document.getElementById('doc-form-notes').value.trim();
+        
+        const now = new Date();
+        const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getFullYear()).slice(-2)}`;
+        
+        const newDoc = {
+            id: 'doc_' + Date.now(),
+            fullName: fullName,
+            type: type,
+            quality: quality,
+            notes: notes,
+            verified: 0,
+            suspended: 0,
+            use: 1,
+            country: STATE.currentCountry,
+            date: dateStr,
+        };
+        STATE.docs.push(newDoc);
+        save();
+        renderAll();
+        closeDocModal();
+        toast('Document added: ' + fullName, 'success');
+    } else {
+        // List tab - bulk import
+        const textarea = document.getElementById('doc-list-textarea');
+        const lines = textarea.value.trim().split('\n').filter(l => l.trim());
+        if (lines.length === 0) {
+            toast('No documents to import', 'error');
+            return;
+        }
+        const now = new Date();
+        const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getFullYear()).slice(-2)}`;
+        
+        let count = 0;
+        lines.forEach(line => {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length === 0) return;
+            const name = parts[0].toUpperCase();
+            const surname = parts.length > 1 && !['PP', 'DL', 'V', 'S', 'W'].includes(parts[1].toUpperCase()) ? parts[1].toUpperCase() : '';
+            const fullName = surname ? `${name} ${surname}` : name;
+            
+            let type = '-';
+            let quality = 'original';
+            let verified = 0;
+            let suspended = 0;
+            parts.forEach(p => {
+                const up = p.toUpperCase();
+                if (up === 'PP' || up === 'DL') type = up;
+                if (up === 'V') verified = 1;
+                if (up === 'S') suspended = 1;
+            });
+            
+            STATE.docs.push({
+                id: 'doc_' + Date.now() + '_' + count,
+                fullName: fullName,
+                type: type,
+                quality: quality,
+                notes: '',
+                verified: verified,
+                suspended: suspended,
+                use: 1,
+                country: STATE.currentCountry,
+                date: dateStr,
+            });
+            count++;
+        });
+        save();
+        renderAll();
+        closeDocModal();
+        toast(`${count} documents imported`, 'success');
+        textarea.value = '';
+    }
+});
+
 // ──── SIDEBAR TOGGLE (Mobile) ────
 document.getElementById('toggle-sidebar').addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
@@ -1070,8 +1208,8 @@ const editOverlay = document.getElementById('edit-modal-overlay');
 
 document.getElementById('add-card-btn').addEventListener('click', () => {
     if (STATE.currentView === 'docs') {
-        // For docs, open add card modal targeting current country
-        openAddModal();
+        // Open the document modal
+        openDocModal();
     } else {
         openAddModal();
     }
