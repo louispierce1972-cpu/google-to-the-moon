@@ -30,6 +30,58 @@ const STATE = {
 
 const CREDENTIALS = { username: 'admin', password: 'google2026' };
 
+// ──── COUNTRY DATABASE (ISO 3166-1 alpha-2) ────
+function isoToFlag(code) {
+    return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(0x1F1E6 - 65 + ch.charCodeAt(0)));
+}
+
+const COUNTRY_DB = {
+    AB:'Abkhazia',AD:'Andorra',AE:'United Arab Emirates',AF:'Afghanistan',AG:'Antigua and Barbuda',
+    AI:'Anguilla',AL:'Albania',AM:'Armenia',AO:'Angola',AQ:'Antarctica',AR:'Argentina',
+    AS:'American Samoa',AT:'Austria',AU:'Australia',AW:'Aruba',AX:'Åland Islands',AZ:'Azerbaijan',
+    BA:'Bosnia and Herzegovina',BB:'Barbados',BD:'Bangladesh',BE:'Belgium',BF:'Burkina Faso',
+    BG:'Bulgaria',BH:'Bahrain',BI:'Burundi',BJ:'Benin',BL:'Saint Barthélemy',BM:'Bermuda',
+    BN:'Brunei',BO:'Bolivia',BQ:'Bonaire',BR:'Brazil',BS:'Bahamas',BT:'Bhutan',BV:'Bouvet Island',
+    BW:'Botswana',BY:'Belarus',BZ:'Belize',CA:'Canada',CC:'Cocos Islands',CD:'Congo DR',
+    CF:'Central African Republic',CG:'Congo',CH:'Switzerland',CI:"Côte d'Ivoire",CK:'Cook Islands',
+    CL:'Chile',CM:'Cameroon',CN:'China',CO:'Colombia',CR:'Costa Rica',CU:'Cuba',CV:'Cape Verde',
+    CW:'Curaçao',CX:'Christmas Island',CY:'Cyprus',CZ:'Czech Republic',DE:'Germany',DJ:'Djibouti',
+    DK:'Denmark',DM:'Dominica',DO:'Dominican Republic',DZ:'Algeria',EC:'Ecuador',EE:'Estonia',
+    EG:'Egypt',EH:'Western Sahara',ER:'Eritrea',ES:'Spain',ET:'Ethiopia',FI:'Finland',FJ:'Fiji',
+    FK:'Falkland Islands',FM:'Micronesia',FO:'Faroe Islands',FR:'France',GA:'Gabon',GB:'United Kingdom',
+    GD:'Grenada',GE:'Georgia',GF:'French Guiana',GG:'Guernsey',GH:'Ghana',GI:'Gibraltar',
+    GL:'Greenland',GM:'Gambia',GN:'Guinea',GP:'Guadeloupe',GQ:'Equatorial Guinea',GR:'Greece',
+    GS:'South Georgia',GT:'Guatemala',GU:'Guam',GW:'Guinea-Bissau',GY:'Guyana',HK:'Hong Kong',
+    HM:'Heard Island',HN:'Honduras',HR:'Croatia',HT:'Haiti',HU:'Hungary',ID:'Indonesia',
+    IE:'Ireland',IL:'Israel',IM:'Isle of Man',IN:'India',IO:'British Indian Ocean Territory',
+    IQ:'Iraq',IR:'Iran',IS:'Iceland',IT:'Italy',JE:'Jersey',JM:'Jamaica',JO:'Jordan',JP:'Japan',
+    KE:'Kenya',KG:'Kyrgyzstan',KH:'Cambodia',KI:'Kiribati',KM:'Comoros',KN:'Saint Kitts and Nevis',
+    KP:'North Korea',KR:'South Korea',KW:'Kuwait',KY:'Cayman Islands',KZ:'Kazakhstan',
+    LA:'Laos',LB:'Lebanon',LC:'Saint Lucia',LI:'Liechtenstein',LK:'Sri Lanka',LR:'Liberia',
+    LS:'Lesotho',LT:'Lithuania',LU:'Luxembourg',LV:'Latvia',LY:'Libya',MA:'Morocco',MC:'Monaco',
+    MD:'Moldova',ME:'Montenegro',MF:'Saint Martin',MG:'Madagascar',MH:'Marshall Islands',
+    MK:'North Macedonia',ML:'Mali',MM:'Myanmar',MN:'Mongolia',MO:'Macao',MP:'Northern Mariana Islands',
+    MQ:'Martinique',MR:'Mauritania',MS:'Montserrat',MT:'Malta',MU:'Mauritius',MV:'Maldives',
+    MW:'Malawi',MX:'Mexico',MY:'Malaysia',MZ:'Mozambique',NA:'Namibia',NC:'New Caledonia',
+    NE:'Niger',NF:'Norfolk Island',NG:'Nigeria',NI:'Nicaragua',NL:'Netherlands',NO:'Norway',
+    NP:'Nepal',NR:'Nauru',NU:'Niue',NZ:'New Zealand',OM:'Oman',OS:'South Ossetia',PA:'Panama',
+    PE:'Peru',PF:'French Polynesia',PG:'Papua New Guinea',PH:'Philippines',PK:'Pakistan',
+    PL:'Poland',PM:'Saint Pierre and Miquelon',PN:'Pitcairn',PR:'Puerto Rico',
+    PS:'Palestine',PT:'Portugal',PW:'Palau',PY:'Paraguay',QA:'Qatar',RE:'Réunion',RO:'Romania',
+    RS:'Serbia',RU:'Russia',RW:'Rwanda',SA:'Saudi Arabia',SB:'Solomon Islands',SC:'Seychelles',
+    SD:'Sudan',SE:'Sweden',SG:'Singapore',SH:'Saint Helena',SI:'Slovenia',SJ:'Svalbard',
+    SK:'Slovakia',SL:'Sierra Leone',SM:'San Marino',SN:'Senegal',SO:'Somalia',SR:'Suriname',
+    SS:'South Sudan',ST:'São Tomé and Príncipe',SV:'El Salvador',SX:'Sint Maarten',
+    SY:'Syria',SZ:'Eswatini',TC:'Turks and Caicos',TD:'Chad',TF:'French Southern Territories',
+    TG:'Togo',TH:'Thailand',TJ:'Tajikistan',TK:'Tokelau',TL:'Timor-Leste',TM:'Turkmenistan',
+    TN:'Tunisia',TO:'Tonga',TR:'Turkey',TT:'Trinidad and Tobago',TV:'Tuvalu',TW:'Taiwan',
+    TZ:'Tanzania',UA:'Ukraine',UG:'Uganda',UM:'US Minor Outlying Islands',US:'United States',
+    UY:'Uruguay',UZ:'Uzbekistan',VA:'Vatican City',VC:'Saint Vincent and the Grenadines',
+    VE:'Venezuela',VG:'British Virgin Islands',VI:'US Virgin Islands',VN:'Vietnam',VU:'Vanuatu',
+    WF:'Wallis and Futuna',WS:'Samoa',YE:'Yemen',YT:'Mayotte',ZA:'South Africa',ZM:'Zambia',
+    ZW:'Zimbabwe'
+};
+
 // ──── HELPERS ────
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -1497,39 +1549,57 @@ document.getElementById('backup-btn').addEventListener('click', openBackupFileDi
 
 // ──── ADD COUNTRY (custom modal) ────
 const addCountryOverlay = document.getElementById('add-country-overlay');
+const countryCodeInput = document.getElementById('new-country-code');
+const countryPreview = document.getElementById('country-preview');
+const countryPreviewFlag = document.getElementById('country-preview-flag');
+const countryPreviewName = document.getElementById('country-preview-name');
 
 document.getElementById('add-country-btn').addEventListener('click', () => {
-    document.getElementById('new-country-name').value = '';
-    document.getElementById('new-country-flag').value = '';
+    countryCodeInput.value = '';
+    countryPreview.style.display = 'none';
     addCountryOverlay.classList.remove('hidden');
-    setTimeout(() => document.getElementById('new-country-name').focus(), 100);
+    setTimeout(() => countryCodeInput.focus(), 100);
 });
 
 function closeAddCountry() {
     addCountryOverlay.classList.add('hidden');
 }
 
+// Live preview when typing ISO code
+countryCodeInput.addEventListener('input', () => {
+    const code = countryCodeInput.value.trim().toUpperCase();
+    if (code.length === 2 && COUNTRY_DB[code]) {
+        countryPreviewFlag.textContent = isoToFlag(code);
+        countryPreviewName.textContent = COUNTRY_DB[code];
+        countryPreview.style.display = 'block';
+    } else {
+        countryPreview.style.display = 'none';
+    }
+});
+
 document.getElementById('add-country-close').addEventListener('click', closeAddCountry);
 document.getElementById('add-country-cancel').addEventListener('click', closeAddCountry);
 addCountryOverlay.addEventListener('click', (e) => { if (e.target === addCountryOverlay) closeAddCountry(); });
 
 document.getElementById('add-country-confirm').addEventListener('click', () => {
-    const name = document.getElementById('new-country-name').value.trim();
-    const flag = document.getElementById('new-country-flag').value.trim() || '🌍';
-    if (!name) { toast('Enter a country name', 'error'); return; }
-    const id = name.toLowerCase().replace(/\s+/g, '-');
+    const code = countryCodeInput.value.trim().toUpperCase();
+    if (!code || code.length !== 2) { toast('Enter a 2-letter country code', 'error'); return; }
+    if (!COUNTRY_DB[code]) { toast('Unknown country code', 'error'); return; }
+    const id = code.toLowerCase();
     if (STATE.countries.find(c => c.id === id)) {
         toast('Country already exists', 'error');
         return;
     }
+    const flag = isoToFlag(code);
+    const name = COUNTRY_DB[code];
     STATE.countries.push({ id, name, flag });
     save();
     closeAddCountry();
     renderAll();
-    toast(`${name} added`, 'success');
+    toast(`${flag} ${name} added`, 'success');
 });
 
-document.getElementById('new-country-name').addEventListener('keydown', (e) => {
+countryCodeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('add-country-confirm').click();
 });
 
