@@ -566,13 +566,10 @@
                     </div>
                     <div class="form-group">
                         <label>Quality</label>
-                        <div class="quality-select-wrap">
-                            <img id="quality-preview-img" src="img-original.png" alt="Quality" class="quality-preview-icon" width="36" height="36" style="width:36px;height:36px;max-width:36px;max-height:36px;">
-                            <select id="doc-form-status" class="form-select">
-                                <option value="original">Original</option>
-                                <option value="psd">PSD / FS</option>
-                            </select>
-                        </div>
+                        <select id="doc-form-status" class="form-select">
+                            <option value="original">Original</option>
+                            <option value="psd">PSD / FS</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-row">
@@ -584,10 +581,10 @@
             </div>
 
             <!-- DOC LIST TAB -->
-            <div id="doc-list-tab" class="modal-body tab-content" style="display:none;">
+            <div id="doc-list-tab" class="modal-body tab-content">
                 <div class="form-group full-width">
-                    <label>Paste document list (one per line)</label>
-                    <textarea id="doc-list-textarea" class="list-textarea" rows="10" placeholder="Format: NAME SURNAME [TYPE] [QUALITY] [STATUS]&#10;&#10;Example:&#10;JOHN DOE PP OG V&#10;MARIA SMITH DL PSD S&#10;TESTING USER PP&#10;&#10;Types: PP, DL, ID&#10;Quality: OG=Original, PSD=PSD/FS&#10;Status: V=Verified, S=Suspended, W=Waiting" oninput="updateDocListCount()"></textarea>
+                    <label>Paste document list</label>
+                    <textarea id="doc-list-textarea" class="list-textarea" rows="10" placeholder="Format: NAME SURNAME [TYPE] [STATUS] [notes]&#10;&#10;Example:&#10;JOHN DOE PP V&#10;MARIA SMITH DL W&#10;&#10;Types: PP, DL, ID&#10;Status: V=Verified, S=Suspended, W=Waiting"></textarea>
                 </div>
                 <div class="list-info">
                     <span id="doc-list-parsed-count">0 documents detected</span>
