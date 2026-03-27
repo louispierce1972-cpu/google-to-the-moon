@@ -1453,12 +1453,166 @@ document.getElementById('edit-modal-close').addEventListener('click', () => edit
 document.getElementById('edit-cancel').addEventListener('click', () => editOverlay.classList.add('hidden'));
 editOverlay.addEventListener('click', (e) => { if (e.target === editOverlay) editOverlay.classList.add('hidden'); });
 
-// ──── SEARCH ────
-document.getElementById('search-input').addEventListener('input', function () {
-    STATE.search = this.value;
+// ──── GLOBAL SEARCH ────
+const globalSearchResults = document.getElementById('global-search-results');
+let searchTimeout = null;
+
+function performGlobalSearch(query) {
+    if (!query || query.length < 2) {
+        globalSearchResults.classList.add('hidden');
+        // Still filter current view for backward compat
+        STATE.search = query;
+        STATE.page = 1;
+        renderStats();
+        renderContent();
+        return;
+    }
+
+    const s = query.toLowerCase();
+    STATE.search = query;
     STATE.page = 1;
+
+    // Search ALL cards across all countries
+    const matchedCards = STATE.cards.filter(c =>
+        (c.name + ' ' + c.surname).toLowerCase().includes(s) ||
+        c.cardNumber.replace(/\s/g, '').includes(s.replace(/\s/g, '')) ||
+        getBin(c.cardNumber).includes(s) ||
+        (c.notes || '').toLowerCase().includes(s)
+    );
+
+    // Search ALL docs across all countries
+    const matchedDocs = STATE.docs.filter(d =>
+        (d.fullName || '').toLowerCase().includes(s) ||
+        (d.notes || '').toLowerCase().includes(s) ||
+        (d.type || '').toLowerCase().includes(s)
+    );
+
+    // Search trash
+    const matchedTrash = STATE.trash.filter(c =>
+        (c.name + ' ' + c.surname).toLowerCase().includes(s) ||
+        c.cardNumber.replace(/\s/g, '').includes(s.replace(/\s/g, '')) ||
+        (c.notes || '').toLowerCase().includes(s)
+    );
+
+    if (matchedCards.length === 0 && matchedDocs.length === 0 && matchedTrash.length === 0) {
+        globalSearchResults.innerHTML = '<div class="search-no-results">No results found for "' + query + '"</div>';
+        globalSearchResults.classList.remove('hidden');
+        renderStats();
+        renderContent();
+        return;
+    }
+
+    let html = '';
+
+    // Group cards by country
+    if (matchedCards.length > 0) {
+        html += '<div class="search-group-title">💳 Cards (' + matchedCards.length + ')</div>';
+        const shown = matchedCards.slice(0, 15);
+        shown.forEach(c => {
+            const country = STATE.countries.find(co => co.id === c.country);
+            const flag = country?.flag || '🏳';
+            const countryName = country?.name || c.country;
+            html += `
+                <button class="search-result-item" onclick="globalSearchNavigate('cards', '${c.country}', '${s}')">
+                    <span class="search-result-flag">${flag}</span>
+                    <div class="search-result-info">
+                        <span class="search-result-name">${c.name} ${c.surname}</span>
+                        <span class="search-result-detail">${maskCard(c.cardNumber)}${c.notes ? ' · ' + c.notes : ''}</span>
+                    </div>
+                    <span class="search-result-location cards">${countryName}</span>
+                </button>
+            `;
+        });
+        if (matchedCards.length > 15) {
+            html += '<div class="search-no-results" style="padding:6px 14px;font-size:11px;">+ ' + (matchedCards.length - 15) + ' more cards</div>';
+        }
+    }
+
+    // Docs
+    if (matchedDocs.length > 0) {
+        if (matchedCards.length > 0) html += '<div class="search-divider"></div>';
+        html += '<div class="search-group-title">📄 Documents (' + matchedDocs.length + ')</div>';
+        const shown = matchedDocs.slice(0, 10);
+        shown.forEach(d => {
+            const country = STATE.countries.find(co => co.id === d.country);
+            const flag = country?.flag || '🏳';
+            const countryName = country?.name || d.country;
+            html += `
+                <button class="search-result-item" onclick="globalSearchNavigate('docs', '${d.country}', '${s}')">
+                    <span class="search-result-flag">${flag}</span>
+                    <div class="search-result-info">
+                        <span class="search-result-name">${d.fullName}</span>
+                        <span class="search-result-detail">${d.type || '-'} · V:${d.verified || 0} S:${d.suspended || 0}${d.notes ? ' · ' + d.notes : ''}</span>
+                    </div>
+                    <span class="search-result-location docs">Docs · ${countryName}</span>
+                </button>
+            `;
+        });
+        if (matchedDocs.length > 10) {
+            html += '<div class="search-no-results" style="padding:6px 14px;font-size:11px;">+ ' + (matchedDocs.length - 10) + ' more docs</div>';
+        }
+    }
+
+    // Trash
+    if (matchedTrash.length > 0) {
+        if (matchedCards.length > 0 || matchedDocs.length > 0) html += '<div class="search-divider"></div>';
+        html += '<div class="search-group-title">🗑️ Trash (' + matchedTrash.length + ')</div>';
+        const shown = matchedTrash.slice(0, 5);
+        shown.forEach(c => {
+            const country = STATE.countries.find(co => co.id === c.country);
+            const flag = country?.flag || '🏳';
+            html += `
+                <button class="search-result-item" onclick="globalSearchNavigate('trash', null, '${s}')">
+                    <span class="search-result-flag">${flag}</span>
+                    <div class="search-result-info">
+                        <span class="search-result-name">${c.name} ${c.surname}</span>
+                        <span class="search-result-detail">${maskCard(c.cardNumber)}</span>
+                    </div>
+                    <span class="search-result-location trash">Trash</span>
+                </button>
+            `;
+        });
+    }
+
+    globalSearchResults.innerHTML = html;
+    globalSearchResults.classList.remove('hidden');
+
+    // Also render current view with search filter
     renderStats();
     renderContent();
+}
+
+window.globalSearchNavigate = function (view, country, searchTerm) {
+    // Navigate to the correct view/country, preserve search
+    STATE.currentView = view;
+    if (country) STATE.currentCountry = country;
+    STATE.page = 1;
+    STATE.search = searchTerm || '';
+    globalSearchResults.classList.add('hidden');
+    renderAll();
+    // Keep search text in the input
+    document.getElementById('search-input').value = STATE.search;
+};
+
+document.getElementById('search-input').addEventListener('input', function () {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+    searchTimeout = setTimeout(() => performGlobalSearch(query), 150);
+});
+
+// Close search results when clicking outside
+document.addEventListener('click', function (e) {
+    const searchBox = document.getElementById('global-search-box');
+    if (!searchBox.contains(e.target)) {
+        globalSearchResults.classList.add('hidden');
+    }
+});
+
+// Re-show results on focus if there's a query
+document.getElementById('search-input').addEventListener('focus', function () {
+    if (this.value.trim().length >= 2) {
+        performGlobalSearch(this.value.trim());
+    }
 });
 
 // ──── PAGINATION ────
@@ -1821,6 +1975,7 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('checker-overlay').classList.add('hidden');
         document.getElementById('add-country-overlay').classList.add('hidden');
         document.getElementById('delete-project-overlay').classList.add('hidden');
+        document.getElementById('global-search-results').classList.add('hidden');
         document.body.style.overflow = '';
     }
 });
