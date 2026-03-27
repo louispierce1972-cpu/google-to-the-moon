@@ -206,9 +206,9 @@ function getFilteredDocs() {
                 return mult * (a.fullName || '').localeCompare(b.fullName || '');
             }
             if (STATE.docSortField === 'date') {
-                const pa = (a.date||'').split('.'); const pb = (b.date||'').split('.');
-                const da = pa.length===3 ? `${pa[2]}-${pa[1]}-${pa[0]}` : a.date||'';
-                const db = pb.length===3 ? `${pb[2]}-${pb[1]}-${pb[0]}` : b.date||'';
+                const pa = (a.date || '').split('.'); const pb = (b.date || '').split('.');
+                const da = pa.length === 3 ? `${pa[2]}-${pa[1]}-${pa[0]}` : a.date || '';
+                const db = pb.length === 3 ? `${pb[2]}-${pb[1]}-${pb[0]}` : b.date || '';
                 return mult * da.localeCompare(db);
             }
             return 0;
@@ -529,7 +529,7 @@ function renderDocs() {
                 </div>
             </td>
             <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}')">${d.notes || '<span style="color:var(--text-dim)">+ note</span>'}</span></td>
-            <td class="doc-type">${d.type !== '-' ? `<span class="doc-type-badge ${(d.type||'').toLowerCase()}">${d.type}</span>` : '-'}</td>
+            <td class="doc-type">${d.type !== '-' ? `<span class="doc-type-badge ${(d.type || '').toLowerCase()}">${d.type}</span>` : '-'}</td>
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell">${d.use || 0}x</td>
             <td>
@@ -1268,7 +1268,7 @@ function formatDateFromISO(iso) {
     if (!iso) return todayStr();
     try {
         const d = new Date(iso);
-        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(2)}`;
+        return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getFullYear()).slice(2)}`;
     } catch { return todayStr(); }
 }
 
@@ -1277,11 +1277,11 @@ function convertOldCard(c) {
         id: c.id || genId(),
         name: (c.name || '').trim(),
         surname: (c.surname || '').trim(),
-        cardNumber: (c.card_number || c.cardNumber || '').replace(/\s/g,''),
+        cardNumber: (c.card_number || c.cardNumber || '').replace(/\s/g, ''),
         month: c.card_exp_month || c.month || '',
         year: c.card_exp_year || c.year || '',
         cvv: c.card_cvv || c.cvv || '',
-        cardType: getCardType((c.card_number || c.cardNumber || '').replace(/\s/g,'')),
+        cardType: getCardType((c.card_number || c.cardNumber || '').replace(/\s/g, '')),
         docType: c.doc_type || c.docType || null,
         amount: c.amount || 0,
         notes: c.comment || c.notes || '',
@@ -1299,9 +1299,9 @@ function convertOldCard(c) {
 function convertOldDoc(d) {
     return {
         id: d.id || genId(),
-        fullName: `${(d.name||'').trim()} ${(d.surname||'').trim()}`.trim().toUpperCase(),
-        name: (d.name||'').trim(),
-        surname: (d.surname||'').trim(),
+        fullName: `${(d.name || '').trim()} ${(d.surname || '').trim()}`.trim().toUpperCase(),
+        name: (d.name || '').trim(),
+        surname: (d.surname || '').trim(),
         country: mapGeoToCountry(d.geo || d.country),
         type: d.doc_type || d.type || '-',
         use: d.use_count || d.use || 1,
@@ -1350,7 +1350,7 @@ function showBackupImportModal(data, filename) {
     if (exportDate) {
         try {
             const d = new Date(exportDate);
-            dateStr = d.toLocaleDateString('en-US', {month:'numeric',day:'numeric',year:'numeric'}) + ', ' + d.toLocaleTimeString('en-US');
+            dateStr = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US');
         } catch { dateStr = exportDate; }
     }
 
