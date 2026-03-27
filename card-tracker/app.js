@@ -751,21 +751,14 @@ function renderPageTitle() {
 
     // Show/hide buttons
     const showAdd = ['cards', 'my-card'].includes(STATE.currentView);
-    const showImportExport = ['cards', 'my-card'].includes(STATE.currentView);
-    const showTrashBtn = ['cards'].includes(STATE.currentView);
-    const showDeleteAll = ['cards'].includes(STATE.currentView);
 
     document.getElementById('add-card-btn').style.display = showAdd ? 'flex' : 'none';
-    document.getElementById('import-dropdown').style.display = showImportExport ? 'flex' : 'none';
-    document.getElementById('export-dropdown').style.display = showImportExport ? 'flex' : 'none';
-    document.getElementById('trash-view-btn').style.display = showTrashBtn ? 'flex' : 'none';
-    document.getElementById('delete-all-btn').style.display = showDeleteAll ? 'flex' : 'none';
 
     if (STATE.currentView === 'docs') {
         document.getElementById('add-card-btn').style.display = 'flex';
-        document.getElementById('add-btn-text').textContent = '+ DOC';
+        document.getElementById('add-btn-text').textContent = 'ADD DOC';
     } else {
-        document.getElementById('add-btn-text').textContent = '+ ADD';
+        document.getElementById('add-btn-text').textContent = 'ADD';
     }
 }
 
@@ -1134,7 +1127,7 @@ document.getElementById('modal-save').addEventListener('click', () => {
             cardNumber: cardNum,
             month, year, cvv,
             cardType: getCardType(cardNum),
-            docType: document.getElementById('form-doc-type').value || null,
+            docType: null,
             amount: document.getElementById('form-amount').value || 0,
             notes: document.getElementById('form-notes').value,
             country: document.getElementById('form-country').value,
@@ -1219,7 +1212,7 @@ function openEditModal(card) {
     document.getElementById('edit-month').value = card.month;
     document.getElementById('edit-year').value = card.year;
     document.getElementById('edit-cvv').value = card.cvv;
-    document.getElementById('edit-doc-type').value = card.docType || '';
+    // edit-doc-type removed
     document.getElementById('edit-amount').value = card.amount;
     document.getElementById('edit-notes').value = card.notes || '';
     editOverlay.classList.remove('hidden');
@@ -1233,7 +1226,7 @@ document.getElementById('edit-save').addEventListener('click', () => {
         card.surname = document.getElementById('edit-surname').value.trim();
         card.cardNumber = document.getElementById('edit-card').value.replace(/\s/g, '');
         card.cardType = getCardType(card.cardNumber);
-        card.docType = document.getElementById('edit-doc-type').value || null;
+        // docType editing removed
         card.month = document.getElementById('edit-month').value;
         card.year = document.getElementById('edit-year').value;
         card.cvv = document.getElementById('edit-cvv').value;
@@ -1475,8 +1468,8 @@ function executeBackupImport(mode) {
     toast(`Imported: ${addedCards} cards, ${addedDocs} docs`, 'success');
 }
 
-// Import button — opens file dialog, detects format, shows backup modal
-document.getElementById('import-btn').addEventListener('click', openBackupFileDialog);
+// Import button (sidebar)
+document.getElementById('restore-backup-btn').addEventListener('click', openBackupFileDialog);
 
 // Backup import modal buttons
 document.getElementById('backup-replace').addEventListener('click', () => executeBackupImport('replace'));
@@ -1485,8 +1478,7 @@ document.getElementById('backup-import-close').addEventListener('click', () => {
 document.getElementById('backup-import-cancel').addEventListener('click', () => { backupOverlay.classList.add('hidden'); pendingBackup = null; });
 backupOverlay.addEventListener('click', (e) => { if (e.target === backupOverlay) { backupOverlay.classList.add('hidden'); pendingBackup = null; } });
 
-document.getElementById('create-backup-btn').addEventListener('click', () => {
-    closeAllDropdowns();
+document.getElementById('backup-btn').addEventListener('click', () => {
     const data = {
         version: '1.0',
         exported_at: new Date().toISOString(),
@@ -1505,47 +1497,8 @@ document.getElementById('create-backup-btn').addEventListener('click', () => {
     toast('Backup created', 'success');
 });
 
-// ──── EXPORT CSV ────
-document.getElementById('export-csv-btn').addEventListener('click', () => {
-    closeAllDropdowns();
-    const cards = STATE.cards.filter(c => c.country === STATE.currentCountry);
-    if (!cards.length) { toast('No cards to export', 'error'); return; }
-    const header = 'Name,Surname,CardNumber,Month,Year,CVV,Amount,Notes,CardAdd,RunAds,Verified';
-    const rows = cards.map(c =>
-        `${c.name},${c.surname},${c.cardNumber},${c.month},${c.year},${c.cvv},${c.amount || ''},${(c.notes || '').replace(/,/g, ';')},${c.cardAdd},${c.runAds},${c.verified}`
-    );
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = `cards-${STATE.currentCountry}-${todayStr()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('CSV downloaded', 'success');
-});
 
-// ──── IMPORT CARDS ────
-document.getElementById('import-cards-btn').addEventListener('click', () => {
-    closeAllDropdowns();
-    openAddModal();
-    // Switch to LIST tab
-    setTimeout(() => {
-        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-        document.querySelector('.modal-tab[data-tab="list"]').classList.add('active');
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.getElementById('list-tab').classList.add('active');
-    }, 100);
-});
 
-// ──── RESTORE BACKUP ────
-document.getElementById('restore-backup-btn').addEventListener('click', () => {
-    closeAllDropdowns();
-    openBackupFileDialog();
-});
-
-// ──── BACKUP ────
-document.getElementById('backup-btn').addEventListener('click', openBackupFileDialog);
 
 // ──── ADD COUNTRY (custom modal) ────
 const addCountryOverlay = document.getElementById('add-country-overlay');
@@ -1604,7 +1557,7 @@ countryCodeInput.addEventListener('keydown', (e) => {
 });
 
 // ──── TRASH VIEW ────
-document.getElementById('trash-view-btn')?.addEventListener('click', () => navigate('trash'));
+
 
 // ──── LOGOUT ────
 document.getElementById('logout-btn').addEventListener('click', () => {
@@ -1835,40 +1788,9 @@ function closeAllDropdowns() {
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
 }
 
-document.getElementById('import-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const menu = document.getElementById('import-menu');
-    const wasOpen = menu.classList.contains('open');
-    closeAllDropdowns();
-    if (!wasOpen) menu.classList.add('open');
-});
-
-document.getElementById('export-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const menu = document.getElementById('export-menu');
-    const wasOpen = menu.classList.contains('open');
-    closeAllDropdowns();
-    if (!wasOpen) menu.classList.add('open');
-});
-
 document.addEventListener('click', () => {
     closeAllDropdowns();
     document.getElementById('context-menu').classList.add('hidden');
-});
-
-// ──── DELETE ALL ────
-document.getElementById('delete-all-btn').addEventListener('click', () => {
-    const country = STATE.countries.find(c => c.id === STATE.currentCountry);
-    const cards = STATE.cards.filter(c => c.country === STATE.currentCountry);
-    if (!cards.length) { toast('No cards to delete', 'error'); return; }
-    if (confirm(`Delete ALL ${cards.length} cards from ${country?.name}? They will be moved to Trash.`)) {
-        const toTrash = cards.map(c => ({ ...c, deletedAt: todayStr() }));
-        STATE.trash.push(...toTrash);
-        STATE.cards = STATE.cards.filter(c => c.country !== STATE.currentCountry);
-        save();
-        renderAll();
-        toast(`${toTrash.length} cards moved to trash`, 'info');
-    }
 });
 
 // ──── DELETE PROJECT (custom modal) ────
