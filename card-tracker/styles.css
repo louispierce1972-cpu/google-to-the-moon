@@ -1572,9 +1572,13 @@ body {
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 4px;
-    transition: all var(--transition-fast);
+    transition: background var(--transition-fast);
     user-select: none;
     color: var(--text-muted);
+    display: inline-block;
+    min-width: 14px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
 .vs-counter:hover {

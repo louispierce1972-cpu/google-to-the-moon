@@ -588,10 +588,10 @@ function renderDocs() {
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell">${d.use || 0}x</td>
             <td>
-                <div class="status-btns">
-                    <span class="vs-counter vs-verified" onclick="incrementDocV('${d.id}')" title="Click to verify">${d.verified || 0}</span>
+                <div class="status-btns" style="min-width:50px;text-align:center;">
+                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')">${d.verified || 0}</span>
                     <span style="font-size:12px;color:var(--text-dim)">|</span>
-                    <span class="vs-counter vs-suspended" onclick="incrementDocS('${d.id}')" title="Click to mark failed">${d.suspended || 0}</span>
+                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')">${d.suspended || 0}</span>
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
@@ -1034,12 +1034,29 @@ window.openDocNote = function (docId) {
 };
 
 // ──── DOC V/S COUNTERS ────
+function updateDocStatsBar() {
+    const docs = getFilteredDocs();
+    const s = getDocStats(docs);
+    const bar = document.getElementById('stats-bar');
+    if (!bar || STATE.currentView !== 'docs') return;
+    const cards = bar.querySelectorAll('.stat-card');
+    if (cards.length >= 4) {
+        cards[0].querySelector('.stat-value').textContent = s.total;
+        cards[1].querySelector('.stat-value').textContent = s.verified;
+        cards[2].querySelector('.stat-value').textContent = s.failed;
+        cards[3].querySelector('.stat-value').textContent = s.waiting;
+    }
+}
+
 window.incrementDocV = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
     doc.verified = (doc.verified || 0) + 1;
     save();
-    renderAll();
+    // Update only the specific counter in DOM
+    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="v"]`);
+    if (el) el.textContent = doc.verified;
+    updateDocStatsBar();
 };
 
 window.incrementDocS = function (docId) {
@@ -1047,7 +1064,10 @@ window.incrementDocS = function (docId) {
     if (!doc) return;
     doc.suspended = (doc.suspended || 0) + 1;
     save();
-    renderAll();
+    // Update only the specific counter in DOM
+    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="s"]`);
+    if (el) el.textContent = doc.suspended;
+    updateDocStatsBar();
 };
 
 // ──── DOC TYPE CYCLE ────
