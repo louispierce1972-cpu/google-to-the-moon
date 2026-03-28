@@ -483,18 +483,18 @@ function renderContent() {
                     <span class="card-number">${maskCard(c.cardNumber)}</span>
                 </div>
             </td>
-            <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}')">${c.notes || '<span style="color:var(--text-dim)">+ note</span>'}</span></td>
+            <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}')">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="bin-cell">${bin} <span class="bin-count ${binColorClass}">(${bc})</span></td>
-            <td>${c.docType ? `<span class="doc-type-badge ${c.docType.toLowerCase()}">${c.docType}</span>` : '<span class="doc-type">-</span>'}</td>
+            <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
             <td class="amt-cell">${c.amount ? Number(c.amount).toLocaleString() : '-'}</td>
             <td>
                 ${isTrash ? `
-                    <button class="btn-secondary" onclick="restoreCard('${c.id}')" style="font-size:11px;padding:4px 10px;">Restore</button>
+                    <button class="btn-secondary btn-restore" onclick="restoreCard('${c.id}')">Restore</button>
                 ` : `
                     <div class="status-btns">
                         <button class="status-btn btn-a ${c.cardAdd ? 'active' : ''}" onclick="toggleStatus('${c.id}','cardAdd')" title="Card Add">A</button>
                         <button class="status-btn btn-r ${c.runAds ? 'active' : ''}" onclick="toggleStatus('${c.id}','runAds')" title="Run Ads">R</button>
-                        <button class="status-btn btn-v ${c.verified ? 'verified' : ''}" onclick="toggleStatus('${c.id}','verified')" title="Verify">V</button>
+                        <button class="status-btn btn-v ${c.verified ? 'active' : ''}" onclick="toggleStatus('${c.id}','verified')" title="Verify">V</button>
                     </div>
                 `}
             </td>
@@ -583,14 +583,14 @@ function renderDocs() {
                     </span>
                 </div>
             </td>
-            <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}')">${d.notes || '<span style="color:var(--text-dim)">+ note</span>'}</span></td>
+            <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}')">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell">${d.use || 0}x</td>
             <td>
-                <div class="status-btns" style="min-width:50px;text-align:center;">
+                <div class="status-btns vs-counters">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')">${d.verified || 0}</span>
-                    <span style="font-size:12px;color:var(--text-dim)">|</span>
+                    <span class="vs-separator">|</span>
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')">${d.suspended || 0}</span>
                 </div>
             </td>
@@ -810,6 +810,29 @@ window.toggleStar = function (id) {
         renderAll();
         toast(card.starred ? '⭐ Added to Active Now' : 'Removed from Active Now', 'success');
     }
+};
+
+// ──── TYPE TOGGLE (PP ↔ DL) ────
+window.cycleCardType = function (id) {
+    const card = STATE.cards.find(c => c.id === id);
+    if (!card) return;
+    const types = ['PP', 'DL', ''];
+    const current = types.indexOf(card.docType || '');
+    card.docType = types[(current + 1) % types.length];
+    save();
+    renderAll();
+    toast(`Type: ${card.docType || 'None'}`, 'info');
+};
+
+window.cycleDocTypeInline = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    const types = ['PP', 'DL', '-'];
+    const current = types.indexOf(doc.type || '-');
+    doc.type = types[(current + 1) % types.length];
+    save();
+    renderAll();
+    toast(`Type: ${doc.type}`, 'info');
 };
 
 window.toggleStatus = function (id, field) {
