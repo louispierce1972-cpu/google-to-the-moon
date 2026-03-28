@@ -225,8 +225,17 @@ input,select,textarea{font-family:var(--font-sans)}
 .stat-card.top-bins::before{background:linear-gradient(90deg,var(--pink),var(--red))}
 .stat-card.failed::before{background:linear-gradient(90deg,var(--red),#dc2626)}
 .stat-card.waiting::before{background:linear-gradient(90deg,var(--amber),var(--amber))}
-.stat-label{font-size:var(--fs-xs);font-weight:var(--fw-bold);letter-spacing:var(--ls-wider);text-transform:uppercase;color:var(--text-dim);margin-bottom:var(--sp-1)}
+.stat-label{font-size:var(--fs-xs);font-weight:var(--fw-bold);letter-spacing:var(--ls-wider);text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--sp-1)}
 .stat-value{font-size:26px;font-weight:var(--fw-black);color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:var(--lh-tight)}
+/* Stat value colors matching reference */
+.stat-card.verified .stat-value{color:var(--green)}
+.stat-card.suspended .stat-value,.stat-card.failed .stat-value{color:var(--red)}
+.stat-card.card-add .stat-value{color:var(--green)}
+.stat-card.run-ads .stat-value{color:var(--amber)}
+.stat-card.active-stat .stat-value{color:var(--cyan)}
+.stat-card.top-cards .stat-value{color:var(--purple)}
+.stat-card.top-bins .stat-value{color:var(--pink)}
+.stat-card.waiting .stat-value{color:var(--amber)}
 
 /* ═══════ CONTENT ═══════ */
 .content-area{flex:1;overflow-y:auto;padding:0 var(--sp-5) var(--sp-4)}
