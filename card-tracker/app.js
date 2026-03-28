@@ -503,7 +503,7 @@ function renderContent() {
                 let texts = [];
                 if (card.mailVerify) texts.push('V-CC');
                 if (card.mailSubmit) texts.push('S-DOC');
-                return `<span class="mail-badge" title="Mail Status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l6.2 4.6c1.1.8 2.5.8 3.6 0L20 7"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg> ${texts.join(' / ')}</span>`;
+                return `<span class="mail-badge" title="Mail Status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M4 7l6.2 4.6c1.1.8 2.5.8 3.6 0L20 7"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>${texts.join(' / ')}</span>`;
             }
             return '';
         };
@@ -1659,11 +1659,17 @@ document.getElementById('modal-save').addEventListener('click', () => {
             date: todayStr(),
         };
 
-        STATE.cards.push(card);
+        STATE.cards.unshift(card);
         ensureDoc(card);
         save();
         modalOverlay.classList.add('hidden');
+        STATE.sortField = null;
+        STATE.sortDir = 'desc';
+        STATE.page = 1;
         renderAll();
+        // Highlight new row
+        const newRow = document.querySelector(`tr[data-id="${card.id}"]`);
+        if (newRow) newRow.classList.add('row-new');
         toast('Card added successfully', 'success');
     } else {
         // List mode
@@ -1701,7 +1707,7 @@ document.getElementById('modal-save').addEventListener('click', () => {
                 suspended: false, starred: false,
                 date: todayStr(),
             };
-            STATE.cards.push(card);
+            STATE.cards.unshift(card);
             ensureDoc(card);
             added++;
         });
@@ -1709,7 +1715,14 @@ document.getElementById('modal-save').addEventListener('click', () => {
         if (added > 0) {
             save();
             modalOverlay.classList.add('hidden');
+            STATE.sortField = null;
+            STATE.sortDir = 'desc';
+            STATE.page = 1;
             renderAll();
+            // Highlight new rows
+            document.querySelectorAll('.data-table tbody tr').forEach((tr, i) => {
+                if (i < added) tr.classList.add('row-new');
+            });
             toast(`${added} cards added`, 'success');
         } else {
             toast('No valid cards found in text', 'error');

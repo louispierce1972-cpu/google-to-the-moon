@@ -806,11 +806,11 @@ textarea {
     align-items: center;
     gap: var(--sp-1);
     padding: 7px var(--sp-4);
-    background: var(--accent);
+    background: rgba(255, 255, 255, 0.88);
     border: none;
     border-radius: var(--r-sm);
     color: #000;
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     font-weight: var(--fw-bold);
     cursor: pointer;
     transition: all var(--t-base);
@@ -820,12 +820,13 @@ textarea {
 }
 
 .btn-primary:hover {
-    background: var(--accent-hover);
-    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.08)
+    background: #fff;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.15)
 }
 
 .btn-primary:active {
-    transform: scale(0.97)
+    transform: scale(0.97);
+    background: rgba(255, 255, 255, 0.8)
 }
 
 .btn-secondary {
@@ -875,20 +876,21 @@ textarea {
 }
 
 .btn-cancel {
-    padding: 9px var(--sp-5);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-default);
+    padding: 7px var(--sp-4);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--r-sm);
-    color: var(--text-secondary);
-    font-size: var(--fs-base);
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
     font-weight: var(--fw-semi);
     cursor: pointer;
     transition: all var(--t-base)
 }
 
 .btn-cancel:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary)
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.16)
 }
 
 .btn-cancel:active {
@@ -1403,83 +1405,106 @@ textarea {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 100;
+    animation: overlayIn .18s ease;
     will-change: opacity
 }
 
+@keyframes overlayIn {
+    from { opacity: 0 }
+    to   { opacity: 1 }
+}
+
 .modal {
-    background: var(--bg-card);
-    border: 1px solid var(--border-default);
-    border-radius: var(--r-lg);
-    width: 540px;
-    max-width: 95vw;
-    max-height: 90vh;
+    background: #0c0c0c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    width: 500px;
+    max-width: 94vw;
+    max-height: 88vh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-xl)
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    animation: modalIn .22s cubic-bezier(0.16, 1, 0.3, 1)
+}
+
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.96) translateY(8px) }
+    to   { opacity: 1; transform: scale(1) translateY(0) }
 }
 
 .modal-header {
-    padding: var(--sp-5) var(--sp-5) 0;
+    padding: var(--sp-4) var(--sp-5) 0;
     position: relative
 }
 
 .modal-header h3 {
-    font-size: var(--fs-lg);
+    font-size: var(--fs-md);
     font-weight: var(--fw-black);
     letter-spacing: 0.8px
 }
 
 .modal-subtitle {
-    font-size: var(--fs-base);
-    color: var(--text-muted);
-    margin-top: 2px
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    margin-top: 1px
 }
 
 .modal-close {
     position: absolute;
-    right: var(--sp-5);
-    top: var(--sp-5);
+    right: var(--sp-4);
+    top: var(--sp-4);
     background: none;
     border: none;
     color: var(--text-dim);
     cursor: pointer;
-    padding: var(--sp-1);
+    padding: 3px;
     border-radius: var(--r-xs);
-    transition: all var(--t-fast)
+    transition: all var(--t-fast);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center
+}
+
+.modal-close svg {
+    width: 16px;
+    height: 16px
 }
 
 .modal-close:hover {
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary)
 }
 
 .modal-tabs {
     display: flex;
-    padding: var(--sp-4) var(--sp-5) 0;
+    padding: var(--sp-3) var(--sp-5) 0;
     gap: 0
 }
 
 .modal-tab {
     flex: 1;
-    padding: 9px var(--sp-4);
-    border: 1px solid var(--border-default);
+    padding: 7px var(--sp-3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     background: transparent;
     color: var(--text-muted);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     font-weight: var(--fw-semi);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--sp-1);
-    transition: all var(--t-base)
+    transition: all var(--t-base);
+    letter-spacing: 0.5px
 }
 
 .modal-tab:first-child {
@@ -1492,19 +1517,19 @@ textarea {
 }
 
 .modal-tab.active {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.9);
     color: #000;
     font-weight: var(--fw-bold)
 }
 
 .modal-tab:not(.active):hover {
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary)
 }
 
 .modal-body {
-    padding: var(--sp-5);
+    padding: var(--sp-3) var(--sp-5) var(--sp-3);
     overflow-y: auto;
     flex: 1;
     min-height: 0
@@ -1519,18 +1544,31 @@ textarea {
 }
 
 .modal-footer {
-    padding: var(--sp-4) var(--sp-5) var(--sp-5);
+    padding: var(--sp-3) var(--sp-5) var(--sp-4);
     display: flex;
     justify-content: flex-end;
-    gap: var(--sp-2)
+    gap: var(--sp-2);
+    border-top: 1px solid rgba(255, 255, 255, 0.04)
+}
+
+.modal-footer .btn-primary {
+    padding: 7px var(--sp-5);
+    font-size: var(--fs-sm);
+    border-radius: var(--r-sm)
+}
+
+.modal-footer .btn-cancel {
+    padding: 7px var(--sp-4);
+    font-size: var(--fs-sm);
+    border-radius: var(--r-sm)
 }
 
 .modal-sm {
-    max-width: 480px
+    max-width: 440px
 }
 
 .modal-xs {
-    max-width: 400px
+    max-width: 380px
 }
 
 /* ═══════ UTILITY CLASSES ═══════ */
@@ -1559,10 +1597,11 @@ textarea {
 .country-code-input {
     text-align: center;
     text-transform: uppercase;
-    font-size: 24px !important;
+    font-size: 22px !important;
     font-weight: var(--fw-black) !important;
     letter-spacing: 8px;
-    padding: var(--sp-4) !important
+    padding: var(--sp-3) !important;
+    height: auto !important
 }
 
 .country-preview {
@@ -1601,19 +1640,21 @@ textarea {
 /* ═══════ FORMS ═══════ */
 .form-row {
     display: flex;
-    gap: var(--sp-3);
-    margin-bottom: var(--sp-3)
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2)
 }
 
 .form-row.three-col {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--sp-2)
 }
 
 .form-group {
     flex: 1;
     display: flex;
-    flex-direction: column
+    flex-direction: column;
+    gap: 3px
 }
 
 .form-group.full-width {
@@ -1621,35 +1662,37 @@ textarea {
 }
 
 .form-group label {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-weight: var(--fw-semi);
-    color: var(--text-muted);
+    color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: var(--sp-1)
+    margin-bottom: 0
 }
 
 .form-group input,
 .form-select {
-    padding: 9px var(--sp-3);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--r-sm);
     color: var(--text-primary);
-    font-size: var(--fs-md);
+    font-size: var(--fs-base);
     outline: none;
     transition: border-color var(--t-base), box-shadow var(--t-base);
-    width: 100%
+    width: 100%;
+    height: 34px
 }
 
 .form-group input:focus,
 .form-select:focus {
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04)
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.06)
 }
 
 .form-group input::placeholder {
-    color: var(--text-dim)
+    color: var(--text-dim);
+    font-size: var(--fs-sm)
 }
 
 .form-select {
@@ -1668,8 +1711,8 @@ textarea {
 .card-type-badge {
     position: absolute;
     right: 10px;
-    bottom: 9px;
-    font-size: var(--fs-sm);
+    bottom: 7px;
+    font-size: var(--fs-xs);
     font-weight: var(--fw-bold);
     letter-spacing: 0.5px;
     color: var(--blue);
@@ -1678,18 +1721,19 @@ textarea {
 
 .status-checkboxes {
     display: flex;
-    gap: var(--sp-4);
-    padding: 9px var(--sp-3);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--r-sm)
+    gap: var(--sp-3);
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--r-sm);
+    flex-wrap: wrap
 }
 
 .checkbox-label {
     display: flex;
     align-items: center;
-    gap: var(--sp-1);
-    font-size: 12px;
+    gap: 4px;
+    font-size: var(--fs-xs);
     font-weight: var(--fw-bold);
     letter-spacing: 0.5px;
     color: var(--text-muted);
@@ -1698,8 +1742,8 @@ textarea {
 }
 
 .checkbox-label input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     accent-color: var(--accent);
     cursor: pointer
 }
@@ -1718,12 +1762,12 @@ textarea {
 
 .list-textarea {
     width: 100%;
-    padding: var(--sp-3);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--r-sm);
     color: var(--text-primary);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     font-family: var(--font-mono);
     outline: none;
     resize: vertical;
@@ -1732,7 +1776,7 @@ textarea {
 }
 
 .list-textarea:focus {
-    border-color: var(--border-focus);
+    border-color: rgba(255, 255, 255, 0.2);
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04)
 }
 
@@ -2216,7 +2260,7 @@ textarea {
 
 /* ═══════ BACKUP MODAL ═══════ */
 .backup-modal {
-    width: 600px
+    width: 540px
 }
 
 .backup-modal .modal-header {
@@ -2238,13 +2282,13 @@ textarea {
 }
 
 .backup-meta {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: var(--r-sm);
-    padding: var(--sp-3) var(--sp-4);
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: var(--sp-4);
+    padding: 8px var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    margin-bottom: var(--sp-3);
     font-family: var(--font-mono)
 }
 
@@ -2252,14 +2296,14 @@ textarea {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--sp-2);
-    margin-bottom: var(--sp-5)
+    margin-bottom: var(--sp-4)
 }
 
 .backup-stat-card {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: var(--r-sm);
-    padding: var(--sp-4);
+    padding: var(--sp-3);
     text-align: center
 }
 
@@ -2312,10 +2356,10 @@ textarea {
     flex-direction: column;
     align-items: center;
     gap: var(--sp-2);
-    padding: var(--sp-5) var(--sp-4);
-    background: var(--bg-primary);
-    border: 2px solid var(--border-default);
-    border-radius: var(--r-md);
+    padding: var(--sp-4) var(--sp-3);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--t-base)
@@ -2375,13 +2419,13 @@ textarea {
 
 /* ═══════ CHECKER MODAL ═══════ */
 .checker-modal {
-    max-width: 660px
+    max-width: 580px
 }
 
 .checker-body {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-4)
+    gap: var(--sp-3)
 }
 
 .checker-section {
@@ -2400,13 +2444,13 @@ textarea {
 
 .checker-textarea {
     width: 100%;
-    padding: var(--sp-3);
-    background: var(--bg-primary);
-    border: 1px solid var(--border-default);
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--r-sm);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     line-height: var(--lh-relaxed);
     resize: vertical;
     outline: none;
@@ -2414,7 +2458,7 @@ textarea {
 }
 
 .checker-textarea:focus {
-    border-color: var(--border-focus);
+    border-color: rgba(255, 255, 255, 0.2);
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04)
 }
 
@@ -2666,15 +2710,32 @@ body.modal-open {
 .mail-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 2px 6px;
-    border-radius: var(--r-xs);
+    gap: 3px;
+    background: rgba(250, 204, 21, 0.1);
+    padding: 1px 6px;
+    border-radius: 3px;
     font-size: 10px;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
-    margin-left: var(--sp-2);
+    font-weight: var(--fw-bold);
+    color: #facc15;
+    letter-spacing: 0.4px;
+    margin-left: 6px;
+    line-height: 16px;
+    border: 1px solid rgba(250, 204, 21, 0.15)
 }
+
 .mail-badge svg {
-    color: #fbbf24;
+    width: 12px;
+    height: 12px;
+    color: #facc15;
+    flex-shrink: 0
+}
+
+/* ═══════ NEW ROW HIGHLIGHT ═══════ */
+@keyframes rowHighlight {
+    0%   { background: rgba(250, 204, 21, 0.08) }
+    100% { background: transparent }
+}
+
+.data-table tbody tr.row-new {
+    animation: rowHighlight 1.5s ease forwards
 }
