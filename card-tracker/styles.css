@@ -310,6 +310,23 @@ input,select,textarea{font-family:var(--font-sans)}
 .tab-content{display:none}
 .tab-content.active{display:block}
 .modal-footer{padding:var(--sp-4) var(--sp-5) var(--sp-5);display:flex;justify-content:flex-end;gap:var(--sp-2)}
+.modal-sm{max-width:480px}
+.modal-xs{max-width:400px}
+
+/* ═══════ UTILITY CLASSES ═══════ */
+.text-danger{color:var(--red)}
+.btn-danger{background:var(--red) !important;border-color:var(--red) !important}
+.btn-danger:hover{background:#dc2626 !important}
+.delete-list{margin:var(--sp-2) 0;padding-left:20px;color:var(--text-secondary);font-size:var(--fs-base);line-height:var(--lh-relaxed)}
+
+/* ═══════ COUNTRY CODE INPUT ═══════ */
+.country-code-input{text-align:center;text-transform:uppercase;font-size:24px !important;font-weight:var(--fw-black) !important;letter-spacing:8px;padding:var(--sp-4) !important}
+.country-preview{text-align:center;margin-top:var(--sp-4);min-height:60px}
+.country-preview-flag{font-size:48px;display:block}
+.country-preview-name{font-size:var(--fs-lg);font-weight:var(--fw-bold);color:var(--text-primary);margin-top:var(--sp-1);display:block}
+
+/* ═══════ INLINE NOTE INPUT ═══════ */
+.inline-note-input{background:var(--bg-primary) !important;border:1px solid var(--border-focus) !important;color:var(--text-primary);padding:2px 6px;border-radius:var(--r-xs);font-size:12px;width:140px;outline:none;font-family:var(--font-sans);transition:border-color var(--t-base)}
 
 /* ═══════ FORMS ═══════ */
 .form-row{display:flex;gap:var(--sp-3);margin-bottom:var(--sp-3)}

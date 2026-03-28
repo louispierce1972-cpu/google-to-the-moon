@@ -947,91 +947,138 @@ window.openDocMenu = function (e, id) {
             const action = btn.dataset.action;
             const doc = STATE.docs.find(d => d.id === STATE.contextDocId);
             if (!doc) return;
+            menu.classList.add('hidden');
             switch (action) {
                 case 'edit-doc': {
-                    const newNote = prompt('Edit note for ' + doc.fullName + ':', doc.notes || '');
-                    if (newNote !== null) {
-                        doc.notes = newNote;
+                    showMiniModal('Edit Note', doc.fullName, doc.notes || '', 'Add note...', (val) => {
+                        doc.notes = val.trim();
                         save();
                         renderAll();
                         toast('Doc note updated', 'success');
-                    }
+                    });
                     break;
                 }
                 case 'change-doc-type': {
-                    const type = prompt('Enter doc type (DL / PP / or leave empty):', doc.type || '');
-                    if (type !== null) {
-                        doc.type = type.toUpperCase().trim() || '-';
+                    showMiniModal('Change Type', doc.fullName, doc.type || '', 'DL / PP', (val) => {
+                        doc.type = val.toUpperCase().trim() || '-';
                         save();
                         renderAll();
                         toast('Doc type updated', 'success');
-                    }
+                    });
                     break;
                 }
                 case 'delete-doc': {
-                    if (confirm('Delete document "' + doc.fullName + '"?')) {
-                        STATE.docs = STATE.docs.filter(d => d.id !== doc.id);
-                        save();
-                        renderAll();
-                        toast('Document deleted', 'info');
-                    }
+                    showMiniModal('Delete Document', 'Type DELETE to confirm removal of ' + doc.fullName, '', 'DELETE', (val) => {
+                        if (val.toUpperCase() === 'DELETE') {
+                            STATE.docs = STATE.docs.filter(d => d.id !== doc.id);
+                            save();
+                            renderAll();
+                            toast('Document deleted', 'info');
+                        } else {
+                            toast('Deletion cancelled', 'error');
+                        }
+                    });
                     break;
                 }
             }
-            menu.classList.add('hidden');
         }, { once: true });
     });
 };
 
 // Context menu close is now handled by the dropdown close handler below
 
-// ──── INLINE NOTE EDITING ────
+// ──── MINI-MODAL UTILITY ────
+// Replaces all prompt() calls with a themed dark modal
+function showMiniModal(title, label, currentValue, placeholder, callback) {
+    const overlay = document.getElementById('mini-modal-overlay');
+    const input = document.getElementById('mini-modal-input');
+    const titleEl = document.getElementById('mini-modal-title');
+    const labelEl = document.getElementById('mini-modal-label');
+    const saveBtn = document.getElementById('mini-modal-save');
+    const cancelBtn = document.getElementById('mini-modal-cancel');
+    const closeBtn = document.getElementById('mini-modal-close');
+
+    titleEl.textContent = title;
+    labelEl.textContent = label;
+    input.value = currentValue || '';
+    input.placeholder = placeholder || '';
+    overlay.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+
+    // Focus input after animation
+    setTimeout(() => input.focus(), 100);
+
+    function cleanup() {
+        overlay.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        saveBtn.removeEventListener('click', onSave);
+        cancelBtn.removeEventListener('click', onCancel);
+        closeBtn.removeEventListener('click', onCancel);
+        input.removeEventListener('keydown', onKeydown);
+        overlay.removeEventListener('click', onOverlayClick);
+    }
+
+    function onSave() {
+        const val = input.value;
+        cleanup();
+        callback(val);
+    }
+
+    function onCancel() {
+        cleanup();
+    }
+
+    function onKeydown(e) {
+        if (e.key === 'Enter') { e.preventDefault(); onSave(); }
+        if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+    }
+
+    function onOverlayClick(e) {
+        if (e.target === overlay) onCancel();
+    }
+
+    saveBtn.addEventListener('click', onSave);
+    cancelBtn.addEventListener('click', onCancel);
+    closeBtn.addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKeydown);
+    overlay.addEventListener('click', onOverlayClick);
+}
+
+// ──── NOTE EDITING (unified) ────
 window.openInlineNote = function (cardId) {
     const card = STATE.cards.find(c => c.id === cardId);
     if (!card) return;
-    const newNote = prompt('Edit note for ' + card.name + ' ' + card.surname + ':', card.notes || '');
-    if (newNote !== null) {
-        card.notes = newNote;
-        save();
-        renderAll();
-        toast('Note updated', 'success');
-    }
+    showMiniModal(
+        'Edit Note',
+        card.name + ' ' + card.surname,
+        card.notes || '',
+        'Add note...',
+        (val) => {
+            card.notes = val.trim();
+            save();
+            renderAll();
+            if (val.trim()) toast('Note updated', 'success');
+        }
+    );
 };
 
 window.openDocNote = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
-    // Find the note span and replace with inline input
-    const noteSpans = document.querySelectorAll('.editable-note');
-    noteSpans.forEach(span => {
-        if (span.getAttribute('onclick')?.includes(docId)) {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = doc.notes || '';
-            input.placeholder = 'Add note...';
-            input.className = 'inline-note-input';
-            input.style.cssText = 'background:var(--surface-2);border:1px solid var(--accent);color:var(--text-primary);padding:2px 6px;border-radius:4px;font-size:12px;width:120px;outline:none;';
-            
-            const saveNote = () => {
-                doc.notes = input.value.trim();
-                save();
-                renderAll();
-                if (doc.notes) toast('Note updated', 'success');
-            };
-            
-            input.addEventListener('blur', saveNote);
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { saveNote(); }
-                if (e.key === 'Escape') { renderAll(); }
-            });
-            
-            span.innerHTML = '';
-            span.appendChild(input);
-            span.onclick = null;
-            input.focus();
+    showMiniModal(
+        'Edit Note',
+        doc.fullName,
+        doc.notes || '',
+        'Add note...',
+        (val) => {
+            doc.notes = val.trim();
+            save();
+            renderAll();
+            if (val.trim()) toast('Note updated', 'success');
         }
-    });
+    );
 };
+
 
 // ──── DOC V/S COUNTERS ────
 function updateDocStatsBar() {
@@ -1873,7 +1920,7 @@ const countryPreviewName = document.getElementById('country-preview-name');
 
 document.getElementById('add-country-btn').addEventListener('click', () => {
     countryCodeInput.value = '';
-    countryPreview.style.display = 'none';
+    countryPreview.classList.add('hidden');
     addCountryOverlay.classList.remove('hidden');
     setTimeout(() => countryCodeInput.focus(), 100);
 });
@@ -1888,9 +1935,9 @@ countryCodeInput.addEventListener('input', () => {
     if (code.length === 2 && COUNTRY_DB[code]) {
         countryPreviewFlag.textContent = isoToFlag(code);
         countryPreviewName.textContent = COUNTRY_DB[code];
-        countryPreview.style.display = 'block';
+        countryPreview.classList.remove('hidden');
     } else {
-        countryPreview.style.display = 'none';
+        countryPreview.classList.add('hidden');
     }
 });
 

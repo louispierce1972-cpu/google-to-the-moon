@@ -428,7 +428,7 @@
 
     <!-- ADD COUNTRY MODAL -->
     <div id="add-country-overlay" class="modal-overlay hidden">
-        <div class="modal" style="max-width:420px;">
+        <div class="modal modal-sm">
             <div class="modal-header">
                 <h3>ADD COUNTRY</h3>
                 <p class="modal-subtitle">Enter ISO 2-letter code (CA, US, AE, IT, DE...)</p>
@@ -438,12 +438,12 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">Country Code *</label>
-                    <input type="text" id="new-country-code" class="form-input country-code-input" placeholder="AE" maxlength="2" autofocus style="text-align:center;text-transform:uppercase;font-size:24px;font-weight:800;letter-spacing:8px;padding:16px;" />
+                    <label>Country Code *</label>
+                    <input type="text" id="new-country-code" class="country-code-input" placeholder="AE" maxlength="2" autofocus />
                 </div>
-                <div id="country-preview" style="text-align:center;margin-top:16px;min-height:60px;display:none;">
-                    <span id="country-preview-flag" style="font-size:48px;display:block;"></span>
-                    <span id="country-preview-name" style="font-size:16px;font-weight:700;color:var(--text-primary);margin-top:4px;display:block;"></span>
+                <div id="country-preview" class="country-preview hidden">
+                    <span id="country-preview-flag" class="country-preview-flag"></span>
+                    <span id="country-preview-name" class="country-preview-name"></span>
                 </div>
             </div>
             <div class="modal-footer">
@@ -458,9 +458,9 @@
 
     <!-- DELETE PROJECT MODAL -->
     <div id="delete-project-overlay" class="modal-overlay hidden">
-        <div class="modal" style="max-width:480px;">
+        <div class="modal modal-sm">
             <div class="modal-header">
-                <h3 style="color:var(--red);">⚠️ DELETE PROJECT</h3>
+                <h3 class="text-danger">⚠️ DELETE PROJECT</h3>
                 <p class="modal-subtitle">This will permanently delete ALL data from ALL countries</p>
                 <button class="modal-close" id="delete-project-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
@@ -469,7 +469,7 @@
             <div class="modal-body">
                 <div class="delete-warning">
                     <p>This action <strong>CANNOT</strong> be undone. It will:</p>
-                    <ul style="margin:8px 0;padding-left:20px;color:var(--text-secondary);font-size:13px;">
+                    <ul class="delete-list">
                         <li>Delete ALL cards from ALL countries</li>
                         <li>Delete ALL documents</li>
                         <li>Delete ALL notes</li>
@@ -477,16 +477,38 @@
                     </ul>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Type <strong style="color:var(--red);">DELETE</strong> to confirm</label>
-                    <input type="text" id="delete-confirm-input" class="form-input" placeholder="Type DELETE here..." />
+                    <label>Type <strong class="text-danger">DELETE</strong> to confirm</label>
+                    <input type="text" id="delete-confirm-input" placeholder="Type DELETE here..." />
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" id="delete-project-cancel">Cancel</button>
-                <button class="btn-primary" id="delete-project-confirm" style="background:var(--red);border-color:var(--red);" disabled>
+                <button class="btn-primary btn-danger" id="delete-project-confirm" disabled>
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                     Delete Everything
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UNIVERSAL MINI-MODAL (replaces all prompt() calls) -->
+    <div id="mini-modal-overlay" class="modal-overlay hidden">
+        <div class="modal modal-xs">
+            <div class="modal-header">
+                <h3 id="mini-modal-title">Edit</h3>
+                <button class="modal-close" id="mini-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label id="mini-modal-label">Value</label>
+                    <input type="text" id="mini-modal-input" placeholder="" autocomplete="off" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="mini-modal-cancel">Cancel</button>
+                <button class="btn-primary" id="mini-modal-save">Save</button>
             </div>
         </div>
     </div>
