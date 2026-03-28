@@ -853,7 +853,16 @@ window.toggleStar = function (id) {
     if (card) {
         card.starred = !card.starred;
         save();
-        renderAll();
+
+        // Targeted DOM update
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            const starBtn = row.querySelector('.star-btn');
+            if (starBtn) starBtn.classList.toggle('active', card.starred);
+        }
+
+        updateStatsInPlace();
+        updateSidebarBadges();
         toast(card.starred ? '⭐ Added to Active Now' : 'Removed from Active Now', 'success');
     }
 };
@@ -885,9 +894,19 @@ window.toggleStatus = function (id, field) {
     const card = STATE.cards.find(c => c.id === id);
     if (card) {
         card[field] = !card[field];
-        // Auto-favorites when cardAdd + runAds
         save();
-        renderAll();
+
+        // Targeted DOM update: toggle button class without re-render
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            const fieldMap = { cardAdd: 'btn-a', runAds: 'btn-r', verified: 'btn-v' };
+            const btn = row.querySelector(`.status-btn.${fieldMap[field]}`);
+            if (btn) btn.classList.toggle('active', card[field]);
+        }
+
+        // Update stat counters in-place
+        updateStatsInPlace();
+        updateSidebarBadges();
 
         const labels = { cardAdd: 'Card Add', runAds: 'Run Ads', verified: 'Verified' };
         toast(`${labels[field]}: ${card[field] ? 'ON' : 'OFF'}`, card[field] ? 'success' : 'info');
@@ -1119,6 +1138,8 @@ window.openInlineNote = function (cardId, el) {
     if (!card) return;
     if (el.querySelector('input')) return;
     
+    const originalHTML = el.innerHTML;
+    
     // Create input
     const input = document.createElement('input');
     input.type = 'text';
@@ -1131,16 +1152,26 @@ window.openInlineNote = function (cardId, el) {
     el.appendChild(input);
     input.focus();
     
+    let saved = false;
     const saveNote = () => {
+        if (saved) return;
+        saved = true;
         card.notes = input.value.trim();
         save();
-        renderAll();
+        // Targeted DOM restore without re-render
+        el.innerHTML = card.notes || '<span class="note-placeholder">+ note</span>';
+    };
+    
+    const cancelNote = () => {
+        if (saved) return;
+        saved = true;
+        el.innerHTML = originalHTML;
     };
     
     input.addEventListener('blur', saveNote);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') saveNote();
-        else if (e.key === 'Escape') renderAll();
+        if (e.key === 'Enter') { e.preventDefault(); saveNote(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelNote(); input.blur(); }
     });
 };
 
@@ -1148,6 +1179,8 @@ window.openDocNote = function (docId, el) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
     if (el.querySelector('input')) return;
+    
+    const originalHTML = el.innerHTML;
     
     const input = document.createElement('input');
     input.type = 'text';
@@ -1159,16 +1192,25 @@ window.openDocNote = function (docId, el) {
     el.appendChild(input);
     input.focus();
     
+    let saved = false;
     const saveNote = () => {
+        if (saved) return;
+        saved = true;
         doc.notes = input.value.trim();
         save();
-        renderAll();
+        el.innerHTML = doc.notes || '<span class="note-placeholder">+ note</span>';
+    };
+    
+    const cancelNote = () => {
+        if (saved) return;
+        saved = true;
+        el.innerHTML = originalHTML;
     };
     
     input.addEventListener('blur', saveNote);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') saveNote();
-        else if (e.key === 'Escape') renderAll();
+        if (e.key === 'Enter') { e.preventDefault(); saveNote(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelNote(); input.blur(); }
     });
 };
 
@@ -1176,6 +1218,8 @@ window.openInlineAmount = function(cardId, el) {
     const card = STATE.cards.find(c => c.id === cardId);
     if (!card) return;
     if (el.querySelector('input')) return;
+
+    const originalHTML = el.innerHTML;
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -1186,35 +1230,114 @@ window.openInlineAmount = function(cardId, el) {
     el.innerHTML = '';
     el.appendChild(input);
     input.focus();
+    input.select();
 
+    let saved = false;
     const saveAmount = () => {
+        if (saved) return;
+        saved = true;
         const val = input.value.trim();
         card.amount = val ? val : null;
         save();
-        renderAll();
+        el.innerHTML = card.amount ? Number(card.amount).toLocaleString() : '-';
+    };
+
+    const cancelAmount = () => {
+        if (saved) return;
+        saved = true;
+        el.innerHTML = originalHTML;
     };
 
     input.addEventListener('blur', saveAmount);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') saveAmount();
-        else if (e.key === 'Escape') renderAll();
+        if (e.key === 'Enter') { e.preventDefault(); saveAmount(); input.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelAmount(); input.blur(); }
     });
 };
 
 
+// ──── TARGETED UI UPDATES (no re-render) ────
+function updateStatsInPlace() {
+    const bar = document.getElementById('stats-bar');
+    if (!bar) return;
+
+    if (STATE.currentView === 'docs') {
+        const docs = getFilteredDocs();
+        const s = getDocStats(docs);
+        const statCards = bar.querySelectorAll('.stat-card');
+        if (statCards.length >= 4) {
+            statCards[0].querySelector('.stat-value').textContent = s.total;
+            statCards[1].querySelector('.stat-value').textContent = s.verified;
+            statCards[2].querySelector('.stat-value').textContent = s.failed;
+            statCards[3].querySelector('.stat-value').textContent = s.waiting;
+        }
+    } else if (STATE.currentView === 'my-card') {
+        const s = getMyCardStats();
+        const statCards = bar.querySelectorAll('.stat-card');
+        if (statCards.length >= 6) {
+            statCards[0].querySelector('.stat-value').textContent = s.totalCards;
+            statCards[1].querySelector('.stat-value').textContent = s.cardAdd;
+            statCards[2].querySelector('.stat-value').textContent = s.runAds;
+            statCards[3].querySelector('.stat-value').textContent = s.verify;
+            statCards[4].querySelector('.stat-value').textContent = s.topCards;
+            statCards[5].querySelector('.stat-value').textContent = s.topBins;
+        }
+    } else if (['cards', 'favorites', 'active-now', 'trash'].includes(STATE.currentView)) {
+        const cards = getFilteredCards();
+        const s = getCardStats(cards);
+        const statCards = bar.querySelectorAll('.stat-card');
+        if (statCards.length >= 6) {
+            statCards[0].querySelector('.stat-value').textContent = s.total;
+            statCards[1].querySelector('.stat-value').textContent = s.verified;
+            statCards[2].querySelector('.stat-value').textContent = s.suspended;
+            statCards[3].querySelector('.stat-value').textContent = s.cardAdd;
+            statCards[4].querySelector('.stat-value').textContent = s.runAds;
+            statCards[5].querySelector('.stat-value').textContent = s.active;
+        }
+    }
+}
+
+function updateSidebarBadges() {
+    const myCardBadge = document.getElementById('badge-my-card');
+    const favBadge = document.getElementById('badge-favorites');
+    const activeBadge = document.getElementById('badge-active');
+    const trashBadge = document.getElementById('badge-trash');
+    if (myCardBadge) myCardBadge.textContent = STATE.cards.length;
+    if (favBadge) favBadge.textContent = STATE.cards.filter(c => isFavorite(c)).length;
+    if (activeBadge) activeBadge.textContent = STATE.cards.filter(c => isActiveNow(c)).length;
+    if (trashBadge) trashBadge.textContent = STATE.trash.length;
+
+    // Update country card counts
+    document.querySelectorAll('.country-item').forEach(item => {
+        const countryId = item.dataset.country;
+        if (countryId) {
+            const countryCards = STATE.cards.filter(c => c.country === countryId);
+            const countryDocs = STATE.docs.filter(d => d.country === countryId);
+            const countEl = item.querySelector('.country-count');
+            if (countEl) countEl.textContent = countryCards.length + countryDocs.length;
+        }
+    });
+
+    // Update nav badges for cards/docs under each country
+    document.querySelectorAll('.country-sub .nav-item').forEach(navItem => {
+        const badge = navItem.querySelector('.nav-badge');
+        if (!badge) return;
+        const onclick = navItem.getAttribute('onclick') || '';
+        const match = onclick.match(/navigate\('(\w+)',\s*'([^']+)'\)/);
+        if (match) {
+            const [, view, countryId] = match;
+            if (view === 'cards') {
+                badge.textContent = STATE.cards.filter(c => c.country === countryId).length;
+            } else if (view === 'docs') {
+                badge.textContent = STATE.docs.filter(d => d.country === countryId).length;
+            }
+        }
+    });
+}
+
 // ──── DOC V/S COUNTERS ────
 function updateDocStatsBar() {
-    const docs = getFilteredDocs();
-    const s = getDocStats(docs);
-    const bar = document.getElementById('stats-bar');
-    if (!bar || STATE.currentView !== 'docs') return;
-    const cards = bar.querySelectorAll('.stat-card');
-    if (cards.length >= 4) {
-        cards[0].querySelector('.stat-value').textContent = s.total;
-        cards[1].querySelector('.stat-value').textContent = s.verified;
-        cards[2].querySelector('.stat-value').textContent = s.failed;
-        cards[3].querySelector('.stat-value').textContent = s.waiting;
-    }
+    updateStatsInPlace();
 }
 
 window.incrementDocV = function (docId) {
