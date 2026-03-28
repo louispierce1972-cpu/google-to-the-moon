@@ -876,12 +876,12 @@ textarea {
 }
 
 .btn-cancel {
-    padding: 7px var(--sp-4);
+    padding: 6px 12px;
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--r-sm);
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    font-size: var(--fs-xs);
     font-weight: var(--fw-semi);
     cursor: pointer;
     transition: all var(--t-base)
@@ -889,8 +889,8 @@ textarea {
 
 .btn-cancel:hover {
     background: rgba(255, 255, 255, 0.04);
-    color: var(--text-primary);
-    border-color: rgba(255, 255, 255, 0.16)
+    color: var(--text-secondary);
+    border-color: rgba(255, 255, 255, 0.14)
 }
 
 .btn-cancel:active {
@@ -1423,14 +1423,14 @@ textarea {
 .modal {
     background: #0c0c0c;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    width: 500px;
-    max-width: 94vw;
-    max-height: 88vh;
+    border-radius: 10px;
+    width: 420px;
+    max-width: 92vw;
+    max-height: 85vh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
     animation: modalIn .22s cubic-bezier(0.16, 1, 0.3, 1)
 }
 
@@ -1440,43 +1440,43 @@ textarea {
 }
 
 .modal-header {
-    padding: var(--sp-4) var(--sp-5) 0;
+    padding: 10px 14px 0;
     position: relative
 }
 
 .modal-header h3 {
-    font-size: var(--fs-md);
+    font-size: var(--fs-base);
     font-weight: var(--fw-black);
     letter-spacing: 0.8px
 }
 
 .modal-subtitle {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     color: var(--text-dim);
     margin-top: 1px
 }
 
 .modal-close {
     position: absolute;
-    right: var(--sp-4);
-    top: var(--sp-4);
+    right: 10px;
+    top: 10px;
     background: none;
     border: none;
     color: var(--text-dim);
     cursor: pointer;
-    padding: 3px;
+    padding: 2px;
     border-radius: var(--r-xs);
     transition: all var(--t-fast);
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center
 }
 
 .modal-close svg {
-    width: 16px;
-    height: 16px
+    width: 14px;
+    height: 14px
 }
 
 .modal-close:hover {
@@ -1486,33 +1486,33 @@ textarea {
 
 .modal-tabs {
     display: flex;
-    padding: var(--sp-3) var(--sp-5) 0;
+    padding: 8px 14px 0;
     gap: 0
 }
 
 .modal-tab {
     flex: 1;
-    padding: 7px var(--sp-3);
+    padding: 5px var(--sp-2);
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: transparent;
     color: var(--text-muted);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-weight: var(--fw-semi);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-1);
+    gap: 3px;
     transition: all var(--t-base);
     letter-spacing: 0.5px
 }
 
 .modal-tab:first-child {
-    border-radius: var(--r-sm) 0 0 var(--r-sm)
+    border-radius: var(--r-xs) 0 0 var(--r-xs)
 }
 
 .modal-tab:last-child {
-    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    border-radius: 0 var(--r-xs) var(--r-xs) 0;
     border-left: none
 }
 
@@ -1529,7 +1529,7 @@ textarea {
 }
 
 .modal-body {
-    padding: var(--sp-3) var(--sp-5) var(--sp-3);
+    padding: 10px 14px 8px;
     overflow-y: auto;
     flex: 1;
     min-height: 0
@@ -1544,7 +1544,7 @@ textarea {
 }
 
 .modal-footer {
-    padding: var(--sp-3) var(--sp-5) var(--sp-4);
+    padding: 8px 14px 10px;
     display: flex;
     justify-content: flex-end;
     gap: var(--sp-2);
@@ -1552,23 +1552,23 @@ textarea {
 }
 
 .modal-footer .btn-primary {
-    padding: 7px var(--sp-5);
-    font-size: var(--fs-sm);
+    padding: 6px 14px;
+    font-size: var(--fs-xs);
     border-radius: var(--r-sm)
 }
 
 .modal-footer .btn-cancel {
-    padding: 7px var(--sp-4);
-    font-size: var(--fs-sm);
+    padding: 6px 12px;
+    font-size: var(--fs-xs);
     border-radius: var(--r-sm)
 }
 
 .modal-sm {
-    max-width: 440px
+    max-width: 370px
 }
 
 .modal-xs {
-    max-width: 380px
+    max-width: 320px
 }
 
 /* ═══════ UTILITY CLASSES ═══════ */
@@ -1586,10 +1586,10 @@ textarea {
 }
 
 .delete-list {
-    margin: var(--sp-2) 0;
-    padding-left: 20px;
+    margin: var(--sp-1) 0;
+    padding-left: 18px;
     color: var(--text-secondary);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     line-height: var(--lh-relaxed)
 }
 
@@ -1597,29 +1597,29 @@ textarea {
 .country-code-input {
     text-align: center;
     text-transform: uppercase;
-    font-size: 22px !important;
+    font-size: 20px !important;
     font-weight: var(--fw-black) !important;
     letter-spacing: 8px;
-    padding: var(--sp-3) !important;
+    padding: var(--sp-2) !important;
     height: auto !important
 }
 
 .country-preview {
     text-align: center;
-    margin-top: var(--sp-4);
-    min-height: 60px
+    margin-top: var(--sp-3);
+    min-height: 50px
 }
 
 .country-preview-flag {
-    font-size: 48px;
+    font-size: 40px;
     display: block
 }
 
 .country-preview-name {
-    font-size: var(--fs-lg);
+    font-size: var(--fs-md);
     font-weight: var(--fw-bold);
     color: var(--text-primary);
-    margin-top: var(--sp-1);
+    margin-top: 2px;
     display: block
 }
 
@@ -1641,7 +1641,7 @@ textarea {
 .form-row {
     display: flex;
     gap: var(--sp-2);
-    margin-bottom: var(--sp-2)
+    margin-bottom: 6px
 }
 
 .form-row.three-col {
@@ -1654,7 +1654,7 @@ textarea {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 3px
+    gap: 2px
 }
 
 .form-group.full-width {
@@ -1662,7 +1662,7 @@ textarea {
 }
 
 .form-group label {
-    font-size: var(--fs-xs);
+    font-size: 9px;
     font-weight: var(--fw-semi);
     color: var(--text-dim);
     text-transform: uppercase;
@@ -1672,35 +1672,35 @@ textarea {
 
 .form-group input,
 .form-select {
-    padding: 7px 10px;
+    padding: 5px 8px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-xs);
     color: var(--text-primary);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     outline: none;
     transition: border-color var(--t-base), box-shadow var(--t-base);
     width: 100%;
-    height: 34px
+    height: 30px
 }
 
 .form-group input:focus,
 .form-select:focus {
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.06)
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.05)
 }
 
 .form-group input::placeholder {
     color: var(--text-dim);
-    font-size: var(--fs-sm)
+    font-size: var(--fs-xs)
 }
 
 .form-select {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 10px center;
-    padding-right: 28px;
+    background-position: right 8px center;
+    padding-right: 24px;
     cursor: pointer
 }
 
@@ -1710,9 +1710,9 @@ textarea {
 
 .card-type-badge {
     position: absolute;
-    right: 10px;
-    bottom: 7px;
-    font-size: var(--fs-xs);
+    right: 8px;
+    bottom: 6px;
+    font-size: 9px;
     font-weight: var(--fw-bold);
     letter-spacing: 0.5px;
     color: var(--blue);
@@ -1721,29 +1721,31 @@ textarea {
 
 .status-checkboxes {
     display: flex;
-    gap: var(--sp-3);
-    padding: 6px 10px;
+    gap: 10px;
+    padding: 4px 8px;
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--r-sm);
-    flex-wrap: wrap
+    border-radius: var(--r-xs);
+    flex-wrap: nowrap;
+    align-items: center
 }
 
 .checkbox-label {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: var(--fs-xs);
+    gap: 3px;
+    font-size: 9px;
     font-weight: var(--fw-bold);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     color: var(--text-muted);
     cursor: pointer;
-    transition: color var(--t-fast)
+    transition: color var(--t-fast);
+    white-space: nowrap
 }
 
 .checkbox-label input[type="checkbox"] {
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
     accent-color: var(--accent);
     cursor: pointer
 }
@@ -1762,12 +1764,12 @@ textarea {
 
 .list-textarea {
     width: 100%;
-    padding: 8px 10px;
+    padding: 6px 8px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-xs);
     color: var(--text-primary);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-family: var(--font-mono);
     outline: none;
     resize: vertical;
@@ -1776,8 +1778,8 @@ textarea {
 }
 
 .list-textarea:focus {
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04)
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.05)
 }
 
 .list-textarea::placeholder {
@@ -1788,21 +1790,21 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: var(--sp-2);
-    font-size: 12px;
+    margin-top: 4px;
+    font-size: 10px;
     color: var(--text-muted)
 }
 
 .list-tags {
     display: flex;
-    gap: var(--sp-1)
+    gap: 3px
 }
 
 .tag {
-    padding: 2px 7px;
+    padding: 1px 6px;
     background: var(--bg-elevated);
     border-radius: var(--r-xs);
-    font-size: var(--fs-xs);
+    font-size: 9px;
     font-weight: var(--fw-semi);
     color: var(--text-dim)
 }
@@ -2260,63 +2262,68 @@ textarea {
 
 /* ═══════ BACKUP MODAL ═══════ */
 .backup-modal {
-    width: 540px
+    width: 440px
 }
 
 .backup-modal .modal-header {
     display: flex;
     align-items: flex-start;
-    gap: var(--sp-3)
+    gap: var(--sp-2)
 }
 
 .backup-modal-icon {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--green-bg);
-    border-radius: var(--r-md);
+    border-radius: var(--r-sm);
     color: var(--green);
     flex-shrink: 0
+}
+
+.backup-modal-icon svg {
+    width: 20px;
+    height: 20px
 }
 
 .backup-meta {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--r-sm);
-    padding: 8px var(--sp-3);
-    font-size: var(--fs-sm);
+    border-radius: var(--r-xs);
+    padding: 6px 10px;
+    font-size: var(--fs-xs);
     color: var(--text-dim);
-    margin-bottom: var(--sp-3);
+    margin-bottom: var(--sp-2);
     font-family: var(--font-mono)
 }
 
 .backup-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--sp-2);
-    margin-bottom: var(--sp-4)
+    gap: 6px;
+    margin-bottom: var(--sp-3)
 }
 
 .backup-stat-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--r-sm);
-    padding: var(--sp-3);
+    border-radius: var(--r-xs);
+    padding: var(--sp-2);
     text-align: center
 }
 
 .backup-stat-card .stat-num {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: var(--fw-black);
     font-variant-numeric: tabular-nums;
     line-height: var(--lh-tight);
-    margin-bottom: var(--sp-1)
+    margin-bottom: 2px
 }
 
 .backup-stat-card .stat-name {
-    font-size: var(--fs-sm);
+    font-size: 9px;
     font-weight: var(--fw-bold);
     letter-spacing: var(--ls-wider);
     text-transform: uppercase;
@@ -2340,26 +2347,26 @@ textarea {
 }
 
 .backup-mode-label {
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     color: var(--text-muted);
-    margin-bottom: var(--sp-3)
+    margin-bottom: var(--sp-2)
 }
 
 .backup-modes {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--sp-3)
+    gap: var(--sp-2)
 }
 
 .backup-mode-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-4) var(--sp-3);
+    gap: 6px;
+    padding: var(--sp-3) var(--sp-2);
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    border-radius: var(--r-md);
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--t-base)
@@ -2370,13 +2377,13 @@ textarea {
 }
 
 .backup-mode-btn .mode-title {
-    font-size: var(--fs-md);
+    font-size: var(--fs-sm);
     font-weight: var(--fw-black);
     letter-spacing: 0.8px
 }
 
 .backup-mode-btn .mode-desc {
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     color: var(--text-dim)
 }
 
@@ -2411,31 +2418,31 @@ textarea {
 .backup-footer .btn-cancel {
     display: flex;
     align-items: center;
-    gap: var(--sp-1);
-    font-size: 12px;
+    gap: 3px;
+    font-size: var(--fs-xs);
     font-weight: var(--fw-bold);
     letter-spacing: 0.8px
 }
 
 /* ═══════ CHECKER MODAL ═══════ */
 .checker-modal {
-    max-width: 580px
+    max-width: 480px
 }
 
 .checker-body {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-3)
+    gap: var(--sp-2)
 }
 
 .checker-section {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2)
+    gap: 4px
 }
 
 .checker-label {
-    font-size: var(--fs-sm);
+    font-size: 9px;
     font-weight: var(--fw-bold);
     letter-spacing: 0.8px;
     color: var(--text-muted);
@@ -2444,13 +2451,13 @@ textarea {
 
 .checker-textarea {
     width: 100%;
-    padding: 8px 10px;
+    padding: 6px 8px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-xs);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     line-height: var(--lh-relaxed);
     resize: vertical;
     outline: none;
@@ -2458,8 +2465,8 @@ textarea {
 }
 
 .checker-textarea:focus {
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04)
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.05)
 }
 
 .checker-output-header {
@@ -2470,28 +2477,28 @@ textarea {
 
 .checker-output {
     width: 100%;
-    padding: var(--sp-3);
+    padding: var(--sp-2);
     background: var(--bg-primary);
     border: 1px solid var(--border-default);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-xs);
     color: var(--green);
     font-family: var(--font-mono);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
     line-height: var(--lh-relaxed);
-    min-height: 80px;
-    max-height: 180px;
+    min-height: 60px;
+    max-height: 150px;
     overflow-y: auto;
     white-space: pre-wrap;
     margin: 0
 }
 
 .btn-copy-sm {
-    padding: 4px 9px;
+    padding: 3px 7px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--r-xs);
     color: var(--text-secondary);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-weight: var(--fw-semi);
     cursor: pointer;
     transition: all var(--t-fast)
@@ -2645,12 +2652,12 @@ textarea {
 }
 
 .delete-warning {
-    padding: var(--sp-3) var(--sp-4);
+    padding: var(--sp-2) var(--sp-3);
     background: var(--red-bg);
     border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-xs);
     color: var(--text-primary);
-    font-size: var(--fs-base)
+    font-size: var(--fs-sm)
 }
 
 body.modal-open {
