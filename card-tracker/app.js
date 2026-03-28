@@ -188,11 +188,21 @@ function sortCards(cards, field, dir) {
                 va = `${a.name} ${a.surname}`.toLowerCase();
                 vb = `${b.name} ${b.surname}`.toLowerCase();
                 return mult * va.localeCompare(vb);
+            case 'notes':
+                va = (a.notes || '').toLowerCase(); vb = (b.notes || '').toLowerCase();
+                return mult * va.localeCompare(vb);
             case 'bin':
                 va = getBin(a.cardNumber); vb = getBin(b.cardNumber);
                 return mult * va.localeCompare(vb);
+            case 'type':
+                va = (a.docType || '').toLowerCase(); vb = (b.docType || '').toLowerCase();
+                return mult * va.localeCompare(vb);
             case 'amount':
                 va = parseFloat(a.amount) || 0; vb = parseFloat(b.amount) || 0;
+                return mult * (va - vb);
+            case 'status':
+                va = (a.verified ? 4 : 0) + (a.runAds ? 2 : 0) + (a.cardAdd ? 1 : 0);
+                vb = (b.verified ? 4 : 0) + (b.runAds ? 2 : 0) + (b.cardAdd ? 1 : 0);
                 return mult * (va - vb);
             case 'date':
                 va = a.date || ''; vb = b.date || '';
@@ -234,7 +244,9 @@ function getFilteredCards() {
             (c.name + ' ' + c.surname).toLowerCase().includes(s) ||
             c.cardNumber.includes(s) ||
             getBin(c.cardNumber).includes(s) ||
-            (c.notes || '').toLowerCase().includes(s)
+            (c.notes || '').toLowerCase().includes(s) ||
+            (c.mailVerify && 'v-cc'.includes(s)) ||
+            (c.mailSubmit && 's-doc'.includes(s))
         );
     }
     // Apply sorting
@@ -256,6 +268,21 @@ function getFilteredDocs() {
         docs = [...docs].sort((a, b) => {
             if (STATE.docSortField === 'name') {
                 return mult * (a.fullName || '').localeCompare(b.fullName || '');
+            }
+            if (STATE.docSortField === 'notes') {
+                return mult * (a.notes || '').localeCompare(b.notes || '');
+            }
+            if (STATE.docSortField === 'type') {
+                return mult * (a.type || '').localeCompare(b.type || '');
+            }
+            if (STATE.docSortField === 'geo') {
+                return mult * (a.country || '').localeCompare(b.country || '');
+            }
+            if (STATE.docSortField === 'use') {
+                return mult * ((a.use || 0) - (b.use || 0));
+            }
+            if (STATE.docSortField === 'vs') {
+                return mult * ((a.verified || 0) + (a.suspended || 0) - ((b.verified || 0) + (b.suspended || 0)));
             }
             if (STATE.docSortField === 'date') {
                 const pa = (a.date || '').split('.'); const pb = (b.date || '').split('.');
@@ -470,6 +497,17 @@ function renderContent() {
         const nameBadge = nameCount > 1 ? `<span class="name-count-badge ${getCountColor(nameCount)}">(${nameCount})</span>` : '';
         const binColorClass = getCountColor(bc);
 
+        const getMailBadge = (card) => {
+            if (card.mailNone) return '';
+            if (card.mailVerify || card.mailSubmit) {
+                let texts = [];
+                if (card.mailVerify) texts.push('V-CC');
+                if (card.mailSubmit) texts.push('S-DOC');
+                return `<span class="mail-badge" title="Mail Status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l6.2 4.6c1.1.8 2.5.8 3.6 0L20 7"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg> ${texts.join(' / ')}</span>`;
+            }
+            return '';
+        };
+
         return `
         <tr data-id="${c.id}">
             <td class="td-num">${idx}</td>
@@ -479,14 +517,15 @@ function renderContent() {
                         ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}
                         <span class="flag">${flag}</span>
                         ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${nameBadge}
+                        ${getMailBadge(c)}
                     </span>
                     <span class="card-number">${maskCard(c.cardNumber)}</span>
                 </div>
             </td>
-            <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}')">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
+            <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}', this)">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="bin-cell">${bin} <span class="bin-count ${binColorClass}">(${bc})</span></td>
             <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
-            <td class="amt-cell">${c.amount ? Number(c.amount).toLocaleString() : '-'}</td>
+            <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
             <td>
                 ${isTrash ? `
                     <button class="btn-secondary btn-restore" onclick="restoreCard('${c.id}')">Restore</button>
@@ -520,11 +559,11 @@ function renderContent() {
                 <tr>
                     <th>#</th>
                     <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
-                    <th>Notes</th>
+                    <th class="sortable" data-sort="notes">Notes ${sortIcon('notes')}</th>
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
-                    <th>Type</th>
+                    <th class="sortable" data-sort="type">Type ${sortIcon('type')}</th>
                     <th class="sortable" data-sort="amount">Amt ${sortIcon('amount')}</th>
-                    <th>Status</th>
+                    <th class="sortable" data-sort="status">Status ${sortIcon('status')}</th>
                     <th class="sortable" data-sort="date">Date ${sortIcon('date')}</th>
                     <th></th>
                 </tr>
@@ -572,6 +611,13 @@ function renderDocs() {
     const flag = country?.flag || '';
     const geoCode = STATE.currentCountry === 'canada' ? 'CA' : STATE.currentCountry === 'usa' ? 'US' : STATE.currentCountry.slice(0, 2).toUpperCase();
 
+    const getUseColor = (use) => {
+        if (!use) return '';
+        if (use <= 3) return 'color: var(--green)';
+        if (use <= 6) return 'color: var(--amber)';
+        return 'color: var(--red)';
+    };
+
     let rows = docs.map((d, i) => `
         <tr>
             <td class="td-num">${i + 1}</td>
@@ -583,10 +629,10 @@ function renderDocs() {
                     </span>
                 </div>
             </td>
-            <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}')">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
+            <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
-            <td class="use-cell">${d.use || 0}x</td>
+            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
             <td>
                 <div class="status-btns vs-counters">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')">${d.verified || 0}</span>
@@ -610,11 +656,11 @@ function renderDocs() {
                 <tr>
                     <th>#</th>
                     <th class="sortable-doc" data-sort="name">Name ${docSortIcon('name')}</th>
-                    <th>Notes</th>
-                    <th>Type</th>
-                    <th>Geo</th>
-                    <th>Use</th>
-                    <th>V / S</th>
+                    <th class="sortable-doc" data-sort="notes">Notes ${docSortIcon('notes')}</th>
+                    <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
+                    <th class="sortable-doc" data-sort="geo">Geo ${docSortIcon('geo')}</th>
+                    <th class="sortable-doc" data-sort="use">Use ${docSortIcon('use')}</th>
+                    <th class="sortable-doc" data-sort="vs">V / S ${docSortIcon('vs')}</th>
                     <th class="sortable-doc" data-sort="date">Date ${docSortIcon('date')}</th>
                     <th></th>
                 </tr>
@@ -1067,39 +1113,92 @@ function showMiniModal(title, label, currentValue, placeholder, callback) {
     overlay.addEventListener('click', onOverlayClick);
 }
 
-// ──── NOTE EDITING (unified) ────
-window.openInlineNote = function (cardId) {
+// ──── NOTE & AMOUNT EDITING (inline) ────
+window.openInlineNote = function (cardId, el) {
     const card = STATE.cards.find(c => c.id === cardId);
     if (!card) return;
-    showMiniModal(
-        'Edit Note',
-        card.name + ' ' + card.surname,
-        card.notes || '',
-        'Add note...',
-        (val) => {
-            card.notes = val.trim();
-            save();
-            renderAll();
-            if (val.trim()) toast('Note updated', 'success');
-        }
-    );
+    if (el.querySelector('input')) return;
+    
+    // Create input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = card.notes || '';
+    input.placeholder = 'Add note...';
+    
+    // Replace content
+    el.innerHTML = '';
+    el.appendChild(input);
+    input.focus();
+    
+    const saveNote = () => {
+        card.notes = input.value.trim();
+        save();
+        renderAll();
+    };
+    
+    input.addEventListener('blur', saveNote);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveNote();
+        else if (e.key === 'Escape') renderAll();
+    });
 };
 
-window.openDocNote = function (docId) {
+window.openDocNote = function (docId, el) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
-    showMiniModal(
-        'Edit Note',
-        doc.fullName,
-        doc.notes || '',
-        'Add note...',
-        (val) => {
-            doc.notes = val.trim();
-            save();
-            renderAll();
-            if (val.trim()) toast('Note updated', 'success');
-        }
-    );
+    if (el.querySelector('input')) return;
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = doc.notes || '';
+    input.placeholder = 'Add note...';
+    
+    el.innerHTML = '';
+    el.appendChild(input);
+    input.focus();
+    
+    const saveNote = () => {
+        doc.notes = input.value.trim();
+        save();
+        renderAll();
+    };
+    
+    input.addEventListener('blur', saveNote);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveNote();
+        else if (e.key === 'Escape') renderAll();
+    });
+};
+
+window.openInlineAmount = function(cardId, el) {
+    const card = STATE.cards.find(c => c.id === cardId);
+    if (!card) return;
+    if (el.querySelector('input')) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = card.amount || '';
+    input.placeholder = 'Amount';
+
+    el.innerHTML = '';
+    el.appendChild(input);
+    input.focus();
+
+    const saveAmount = () => {
+        const val = input.value.trim();
+        card.amount = val ? val : null;
+        save();
+        renderAll();
+    };
+
+    input.addEventListener('blur', saveAmount);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveAmount();
+        else if (e.key === 'Escape') renderAll();
+    });
 };
 
 
@@ -1298,12 +1397,24 @@ const editOverlay = document.getElementById('edit-modal-overlay');
 
 document.getElementById('add-card-btn').addEventListener('click', () => {
     if (STATE.currentView === 'docs') {
-        // Open the document modal
         openDocModal();
     } else {
         openAddModal();
     }
 });
+
+// Mail Checkboxes Mutually Exclusive Logic
+document.getElementById('form-mail-none').addEventListener('change', (e) => {
+    if (e.target.checked) {
+        document.getElementById('form-mail-verify').checked = false;
+        document.getElementById('form-mail-submit').checked = false;
+    }
+});
+const uncheckMailNone = () => {
+    document.getElementById('form-mail-none').checked = false;
+};
+document.getElementById('form-mail-verify').addEventListener('change', uncheckMailNone);
+document.getElementById('form-mail-submit').addEventListener('change', uncheckMailNone);
 
 function openAddModal() {
     resetForm();
@@ -1323,6 +1434,9 @@ function resetForm() {
     document.getElementById('form-status-add').checked = false;
     document.getElementById('form-status-ads').checked = false;
     document.getElementById('form-status-verify').checked = false;
+    document.getElementById('form-mail-verify').checked = false;
+    document.getElementById('form-mail-submit').checked = false;
+    document.getElementById('form-mail-none').checked = false;
     document.getElementById('card-type-badge').textContent = '';
     document.getElementById('list-textarea').value = '';
     document.getElementById('list-parsed-count').textContent = '0 cards detected';
@@ -1414,6 +1528,9 @@ document.getElementById('modal-save').addEventListener('click', () => {
             cardAdd: document.getElementById('form-status-add').checked,
             runAds: document.getElementById('form-status-ads').checked,
             verified: document.getElementById('form-status-verify').checked,
+            mailVerify: document.getElementById('form-mail-verify').checked,
+            mailSubmit: document.getElementById('form-mail-submit').checked,
+            mailNone: document.getElementById('form-mail-none').checked,
             suspended: false,
             starred: false,
             date: todayStr(),
@@ -1483,6 +1600,20 @@ document.getElementById('modal-cancel').addEventListener('click', () => modalOve
 modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.classList.add('hidden'); });
 
 // ──── EDIT MODAL ────
+
+// Edit Form Mail Exclusivity
+document.getElementById('edit-mail-none').addEventListener('change', (e) => {
+    if (e.target.checked) {
+        document.getElementById('edit-mail-verify').checked = false;
+        document.getElementById('edit-mail-submit').checked = false;
+    }
+});
+const uncheckEditMailNone = () => {
+    document.getElementById('edit-mail-none').checked = false;
+};
+document.getElementById('edit-mail-verify').addEventListener('change', uncheckEditMailNone);
+document.getElementById('edit-mail-submit').addEventListener('change', uncheckEditMailNone);
+
 function openEditModal(card) {
     document.getElementById('edit-id').value = card.id;
     document.getElementById('edit-name').value = card.name;
@@ -1495,6 +1626,9 @@ function openEditModal(card) {
     // edit-doc-type removed
     document.getElementById('edit-amount').value = card.amount;
     document.getElementById('edit-notes').value = card.notes || '';
+    document.getElementById('edit-mail-verify').checked = card.mailVerify || false;
+    document.getElementById('edit-mail-submit').checked = card.mailSubmit || false;
+    document.getElementById('edit-mail-none').checked = card.mailNone || false;
     editOverlay.classList.remove('hidden');
 }
 
@@ -1512,6 +1646,9 @@ document.getElementById('edit-save').addEventListener('click', () => {
         card.cvv = document.getElementById('edit-cvv').value;
         card.amount = document.getElementById('edit-amount').value;
         card.notes = document.getElementById('edit-notes').value;
+        card.mailVerify = document.getElementById('edit-mail-verify').checked;
+        card.mailSubmit = document.getElementById('edit-mail-submit').checked;
+        card.mailNone = document.getElementById('edit-mail-none').checked;
         save();
         editOverlay.classList.add('hidden');
         renderAll();
