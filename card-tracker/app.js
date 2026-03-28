@@ -1563,9 +1563,10 @@ function resetForm() {
     document.getElementById('card-type-badge').textContent = '';
     document.getElementById('list-textarea').value = '';
     document.getElementById('list-parsed-count').textContent = '0 cards detected';
-    // Reset to form tab
-    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('.modal-tab[data-tab="form"]').classList.add('active');
+    // Reset to form tab (scoped to card modal only)
+    const cardModal = document.getElementById('add-card-modal');
+    cardModal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    cardModal.querySelector('.modal-tab[data-tab="form"]').classList.add('active');
     document.getElementById('form-tab').classList.add('active');
     document.getElementById('list-tab').classList.remove('active');
     document.getElementById('save-btn-text').textContent = 'Add Card';
@@ -1584,11 +1585,12 @@ function populateCountrySelects() {
     docSel.innerHTML = '<option value="">Select...</option>' + countryDocs.map(d => `<option value="${d.id}">${d.fullName}</option>`).join('');
 }
 
-// Modal tabs
-document.querySelectorAll('.modal-tab').forEach(tab => {
+// Modal tabs (scoped to card modal only)
+const cardModalEl = document.getElementById('add-card-modal');
+cardModalEl.querySelectorAll('.modal-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        cardModalEl.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+        cardModalEl.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab + '-tab').classList.add('active');
 
