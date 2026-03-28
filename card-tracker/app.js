@@ -30,6 +30,106 @@ const STATE = {
 
 const CREDENTIALS = { username: 'admin', password: 'google2026' };
 
+// ──── BIN CACHE (RustBin API) ────
+let BIN_CACHE = {};
+
+function loadBinCache() {
+    try {
+        const raw = localStorage.getItem('ct_bin_cache');
+        if (raw) BIN_CACHE = JSON.parse(raw);
+    } catch { BIN_CACHE = {}; }
+}
+
+function saveBinCache() {
+    try {
+        localStorage.setItem('ct_bin_cache', JSON.stringify(BIN_CACHE));
+    } catch { /* quota exceeded — ignore */ }
+}
+
+function getBinInfo(bin) {
+    return BIN_CACHE[bin] || null;
+}
+
+async function lookupBin(bin) {
+    if (!bin || bin.length < 6) return null;
+    const key = bin.slice(0, 6);
+    // Return from cache
+    if (BIN_CACHE[key]) return BIN_CACHE[key];
+    
+    const apiUrl = `https://rustbin.site/api/?bin=${key}`;
+    
+    // Strategy 1: Direct fetch (works when served from http server)
+    try {
+        const resp = await fetch(apiUrl);
+        if (resp.status === 404) {
+            BIN_CACHE[key] = { bin: key, brand: '', type: '', level: '', bank: '', country: '', error: true };
+            saveBinCache();
+            return BIN_CACHE[key];
+        }
+        if (resp.ok) {
+            const data = await resp.json();
+            return _cacheBinData(key, data);
+        }
+    } catch { /* CORS blocked — try proxies */ }
+    
+    // Strategy 2: allorigins.win proxy (wraps response)
+    try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+        const resp = await fetch(proxyUrl);
+        if (resp.ok) {
+            const wrapper = await resp.json();
+            if (wrapper.contents) {
+                const data = JSON.parse(wrapper.contents);
+                return _cacheBinData(key, data);
+            }
+        }
+    } catch { /* try next */ }
+    
+    // Strategy 3: corsproxy.io
+    try {
+        const resp = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            return _cacheBinData(key, data);
+        }
+    } catch { /* try next */ }
+
+    // Strategy 4: api.codetabs.com
+    try {
+        const resp = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            return _cacheBinData(key, data);
+        }
+    } catch { /* all proxies failed */ }
+    
+    return null;
+}
+
+function _cacheBinData(key, data) {
+    BIN_CACHE[key] = {
+        bin: data.bin || key,
+        brand: data.brand || '',
+        type: data.type || '',
+        level: data.level || '',
+        bank: data.bank || '',
+        country: data.country || '',
+        phone: data.phone || '',
+        url: data.url || '',
+    };
+    saveBinCache();
+    return BIN_CACHE[key];
+}
+
+function formatBinInfoText(info) {
+    if (!info || info.error) return '';
+    const parts = [];
+    if (info.brand) parts.push(info.brand);
+    if (info.type) parts.push(info.type);
+    if (info.bank) parts.push(info.bank);
+    return parts.join(' • ');
+}
+
 // ──── COUNTRY DATABASE (ISO 3166-1 alpha-2) ────
 function isoToFlag(code) {
     return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(0x1F1E6 - 65 + ch.charCodeAt(0)));
@@ -127,6 +227,7 @@ function save() {
     localStorage.setItem('ct_notes', STATE.notes);
     localStorage.setItem('ct_trash', JSON.stringify(STATE.trash));
     localStorage.setItem('ct_countries', JSON.stringify(STATE.countries));
+    saveBinCache();
 }
 
 function load() {
@@ -138,6 +239,7 @@ function load() {
         const saved = localStorage.getItem('ct_countries');
         if (saved) STATE.countries = JSON.parse(saved);
     } catch { /* ignore corrupt data */ }
+    loadBinCache();
 }
 
 // ──── AUTO DOC CREATION ────
@@ -520,6 +622,7 @@ function renderContent() {
                         ${getMailBadge(c)}
                     </span>
                     <span class="card-number">${maskCard(c.cardNumber)}</span>
+                    ${(() => { const info = getBinInfo(getBin(c.cardNumber)); const txt = formatBinInfoText(info); return txt ? `<span class="bin-info">${txt}</span>` : `<span class="bin-info" data-bin="${getBin(c.cardNumber)}"></span>`; })()}
                 </div>
             </td>
             <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}', this)">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
@@ -587,6 +690,27 @@ function renderContent() {
     });
 
     renderFooter(cards.length, STATE.page, totalPages);
+
+    // Async BIN lookup for uncached rows
+    const uncachedEls = area.querySelectorAll('.bin-info[data-bin]');
+    if (uncachedEls.length > 0) {
+        const uniqueBins = [...new Set(Array.from(uncachedEls).map(el => el.dataset.bin))];
+        uniqueBins.forEach((bin, i) => {
+            // Stagger requests to respect API rate limit (25/min)
+            setTimeout(() => {
+                lookupBin(bin).then(info => {
+                    if (!info) return;
+                    const txt = formatBinInfoText(info);
+                    document.querySelectorAll(`.bin-info[data-bin="${bin}"]`).forEach(el => {
+                        if (txt) {
+                            el.textContent = txt;
+                            el.removeAttribute('data-bin');
+                        }
+                    });
+                });
+            }, i * 200); // 200ms delay between each unique BIN request
+        });
+    }
 }
 
 function renderDocs() {
@@ -1561,6 +1685,9 @@ function resetForm() {
     document.getElementById('form-mail-submit').checked = false;
     document.getElementById('form-mail-none').checked = false;
     document.getElementById('card-type-badge').textContent = '';
+    // Clear BIN info form element if present
+    const binFormEl = document.getElementById('card-type-badge')?.parentElement?.querySelector('.bin-info-form');
+    if (binFormEl) binFormEl.remove();
     document.getElementById('list-textarea').value = '';
     document.getElementById('list-parsed-count').textContent = '0 cards detected';
     // Reset to form tab (scoped to card modal only)
@@ -1599,17 +1726,63 @@ cardModalEl.querySelectorAll('.modal-tab').forEach(tab => {
     });
 });
 
-// Card number formatting
+// Card number formatting + BIN lookup
 document.getElementById('form-card').addEventListener('input', function () {
     this.value = formatCardInput(this.value);
     const type = getCardType(this.value);
     document.getElementById('card-type-badge').textContent = type;
+    // BIN lookup when 6+ digits typed
+    const digits = this.value.replace(/\s/g, '');
+    if (digits.length >= 6) {
+        const bin = digits.slice(0, 6);
+        const cached = getBinInfo(bin);
+        if (cached) {
+            showFormBinInfo(cached, 'card-type-badge');
+        } else {
+            lookupBin(bin).then(info => {
+                if (info) showFormBinInfo(info, 'card-type-badge');
+            });
+        }
+    }
 });
+
+function showFormBinInfo(info, badgeId) {
+    const badge = document.getElementById(badgeId);
+    if (!badge || !info || info.error) return;
+    const parts = [];
+    if (info.brand) parts.push(info.brand);
+    if (info.type) parts.push(info.type);
+    badge.textContent = parts.join(' • ');
+    // Show bank name below
+    let bankEl = badge.parentElement.querySelector('.bin-info-form');
+    if (!bankEl) {
+        bankEl = document.createElement('span');
+        bankEl.className = 'bin-info-form';
+        badge.parentElement.appendChild(bankEl);
+    }
+    const bankParts = [];
+    if (info.bank) bankParts.push(info.bank);
+    if (info.country) bankParts.push(info.country);
+    bankEl.textContent = bankParts.join(' • ');
+}
 
 document.getElementById('edit-card')?.addEventListener('input', function () {
     this.value = formatCardInput(this.value);
     const type = getCardType(this.value);
     document.getElementById('edit-card-type-badge').textContent = type;
+    // BIN lookup
+    const digits = this.value.replace(/\s/g, '');
+    if (digits.length >= 6) {
+        const bin = digits.slice(0, 6);
+        const cached = getBinInfo(bin);
+        if (cached) {
+            showFormBinInfo(cached, 'edit-card-type-badge');
+        } else {
+            lookupBin(bin).then(info => {
+                if (info) showFormBinInfo(info, 'edit-card-type-badge');
+            });
+        }
+    }
 });
 
 // List parsing
@@ -1767,6 +1940,22 @@ function openEditModal(card) {
     document.getElementById('edit-mail-verify').checked = card.mailVerify || false;
     document.getElementById('edit-mail-submit').checked = card.mailSubmit || false;
     document.getElementById('edit-mail-none').checked = card.mailNone || false;
+    // Clear old BIN info form element in edit modal
+    const editBinEl = document.getElementById('edit-card-type-badge')?.parentElement?.querySelector('.bin-info-form');
+    if (editBinEl) editBinEl.remove();
+    // Show BIN info for existing card
+    const digits = card.cardNumber.replace(/\s/g, '');
+    if (digits.length >= 6) {
+        const bin = digits.slice(0, 6);
+        const cached = getBinInfo(bin);
+        if (cached) {
+            showFormBinInfo(cached, 'edit-card-type-badge');
+        } else {
+            lookupBin(bin).then(info => {
+                if (info) showFormBinInfo(info, 'edit-card-type-badge');
+            });
+        }
+    }
     editOverlay.classList.remove('hidden');
 }
 
@@ -2170,6 +2359,11 @@ function executeBackupImport(mode) {
         }
     }
 
+    // Import BIN cache
+    if (data.binCache && typeof data.binCache === 'object') {
+        Object.assign(BIN_CACHE, data.binCache);
+    }
+
     save();
     backupOverlay.classList.add('hidden');
     pendingBackup = null;
@@ -2195,6 +2389,7 @@ document.getElementById('backup-btn').addEventListener('click', () => {
         mycards: STATE.cards.map(c => ({ ...c, added_to_google: c.cardAdd, ads_running: c.runAds })),
         mydocuments: STATE.docs,
         notes: { id: 'main', content: STATE.notes },
+        binCache: BIN_CACHE,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
