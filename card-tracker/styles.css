@@ -2861,6 +2861,240 @@ tr:hover .bin-info:not(:empty) {
     letter-spacing: 0.5px
 }
 
+/* ═══════ PARSER UI ═══════ */
+.parser-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    padding: var(--sp-4) 0
+}
+
+.parser-upload-zone {
+    border: 2px dashed var(--border-default);
+    border-radius: var(--r-md);
+    padding: var(--sp-6);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--t-fast)
+}
+
+.parser-upload-zone:hover,
+.parser-upload-zone.drag-over {
+    border-color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.05)
+}
+
+.parser-upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-dim)
+}
+
+.parser-upload-content svg {
+    color: var(--text-dim)
+}
+
+.parser-upload-title {
+    font-size: var(--fs-md);
+    font-weight: var(--fw-semi);
+    color: var(--text-secondary)
+}
+
+.parser-upload-hint {
+    font-size: var(--fs-xs);
+    color: var(--text-dim)
+}
+
+.parser-filters {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3)
+}
+
+.parser-filter-row {
+    display: flex;
+    gap: var(--sp-3);
+    flex-wrap: wrap
+}
+
+.parser-filter-group {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1)
+}
+
+.parser-filter-group label {
+    font-size: var(--fs-xs);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: var(--fw-bold)
+}
+
+.parser-hint {
+    text-transform: none;
+    font-weight: var(--fw-normal);
+    color: var(--text-dim);
+    opacity: 0.6
+}
+
+.parser-filter-group textarea,
+.parser-filter-group input[type="text"],
+.parser-filter-group input[type="date"] {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-sm);
+    padding: var(--sp-2);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
+    resize: vertical
+}
+
+.parser-filter-group textarea:focus,
+.parser-filter-group input:focus {
+    outline: none;
+    border-color: var(--accent-blue)
+}
+
+.parser-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none
+}
+
+.parser-checkbox input[type="checkbox"] {
+    accent-color: var(--accent-blue)
+}
+
+.parser-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3)
+}
+
+.parser-parse-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-5) !important;
+    font-size: var(--fs-sm) !important
+}
+
+.parser-parse-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed
+}
+
+.parser-status {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary)
+}
+
+.parser-stats {
+    display: flex;
+    gap: var(--sp-3);
+    flex-wrap: wrap
+}
+
+.parser-stats .stat-card {
+    flex: 1;
+    min-width: 120px
+}
+
+.parser-bin-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-md);
+    margin-bottom: var(--sp-3)
+}
+
+.parser-bin-title {
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    font-weight: var(--fw-bold);
+    margin-right: var(--sp-2)
+}
+
+.parser-bin-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-default);
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary)
+}
+
+.parser-bin-chip b {
+    color: #22C55E;
+    font-weight: var(--fw-black)
+}
+
+.parser-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-2) 0;
+    margin-bottom: var(--sp-2)
+}
+
+.parser-add-section {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3)
+}
+
+.parser-add-section select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-sm);
+    padding: var(--sp-2) var(--sp-3);
+    color: var(--text-primary);
+    font-size: var(--fs-sm)
+}
+
+.parser-add-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2)
+}
+
+.parser-table {
+    max-height: 500px;
+    overflow-y: auto
+}
+
+.parser-table tr.selected {
+    background: rgba(34, 197, 94, 0.05)
+}
+
+.parser-table input[type="checkbox"] {
+    accent-color: #22C55E;
+    cursor: pointer
+}
+
+
 /* ═══════ DENSITY SWITCHER UI ═══════ */
 .density-switcher {
     display: flex;
