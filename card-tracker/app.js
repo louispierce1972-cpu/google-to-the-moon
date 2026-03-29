@@ -2500,6 +2500,7 @@ countryCodeInput.addEventListener('keydown', (e) => {
 // ──── LOGOUT ────
 document.getElementById('logout-btn').addEventListener('click', () => {
     STATE.user = null;
+    localStorage.removeItem('ct_session');
     document.getElementById('app').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
     document.getElementById('login-user').value = '';
@@ -2515,6 +2516,7 @@ function doLogin() {
 
     if (user === CREDENTIALS.username && pass === CREDENTIALS.password) {
         STATE.user = user;
+        localStorage.setItem('ct_session', JSON.stringify({ user, ts: Date.now() }));
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         load();
@@ -2537,6 +2539,20 @@ document.querySelector('.btn-login').addEventListener('click', (e) => {
     e.preventDefault();
     doLogin();
 });
+
+// ──── AUTO-LOGIN (session persistence) ────
+(function autoLogin() {
+    try {
+        const session = JSON.parse(localStorage.getItem('ct_session'));
+        if (session && session.user) {
+            STATE.user = session.user;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            load();
+            navigate('cards', 'canada');
+        }
+    } catch(e) { /* no valid session */ }
+})();
 
 // ──── KEYBOARD SHORTCUTS ────
 document.addEventListener('keydown', (e) => {
