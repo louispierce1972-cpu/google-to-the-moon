@@ -4,37 +4,37 @@
 
 :root {
     /* ── Colors ── */
-    --bg-primary: #000000;
-    --bg-secondary: #0a0a0a;
-    --bg-card: #0a0a0a;
-    --bg-elevated: #111111;
-    --bg-hover: #161616;
-    --bg-active: #1c1c1c;
+    --bg-primary: #0B0B0C;
+    --bg-secondary: #0E0F10;
+    --bg-card: #0E0F10;
+    --bg-elevated: #141517;
+    --bg-hover: #111214;
+    --bg-active: #1A1B1E;
 
-    --border-subtle: rgba(255, 255, 255, 0.06);
-    --border-default: #222222;
-    --border-hover: rgba(255, 255, 255, 0.14);
-    --border-focus: rgba(255, 255, 255, 0.22);
+    --border-subtle: #1F2226;
+    --border-default: #1F2226;
+    --border-hover: #2A2D32;
+    --border-focus: #3A3D42;
 
-    --text-primary: #f0f0f0;
-    --text-secondary: #b0b0b0;
-    --text-muted: #808080;
-    --text-dim: #4a4a4a;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1AA;
+    --text-muted: #6B7280;
+    --text-dim: #3F4451;
 
-    --accent: #d4d4d4;
-    --accent-hover: #ffffff;
+    --accent: #FFFFFF;
+    --accent-hover: #FFFFFF;
 
-    --green: #22c55e;
-    --green-bg: rgba(34, 197, 94, 0.12);
-    --red: #ef4444;
-    --red-bg: rgba(239, 68, 68, 0.10);
-    --amber: #f59e0b;
+    --green: #22C55E;
+    --green-bg: rgba(34, 197, 94, 0.15);
+    --red: #EF4444;
+    --red-bg: rgba(239, 68, 68, 0.12);
+    --amber: #F59E0B;
     --amber-bg: rgba(245, 158, 11, 0.12);
-    --blue: #3b82f6;
+    --blue: #3B82F6;
     --blue-bg: rgba(59, 130, 246, 0.12);
-    --cyan: #06b6d4;
-    --purple: #a855f7;
-    --pink: #ec4899;
+    --cyan: #38BDF8;
+    --purple: #A855F7;
+    --pink: #EC4899;
 
     /* ── Sizing ── */
     --sidebar-w: 232px;
@@ -878,9 +878,9 @@ textarea {
 .btn-cancel {
     padding: 6px 12px;
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid #1F2226;
     border-radius: var(--r-sm);
-    color: var(--text-dim);
+    color: #A1A1AA;
     font-size: var(--fs-xs);
     font-weight: var(--fw-semi);
     cursor: pointer;
@@ -946,7 +946,7 @@ textarea {
 }
 
 .stat-card.total::before {
-    background: linear-gradient(90deg, #888, #555)
+    background: linear-gradient(90deg, #FFFFFF, #A1A1AA)
 }
 
 .stat-card.verified::before {
@@ -958,7 +958,7 @@ textarea {
 }
 
 .stat-card.card-add::before {
-    background: linear-gradient(90deg, var(--blue), var(--cyan))
+    background: linear-gradient(90deg, var(--green), var(--cyan))
 }
 
 .stat-card.run-ads::before {
@@ -1013,7 +1013,7 @@ textarea {
 }
 
 .stat-card.card-add .stat-value {
-    color: var(--green)
+    color: #22C55E
 }
 
 .stat-card.run-ads .stat-value {
@@ -1021,7 +1021,7 @@ textarea {
 }
 
 .stat-card.active-stat .stat-value {
-    color: var(--cyan)
+    color: #38BDF8
 }
 
 .stat-card.top-cards .stat-value {
@@ -1141,7 +1141,7 @@ textarea {
 .card-number {
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     letter-spacing: 0.8px
 }
 
@@ -1149,7 +1149,8 @@ textarea {
 .bin-cell {
     font-family: var(--font-mono);
     font-weight: var(--fw-semi);
-    font-size: var(--fs-base)
+    font-size: var(--fs-base);
+    color: #FFFFFF
 }
 
 .bin-count {
@@ -1194,11 +1195,11 @@ textarea {
     transform: scale(0.9)
 }
 
-/* A = Card Add: green when ON, dim red OFF */
+/* A = Card Add: green when ON */
 .status-btn.btn-a.active {
-    background: rgba(34, 197, 94, 0.20);
+    background: rgba(34, 197, 94, 0.15);
     border-color: rgba(34, 197, 94, 0.4);
-    color: #4ade80
+    color: #22C55E
 }
 
 .status-btn.btn-a:not(.active) {
@@ -1207,25 +1208,25 @@ textarea {
     color: var(--text-dim)
 }
 
-/* R = Run Ads: green when ON, red OFF */
+/* R = Run Ads: red when ON, dim OFF */
 .status-btn.btn-r.active {
-    background: rgba(34, 197, 94, 0.20);
-    border-color: rgba(34, 197, 94, 0.4);
-    color: #4ade80
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #EF4444
 }
 
 .status-btn.btn-r:not(.active) {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.25);
-    color: #f87171
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: rgba(239, 68, 68, 0.5)
 }
 
-/* V = Verified: amber/orange toggle */
+/* V = Verified: amber/yellow toggle */
 .status-btn.btn-v.active,
 .status-btn.btn-v.verified {
-    background: rgba(245, 158, 11, 0.18);
-    border-color: rgba(245, 158, 11, 0.4);
-    color: #fbbf24
+    background: rgba(251, 191, 36, 0.15);
+    border-color: rgba(251, 191, 36, 0.4);
+    color: #FBBF24
 }
 
 .status-btn.btn-v:not(.active):not(.verified) {
@@ -1276,12 +1277,13 @@ textarea {
     font-family: var(--font-mono);
     font-weight: var(--fw-semi);
     font-size: var(--fs-base);
-    min-width: 60px
+    min-width: 60px;
+    color: #FFFFFF
 }
 
 .date-cell {
     font-size: 12px;
-    color: var(--text-muted)
+    color: #FFFFFF
 }
 
 /* More button */
@@ -1304,7 +1306,7 @@ textarea {
 
 /* Notes & Use */
 .note-indicator {
-    color: var(--text-muted);
+    color: #FFFFFF;
     font-size: 12px;
     max-width: 180px;
     min-width: 60px;
@@ -1314,7 +1316,7 @@ textarea {
 
 .use-cell {
     font-size: 12px;
-    color: var(--text-muted);
+    color: #FFFFFF;
     font-weight: var(--fw-semi)
 }
 
@@ -1421,8 +1423,8 @@ textarea {
 }
 
 .modal {
-    background: #0c0c0c;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #0E0F10;
+    border: 1px solid #1F2226;
     border-radius: 10px;
     width: 420px;
     max-width: 92vw;
@@ -1430,7 +1432,7 @@ textarea {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02);
     animation: modalIn .22s cubic-bezier(0.16, 1, 0.3, 1)
 }
 
@@ -1493,7 +1495,7 @@ textarea {
 .modal-tab {
     flex: 1;
     padding: 5px var(--sp-2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid #1F2226;
     background: transparent;
     color: var(--text-muted);
     font-size: var(--fs-xs);
@@ -2152,15 +2154,15 @@ textarea {
 }
 
 .doc-type-badge.dl {
-    background: rgba(59, 130, 246, 0.18);
-    color: #60a5fa;
-    border: 1px solid rgba(59, 130, 246, 0.3)
+    background: rgba(59, 130, 246, 0.15);
+    color: #60A5FA;
+    border: 1px solid rgba(59, 130, 246, 0.25)
 }
 
 .doc-type-badge.pp {
-    background: rgba(168, 85, 247, 0.18);
-    color: #c084fc;
-    border: 1px solid rgba(168, 85, 247, 0.3)
+    background: rgba(168, 85, 247, 0.15);
+    color: #C084FC;
+    border: 1px solid rgba(168, 85, 247, 0.25)
 }
 
 .doc-type-badge:hover {
@@ -2726,35 +2728,35 @@ body.modal-open {
     }
 }
 #badge-my-card, #badge-favorites, #badge-active {
-    color: var(--amber);
+    color: #FACC15;
 }
 
 .mail-badge {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    background: rgba(250, 204, 21, 0.1);
+    background: rgba(255, 204, 0, 0.15);
     padding: 1px 6px;
     border-radius: 3px;
     font-size: 10px;
     font-weight: var(--fw-bold);
-    color: #facc15;
+    color: #FFCC00;
     letter-spacing: 0.4px;
     margin-left: 6px;
     line-height: 16px;
-    border: 1px solid rgba(250, 204, 21, 0.15)
+    border: 1px solid rgba(255, 204, 0, 0.2)
 }
 
 .mail-badge svg {
     width: 12px;
     height: 12px;
-    color: #facc15;
+    color: rgba(255, 204, 0, 0.7);
     flex-shrink: 0
 }
 
 /* ═══════ NEW ROW HIGHLIGHT ═══════ */
 @keyframes rowHighlight {
-    0%   { background: rgba(250, 204, 21, 0.08) }
+    0%   { background: rgba(255, 255, 255, 0.06) }
     100% { background: transparent }
 }
 
@@ -2779,18 +2781,18 @@ body.modal-open {
 }
 
 .bin-info:not(:empty) {
-    color: rgba(250, 204, 21, 0.45)
+    color: rgba(161, 161, 170, 0.7)
 }
 
 tr:hover .bin-info:not(:empty) {
-    color: rgba(250, 204, 21, 0.7)
+    color: #A1A1AA
 }
 
 .bin-info-form {
     display: block;
     font-size: 10px;
     font-weight: var(--fw-semi);
-    color: rgba(250, 204, 21, 0.5);
+    color: #A1A1AA;
     letter-spacing: 0.3px;
     margin-top: 4px;
     line-height: 1.2
