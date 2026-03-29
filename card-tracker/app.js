@@ -2757,3 +2757,28 @@ deleteConfirmBtn.addEventListener('click', () => {
     renderAll();
     toast('Project deleted', 'info');
 });
+
+// ──── VIEW DENSITY SYSTEM ────
+(function initDensity() {
+    const app = document.querySelector('.app');
+    const saved = localStorage.getItem('ct_density') || 'default';
+    applyDensity(saved);
+
+    document.getElementById('density-switcher').addEventListener('click', (e) => {
+        const btn = e.target.closest('.density-btn');
+        if (!btn) return;
+        const density = btn.dataset.density;
+        applyDensity(density);
+        localStorage.setItem('ct_density', density);
+    });
+
+    function applyDensity(density) {
+        app.classList.remove('density-compact', 'density-comfortable');
+        if (density === 'compact') app.classList.add('density-compact');
+        if (density === 'comfortable') app.classList.add('density-comfortable');
+
+        document.querySelectorAll('.density-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.density === density);
+        });
+    }
+})();

@@ -2860,3 +2860,251 @@ tr:hover .bin-info:not(:empty) {
     font-weight: var(--fw-bold);
     letter-spacing: 0.5px
 }
+
+/* ═══════ DENSITY SWITCHER UI ═══════ */
+.density-switcher {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-sm);
+    padding: 2px;
+    flex-shrink: 0
+}
+
+.density-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all var(--t-fast)
+}
+
+.density-btn:hover {
+    color: var(--text-secondary);
+    background: var(--bg-hover)
+}
+
+.density-btn.active {
+    color: #FFFFFF;
+    background: var(--bg-hover)
+}
+
+/* ═══════ VIEW DENSITY: COMPACT ═══════ */
+.app.density-compact .data-table td {
+    padding: 2px var(--sp-2);
+    height: 30px;
+    font-size: 11px
+}
+
+.app.density-compact .data-table thead th {
+    padding: var(--sp-1) var(--sp-2);
+    font-size: 9px
+}
+
+.app.density-compact .card-name {
+    font-size: 11px
+}
+
+.app.density-compact .card-number {
+    font-size: 10px
+}
+
+.app.density-compact .bin-info {
+    font-size: 8px
+}
+
+.app.density-compact .bin-cell {
+    font-size: 11px
+}
+
+.app.density-compact .bin-count {
+    font-size: 9px
+}
+
+.app.density-compact .amt-cell {
+    font-size: 11px
+}
+
+.app.density-compact .date-cell {
+    font-size: 10px
+}
+
+.app.density-compact .note-indicator {
+    font-size: 11px
+}
+
+.app.density-compact .td-num {
+    font-size: 10px
+}
+
+.app.density-compact .status-btn {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    font-size: 9px
+}
+
+.app.density-compact .status-btn.btn-vcc,
+.app.density-compact .status-btn.btn-sdoc {
+    font-size: 8px;
+    min-width: 26px;
+    height: 22px;
+    padding: 0 3px
+}
+
+.app.density-compact .status-btns {
+    min-width: 70px;
+    gap: 3px
+}
+
+.app.density-compact .mail-tags {
+    gap: 3px
+}
+
+.app.density-compact .doc-type-badge {
+    font-size: 9px;
+    padding: 1px 5px
+}
+
+.app.density-compact .star-btn {
+    font-size: 11px
+}
+
+.app.density-compact .card-cell {
+    gap: 1px
+}
+
+.app.density-compact .editable-amt,
+.app.density-compact .editable-note {
+    min-height: 16px;
+    line-height: 16px
+}
+
+.app.density-compact .stats-bar {
+    padding: var(--sp-2) var(--sp-5);
+    gap: var(--sp-2)
+}
+
+.app.density-compact .stat-card {
+    padding: var(--sp-2) var(--sp-3)
+}
+
+.app.density-compact .stat-label {
+    font-size: 8px;
+    margin-bottom: 0
+}
+
+.app.density-compact .stat-value {
+    font-size: 20px
+}
+
+/* ═══════ VIEW DENSITY: COMFORTABLE ═══════ */
+.app.density-comfortable .data-table td {
+    padding: var(--sp-3) var(--sp-3);
+    height: 54px;
+    font-size: var(--fs-md)
+}
+
+.app.density-comfortable .data-table thead th {
+    padding: var(--sp-3) var(--sp-3);
+    font-size: var(--fs-sm)
+}
+
+.app.density-comfortable .card-name {
+    font-size: var(--fs-md)
+}
+
+.app.density-comfortable .card-number {
+    font-size: var(--fs-base)
+}
+
+.app.density-comfortable .bin-info {
+    font-size: 10px
+}
+
+.app.density-comfortable .bin-cell {
+    font-size: var(--fs-md)
+}
+
+.app.density-comfortable .bin-count {
+    font-size: var(--fs-sm)
+}
+
+.app.density-comfortable .amt-cell {
+    font-size: var(--fs-md)
+}
+
+.app.density-comfortable .date-cell {
+    font-size: var(--fs-base)
+}
+
+.app.density-comfortable .note-indicator {
+    font-size: var(--fs-md)
+}
+
+.app.density-comfortable .td-num {
+    font-size: var(--fs-base)
+}
+
+.app.density-comfortable .status-btn {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    font-size: var(--fs-sm)
+}
+
+.app.density-comfortable .status-btn.btn-vcc,
+.app.density-comfortable .status-btn.btn-sdoc {
+    font-size: 10px;
+    min-width: 38px;
+    height: 30px;
+    padding: 0 6px
+}
+
+.app.density-comfortable .status-btns {
+    min-width: 100px;
+    gap: 5px
+}
+
+.app.density-comfortable .mail-tags {
+    gap: 5px
+}
+
+.app.density-comfortable .doc-type-badge {
+    font-size: var(--fs-sm);
+    padding: 3px 10px
+}
+
+.app.density-comfortable .star-btn {
+    font-size: 16px
+}
+
+.app.density-comfortable .card-cell {
+    gap: 4px
+}
+
+.app.density-comfortable .stats-bar {
+    padding: var(--sp-5) var(--sp-5);
+    gap: var(--sp-4)
+}
+
+.app.density-comfortable .stat-card {
+    padding: var(--sp-5) var(--sp-6)
+}
+
+.app.density-comfortable .stat-label {
+    font-size: var(--fs-sm);
+    margin-bottom: var(--sp-1)
+}
+
+.app.density-comfortable .stat-value {
+    font-size: 30px
+}

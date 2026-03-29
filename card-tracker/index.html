@@ -142,6 +142,17 @@
                         <input type="text" id="search-input" placeholder="Global Search — name, card, doc..." class="search-input" autocomplete="off">
                         <div id="global-search-results" class="global-search-results hidden"></div>
                     </div>
+                    <div class="density-switcher" id="density-switcher" title="View Density">
+                        <button class="density-btn" data-density="compact" title="Compact">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="2" y="3" width="12" height="1.5" rx="0.5"/><rect x="2" y="6.5" width="12" height="1.5" rx="0.5"/><rect x="2" y="10" width="12" height="1.5" rx="0.5"/></svg>
+                        </button>
+                        <button class="density-btn active" data-density="default" title="Default">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="2" y="2" width="12" height="2" rx="0.5"/><rect x="2" y="7" width="12" height="2" rx="0.5"/><rect x="2" y="12" width="12" height="2" rx="0.5"/></svg>
+                        </button>
+                        <button class="density-btn" data-density="comfortable" title="Comfortable">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="2" y="1" width="12" height="3" rx="0.5"/><rect x="2" y="6.5" width="12" height="3" rx="0.5"/><rect x="2" y="12" width="12" height="3" rx="0.5"/></svg>
+                        </button>
+                    </div>
                     <button id="add-card-btn" class="btn-primary" style="display:none;">
                         <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                         <span id="add-btn-text">ADD</span>
