@@ -633,7 +633,10 @@ function renderContent() {
             <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
             <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
             <td class="mail-cell">
-                ${c.mailNone ? '' : `<div class="mail-tags">${c.mailVerify ? `<span class="mail-tag vcc" onclick="toggleMailTag('${c.id}','mailVerify')" title="Verify Card">V-CC</span>` : ''}${c.mailSubmit ? `<span class="mail-tag sdoc" onclick="toggleMailTag('${c.id}','mailSubmit')" title="Submit Documents">S-DOC</span>` : ''}${!c.mailVerify && !c.mailSubmit ? '<span class="mail-tag-empty">—</span>' : ''}</div>`}
+                <div class="mail-tags">
+                    <button class="status-btn btn-vcc ${c.mailVerify ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailVerify')" title="Verify Card">V-CC</button>
+                    <button class="status-btn btn-sdoc ${c.mailSubmit ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailSubmit')" title="Submit Documents">S-DOC</button>
+                </div>
             </td>
             <td>
                 ${isTrash ? `
