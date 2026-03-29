@@ -306,6 +306,10 @@ function sortCards(cards, field, dir) {
                 va = (a.verified ? 4 : 0) + (a.runAds ? 2 : 0) + (a.cardAdd ? 1 : 0);
                 vb = (b.verified ? 4 : 0) + (b.runAds ? 2 : 0) + (b.cardAdd ? 1 : 0);
                 return mult * (va - vb);
+            case 'mail':
+                va = (a.mailVerify ? 2 : 0) + (a.mailSubmit ? 1 : 0);
+                vb = (b.mailVerify ? 2 : 0) + (b.mailSubmit ? 1 : 0);
+                return mult * (va - vb);
             case 'date':
                 va = a.date || ''; vb = b.date || '';
                 // DD.MM.YY → sortable
@@ -619,7 +623,6 @@ function renderContent() {
                         ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}
                         <span class="flag">${flag}</span>
                         ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${nameBadge}
-                        ${getMailBadge(c)}
                     </span>
                     <span class="card-number">${maskCard(c.cardNumber)}</span>
                     ${(() => { const info = getBinInfo(getBin(c.cardNumber)); const txt = formatBinInfoText(info); return txt ? `<span class="bin-info">${txt}</span>` : `<span class="bin-info" data-bin="${getBin(c.cardNumber)}"></span>`; })()}
@@ -629,6 +632,9 @@ function renderContent() {
             <td class="bin-cell">${bin} <span class="bin-count ${binColorClass}">(${bc})</span></td>
             <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
             <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
+            <td class="mail-cell">
+                ${c.mailNone ? '' : `<div class="mail-tags">${c.mailVerify ? `<span class="mail-tag vcc" onclick="toggleMailTag('${c.id}','mailVerify')" title="Verify Card">V-CC</span>` : ''}${c.mailSubmit ? `<span class="mail-tag sdoc" onclick="toggleMailTag('${c.id}','mailSubmit')" title="Submit Documents">S-DOC</span>` : ''}${!c.mailVerify && !c.mailSubmit ? '<span class="mail-tag-empty">—</span>' : ''}</div>`}
+            </td>
             <td>
                 ${isTrash ? `
                     <button class="btn-secondary btn-restore" onclick="restoreCard('${c.id}')">Restore</button>
@@ -666,6 +672,7 @@ function renderContent() {
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
                     <th class="sortable" data-sort="type">Type ${sortIcon('type')}</th>
                     <th class="sortable" data-sort="amount">Amt ${sortIcon('amount')}</th>
+                    <th class="sortable" data-sort="mail">Mail ${sortIcon('mail')}</th>
                     <th class="sortable" data-sort="status">Status ${sortIcon('status')}</th>
                     <th class="sortable" data-sort="date">Date ${sortIcon('date')}</th>
                     <th></th>
@@ -989,6 +996,20 @@ window.toggleStar = function (id) {
         updateSidebarBadges();
         toast(card.starred ? '⭐ Added to Active Now' : 'Removed from Active Now', 'success');
     }
+};
+
+// ──── MAIL TAG TOGGLE ────
+window.toggleMailTag = function (id, field) {
+    const card = STATE.cards.find(c => c.id === id);
+    if (!card) return;
+    card[field] = !card[field];
+    // If enabling a mail status, disable mailNone
+    if (card[field]) card.mailNone = false;
+    // If both are off, keep as-is (user can set mailNone from edit modal)
+    save();
+    renderContent();
+    const label = field === 'mailVerify' ? 'V-CC' : 'S-DOC';
+    toast(card[field] ? `✉ ${label}: ON` : `${label}: OFF`, 'success');
 };
 
 // ──── TYPE TOGGLE (PP ↔ DL) ────
