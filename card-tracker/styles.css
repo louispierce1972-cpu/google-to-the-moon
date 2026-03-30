@@ -525,6 +525,110 @@ textarea {
     color: var(--text-secondary) !important
 }
 
+/* ──── TOP BINS ──── */
+.top-bins-section {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--sp-2)
+}
+
+.top-bins-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 var(--sp-2);
+    margin-bottom: var(--sp-2)
+}
+
+.top-bins-geo {
+    flex: 0 0 auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-xs);
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 2px 4px;
+    cursor: pointer;
+    font-family: var(--font-mono)
+}
+
+.top-bins-toggle {
+    display: flex;
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-xs);
+    overflow: hidden
+}
+
+.top-bins-mode {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 9px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-weight: var(--fw-semi);
+    transition: all var(--t-fast);
+    text-transform: uppercase;
+    letter-spacing: 0.3px
+}
+
+.top-bins-mode.active {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary)
+}
+
+.top-bins-mode:hover:not(.active) {
+    color: var(--text-secondary)
+}
+
+.top-bins-list {
+    padding: 0 var(--sp-2)
+}
+
+.top-bins-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 6px;
+    border-radius: var(--r-xs);
+    margin-bottom: 2px;
+    position: relative;
+    overflow: hidden
+}
+
+.top-bins-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: var(--r-xs);
+    transition: width var(--t-base)
+}
+
+.top-bins-bin {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    position: relative;
+    z-index: 1
+}
+
+.top-bins-val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+    position: relative;
+    z-index: 1
+}
+
+.top-bins-empty {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: var(--sp-2) 0
+}
+
 .sidebar-footer {
     padding: var(--sp-3) var(--sp-2);
     border-top: 1px solid var(--border-subtle)
@@ -1208,25 +1312,25 @@ textarea {
     color: var(--text-dim)
 }
 
-/* R = Run Ads: red when ON, dim OFF */
+/* R = Run Ads: GREEN when ON, RED when OFF */
 .status-btn.btn-r.active {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.4);
-    color: #EF4444
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #22C55E
 }
 
 .status-btn.btn-r:not(.active) {
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.2);
-    color: rgba(239, 68, 68, 0.5)
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #EF4444
 }
 
-/* V = Verified: amber/yellow toggle */
+/* V = Verified: ORANGE when ON, gray OFF */
 .status-btn.btn-v.active,
 .status-btn.btn-v.verified {
-    background: rgba(251, 191, 36, 0.15);
-    border-color: rgba(251, 191, 36, 0.4);
-    color: #FBBF24
+    background: rgba(249, 115, 22, 0.15);
+    border-color: rgba(249, 115, 22, 0.4);
+    color: #F97316
 }
 
 .status-btn.btn-v:not(.active):not(.verified) {
@@ -1824,6 +1928,83 @@ textarea {
     font-size: 9px;
     font-weight: var(--fw-semi);
     color: var(--text-dim)
+}
+
+/* List preview */
+.list-count-badge {
+    font-size: var(--fs-xs);
+    color: var(--text-dim);
+    transition: color var(--t-fast)
+}
+
+.list-count-badge.has-cards {
+    color: #22C55E;
+    font-weight: var(--fw-bold)
+}
+
+.list-preview {
+    margin-top: var(--sp-2);
+    max-height: 120px;
+    overflow-y: auto
+}
+
+.list-preview-row {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 3px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--r-xs);
+    margin-bottom: 2px
+}
+
+.list-sep {
+    color: var(--text-dim);
+    margin: 0 4px
+}
+
+.list-preview-more {
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 3px 8px;
+    font-style: italic
+}
+
+.list-status-block {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-sm)
+}
+
+.list-status-title {
+    font-size: var(--fs-xs);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: var(--fw-bold);
+    margin-bottom: var(--sp-2);
+    display: block
+}
+
+.list-status-checks {
+    display: flex;
+    gap: var(--sp-4)
+}
+
+.list-status-check {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none
+}
+
+.list-status-check input[type="checkbox"] {
+    accent-color: var(--accent-blue)
 }
 
 /* ═══════ CONTEXT MENU ═══════ */
@@ -2762,16 +2943,18 @@ body.modal-open {
 .mail-tags {
     display: flex;
     align-items: center;
-    gap: 4px
+    gap: 3px
 }
 
-/* V-CC button: yellow when active */
+/* CC tag: yellow when active */
 .status-btn.btn-vcc {
     width: auto;
-    min-width: 32px;
-    padding: 0 5px;
-    font-size: 9px;
-    letter-spacing: 0.3px
+    min-width: 24px;
+    height: 18px;
+    padding: 0 4px;
+    font-size: 8px;
+    letter-spacing: 0.3px;
+    line-height: 18px
 }
 
 .status-btn.btn-vcc.active {
@@ -2786,13 +2969,15 @@ body.modal-open {
     color: var(--text-dim)
 }
 
-/* S-DOC button: blue when active */
+/* DOC tag: blue when active */
 .status-btn.btn-sdoc {
     width: auto;
-    min-width: 36px;
-    padding: 0 5px;
-    font-size: 9px;
-    letter-spacing: 0.3px
+    min-width: 26px;
+    height: 18px;
+    padding: 0 4px;
+    font-size: 8px;
+    letter-spacing: 0.3px;
+    line-height: 18px
 }
 
 .status-btn.btn-sdoc.active {
@@ -2810,6 +2995,31 @@ body.modal-open {
 .mail-tag-empty {
     color: var(--text-dim);
     font-size: 12px
+}
+
+/* Country delete button */
+.country-delete {
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--text-dim);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--t-fast), color var(--t-fast);
+    padding: 0 4px
+}
+
+.country-item:hover .country-delete {
+    opacity: 1
+}
+
+.country-delete:hover {
+    color: #EF4444
+}
+
+/* V/S counters */
+.vs-counter {
+    cursor: pointer;
+    user-select: none
 }
 
 /* ═══════ NEW ROW HIGHLIGHT ═══════ */

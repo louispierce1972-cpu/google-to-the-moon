@@ -468,12 +468,15 @@ function renderSidebar() {
         const countryDocs = STATE.docs.filter(d => d.country === country.id);
         const isExpanded = true;
 
+        const isDefault = ['canada', 'usa'].includes(country.id);
+
         const html = `
             <div class="country-group">
                 <button class="country-item" data-country="${country.id}" onclick="expandCountry('${country.id}')">
                     <span class="country-flag">${country.flag}</span>
                     <span>${country.name}</span>
                     <span class="country-count">${countryCards.length + countryDocs.length}</span>
+                    ${!isDefault ? `<span class="country-delete" onclick="event.stopPropagation(); deleteCountry('${country.id}')" title="Delete country">×</span>` : ''}
                 </button>
                 <div class="country-sub" style="max-height: ${isExpanded ? '200px' : '0'}">
                     <button class="nav-item ${STATE.currentView === 'cards' && STATE.currentCountry === country.id ? 'active' : ''}"
@@ -504,7 +507,94 @@ function renderSidebar() {
     document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === STATE.currentView);
     });
+
+    // Update TOP BINS
+    updateTopBinsGeo();
+    renderTopBins();
 }
+
+// ──── TOP BINS ────
+let _topBinsMode = 'count'; // 'count' or 'amount'
+
+function updateTopBinsGeo() {
+    const sel = document.getElementById('top-bins-geo');
+    if (!sel) return;
+    const current = sel.value;
+    const geos = new Set();
+    STATE.cards.forEach(c => { if (c.country) geos.add(c.country); });
+
+    let html = '<option value="all">ALL</option>';
+    STATE.countries.forEach(c => {
+        if (geos.has(c.id)) {
+            const code = c.id === 'canada' ? 'CA' : c.id === 'usa' ? 'US' : c.id.slice(0, 2).toUpperCase();
+            html += `<option value="${c.id}">${code}</option>`;
+        }
+    });
+    sel.innerHTML = html;
+    // Restore previous selection if still valid
+    if ([...sel.options].some(o => o.value === current)) sel.value = current;
+}
+
+function renderTopBins() {
+    const container = document.getElementById('top-bins-list');
+    if (!container) return;
+
+    const geo = document.getElementById('top-bins-geo')?.value || 'all';
+    let cards = STATE.cards;
+    if (geo !== 'all') cards = cards.filter(c => c.country === geo);
+
+    if (cards.length === 0) {
+        container.innerHTML = '<div class="top-bins-empty">No data</div>';
+        return;
+    }
+
+    // Group by BIN (first 6 digits)
+    const bins = {};
+    cards.forEach(c => {
+        const num = (c.cardNumber || '').replace(/[\s\-]/g, '');
+        if (num.length < 6) return;
+        const bin = num.slice(0, 6);
+
+        if (!bins[bin]) bins[bin] = { count: 0, amount: 0 };
+        bins[bin].count++;
+        const amt = parseFloat(c.amount);
+        if (!isNaN(amt)) bins[bin].amount += amt;
+    });
+
+    // Sort by mode
+    const sorted = Object.entries(bins)
+        .sort((a, b) => b[1][_topBinsMode] - a[1][_topBinsMode])
+        .slice(0, 5);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="top-bins-empty">No BINs found</div>';
+        return;
+    }
+
+    const maxVal = sorted[0][1][_topBinsMode] || 1;
+
+    container.innerHTML = sorted.map(([bin, data]) => {
+        const val = _topBinsMode === 'count' ? data.count : `$${data.amount.toLocaleString()}`;
+        const pct = Math.round((data[_topBinsMode] / maxVal) * 100);
+        return `<div class="top-bins-row">
+            <div class="top-bins-bar" style="width:${pct}%"></div>
+            <span class="top-bins-bin">${bin}</span>
+            <span class="top-bins-val">${val}</span>
+        </div>`;
+    }).join('');
+}
+
+// TOP BINS event handlers
+document.getElementById('top-bins-geo')?.addEventListener('change', renderTopBins);
+
+document.querySelectorAll('.top-bins-mode').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.top-bins-mode').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _topBinsMode = btn.dataset.mode;
+        renderTopBins();
+    });
+});
 
 function renderStats() {
     const bar = document.getElementById('stats-bar');
@@ -613,8 +703,8 @@ function renderContent() {
             if (card.mailNone) return '';
             if (card.mailVerify || card.mailSubmit) {
                 let texts = [];
-                if (card.mailVerify) texts.push('V-CC');
-                if (card.mailSubmit) texts.push('S-DOC');
+                if (card.mailVerify) texts.push('CC');
+                if (card.mailSubmit) texts.push('DOC');
                 return `<span class="mail-badge" title="Mail Status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M4 7l6.2 4.6c1.1.8 2.5.8 3.6 0L20 7"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>${texts.join(' / ')}</span>`;
             }
             return '';
@@ -640,8 +730,8 @@ function renderContent() {
             <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
             <td class="mail-cell">
                 <div class="mail-tags">
-                    <button class="status-btn btn-vcc ${c.mailVerify ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailVerify')" title="Verify Card">V-CC</button>
-                    <button class="status-btn btn-sdoc ${c.mailSubmit ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailSubmit')" title="Submit Documents">S-DOC</button>
+                    <button class="status-btn btn-vcc ${c.mailVerify ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailVerify')" title="Card Check">CC</button>
+                    <button class="status-btn btn-sdoc ${c.mailSubmit ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailSubmit')" title="Document">DOC</button>
                 </div>
             </td>
             <td>
@@ -775,9 +865,9 @@ function renderDocs() {
             <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
             <td>
                 <div class="status-btns vs-counters">
-                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')">${d.verified || 0}</span>
+                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
                     <span class="vs-separator">|</span>
-                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')">${d.suspended || 0}</span>
+                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;">${d.suspended || 0}</span>
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
@@ -986,6 +1076,20 @@ window.expandCountry = function (id) {
     navigate('cards', id);
 };
 
+window.deleteCountry = function (id) {
+    if (['canada', 'usa'].includes(id)) return; // Cannot delete default countries
+    const country = STATE.countries.find(c => c.id === id);
+    if (!country) return;
+    if (!confirm(`Delete "${country.name}" and all its cards/docs?`)) return;
+    STATE.cards = STATE.cards.filter(c => c.country !== id);
+    STATE.docs = STATE.docs.filter(d => d.country !== id);
+    STATE.countries = STATE.countries.filter(c => c.id !== id);
+    save();
+    if (STATE.currentCountry === id) navigate('cards', 'canada');
+    else renderAll();
+    toast(`Country "${country.name}" deleted`, 'info');
+};
+
 // Collection nav
 document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.view));
@@ -1021,7 +1125,7 @@ window.toggleMailTag = function (id, field) {
     // If both are off, keep as-is (user can set mailNone from edit modal)
     save();
     renderContent();
-    const label = field === 'mailVerify' ? 'V-CC' : 'S-DOC';
+    const label = field === 'mailVerify' ? 'CC' : 'DOC';
     toast(card[field] ? `✉ ${label}: ON` : `${label}: OFF`, 'success');
 };
 
@@ -1520,6 +1624,26 @@ window.incrementDocS = function (docId) {
     updateDocStatsBar();
 };
 
+window.decrementDocV = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.verified = Math.max(0, (doc.verified || 0) - 1);
+    save();
+    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="v"]`);
+    if (el) el.textContent = doc.verified;
+    updateDocStatsBar();
+};
+
+window.decrementDocS = function (docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.suspended = Math.max(0, (doc.suspended || 0) - 1);
+    save();
+    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="s"]`);
+    if (el) el.textContent = doc.suspended;
+    updateDocStatsBar();
+};
+
 // ──── DOC TYPE CYCLE ────
 window.cycleDocType = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
@@ -1740,10 +1864,9 @@ function populateCountrySelects() {
     formSel.innerHTML = opts;
     listSel.innerHTML = opts;
 
-    // Populate doc select
+    // Populate doc select — static document types only
     const docSel = document.getElementById('form-doc');
-    const countryDocs = STATE.docs.filter(d => d.country === STATE.currentCountry);
-    docSel.innerHTML = '<option value="">Select...</option>' + countryDocs.map(d => `<option value="${d.id}">${d.fullName}</option>`).join('');
+    docSel.innerHTML = '<option value="">Select...</option><option value="PP">PP (Passport)</option><option value="DL">DL (Driver License)</option>';
 }
 
 // Modal tabs (scoped to card modal only)
@@ -1819,15 +1942,95 @@ document.getElementById('edit-card')?.addEventListener('input', function () {
     }
 });
 
-// List parsing
+// ──── SMART LIST PARSER ────
+let _listParseTimer = null;
+let _listParsedCards = [];
+
+function smartParseCards(text) {
+    const lines = text.split('\n');
+    const cards = [];
+    const seen = new Set();
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        // Extract card number: try structured formats first, then raw digits
+        // Format: 4 groups of 4 (with spaces/dashes)
+        let cardMatch = line.match(/\b(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})\b/);
+        if (!cardMatch) {
+            // Continuous 13-19 digits
+            cardMatch = line.match(/\b(\d{13,19})\b/);
+        }
+        if (!cardMatch) continue;
+
+        const cardNum = cardMatch[1].replace(/[\s\-]/g, '');
+        if (cardNum.length < 13 || cardNum.length > 19) continue;
+        if (seen.has(cardNum)) continue;
+        seen.add(cardNum);
+
+        // Remove the card number from line for further parsing
+        const rest = line.replace(cardMatch[0], ' ');
+
+        // Extract expiry: MM/YY or MM|YY or MM YY (where MM is 01-12, YY is 2 digits)
+        let mm = '', yy = '';
+        const expMatch = rest.match(/\b(0[1-9]|1[0-2])\s*[\/|\\.\-]\s*(\d{2})\b/);
+        if (expMatch) {
+            mm = expMatch[1];
+            yy = expMatch[2];
+        }
+
+        // Extract CVV: 3-4 digits (not part of card number, not the expiry)
+        let cvv = '';
+        const restAfterExp = expMatch ? rest.replace(expMatch[0], ' ') : rest;
+        // Look for standalone 3-4 digit numbers
+        const cvvCandidates = restAfterExp.match(/\b(\d{3,4})\b/g);
+        if (cvvCandidates) {
+            // Pick the first 3-4 digit number that isn't part of the card or year
+            for (const c of cvvCandidates) {
+                if (c !== mm && c !== yy && c !== cardNum.slice(-4)) {
+                    cvv = c;
+                    break;
+                }
+            }
+        }
+
+        cards.push({ cardNum, mm, yy, cvv });
+    }
+
+    return cards;
+}
+
+function renderListPreview(cards) {
+    const el = document.getElementById('list-preview');
+    if (!el) return;
+    if (cards.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+
+    const preview = cards.slice(0, 5).map(c => {
+        const masked = c.cardNum.replace(/(\d{4})(\d+)(\d{4})/, '$1 •••• $3');
+        const exp = c.mm && c.yy ? `${c.mm}/${c.yy}` : '——';
+        const cvv = c.cvv || '———';
+        return `<div class="list-preview-row">${masked} <span class="list-sep">|</span> ${exp} <span class="list-sep">|</span> ${cvv}</div>`;
+    }).join('');
+
+    const more = cards.length > 5 ? `<div class="list-preview-more">...and ${cards.length - 5} more</div>` : '';
+    el.innerHTML = preview + more;
+}
+
 document.getElementById('list-textarea').addEventListener('input', function () {
-    const lines = this.value.split('\n').filter(l => l.trim());
-    const count = lines.filter(l => {
-        const parts = l.split(/[|,;]/);
-        return parts.length >= 2 && parts[1].replace(/\s/g, '').length >= 13;
-    }).length;
-    document.getElementById('list-parsed-count').textContent = `${count} cards detected`;
-    document.getElementById('save-btn-text').textContent = count > 0 ? `Add ${count} Cards` : 'Add Cards';
+    clearTimeout(_listParseTimer);
+    _listParseTimer = setTimeout(() => {
+        _listParsedCards = smartParseCards(this.value);
+        const count = _listParsedCards.length;
+        const countEl = document.getElementById('list-parsed-count');
+        countEl.textContent = `${count} card${count !== 1 ? 's' : ''} detected`;
+        countEl.classList.toggle('has-cards', count > 0);
+        document.getElementById('save-btn-text').textContent = count > 0 ? `Add ${count} Cards` : 'Add Cards';
+        renderListPreview(_listParsedCards);
+    }, 300);
 });
 
 // Save modal
@@ -1881,43 +2084,38 @@ document.getElementById('modal-save').addEventListener('click', () => {
         if (newRow) newRow.classList.add('row-new');
         toast('Card added successfully', 'success');
     } else {
-        // List mode
-        const textarea = document.getElementById('list-textarea').value;
+        // Smart list mode
+        if (_listParsedCards.length === 0) {
+            toast('No valid cards found in text', 'error');
+            return;
+        }
         const country = document.getElementById('list-country').value;
-        const lines = textarea.split('\n').filter(l => l.trim());
+        const statusAdd = document.getElementById('list-status-add').checked;
+        const statusAds = document.getElementById('list-status-ads').checked;
+        const statusVerify = document.getElementById('list-status-verify').checked;
+
         let added = 0;
+        const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
 
-        lines.forEach(line => {
-            const parts = line.split(/[|,;]/).map(p => p.trim());
-            if (parts.length < 2) return;
-
-            let name = '', surname = '', cardNum = '', month = '', year = '', cvv = '', amount = 0, notes = '';
-
-            // Parse name
-            const nameParts = parts[0].split(' ');
-            name = nameParts[0] || '';
-            surname = nameParts.slice(1).join(' ') || '';
-
-            cardNum = (parts[1] || '').replace(/\s/g, '');
-            if (cardNum.length < 13) return;
-
-            month = parts[2] || '';
-            year = parts[3] || '';
-            cvv = parts[4] || '';
-            amount = parts[5] || 0;
-            notes = parts[6] || '';
+        _listParsedCards.forEach(p => {
+            if (existingNumbers.has(p.cardNum)) return; // skip duplicates
 
             const card = {
                 id: genId(),
-                name, surname, cardNumber: cardNum, month, year, cvv,
-                cardType: getCardType(cardNum),
-                amount, notes, country,
-                cardAdd: false, runAds: false, verified: false,
+                name: '', surname: '',
+                cardNumber: p.cardNum,
+                month: p.mm, year: p.yy, cvv: p.cvv,
+                cardType: getCardType(p.cardNum),
+                amount: 0, notes: '', country,
+                cardAdd: statusAdd,
+                runAds: statusAds,
+                verified: statusVerify,
                 suspended: false, starred: false,
                 date: todayStr(),
             };
             STATE.cards.unshift(card);
             ensureDoc(card);
+            existingNumbers.add(p.cardNum);
             added++;
         });
 
@@ -1934,8 +2132,14 @@ document.getElementById('modal-save').addEventListener('click', () => {
             });
             toast(`${added} cards added`, 'success');
         } else {
-            toast('No valid cards found in text', 'error');
+            toast('All cards already exist (duplicates)', 'info');
         }
+
+        // Reset
+        _listParsedCards = [];
+        document.getElementById('list-textarea').value = '';
+        document.getElementById('list-parsed-count').textContent = '0 cards detected';
+        document.getElementById('list-preview').innerHTML = '';
     }
 });
 
@@ -3162,7 +3366,7 @@ function addParsedToCards() {
             country: targetCountry,
             docType: '',
             amount: '',
-            notes: `${c.bank || ''} · ${c.cardType || ''} · Exp: ${c.validity}`.trim(),
+            notes: '',
             date: dateStr,
             cardAdd: false,
             runAds: false,

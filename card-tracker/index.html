@@ -105,6 +105,22 @@
                         <span class="nav-badge" id="badge-trash">0</span>
                     </button>
                 </div>
+
+                <div class="nav-section top-bins-section">
+                    <h3 class="nav-section-title">TOP BINS</h3>
+                    <div class="top-bins-controls">
+                        <select id="top-bins-geo" class="top-bins-geo">
+                            <option value="all">ALL</option>
+                        </select>
+                        <div class="top-bins-toggle">
+                            <button class="top-bins-mode active" data-mode="count">Count</button>
+                            <button class="top-bins-mode" data-mode="amount">Amount</button>
+                        </div>
+                    </div>
+                    <div id="top-bins-list" class="top-bins-list">
+                        <div class="top-bins-empty">No data</div>
+                    </div>
+                </div>
             </nav>
 
             <div class="sidebar-footer">
@@ -311,13 +327,19 @@
                     </div>
                 </div>
                 <div class="form-group full-width">
-                    <label>Paste card list</label>
-                    <textarea id="list-textarea" class="list-textarea" rows="10" placeholder="Format: Name|CardNumber|MM|YY|CVV|Amount|Notes&#10;&#10;Example:&#10;John Smith|5326102343559988|12|28|456|5000|Test card&#10;Maria Johnson|5326102354669988|03|27|789|3500|Another card"></textarea>
+                    <label>Paste any text with card data</label>
+                    <textarea id="list-textarea" class="list-textarea" rows="8" placeholder="Paste anything — logs, lists, messages...&#10;&#10;Auto-detects:&#10;• Card numbers (13-19 digits)&#10;• Expiry (MM/YY, MM|YY)&#10;• CVV (3-4 digits)&#10;&#10;Examples:&#10;4242424242424242 12/28 123&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
                 </div>
                 <div class="list-info">
-                    <span id="list-parsed-count">0 cards detected</span>
-                    <div class="list-tags">
-                        <span class="tag">Separator: | or ,</span>
+                    <span id="list-parsed-count" class="list-count-badge">0 cards detected</span>
+                </div>
+                <div id="list-preview" class="list-preview"></div>
+                <div class="list-status-block">
+                    <label class="list-status-title">STATUS FOR ALL:</label>
+                    <div class="list-status-checks">
+                        <label class="list-status-check"><input type="checkbox" id="list-status-add"> Card Add</label>
+                        <label class="list-status-check"><input type="checkbox" id="list-status-ads"> Run Ads</label>
+                        <label class="list-status-check"><input type="checkbox" id="list-status-verify"> Verify</label>
                     </div>
                 </div>
             </div>
