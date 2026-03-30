@@ -3360,18 +3360,49 @@ function renderParser() {
             </div>
         </div>
 
-        <!-- OPTIONS -->
-        <div class="parser-options">
-            <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates in file</label>
-            <label class="parser-checkbox"><input type="checkbox" id="parser-auto-replace"> Auto replace duplicates</label>
-            <label class="parser-checkbox"><input type="checkbox" id="parser-detect-geo" checked> Detect GEO from data</label>
+        <!-- FILTERS -->
+        <div class="parser-filters">
+            <div class="parser-filter-row">
+                <div class="parser-filter-group parser-filter-bins">
+                    <label>BINs <span class="parser-filter-hint">(comma separated)</span></label>
+                    <textarea id="parser-bins" rows="2" placeholder="450003, 424242, 532610..."></textarea>
+                </div>
+                <div class="parser-filter-group">
+                    <label>Country</label>
+                    <input type="text" id="parser-country" placeholder="CA, US, GB...">
+                </div>
+                <div class="parser-filter-group">
+                    <label>Bank</label>
+                    <input type="text" id="parser-bank" placeholder="Bank name...">
+                </div>
+            </div>
+            <div class="parser-filter-row">
+                <div class="parser-filter-group">
+                    <label>Date From</label>
+                    <input type="text" id="parser-date-from" placeholder="YYYY-MM-DD">
+                </div>
+                <div class="parser-filter-group">
+                    <label>Date To</label>
+                    <input type="text" id="parser-date-to" placeholder="YYYY-MM-DD">
+                </div>
+                <div class="parser-filter-group">
+                    <label>Min Validity (months)</label>
+                    <input type="number" id="parser-min-validity" placeholder="0" min="0">
+                </div>
+            </div>
         </div>
 
-        <!-- ACTION -->
+        <!-- OPTIONS -->
+        <div class="parser-options">
+            <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates</label>
+            <label class="parser-checkbox"><input type="checkbox" id="parser-auto-replace"> Auto replace duplicates</label>
+            <label class="parser-checkbox"><input type="checkbox" id="parser-detect-geo" checked> Detect GEO</label>
+        </div>
+
+        <!-- ACTIONS -->
         <div class="parser-actions">
-            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" disabled>
-                📦 COLLECT ALL
-            </button>
+            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" disabled>🔍 PARSE</button>
+            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" disabled>📦 COLLECT ALL</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -3389,9 +3420,9 @@ function renderParser() {
     dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); loadParserFile(e.dataTransfer.files[0]); });
     fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadParserFile(fileInput.files[0]); });
 
+    document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
 
-    // Re-render if we have results
     if (PARSER_STATE.collected.length > 0) renderParserResults();
 }
 
@@ -3399,6 +3430,7 @@ function loadParserFile(file) {
     if (!file) return;
     PARSER_STATE.file = file.name;
     document.querySelector('.parser-upload-title').textContent = '📁 ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+    document.getElementById('parser-parse-btn').disabled = false;
     document.getElementById('parser-collect-btn').disabled = false;
 
     const status = document.getElementById('parser-status');
@@ -3421,102 +3453,98 @@ function loadParserFile(file) {
     reader.readAsText(file);
 }
 
-function flattenText(textArray) {
-    if (typeof textArray === 'string') return textArray;
-    if (!Array.isArray(textArray)) return '';
-    return textArray.map(item => typeof item === 'string' ? item : (item && item.text ? String(item.text) : '')).join('');
-}
+// ──── PARSE (with filters) ────
 
-function extractCardsFromMessages(messages) {
-    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/gs;
-    const holderP = /👶\s*Holder:\s*(.+)/i;
-    const bankP = /🏦\s*Bank:\s*(.+)/i;
-    const typeP = /📊\s*Card Type:\s*(.+)/i;
-    const billingP = /🏷\s*Billing:\s*(.+)/i;
+function runParse() {
+    if (!PARSER_STATE.rawMessages.length) return;
+    const status = document.getElementById('parser-status');
+    status.textContent = '⏳ Parsing...';
 
-    const cards = [];
-    for (const msg of messages) {
-        const fullText = flattenText(msg.text);
-        if (!fullText) continue;
-        const msgDate = msg.date || '';
+    const dedup = document.getElementById('parser-dedup').checked;
+    const detectGeoFlag = document.getElementById('parser-detect-geo').checked;
 
-        pattern.lastIndex = 0;
-        let m;
-        while ((m = pattern.exec(fullText)) !== null) {
-            const ccRaw = m[1].replace(/\s/g, '');
-            let mm = m[2];
-            let yy = m[3];
-            const cvv = m[4];
-            if (yy.length === 4) yy = yy.slice(2);
+    // Read filters
+    const binRaw = document.getElementById('parser-bins').value.trim();
+    const binFilters = binRaw ? binRaw.split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4) : [];
+    const countryFilter = document.getElementById('parser-country').value.trim().toUpperCase();
+    const bankFilter = document.getElementById('parser-bank').value.trim().toLowerCase();
+    const dateFrom = document.getElementById('parser-date-from').value.trim();
+    const dateTo = document.getElementById('parser-date-to').value.trim();
+    const minValidity = parseInt(document.getElementById('parser-min-validity').value) || 0;
 
-            const holderM = fullText.match(holderP);
-            const bankM = fullText.match(bankP);
-            const typeM = fullText.match(typeP);
-            const billingM = fullText.match(billingP);
+    let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
 
-            const holder = holderM ? holderM[1].trim() : '';
-            const nameParts = holder.split(/\s+/);
-            const name = nameParts[0] || '';
-            const surname = nameParts.slice(1).join(' ') || '';
-
-            const bank = bankM ? bankM[1].trim() : '';
-            const cardType = typeM ? typeM[1].trim() : '';
-            const billing = billingM ? billingM[1].trim() : '';
-            const country = billing.split(',')[0]?.trim() || '';
-
-            cards.push({
-                cc: ccRaw,
-                mm, yy, cvv,
-                name, surname,
-                bank, cardType,
-                country, billing,
-                msgDate,
-                validity: `${mm}/${yy}`,
-                bin: ccRaw.substring(0, 6)
-            });
-        }
+    if (detectGeoFlag) {
+        allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
     }
-    return cards;
+
+    // Apply filters
+    if (binFilters.length > 0) {
+        allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
+    }
+    if (countryFilter) {
+        const codes = countryFilter.split(/[\s,;]+/).filter(Boolean);
+        allCards = allCards.filter(c => {
+            const geo = (c.detectedGeo || c.country || '').toUpperCase();
+            return codes.some(code => geo.includes(code));
+        });
+    }
+    if (bankFilter) {
+        allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
+    }
+    if (dateFrom) {
+        allCards = allCards.filter(c => (c.msgDate || '') >= dateFrom);
+    }
+    if (dateTo) {
+        allCards = allCards.filter(c => (c.msgDate || '') <= dateTo);
+    }
+    if (minValidity > 0) {
+        const now = new Date();
+        const nowM = now.getFullYear() * 12 + now.getMonth();
+        allCards = allCards.filter(c => {
+            let y = parseInt(c.yy);
+            if (y < 100) y += 2000;
+            const cardM = y * 12 + (parseInt(c.mm) - 1);
+            return (cardM - nowM) >= minValidity;
+        });
+    }
+
+    if (dedup) {
+        const seen = new Set();
+        allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
+    }
+
+    PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
+    finishParsing(allCards, status);
 }
 
-// ──── COLLECT ALL ────
+// ──── COLLECT ALL (no filters) ────
 
 function collectAll() {
     if (!PARSER_STATE.rawMessages.length) return;
-
     const status = document.getElementById('parser-status');
     status.textContent = '⏳ Collecting...';
 
     const dedup = document.getElementById('parser-dedup').checked;
     const detectGeoFlag = document.getElementById('parser-detect-geo').checked;
 
-    // Extract all cards
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
 
-    // Detect GEO
     if (detectGeoFlag) {
-        allCards = allCards.map(c => ({
-            ...c,
-            detectedGeo: detectGeo(c.billing, c.country)
-        }));
+        allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
     }
-
-    // Dedup within file
     if (dedup) {
         const seen = new Set();
-        allCards = allCards.filter(c => {
-            if (seen.has(c.cc)) return false;
-            seen.add(c.cc);
-            return true;
-        });
+        allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
     }
 
-    // Group by BIN, sort by count desc
+    PARSER_STATE.binFilter = null;
+    finishParsing(allCards, status);
+}
+
+function finishParsing(allCards, status) {
     const binMap = {};
-    allCards.forEach(c => {
-        if (!binMap[c.bin]) binMap[c.bin] = [];
-        binMap[c.bin].push(c);
-    });
+    allCards.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
 
     const binGroups = Object.entries(binMap)
         .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
@@ -3527,8 +3555,7 @@ function collectAll() {
     PARSER_STATE.selected = new Set(allCards.map((_, i) => i));
 
     status.textContent = `✅ ${allCards.length} cards · ${binGroups.length} BINs`;
-    toast(`Collected: ${allCards.length} cards, ${binGroups.length} unique BINs`, 'success');
-
+    toast(`Found: ${allCards.length} cards, ${binGroups.length} unique BINs`, 'success');
     renderParserResults();
 }
 
@@ -3548,61 +3575,42 @@ function renderParserResults() {
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
 
     let newCount = 0, dupCount = 0;
-    list.forEach(c => {
-        if (existingNumbers.has(c.cc)) dupCount++;
-        else newCount++;
-    });
+    list.forEach(c => { if (existingNumbers.has(c.cc)) dupCount++; else newCount++; });
 
-    // ──── BIN SUMMARY (grouped, sorted) ────
-    const binSummaryHtml = PARSER_STATE.binGroups.map(g => {
+    // ──── TOP BINS (compact bar) ────
+    const topBinsHtml = PARSER_STATE.binGroups.slice(0, 30).map(g => {
         const inProj = projectBinCounts[g.bin] || 0;
-        const projLabel = inProj > 0 ? `<span class="parser-chip-proj">(${inProj} in base)</span>` : '';
-        return `<div class="parser-bin-group-item">
-            <span class="parser-bin-group-bin">${g.bin}</span>
-            <span class="parser-bin-group-count">${g.count} cards</span>
-            ${projLabel}
-        </div>`;
+        const projBadge = inProj > 0 ? `<sup class="parser-proj-sup">${inProj}</sup>` : '';
+        const isHighlighted = PARSER_STATE.binFilter && PARSER_STATE.binFilter.has(g.bin);
+        return `<span class="parser-top-bin ${isHighlighted ? 'hl' : ''}" title="${g.count} cards, ${inProj} in base">${g.bin} <b>${g.count}</b>${projBadge}</span>`;
     }).join('');
 
-    // ──── TABLE ROWS ────
+    // ──── TABLE ROWS (compact) ────
     const rows = list.map((c, i) => {
         const isDup = existingNumbers.has(c.cc);
         const binInProj = projectBinCounts[c.bin] || 0;
-        const bank = c.bank || '';
-        const shortBank = bank.length > 20 ? bank.slice(0, 20) + '…' : (bank || '—');
         const geo = c.detectedGeo || c.country || '';
-        const dupTag = isDup ? '<span class="parser-dup-tag">DUP</span>' : '';
-        const binLabel = binInProj > 0
-            ? `<span class="parser-bin-in-proj">${binInProj}</span>`
-            : '<span class="parser-bin-new">new</span>';
+        const bankShort = (c.bank || '').length > 18 ? (c.bank || '').slice(0, 18) + '…' : (c.bank || '—');
+        const dupMark = isDup ? '<span class="parser-dup-tag">DUP</span> ' : '';
+        const binTag = binInProj > 0 ? `<span class="parser-bin-in-proj">${binInProj}</span>` : '<span class="parser-bin-new">new</span>';
+        const isHL = PARSER_STATE.binFilter && PARSER_STATE.binFilter.has(c.bin);
 
-        return `
-        <tr class="${isDup ? 'parser-row-dup' : ''} ${PARSER_STATE.selected.has(i) ? 'selected' : ''}">
-            <td><input type="checkbox" ${PARSER_STATE.selected.has(i) ? 'checked' : ''} data-idx="${i}" class="parser-check"></td>
-            <td>${i + 1}</td>
-            <td>${dupTag}</td>
-            <td class="parser-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
-            <td class="parser-card-num">${formatCardBin(c.cc)}</td>
-            <td>${c.validity}</td>
-            <td class="parser-bin-cell">${c.bin} ${binLabel}</td>
-            <td title="${bank}">${shortBank}</td>
-            <td>${geo}</td>
+        return `<tr class="${isDup ? 'parser-row-dup' : ''}">
+            <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(i) ? 'checked' : ''} data-idx="${i}" class="parser-check"></td>
+            <td class="pc-num">${i + 1}</td>
+            <td class="pc-holder">${dupMark}${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
+            <td class="pc-card">${formatCardBin(c.cc)}</td>
+            <td class="pc-exp">${c.validity}</td>
+            <td class="pc-bin ${isHL ? 'parser-bin-hl' : ''}">${c.bin} ${binTag}</td>
+            <td class="pc-bank" title="${c.bank || ''}">${bankShort}</td>
+            <td class="pc-geo">${geo}</td>
         </tr>`;
     }).join('');
 
     el.innerHTML = `
-        <!-- STATS -->
-        <div class="parser-stats-row">
-            <div class="stat-card total"><span class="stat-label">Found</span><span class="stat-value">${list.length}</span></div>
-            <div class="stat-card verified"><span class="stat-label">New</span><span class="stat-value">${newCount}</span></div>
-            <div class="stat-card suspended"><span class="stat-label">Duplicates</span><span class="stat-value">${dupCount}</span></div>
-            <div class="stat-card top-bins"><span class="stat-label">BINs</span><span class="stat-value">${PARSER_STATE.binGroups.length}</span></div>
-        </div>
-
-        <!-- BIN GROUPS -->
-        <div class="parser-bin-groups">
-            <div class="parser-bin-groups-title">📋 BINs by count:</div>
-            <div class="parser-bin-groups-list">${binSummaryHtml}</div>
+        <!-- TOP BINS BAR -->
+        <div class="parser-topbins-bar">
+            <div class="parser-topbins-scroll">${topBinsHtml}</div>
         </div>
 
         <!-- TOOLBAR -->
@@ -3612,28 +3620,30 @@ function renderParserResults() {
                 <select id="parser-target-country">
                     ${STATE.countries.map(co => `<option value="${co.id}" ${co.id === STATE.currentCountry ? 'selected' : ''}>${co.flag} ${co.name}</option>`).join('')}
                 </select>
-                <button class="btn-primary parser-add-btn" id="parser-add-btn">
-                    ADD TO ALL CARDS (${PARSER_STATE.selected.size})
-                </button>
+                <button class="btn-primary parser-add-btn" id="parser-add-btn">ADD TO ALL CARDS (${PARSER_STATE.selected.size})</button>
             </div>
         </div>
 
         <!-- TABLE -->
         <div class="parser-table-wrap">
         <table class="data-table parser-table">
+            <colgroup>
+                <col style="width:30px"><col style="width:36px">
+                <col style="width:18%"><col style="width:15%"><col style="width:50px">
+                <col style="width:12%"><col style="width:20%"><col style="width:40px">
+            </colgroup>
             <thead><tr>
-                <th></th><th>#</th><th></th><th>Holder</th><th>Card</th><th>Exp</th><th>BIN</th><th>Bank</th><th>GEO</th>
+                <th></th><th>#</th><th>HOLDER</th><th>CARD</th><th>EXP</th><th>BIN</th><th>BANK</th><th>GEO</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>
         </div>`;
 
-    // ──── EVENT HANDLERS ────
+    // Events
     el.querySelectorAll('.parser-check').forEach(cb => {
         cb.addEventListener('change', () => {
             const idx = parseInt(cb.dataset.idx);
-            if (cb.checked) PARSER_STATE.selected.add(idx);
-            else PARSER_STATE.selected.delete(idx);
+            if (cb.checked) PARSER_STATE.selected.add(idx); else PARSER_STATE.selected.delete(idx);
             updateParserButtons();
         });
     });
@@ -3646,7 +3656,6 @@ function renderParserResults() {
             updateParserButtons();
         });
     }
-
     document.getElementById('parser-add-btn')?.addEventListener('click', addCollectedToCards);
 }
 
@@ -3665,31 +3674,21 @@ function addCollectedToCards() {
     let added = 0, replaced = 0;
 
     const existingNumbers = new Map();
-    STATE.cards.forEach(c => {
-        existingNumbers.set(c.cardNumber.replace(/\s/g, ''), c);
-    });
+    STATE.cards.forEach(c => { existingNumbers.set(c.cardNumber.replace(/\s/g, ''), c); });
 
     PARSER_STATE.selected.forEach(idx => {
         const c = list[idx];
         if (!c) return;
-
         const existing = existingNumbers.get(c.cc);
 
         if (existing) {
-            // Duplicate found
             if (autoReplace) {
-                // Update existing card with new data
                 existing.cardNumber = c.cc;
-                if (c.mm && c.yy) {
-                    // Update validity fields if present in existing card structure
-                    // The card stores raw number, so just update
-                }
                 if (c.cvv) existing.cvv = c.cvv;
                 if (c.name) existing.name = c.name;
                 if (c.surname) existing.surname = c.surname;
                 replaced++;
             }
-            // If not auto-replace, just skip (already marked as DUP)
             return;
         }
 
@@ -3732,7 +3731,6 @@ function addCollectedToCards() {
         toast('No new cards to add (all duplicates)', 'info');
     }
 }
-
 // ──── VIEW DENSITY SYSTEM ────
 (function initDensity() {
     const app = document.querySelector('.app');

@@ -3704,8 +3704,145 @@ tr:hover .bin-info:not(:empty) {
     font-weight: var(--fw-bold)
 }
 
+/* ──── PARSER FILTERS ──── */
+.parser-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: var(--sp-1)
+}
 
+.parser-filter-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px
+}
 
+.parser-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px
+}
+
+.parser-filter-group label {
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px
+}
+
+.parser-filter-hint {
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-dim);
+    opacity: 0.6
+}
+
+.parser-filter-group input,
+.parser-filter-group textarea {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-xs);
+    color: var(--text-primary);
+    font-size: 12px;
+    padding: 6px 8px;
+    font-family: var(--font-mono)
+}
+
+.parser-filter-group textarea {
+    resize: vertical;
+    min-height: 32px
+}
+
+.parser-filter-bins { grid-column: 1 / 2 }
+
+/* PARSE button (purple) */
+.parser-parse-btn {
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: var(--fw-black);
+    letter-spacing: 0.5px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #6366F1;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.parser-parse-btn:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.25)
+}
+
+.parser-parse-btn:disabled,
+.parser-collect-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed
+}
+
+/* ──── TOP BINS BAR ──── */
+.parser-topbins-bar {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-sm);
+    padding: 6px 8px;
+    margin-bottom: var(--sp-1)
+}
+
+.parser-topbins-scroll {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px
+}
+
+.parser-top-bin {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    white-space: nowrap
+}
+
+.parser-top-bin b {
+    color: var(--text-primary);
+    font-weight: var(--fw-black)
+}
+
+.parser-top-bin.hl {
+    background: rgba(251,191,36,0.15);
+    border-color: rgba(251,191,36,0.3);
+    color: #FBBF24
+}
+
+.parser-top-bin.hl b { color: #FBBF24 }
+
+.parser-proj-sup {
+    font-size: 8px;
+    color: #6366F1;
+    font-weight: var(--fw-bold);
+    vertical-align: super;
+    margin-left: 1px
+}
+
+/* ──── COMPACT TABLE CELLS ──── */
+.pc-chk { width: 30px; text-align: center }
+.pc-num { width: 36px; text-align: center; color: var(--text-dim); font-size: 11px }
+.pc-holder { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px }
+.pc-card { font-family: var(--font-mono); font-size: 11px; white-space: nowrap; letter-spacing: 0.3px }
+.pc-exp { width: 50px; font-family: var(--font-mono); font-size: 11px; text-align: center }
+.pc-bin { font-family: var(--font-mono); font-size: 11px; white-space: nowrap }
+.pc-bank { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; color: var(--text-secondary) }
+.pc-geo { width: 40px; font-size: 11px; font-weight: var(--fw-bold); text-align: center }
 
 /* ═══════ DENSITY SWITCHER UI ═══════ */
 .density-switcher {
