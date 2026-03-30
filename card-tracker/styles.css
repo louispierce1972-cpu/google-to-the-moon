@@ -3099,7 +3099,7 @@ body.modal-open {
     gap: 3px
 }
 
-/* CC tag: yellow when active */
+/* CC tag: green when active (like A) */
 .status-btn.btn-vcc {
     width: auto;
     min-width: 24px;
@@ -3111,9 +3111,9 @@ body.modal-open {
 }
 
 .status-btn.btn-vcc.active {
-    background: rgba(255, 204, 0, 0.15);
-    border-color: rgba(255, 204, 0, 0.4);
-    color: #FFCC00
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #22C55E
 }
 
 .status-btn.btn-vcc:not(.active) {
@@ -3122,7 +3122,7 @@ body.modal-open {
     color: var(--text-dim)
 }
 
-/* DOC tag: blue when active */
+/* DOC tag: green when active (like A) */
 .status-btn.btn-sdoc {
     width: auto;
     min-width: 26px;
@@ -3134,9 +3134,9 @@ body.modal-open {
 }
 
 .status-btn.btn-sdoc.active {
-    background: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.4);
-    color: #60A5FA
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #22C55E
 }
 
 .status-btn.btn-sdoc:not(.active) {
@@ -3557,12 +3557,154 @@ tr:hover .bin-info:not(:empty) {
     width: 100%
 }
 
+
 .parser-table th,
 .parser-table td {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap
 }
+
+/* ──── PARSER: OPTIONS, ACTIONS, BIN GROUPS ──── */
+
+.parser-options {
+    display: flex;
+    gap: 16px;
+    padding: var(--sp-2) 0;
+    flex-wrap: wrap
+}
+
+.parser-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer
+}
+
+.parser-checkbox input[type="checkbox"] {
+    accent-color: #22C55E;
+    cursor: pointer
+}
+
+.parser-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: var(--sp-2) 0
+}
+
+.parser-collect-btn {
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: var(--fw-black);
+    letter-spacing: 0.5px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #22C55E;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.parser-collect-btn:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.25);
+    transform: scale(1.02)
+}
+
+.parser-collect-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed
+}
+
+.parser-status {
+    font-size: 12px;
+    color: var(--text-secondary)
+}
+
+.parser-bin-groups {
+    padding: var(--sp-2);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-sm);
+    margin-bottom: var(--sp-2)
+}
+
+.parser-bin-groups-title {
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-1)
+}
+
+.parser-bin-groups-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px
+}
+
+.parser-bin-group-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--r-xs);
+    font-size: 11px
+}
+
+.parser-bin-group-bin {
+    font-family: var(--font-mono);
+    font-weight: var(--fw-bold);
+    color: var(--text-primary)
+}
+
+.parser-bin-group-count {
+    color: var(--text-dim);
+    font-size: 10px
+}
+
+.parser-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2)
+}
+
+.parser-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-2) 0;
+    gap: 12px;
+    flex-wrap: wrap
+}
+
+.parser-add-section {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.parser-add-section select {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-xs);
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer
+}
+
+.parser-add-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: var(--fw-bold)
+}
+
+
 
 
 /* ═══════ DENSITY SWITCHER UI ═══════ */
