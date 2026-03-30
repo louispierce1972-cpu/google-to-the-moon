@@ -26,6 +26,7 @@ const STATE = {
     docSortDir: 'desc',
     notesFontSize: 14,
     notesLastSaved: null,
+    settings: {},
 };
 
 const CREDENTIALS = { username: 'admin', password: 'google2026' };
@@ -183,7 +184,10 @@ const COUNTRY_DB = {
 };
 
 // ──── HELPERS ────
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function genId() {
+    try { return crypto.randomUUID(); }
+    catch { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+}
 
 function getCardType(num) {
     const n = num.replace(/\s/g, '');
@@ -222,12 +226,18 @@ function toast(msg, type = 'info') {
 }
 
 function save() {
-    localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
-    localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
-    localStorage.setItem('ct_notes', STATE.notes);
-    localStorage.setItem('ct_trash', JSON.stringify(STATE.trash));
-    localStorage.setItem('ct_countries', JSON.stringify(STATE.countries));
-    saveBinCache();
+    try {
+        localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
+        localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
+        localStorage.setItem('ct_notes', STATE.notes);
+        localStorage.setItem('ct_trash', JSON.stringify(STATE.trash));
+        localStorage.setItem('ct_countries', JSON.stringify(STATE.countries));
+        localStorage.setItem('ct_settings', JSON.stringify(STATE.settings || {}));
+        saveBinCache();
+    } catch (e) {
+        console.error('Save error:', e);
+        toast('Storage error — data may not persist', 'error');
+    }
 }
 
 function load() {
@@ -238,8 +248,26 @@ function load() {
         STATE.trash = JSON.parse(localStorage.getItem('ct_trash') || '[]');
         const saved = localStorage.getItem('ct_countries');
         if (saved) STATE.countries = JSON.parse(saved);
-    } catch { /* ignore corrupt data */ }
+        const settings = localStorage.getItem('ct_settings');
+        if (settings) STATE.settings = JSON.parse(settings);
+    } catch (e) {
+        console.error('Load error:', e);
+    }
     loadBinCache();
+    ensureDataIntegrity();
+}
+
+// Ensure every record has a unique ID and required fields
+function ensureDataIntegrity() {
+    const seenIds = new Set();
+    function fixId(item) {
+        if (!item.id || seenIds.has(item.id)) item.id = genId();
+        seenIds.add(item.id);
+        return item;
+    }
+    STATE.cards = STATE.cards.map(fixId);
+    STATE.docs = STATE.docs.map(fixId);
+    STATE.trash = STATE.trash.map(fixId);
 }
 
 // ──── AUTO DOC CREATION ────
@@ -2517,14 +2545,15 @@ function openBackupFileDialog() {
 }
 
 function showBackupImportModal(data, filename) {
-    const isOldFormat = !!data.version;
+    const isV2 = data.version === '2.0';
+    // v2: separate cards/docs/trash arrays; v1: cards include deleted, mydocuments
     const cards = data.cards || [];
-    const activeCards = cards.filter(c => !(c.is_deleted ?? false));
-    const mycards = data.mycards || [];
-    const docs = data.mydocuments || data.docs || [];
-    const activeDocs = docs.filter(d => !(d.is_deleted ?? false));
+    const activeCards = isV2 ? cards : cards.filter(c => !(c.is_deleted ?? false));
+    const docs = isV2 ? (data.docs || []) : (data.mydocuments || data.docs || []);
+    const activeDocs = isV2 ? docs : docs.filter(d => !(d.is_deleted ?? false));
+    const trashCount = isV2 ? (data.trash || []).length : cards.filter(c => c.is_deleted).length;
     const hasNotes = !!(data.notes && (data.notes.content || typeof data.notes === 'string'));
-    const exportDate = data.exported_at || data.backupAt || data.exportedAt || '';
+    const exportDate = data.exported_at || data.exportedAt || data.backupAt || '';
     const version = data.version || '—';
 
     let dateStr = '';
@@ -2537,9 +2566,9 @@ function showBackupImportModal(data, filename) {
 
     document.getElementById('backup-meta').innerHTML = `Exported: ${dateStr || 'Unknown'}  | Version: ${version}`;
     document.getElementById('backup-stats').innerHTML = `
-        <div class="backup-stat-card cards"><div class="stat-num">${activeCards.length}</div><div class="stat-name">CARDS (CANADA/USA)</div></div>
-        <div class="backup-stat-card mycards"><div class="stat-num">${mycards.length}</div><div class="stat-name">MY CARDS</div></div>
-        <div class="backup-stat-card docs"><div class="stat-num">${activeDocs.length}</div><div class="stat-name">MY DOCUMENTS</div></div>
+        <div class="backup-stat-card cards"><div class="stat-num">${activeCards.length}</div><div class="stat-name">CARDS</div></div>
+        <div class="backup-stat-card docs"><div class="stat-num">${activeDocs.length}</div><div class="stat-name">DOCUMENTS</div></div>
+        <div class="backup-stat-card mycards"><div class="stat-num">${trashCount}</div><div class="stat-name">TRASH</div></div>
         <div class="backup-stat-card notes"><div class="stat-num">${hasNotes ? 1 : 0}</div><div class="stat-name">NOTES</div></div>
     `;
     backupOverlay.classList.remove('hidden');
@@ -2556,12 +2585,24 @@ function executeBackupImport(mode) {
         STATE.notes = '';
     }
 
+    // Import countries from backup (merge new ones)
+    if (data.countries && Array.isArray(data.countries)) {
+        data.countries.forEach(c => {
+            if (!STATE.countries.find(e => e.id === c.id)) {
+                STATE.countries.push(c);
+            }
+        });
+    }
+
+    // Detect format
+    const isV2 = data.version === '2.0';
+
     // Import cards
     const rawCards = data.cards || [];
     let addedCards = 0;
     rawCards.forEach(c => {
-        const isDeleted = c.is_deleted === 1 || c.is_deleted === true;
-        const converted = convertOldCard(c);
+        const isDeleted = !isV2 && (c.is_deleted === 1 || c.is_deleted === true);
+        const converted = isV2 ? { ...c, id: c.id || genId() } : convertOldCard(c);
         if (isDeleted) {
             if (mode === 'replace' || !STATE.trash.find(t => t.cardNumber === converted.cardNumber)) {
                 STATE.trash.push(converted);
@@ -2574,13 +2615,23 @@ function executeBackupImport(mode) {
         }
     });
 
-    // Import docs
-    const rawDocs = data.mydocuments || data.docs || [];
+    // Import trash (v2 has separate trash array)
+    if (isV2 && data.trash && Array.isArray(data.trash)) {
+        data.trash.forEach(c => {
+            const t = { ...c, id: c.id || genId() };
+            if (mode === 'replace' || !STATE.trash.find(e => e.cardNumber === t.cardNumber)) {
+                STATE.trash.push(t);
+            }
+        });
+    }
+
+    // Import docs (v2: data.docs, v1: data.mydocuments)
+    const rawDocs = isV2 ? (data.docs || []) : (data.mydocuments || data.docs || []);
     let addedDocs = 0;
     rawDocs.forEach(d => {
-        const isDeleted = d.is_deleted === 1 || d.is_deleted === true;
+        const isDeleted = !isV2 && (d.is_deleted === 1 || d.is_deleted === true);
         if (isDeleted) return;
-        const converted = convertOldDoc(d);
+        const converted = isV2 ? { ...d, id: d.id || genId() } : convertOldDoc(d);
         if (mode === 'replace' || !STATE.docs.find(e => e.fullName === converted.fullName && e.country === converted.country)) {
             STATE.docs.push(converted);
             addedDocs++;
@@ -2602,6 +2653,7 @@ function executeBackupImport(mode) {
         Object.assign(BIN_CACHE, data.binCache);
     }
 
+    ensureDataIntegrity();
     save();
     backupOverlay.classList.add('hidden');
     pendingBackup = null;
@@ -2621,12 +2673,18 @@ backupOverlay.addEventListener('click', (e) => { if (e.target === backupOverlay)
 
 document.getElementById('backup-btn').addEventListener('click', () => {
     const data = {
-        version: '1.0',
+        version: '2.0',
+        exportedAt: new Date().toISOString(),
         exported_at: new Date().toISOString(),
-        cards: STATE.cards.concat(STATE.trash),
-        mycards: STATE.cards.map(c => ({ ...c, added_to_google: c.cardAdd, ads_running: c.runAds })),
-        mydocuments: STATE.docs,
+        totalCards: STATE.cards.length,
+        totalDocs: STATE.docs.length,
+        totalTrash: STATE.trash.length,
+        cards: STATE.cards,
+        docs: STATE.docs,
+        trash: STATE.trash,
         notes: { id: 'main', content: STATE.notes },
+        countries: STATE.countries,
+        settings: STATE.settings || {},
         binCache: BIN_CACHE,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2636,7 +2694,7 @@ document.getElementById('backup-btn').addEventListener('click', () => {
     a.download = `card-tracker-backup-${todayStr()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast('Backup created', 'success');
+    toast(`Backup created: ${STATE.cards.length} cards, ${STATE.docs.length} docs`, 'success');
 });
 
 
