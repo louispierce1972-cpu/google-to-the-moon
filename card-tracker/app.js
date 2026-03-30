@@ -1685,24 +1685,30 @@ window.cycleDocType = function (docId) {
 };
 
 // ──── DOC MODAL ────
+let _docParseTimer = null;
+
 function openDocModal() {
     const overlay = document.getElementById('add-doc-overlay');
     overlay.classList.remove('hidden');
-    // Reset form
-    document.getElementById('doc-form-name').value = '';
-    document.getElementById('doc-form-surname').value = '';
-    document.getElementById('doc-form-type').value = '';
-    document.getElementById('doc-form-status').value = 'original';
-    document.getElementById('doc-form-notes').value = '';
-    // Reset to form tab
-    document.querySelectorAll('[data-doc-tab]').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-doc-tab="doc-form"]').classList.add('active');
-    document.getElementById('doc-form-tab').classList.add('active');
-    document.getElementById('doc-form-tab').style.display = '';
-    document.getElementById('doc-list-tab').classList.remove('active');
-    document.getElementById('doc-list-tab').style.display = 'none';
-    // Focus name
-    setTimeout(() => document.getElementById('doc-form-name').focus(), 100);
+
+    // Populate country dropdown
+    const countrySelect = document.getElementById('doc-list-country');
+    countrySelect.innerHTML = STATE.countries.map(c =>
+        `<option value="${c.id}" ${c.id === STATE.currentCountry ? 'selected' : ''}>${c.flag} ${c.name}</option>`
+    ).join('');
+
+    // Reset fields
+    document.getElementById('doc-list-type').value = 'PP';
+    document.getElementById('doc-list-status').value = 'waiting';
+    document.getElementById('doc-list-quality').value = 'original';
+    document.getElementById('doc-list-notes').value = '';
+    document.getElementById('doc-list-textarea').value = '';
+    document.getElementById('doc-list-parsed-count').textContent = '0 documents detected';
+    document.getElementById('doc-list-parsed-count').classList.remove('has-cards');
+    document.getElementById('doc-list-preview').innerHTML = '';
+    document.getElementById('doc-save-btn-text').textContent = 'Add Documents';
+
+    setTimeout(() => document.getElementById('doc-list-textarea').focus(), 100);
 }
 
 function closeDocModal() {
@@ -1716,106 +1722,93 @@ document.getElementById('add-doc-overlay').addEventListener('click', (e) => {
     if (e.target.id === 'add-doc-overlay') closeDocModal();
 });
 
-// Doc modal tabs
-document.querySelectorAll('[data-doc-tab]').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('[data-doc-tab]').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const target = tab.getAttribute('data-doc-tab');
-        document.getElementById('doc-form-tab').classList.toggle('active', target === 'doc-form');
-        document.getElementById('doc-form-tab').style.display = target === 'doc-form' ? '' : 'none';
-        document.getElementById('doc-list-tab').classList.toggle('active', target === 'doc-list');
-        document.getElementById('doc-list-tab').style.display = target === 'doc-list' ? '' : 'none';
-    });
+// Doc list textarea — live parsing with debounce
+document.getElementById('doc-list-textarea').addEventListener('input', function () {
+    clearTimeout(_docParseTimer);
+    _docParseTimer = setTimeout(() => {
+        const lines = this.value.split('\n').filter(l => l.trim());
+        const count = lines.length;
+        const countEl = document.getElementById('doc-list-parsed-count');
+        countEl.textContent = `${count} document${count !== 1 ? 's' : ''} detected`;
+        countEl.classList.toggle('has-cards', count > 0);
+        document.getElementById('doc-save-btn-text').textContent = count > 0 ? `Add ${count} Documents` : 'Add Documents';
+
+        // Preview first 5
+        const previewEl = document.getElementById('doc-list-preview');
+        if (count === 0) { previewEl.innerHTML = ''; return; }
+        const preview = lines.slice(0, 5).map(l => {
+            const name = l.trim().toUpperCase();
+            return `<div class="list-preview-row">${name}</div>`;
+        }).join('');
+        const more = count > 5 ? `<div class="list-preview-more">...and ${count - 5} more</div>` : '';
+        previewEl.innerHTML = preview + more;
+    }, 300);
 });
 
-// Doc modal save
+// Doc modal save — bulk import
 document.getElementById('doc-modal-save').addEventListener('click', () => {
-    const activeTab = document.querySelector('[data-doc-tab].active');
-    const tabName = activeTab ? activeTab.getAttribute('data-doc-tab') : 'doc-form';
-    
-    if (tabName === 'doc-form') {
-        // Single doc form
-        const name = document.getElementById('doc-form-name').value.trim().toUpperCase();
-        const surname = document.getElementById('doc-form-surname').value.trim().toUpperCase();
-        if (!name) {
-            toast('Name is required', 'error');
-            return;
-        }
-        const fullName = surname ? `${name} ${surname}` : name;
-        const type = document.getElementById('doc-form-type').value || '-';
-        const quality = document.getElementById('doc-form-status').value || 'original';
-        const notes = document.getElementById('doc-form-notes').value.trim();
-        
-        const now = new Date();
-        const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getFullYear()).slice(-2)}`;
-        
-        const newDoc = {
-            id: 'doc_' + Date.now(),
-            fullName: fullName,
-            type: type,
-            quality: quality,
-            notes: notes,
-            verified: 0,
-            suspended: 0,
+    const textarea = document.getElementById('doc-list-textarea');
+    const lines = textarea.value.split('\n').filter(l => l.trim());
+
+    if (lines.length === 0) {
+        toast('Paste at least one name', 'error');
+        return;
+    }
+
+    const country = document.getElementById('doc-list-country').value;
+    const docType = document.getElementById('doc-list-type').value;
+    const status = document.getElementById('doc-list-status').value;
+    const quality = document.getElementById('doc-list-quality').value;
+    const sharedNotes = document.getElementById('doc-list-notes').value.trim();
+
+    // Map status to verified/suspended values
+    let verified = 0, suspended = 0, statusStr = 'waiting';
+    switch (status) {
+        case 'verified': verified = 1; statusStr = 'verified'; break;
+        case 'failed': suspended = 1; statusStr = 'failed'; break;
+        case 'waiting': statusStr = 'waiting'; break;
+        case 'none': statusStr = ''; break;
+    }
+
+    const dateStr = todayStr();
+    let added = 0;
+
+    lines.forEach(line => {
+        const fullName = line.trim().toUpperCase();
+        if (!fullName) return;
+
+        // Check for duplicate by fullName + country
+        if (STATE.docs.find(d => d.fullName === fullName && d.country === country)) return;
+
+        const parts = fullName.split(/\s+/);
+        const name = parts[0] || '';
+        const surname = parts.slice(1).join(' ') || '';
+
+        STATE.docs.push({
+            id: genId(),
+            fullName,
+            name,
+            surname,
+            type: docType,
+            quality,
+            notes: sharedNotes,
+            verified,
+            suspended,
+            status: statusStr,
             use: 1,
-            country: STATE.currentCountry,
+            country,
             date: dateStr,
-        };
-        STATE.docs.push(newDoc);
-        save();
-        renderAll();
-        closeDocModal();
-        toast('Document added: ' + fullName, 'success');
-    } else {
-        // List tab - bulk import
-        const textarea = document.getElementById('doc-list-textarea');
-        const lines = textarea.value.trim().split('\n').filter(l => l.trim());
-        if (lines.length === 0) {
-            toast('No documents to import', 'error');
-            return;
-        }
-        const now = new Date();
-        const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getFullYear()).slice(-2)}`;
-        
-        let count = 0;
-        lines.forEach(line => {
-            const parts = line.trim().split(/\s+/);
-            if (parts.length === 0) return;
-            const name = parts[0].toUpperCase();
-            const surname = parts.length > 1 && !['PP', 'DL', 'V', 'S', 'W'].includes(parts[1].toUpperCase()) ? parts[1].toUpperCase() : '';
-            const fullName = surname ? `${name} ${surname}` : name;
-            
-            let type = '-';
-            let quality = 'original';
-            let verified = 0;
-            let suspended = 0;
-            parts.forEach(p => {
-                const up = p.toUpperCase();
-                if (up === 'PP' || up === 'DL') type = up;
-                if (up === 'V') verified = 1;
-                if (up === 'S') suspended = 1;
-            });
-            
-            STATE.docs.push({
-                id: 'doc_' + Date.now() + '_' + count,
-                fullName: fullName,
-                type: type,
-                quality: quality,
-                notes: '',
-                verified: verified,
-                suspended: suspended,
-                use: 1,
-                country: STATE.currentCountry,
-                date: dateStr,
-            });
-            count++;
         });
+        added++;
+    });
+
+    if (added > 0) {
         save();
         renderAll();
         closeDocModal();
-        toast(`${count} documents imported`, 'success');
-        textarea.value = '';
+        toast(`${added} documents added`, 'success');
+    } else {
+        toast('All names already exist (duplicates)', 'info');
     }
 });
 

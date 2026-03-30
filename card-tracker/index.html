@@ -619,73 +619,63 @@
     <div id="add-doc-overlay" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h3 id="doc-modal-title">ADD DOCUMENT</h3>
-                <p class="modal-subtitle">Add one document or paste a list</p>
+                <h3 id="doc-modal-title">ADD DOCUMENTS</h3>
+                <p class="modal-subtitle">Bulk import — paste names list</p>
                 <button class="modal-close" id="doc-modal-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
             </div>
 
-            <div class="modal-tabs">
-                <button class="modal-tab active" data-doc-tab="doc-form">FORM</button>
-                <button class="modal-tab" data-doc-tab="doc-list">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
-                    LIST
-                </button>
-            </div>
-
-            <!-- DOC FORM TAB -->
-            <div id="doc-form-tab" class="modal-body tab-content active">
+            <div class="modal-body" id="doc-list-tab">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Name *</label>
-                        <input type="text" id="doc-form-name" placeholder="JOHN" style="text-transform:uppercase;" required>
+                        <label>Country</label>
+                        <select id="doc-list-country" class="form-select"></select>
                     </div>
-                    <div class="form-group">
-                        <label>Surname</label>
-                        <input type="text" id="doc-form-surname" placeholder="DOE" style="text-transform:uppercase;">
-                    </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group">
                         <label>Document Type</label>
-                        <select id="doc-form-type" class="form-select">
-                            <option value="">Select...</option>
+                        <select id="doc-list-type" class="form-select">
                             <option value="PP">PP (Passport)</option>
                             <option value="DL">DL (Driver License)</option>
                         </select>
                     </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="doc-list-status" class="form-select">
+                            <option value="none">Without status</option>
+                            <option value="verified">Verified</option>
+                            <option value="failed">Failed</option>
+                            <option value="waiting" selected>Waiting</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label>Quality</label>
-                        <select id="doc-form-status" class="form-select">
+                        <select id="doc-list-quality" class="form-select">
                             <option value="original">Original</option>
                             <option value="psd">PSD / FS</option>
                         </select>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>Notes</label>
-                        <input type="text" id="doc-form-notes" placeholder="Add note...">
-                    </div>
-                </div>
-            </div>
-
-            <!-- DOC LIST TAB -->
-            <div id="doc-list-tab" class="modal-body tab-content">
                 <div class="form-group full-width">
-                    <label>Paste document list</label>
-                    <textarea id="doc-list-textarea" class="list-textarea" rows="10" placeholder="Format: NAME SURNAME [TYPE] [STATUS] [notes]&#10;&#10;Example:&#10;JOHN DOE PP V&#10;MARIA SMITH DL W&#10;&#10;Types: PP, DL, ID&#10;Status: V=Verified, S=Suspended, W=Waiting"></textarea>
+                    <label>Notes (for all)</label>
+                    <input type="text" id="doc-list-notes" placeholder="Optional shared notes...">
+                </div>
+                <div class="form-group full-width">
+                    <label>Paste names — one per line</label>
+                    <textarea id="doc-list-textarea" class="list-textarea" rows="8" placeholder="JOHN DOE&#10;MARIA SMITH&#10;ALEX JOHNSON&#10;&#10;Each line = one document&#10;Format: NAME SURNAME"></textarea>
                 </div>
                 <div class="list-info">
-                    <span id="doc-list-parsed-count">0 documents detected</span>
+                    <span id="doc-list-parsed-count" class="list-count-badge">0 documents detected</span>
                 </div>
+                <div id="doc-list-preview" class="list-preview"></div>
             </div>
 
             <div class="modal-footer">
                 <button class="btn-cancel" id="doc-modal-cancel">Cancel</button>
                 <button class="btn-primary" id="doc-modal-save">
-                    <span id="doc-save-btn-text">Add Document</span>
+                    <span id="doc-save-btn-text">Add Documents</span>
                 </button>
             </div>
         </div>
