@@ -629,6 +629,35 @@ textarea {
     padding: var(--sp-2) 0
 }
 
+.top-bins-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    flex: 1
+}
+
+.top-bins-bank {
+    font-size: 9px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+/* ──── Search Highlight ──── */
+.search-highlight {
+    animation: search-highlight-pulse 2.5s ease-out;
+}
+
+@keyframes search-highlight-pulse {
+    0% { background: rgba(251, 191, 36, 0.25); }
+    50% { background: rgba(251, 191, 36, 0.12); }
+    100% { background: transparent; }
+}
+
 .sidebar-footer {
     padding: var(--sp-3) var(--sp-2);
     border-top: 1px solid var(--border-subtle)
@@ -697,6 +726,37 @@ textarea {
     align-items: center;
     gap: var(--sp-3);
     min-width: 0
+}
+
+.geo-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: var(--sp-2)
+}
+
+.geo-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--r-xs);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.geo-btn:hover {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.08)
+}
+
+.geo-btn.active {
+    color: var(--primary);
+    background: rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.3)
 }
 
 .toggle-sidebar-btn {
@@ -3397,7 +3457,145 @@ tr:hover .bin-info:not(:empty) {
     cursor: pointer
 }
 
+/* ──── PARSER TABS ──── */
+.parser-tabs {
+    display: flex;
+    gap: 2px;
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: var(--sp-2);
+    flex-wrap: wrap
+}
 
+.parser-tab {
+    padding: 5px 12px;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--r-xs);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.parser-tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.06) }
+.parser-tab.active { color: var(--primary); background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3) }
+
+.parser-tab-count {
+    font-weight: var(--fw-black);
+    margin-left: 4px
+}
+
+/* ──── PARSER BADGES ──── */
+.parser-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 9px;
+    font-weight: var(--fw-black);
+    letter-spacing: 0.5px;
+    border-radius: 3px;
+    text-transform: uppercase
+}
+
+.parser-badge-new { background: rgba(34,197,94,0.15); color: #22C55E }
+.parser-badge-dup { background: rgba(239,68,68,0.15); color: #EF4444 }
+.parser-badge-top { background: rgba(99,102,241,0.15); color: #6366F1 }
+.parser-badge-ready { background: rgba(34,197,94,0.2); color: #22C55E; border: 1px solid rgba(34,197,94,0.3) }
+.parser-badge-review { background: rgba(251,191,36,0.15); color: #FBBF24 }
+
+/* ──── PARSER ROW COLORS ──── */
+.parser-row-dup { background: rgba(239,68,68,0.04) !important }
+.parser-row-top { background: rgba(99,102,241,0.04) !important }
+.parser-row-ready { background: rgba(34,197,94,0.04) !important }
+.parser-row-review { background: rgba(251,191,36,0.04) !important }
+
+/* ──── BIN COUNT TAG ──── */
+.parser-bin-ref {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary)
+}
+
+.parser-bin-count-tag {
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-dim)
+}
+
+/* ──── QUALITY SCORE ──── */
+.parser-score {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: var(--fw-black);
+    padding: 1px 5px;
+    border-radius: 3px
+}
+
+.parser-score-high { background: rgba(34,197,94,0.15); color: #22C55E }
+.parser-score-mid { background: rgba(251,191,36,0.15); color: #FBBF24 }
+.parser-score-low { background: rgba(239,68,68,0.15); color: #EF4444 }
+
+/* ──── STATUS PRESETS ──── */
+.parser-status-presets {
+    display: flex;
+    align-items: center;
+    gap: 3px
+}
+
+.parser-preset-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-right: 4px
+}
+
+.parser-preset {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+    font-weight: var(--fw-black);
+    border-radius: var(--r-xs);
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.parser-preset:hover { background: rgba(255,255,255,0.08) }
+.parser-preset.active { color: var(--primary); background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3) }
+
+/* ──── READY BUTTON ──── */
+.parser-ready-btn {
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: #22C55E;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.parser-ready-btn:hover { background: rgba(34,197,94,0.2) }
+
+/* ──── SMART FILTERS ──── */
+.parser-smart-filters {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--sp-2);
+    margin-top: var(--sp-1)
+}
+
+/* ──── PARSER STAT COLORS ──── */
+.parser-stat-ready { border-top-color: #22C55E }
+.parser-stat-ready .stat-value { color: #22C55E }
+.parser-stat-review { border-top-color: #FBBF24 }
+.parser-stat-review .stat-value { color: #FBBF24 }
 /* ═══════ DENSITY SWITCHER UI ═══════ */
 .density-switcher {
     display: flex;

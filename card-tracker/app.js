@@ -303,6 +303,9 @@ function isFavorite(card) { return card.cardAdd && card.runAds; }
 // Card is in Active Now when star is toggled on
 function isActiveNow(card) { return !!card.starred; }
 
+// ──── GEO FILTER (My Card / Global Docs) ────
+let _geoFilter = 'all'; // 'all' or country id
+
 // ──── BIN COUNT ────
 function binCount(bin, countryFilter) {
     return STATE.cards.filter(c => getBin(c.cardNumber) === bin && (!countryFilter || c.country === countryFilter)).length;
@@ -377,12 +380,16 @@ function getFilteredCards() {
             break;
         case 'my-card':
             cards = [...STATE.cards];
+            if (_geoFilter !== 'all') cards = cards.filter(c => c.country === _geoFilter);
             break;
         case 'favorites':
             cards = STATE.cards.filter(c => isFavorite(c));
             break;
         case 'active-now':
             cards = STATE.cards.filter(c => isActiveNow(c));
+            break;
+        case 'ready-to-work':
+            cards = STATE.cards.filter(c => c.readyToWork === true);
             break;
         case 'trash':
             cards = [...STATE.trash];
@@ -409,7 +416,13 @@ function getFilteredCards() {
 }
 
 function getFilteredDocs() {
-    let docs = STATE.docs.filter(d => d.country === STATE.currentCountry);
+    let docs;
+    if (STATE.currentView === 'global-docs') {
+        docs = [...STATE.docs];
+        if (_geoFilter !== 'all') docs = docs.filter(d => d.country === _geoFilter);
+    } else {
+        docs = STATE.docs.filter(d => d.country === STATE.currentCountry);
+    }
     if (STATE.search.length >= 2) {
         const s = STATE.search.toLowerCase();
         docs = docs.filter(d => d.fullName.toLowerCase().includes(s) || (d.notes || '').toLowerCase().includes(s));
@@ -528,7 +541,7 @@ function renderSidebar() {
                     <button class="nav-item ${STATE.currentView === 'cards' && STATE.currentCountry === country.id ? 'active' : ''}"
                             onclick="navigate('cards', '${country.id}')">
                         <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
-                        <span>Cards</span>
+                        <span>Workspace</span>
                         <span class="nav-badge">${countryCards.length}</span>
                     </button>
                     <button class="nav-item ${STATE.currentView === 'docs' && STATE.currentCountry === country.id ? 'active' : ''}"
@@ -547,6 +560,8 @@ function renderSidebar() {
     document.getElementById('badge-my-card').textContent = STATE.cards.length;
     document.getElementById('badge-favorites').textContent = STATE.cards.filter(c => isFavorite(c)).length;
     document.getElementById('badge-active').textContent = STATE.cards.filter(c => isActiveNow(c)).length;
+    document.getElementById('badge-ready-work').textContent = STATE.cards.filter(c => c.readyToWork).length;
+    document.getElementById('badge-global-docs').textContent = STATE.docs.length;
     document.getElementById('badge-trash').textContent = STATE.trash.length;
 
     // Highlight active collection
@@ -607,10 +622,10 @@ function renderTopBins() {
         if (!isNaN(amt)) bins[bin].amount += amt;
     });
 
-    // Sort by mode
+    // Sort by mode — TOP 10
     const sorted = Object.entries(bins)
         .sort((a, b) => b[1][_topBinsMode] - a[1][_topBinsMode])
-        .slice(0, 5);
+        .slice(0, 10);
 
     if (sorted.length === 0) {
         container.innerHTML = '<div class="top-bins-empty">No BINs found</div>';
@@ -622,9 +637,16 @@ function renderTopBins() {
     container.innerHTML = sorted.map(([bin, data]) => {
         const val = _topBinsMode === 'count' ? data.count : `$${data.amount.toLocaleString()}`;
         const pct = Math.round((data[_topBinsMode] / maxVal) * 100);
+        // Look up bank name from BIN_CACHE
+        const cached = BIN_CACHE[bin];
+        const bankName = cached ? (cached.bank || cached.issuer || 'Unknown Bank') : 'Unknown Bank';
+        const shortBank = bankName.length > 18 ? bankName.slice(0, 18) + '…' : bankName;
         return `<div class="top-bins-row">
             <div class="top-bins-bar" style="width:${pct}%"></div>
-            <span class="top-bins-bin">${bin}</span>
+            <div class="top-bins-info">
+                <span class="top-bins-bin">${bin}</span>
+                <span class="top-bins-bank">${shortBank}</span>
+            </div>
             <span class="top-bins-val">${val}</span>
         </div>`;
     }).join('');
@@ -651,7 +673,7 @@ function renderStats() {
     }
     bar.style.display = 'grid';
 
-    if (STATE.currentView === 'docs') {
+    if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         const docs = getFilteredDocs();
         const s = getDocStats(docs);
         bar.innerHTML = `
@@ -706,7 +728,7 @@ function renderContent() {
     }
     footer.style.display = 'flex';
 
-    if (STATE.currentView === 'docs') {
+    if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         renderDocs();
         return;
     }
@@ -1046,7 +1068,7 @@ function renderPageTitle() {
     switch (STATE.currentView) {
         case 'cards':
             flagEl.textContent = country?.flag || '';
-            titleEl.textContent = `${country?.name || ''} — Cards`;
+            titleEl.textContent = `${country?.name || ''} — Workspace`;
             break;
         case 'docs':
             flagEl.textContent = country?.flag || '';
@@ -1069,8 +1091,16 @@ function renderPageTitle() {
             titleEl.textContent = 'Notes';
             break;
         case 'new-cards':
-            flagEl.textContent = '🆕';
-            titleEl.textContent = 'New Cards — Parser';
+            flagEl.textContent = '🔍';
+            titleEl.textContent = 'Parser';
+            break;
+        case 'ready-to-work':
+            flagEl.textContent = '✅';
+            titleEl.textContent = 'Ready to Work';
+            break;
+        case 'global-docs':
+            flagEl.textContent = '📄';
+            titleEl.textContent = 'Documents — Global';
             break;
         case 'trash':
             flagEl.textContent = '🗑️';
@@ -1079,17 +1109,54 @@ function renderPageTitle() {
     }
 
     // Show/hide buttons
-    const showAdd = ['cards', 'my-card'].includes(STATE.currentView);
+    const showAdd = ['cards', 'my-card', 'ready-to-work'].includes(STATE.currentView);
 
     document.getElementById('add-card-btn').style.display = showAdd ? 'flex' : 'none';
 
-    if (STATE.currentView === 'docs') {
+    if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         document.getElementById('add-card-btn').style.display = 'flex';
         document.getElementById('add-btn-text').textContent = 'ADD DOC';
     } else {
         document.getElementById('add-btn-text').textContent = 'ADD';
     }
+
+    // GEO filter bar for My Card and Global Docs
+    renderGeoFilterBar();
 }
+
+function renderGeoFilterBar() {
+    let bar = document.getElementById('geo-filter-bar');
+    if (!['my-card', 'global-docs'].includes(STATE.currentView)) {
+        if (bar) bar.remove();
+        return;
+    }
+
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'geo-filter-bar';
+        bar.className = 'geo-filter-bar';
+        document.querySelector('.top-bar-left').appendChild(bar);
+    }
+
+    const geos = new Set();
+    const source = STATE.currentView === 'global-docs' ? STATE.docs : STATE.cards;
+    source.forEach(item => { if (item.country) geos.add(item.country); });
+
+    let html = `<button class="geo-btn ${_geoFilter === 'all' ? 'active' : ''}" onclick="setGeoFilter('all')">ALL</button>`;
+    STATE.countries.forEach(c => {
+        if (geos.has(c.id)) {
+            const code = c.id === 'canada' ? 'CA' : c.id === 'usa' ? 'US' : c.id.slice(0, 2).toUpperCase();
+            html += `<button class="geo-btn ${_geoFilter === c.id ? 'active' : ''}" onclick="setGeoFilter('${c.id}')">${code}</button>`;
+        }
+    });
+    bar.innerHTML = html;
+}
+
+window.setGeoFilter = function(geo) {
+    _geoFilter = geo;
+    STATE.page = 1;
+    renderAll();
+};
 
 function renderAll() {
     renderSidebar();
@@ -2394,21 +2461,44 @@ function performGlobalSearch(query) {
 }
 
 window.globalSearchNavigate = function (view, country, searchTerm) {
-    // Navigate to the correct view/country, preserve search
+    // Navigate to the correct view/country, clear search to show all
     STATE.currentView = view;
     if (country) STATE.currentCountry = country;
     STATE.page = 1;
-    STATE.search = searchTerm || '';
+    STATE.search = '';
     globalSearchResults.classList.add('hidden');
+    document.getElementById('search-input').value = '';
     renderAll();
-    // Keep search text in the input
-    document.getElementById('search-input').value = STATE.search;
+
+    // Scroll to matching record and highlight it
+    setTimeout(() => {
+        const term = (searchTerm || '').toLowerCase();
+        if (!term) return;
+        const rows = document.querySelectorAll('.table-row');
+        for (const row of rows) {
+            if (row.textContent.toLowerCase().includes(term)) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('search-highlight');
+                setTimeout(() => row.classList.remove('search-highlight'), 2500);
+                break;
+            }
+        }
+    }, 150);
 };
 
 document.getElementById('search-input').addEventListener('input', function () {
     clearTimeout(searchTimeout);
     const query = this.value.trim();
     searchTimeout = setTimeout(() => performGlobalSearch(query), 150);
+});
+
+// Enter → navigate to first search result
+document.getElementById('search-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const firstResult = globalSearchResults.querySelector('.search-result-item');
+        if (firstResult) firstResult.click();
+    }
 });
 
 // Close search results when clicking outside
@@ -3198,10 +3288,120 @@ deleteConfirmBtn.addEventListener('click', () => {
 });
 
 // ══════════════════════════════════════════════════
-// ──── NEW CARDS — LOG PARSER MODULE ────
+// ──── PARSER MODULE ────
 // ══════════════════════════════════════════════════
 
-let PARSER_STATE = { results: [], filtered: [], selected: new Set(), file: null };
+let PARSER_STATE = {
+    rawMessages: [],
+    file: null,
+    allCards: [],
+    analyzed: [],
+    activeTab: 'all',
+    selected: new Set(),
+    addMode: 'none' // none | status-a | status-r | status-v
+};
+
+// ──── ANALYSIS PIPELINE ────
+
+function analyzeCards(cards) {
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const existingMap = new Map();
+    STATE.cards.forEach(c => {
+        existingMap.set(c.cardNumber.replace(/\s/g, ''), c);
+    });
+
+    // Count BINs in project
+    const projectBinCounts = {};
+    STATE.cards.forEach(c => {
+        const num = (c.cardNumber || '').replace(/[\s\-]/g, '');
+        if (num.length >= 6) {
+            const b = num.slice(0, 6);
+            projectBinCounts[b] = (projectBinCounts[b] || 0) + 1;
+        }
+    });
+
+    const now = new Date();
+    const nowMM = now.getMonth() + 1;
+    const nowYY = now.getFullYear() % 100;
+
+    return cards.map(c => {
+        const isDuplicate = existingNumbers.has(c.cc);
+        const existingCard = isDuplicate ? existingMap.get(c.cc) : null;
+        const binCountInProject = projectBinCounts[c.bin] || 0;
+        const isNewBin = binCountInProject === 0;
+
+        // Bank name from BIN_CACHE or parsed
+        const cached = BIN_CACHE[c.bin];
+        const bankName = c.bank || (cached ? (cached.bank || cached.issuer || '') : '');
+
+        // Issues check
+        const issues = [];
+        const cmm = parseInt(c.mm);
+        const cyy = parseInt(c.yy);
+        if (cyy < nowYY || (cyy === nowYY && cmm < nowMM)) issues.push('expired');
+        if (!c.name && !c.surname) issues.push('no_name');
+        if (!c.cvv || c.cvv.length < 3) issues.push('no_cvv');
+        if (c.cc.length < 15) issues.push('short_number');
+
+        // Quality score (0-100)
+        let score = 0;
+        if (c.name && c.surname) score += 30;
+        else if (c.name || c.surname) score += 15;
+        if (c.cvv && c.cvv.length >= 3) score += 20;
+        if (!issues.includes('expired')) score += 20;
+        if (bankName) score += 15;
+        if (binCountInProject > 0) score += 10;
+        if (c.cc.length >= 15) score += 5;
+
+        // Recommendation
+        let recommendation = 'add';
+        if (isDuplicate) {
+            // Check if imported card has fresher expiry
+            if (existingCard) {
+                const existingNum = existingCard.cardNumber?.replace(/\s/g, '') || '';
+                // For replace: we'd need to compare expiry, simplified check
+                recommendation = 'skip';
+            } else {
+                recommendation = 'skip';
+            }
+        } else if (score < 30) {
+            recommendation = 'skip';
+        } else if (issues.length > 0 && score < 60) {
+            recommendation = 'review';
+        } else if (score >= 60) {
+            recommendation = 'add';
+        } else {
+            recommendation = 'review';
+        }
+
+        // Category assignment (priority: duplicate → review → topbin → ready → new)
+        let category = 'new';
+        if (isDuplicate) {
+            category = 'duplicate';
+        } else if (issues.length > 0 && score < 50) {
+            category = 'review';
+        } else if (binCountInProject >= 5) {
+            category = 'topbin';
+        } else if (score >= 70 && issues.length === 0) {
+            category = 'ready';
+        }
+
+        return {
+            ...c,
+            isDuplicate,
+            existingCardId: existingCard?.id || null,
+            binCountInProject,
+            isNewBin,
+            bankName,
+            issues,
+            score,
+            recommendation,
+            category
+        };
+    });
+}
+
+// ──── RENDER PARSER ────
 
 function renderParser() {
     const area = document.getElementById('content-area');
@@ -3250,13 +3450,29 @@ function renderParser() {
                     <input type="date" id="parser-date-to">
                 </div>
                 <div class="parser-filter-group" style="align-self:flex-end">
-                    <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates</label>
+                    <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates in file</label>
+                </div>
+            </div>
+            <div class="parser-filter-row parser-smart-filters">
+                <div class="parser-filter-group">
+                    <label>Min BIN count in project</label>
+                    <input type="number" id="parser-min-bin-count" placeholder="0" min="0" value="">
+                </div>
+                <div class="parser-filter-group" style="align-self:flex-end">
+                    <label class="parser-checkbox"><input type="checkbox" id="parser-exclude-known"> Exclude known BINs</label>
+                </div>
+                <div class="parser-filter-group" style="align-self:flex-end">
+                    <label class="parser-checkbox"><input type="checkbox" id="parser-only-new-bins"> Only new BINs</label>
+                </div>
+                <div class="parser-filter-group">
+                    <label>Min quality score</label>
+                    <input type="number" id="parser-min-score" placeholder="0" min="0" max="100" value="">
                 </div>
             </div>
             <div class="parser-actions">
                 <button class="btn-primary parser-parse-btn" id="parser-parse-btn" disabled>
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-                    PARSE
+                    PARSE & ANALYZE
                 </button>
                 <span class="parser-status" id="parser-status"></span>
             </div>
@@ -3264,6 +3480,9 @@ function renderParser() {
 
         <!-- STATS BAR -->
         <div class="parser-stats hidden" id="parser-stats"></div>
+
+        <!-- TAB STRIP -->
+        <div class="parser-tabs hidden" id="parser-tabs"></div>
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
@@ -3282,7 +3501,7 @@ function renderParser() {
     document.getElementById('parser-parse-btn').addEventListener('click', runParser);
 
     // If we already have results, re-render them
-    if (PARSER_STATE.filtered.length > 0) renderParserResults();
+    if (PARSER_STATE.analyzed.length > 0) renderParserResults();
 }
 
 function loadParserFile(file) {
@@ -3323,8 +3542,6 @@ function extractCardsFromMessages(messages) {
     const bankP = /🏦\s*Bank:\s*(.+)/i;
     const typeP = /📊\s*Card Type:\s*(.+)/i;
     const billingP = /🏷\s*Billing:\s*(.+)/i;
-    const emailP = /✉️\s*Email:\s*(.+)/i;
-    const phoneP = /📞\s*Phone:\s*(.+)/i;
 
     const cards = [];
 
@@ -3334,7 +3551,6 @@ function extractCardsFromMessages(messages) {
 
         const msgDate = msg.date || '';
 
-        // Reset lastIndex for global regex
         pattern.lastIndex = 0;
         let m;
         while ((m = pattern.exec(fullText)) !== null) {
@@ -3344,7 +3560,6 @@ function extractCardsFromMessages(messages) {
             const cvv = m[4];
             if (yy.length === 4) yy = yy.slice(2);
 
-            // Extract other fields from fullText
             const holderM = fullText.match(holderP);
             const bankM = fullText.match(bankP);
             const typeM = fullText.match(typeP);
@@ -3379,7 +3594,7 @@ function runParser() {
     if (!PARSER_STATE.rawMessages) return;
 
     const status = document.getElementById('parser-status');
-    status.textContent = '⏳ Parsing...';
+    status.textContent = '⏳ Parsing & analyzing...';
 
     // Read filters
     const binsRaw = document.getElementById('parser-bins').value.trim();
@@ -3391,6 +3606,12 @@ function runParser() {
     const dateTo = document.getElementById('parser-date-to').value;
     const dedup = document.getElementById('parser-dedup').checked;
 
+    // Smart filters
+    const minBinCount = parseInt(document.getElementById('parser-min-bin-count').value) || 0;
+    const excludeKnown = document.getElementById('parser-exclude-known').checked;
+    const onlyNewBins = document.getElementById('parser-only-new-bins').checked;
+    const minScore = parseInt(document.getElementById('parser-min-score').value) || 0;
+
     // Parse min validity
     let minMM = 0, minYY = 0;
     if (minValidity) {
@@ -3400,39 +3621,31 @@ function runParser() {
 
     // Extract all cards
     const allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
+    const totalInLog = allCards.length;
 
     let filtered = allCards;
-    let stats = { total: allCards.length, binMatch: 0, expired: 0, countryMatch: 0, bankMatch: 0 };
 
     // Filter: BIN
     if (binSet.size > 0) {
         filtered = filtered.filter(c => binSet.has(c.bin));
-        stats.binMatch = filtered.length;
     }
 
     // Filter: Country
     if (countryFilter) {
         filtered = filtered.filter(c => c.country.toUpperCase() === countryFilter);
-        stats.countryMatch = filtered.length;
     }
 
     // Filter: Bank
     if (bankFilter) {
         filtered = filtered.filter(c => c.bank.toLowerCase().includes(bankFilter));
-        stats.bankMatch = filtered.length;
     }
 
     // Filter: Date range
-    if (dateFrom) {
-        filtered = filtered.filter(c => c.msgDate >= dateFrom);
-    }
-    if (dateTo) {
-        filtered = filtered.filter(c => c.msgDate <= dateTo + 'T23:59:59');
-    }
+    if (dateFrom) filtered = filtered.filter(c => c.msgDate >= dateFrom);
+    if (dateTo) filtered = filtered.filter(c => c.msgDate <= dateTo + 'T23:59:59');
 
     // Filter: Validity (not expired)
     if (minMM && minYY) {
-        const before = filtered.length;
         filtered = filtered.filter(c => {
             const cmm = parseInt(c.mm);
             const cyy = parseInt(c.yy);
@@ -3440,10 +3653,9 @@ function runParser() {
             if (cyy === minYY && cmm >= minMM) return true;
             return false;
         });
-        stats.expired = before - filtered.length;
     }
 
-    // Dedup by card number
+    // Dedup by card number (within file)
     if (dedup) {
         const seen = new Set();
         filtered = filtered.filter(c => {
@@ -3453,106 +3665,232 @@ function runParser() {
         });
     }
 
-    PARSER_STATE.results = allCards;
-    PARSER_STATE.filtered = filtered;
-    PARSER_STATE.selected = new Set(filtered.map((_, i) => i));
+    // ──── ANALYZE ────
+    const analyzed = analyzeCards(filtered);
 
-    status.textContent = `✅ Done`;
+    // Smart filters (post-analysis)
+    let finalList = analyzed;
+    if (minBinCount > 0) {
+        finalList = finalList.filter(c => c.binCountInProject >= minBinCount);
+    }
+    if (excludeKnown) {
+        finalList = finalList.filter(c => c.isNewBin);
+    }
+    if (onlyNewBins) {
+        finalList = finalList.filter(c => c.isNewBin);
+    }
+    if (minScore > 0) {
+        finalList = finalList.filter(c => c.score >= minScore);
+    }
 
-    // Render stats
-    const statsEl = document.getElementById('parser-stats');
-    statsEl.classList.remove('hidden');
-    statsEl.innerHTML = `
-        <div class="stat-card total"><span class="stat-label">Total in Log</span><span class="stat-value">${stats.total.toLocaleString()}</span></div>
-        ${binSet.size > 0 ? `<div class="stat-card card-add"><span class="stat-label">BIN Match</span><span class="stat-value">${stats.binMatch}</span></div>` : ''}
-        <div class="stat-card suspended"><span class="stat-label">Expired</span><span class="stat-value">${stats.expired}</span></div>
-        <div class="stat-card verified"><span class="stat-label">Valid Unique</span><span class="stat-value">${filtered.length}</span></div>
-    `;
+    PARSER_STATE.allCards = allCards;
+    PARSER_STATE.analyzed = finalList;
+    PARSER_STATE.selected = new Set(finalList.map((_, i) => i).filter(i => finalList[i].recommendation === 'add'));
+    PARSER_STATE.activeTab = 'all';
+
+    status.textContent = '✅ Done';
 
     renderParserResults();
-    toast(`Parsed: ${filtered.length} valid cards from ${stats.total.toLocaleString()} total`, 'success');
+    toast(`Analyzed: ${finalList.length} cards from ${totalInLog.toLocaleString()} total`, 'success');
 }
+
+// ──── RENDER PARSER RESULTS (Steps 3-6) ────
 
 function renderParserResults() {
     const el = document.getElementById('parser-results');
     if (!el) return;
-    const list = PARSER_STATE.filtered;
 
-    if (list.length === 0) {
+    const all = PARSER_STATE.analyzed;
+    if (all.length === 0) {
+        document.getElementById('parser-stats')?.classList.add('hidden');
+        document.getElementById('parser-tabs')?.classList.add('hidden');
         el.innerHTML = '<div class="empty-state"><p>No cards found matching filters</p></div>';
         return;
     }
 
-    // BIN stats
+    // Count categories
+    const counts = { all: all.length, new: 0, duplicate: 0, topbin: 0, ready: 0, review: 0 };
+    all.forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1; });
+
+    // ──── STAT BAR ────
+    const statsEl = document.getElementById('parser-stats');
+    statsEl.classList.remove('hidden');
+    const expired = all.filter(c => c.issues.includes('expired')).length;
+    statsEl.innerHTML = `
+        <div class="stat-card total parser-stat-click" data-tab="all"><span class="stat-label">Total</span><span class="stat-value">${counts.all}</span></div>
+        <div class="stat-card verified parser-stat-click" data-tab="new"><span class="stat-label">New</span><span class="stat-value">${counts.new}</span></div>
+        <div class="stat-card parser-stat-ready parser-stat-click" data-tab="ready"><span class="stat-label">Ready</span><span class="stat-value">${counts.ready}</span></div>
+        <div class="stat-card suspended parser-stat-click" data-tab="duplicate"><span class="stat-label">Duplicates</span><span class="stat-value">${counts.duplicate}</span></div>
+        <div class="stat-card top-bins parser-stat-click" data-tab="topbin"><span class="stat-label">Top BIN</span><span class="stat-value">${counts.topbin}</span></div>
+        <div class="stat-card parser-stat-review parser-stat-click" data-tab="review"><span class="stat-label">Review</span><span class="stat-value">${counts.review}</span></div>
+    `;
+    statsEl.querySelectorAll('.parser-stat-click').forEach(card => {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+            PARSER_STATE.activeTab = card.dataset.tab;
+            renderParserResults();
+        });
+    });
+
+    // ──── TAB STRIP ────
+    const tabsEl = document.getElementById('parser-tabs');
+    tabsEl.classList.remove('hidden');
+    const tabs = [
+        { id: 'all', label: 'ALL', count: counts.all },
+        { id: 'new', label: 'NEW', count: counts.new },
+        { id: 'ready', label: 'READY', count: counts.ready },
+        { id: 'duplicate', label: 'DUPLICATES', count: counts.duplicate },
+        { id: 'topbin', label: 'TOP BIN', count: counts.topbin },
+        { id: 'review', label: 'REVIEW', count: counts.review },
+    ];
+    tabsEl.innerHTML = tabs.map(t =>
+        `<button class="parser-tab ${PARSER_STATE.activeTab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label} <span class="parser-tab-count">${t.count}</span></button>`
+    ).join('');
+    tabsEl.querySelectorAll('.parser-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            PARSER_STATE.activeTab = btn.dataset.tab;
+            renderParserResults();
+        });
+    });
+
+    // ──── FILTER BY TAB ────
+    const list = PARSER_STATE.activeTab === 'all'
+        ? all
+        : all.filter(c => c.category === PARSER_STATE.activeTab);
+
+    if (list.length === 0) {
+        el.innerHTML = '<div class="empty-state"><p>No cards in this category</p></div>';
+        return;
+    }
+
+    // ──── BIN summary for current tab ────
     const binStats = {};
     list.forEach(c => { binStats[c.bin] = (binStats[c.bin] || 0) + 1; });
     const topBins = Object.entries(binStats).sort((a,b) => b[1]-a[1]).slice(0, 15);
 
-    const rows = list.map((c, i) => `
-        <tr class="${PARSER_STATE.selected.has(i) ? 'selected' : ''}">
-            <td><input type="checkbox" ${PARSER_STATE.selected.has(i) ? 'checked' : ''} data-idx="${i}" class="parser-check"></td>
-            <td>${i+1}</td>
+    // ──── TABLE ROWS ────
+    const recIcons = { add: '✅', skip: '⏭', replace: '🔄', review: '👁' };
+    const catBadges = {
+        new: '<span class="parser-badge parser-badge-new">NEW</span>',
+        duplicate: '<span class="parser-badge parser-badge-dup">DUP</span>',
+        topbin: '<span class="parser-badge parser-badge-top">TOP</span>',
+        ready: '<span class="parser-badge parser-badge-ready">READY</span>',
+        review: '<span class="parser-badge parser-badge-review">REVIEW</span>'
+    };
+    const catRowClass = {
+        new: '', duplicate: 'parser-row-dup', topbin: 'parser-row-top', ready: 'parser-row-ready', review: 'parser-row-review'
+    };
+
+    // Map analyzed index for selected set
+    const analyzedIndexMap = new Map();
+    all.forEach((c, idx) => analyzedIndexMap.set(c, idx));
+
+    const rows = list.map(c => {
+        const globalIdx = analyzedIndexMap.get(c);
+        const binHint = c.isNewBin ? 'new' : `${c.binCountInProject}×`;
+        const shortBank = c.bankName ? (c.bankName.length > 20 ? c.bankName.slice(0, 20) + '…' : c.bankName) : '—';
+        return `
+        <tr class="${catRowClass[c.category] || ''} ${PARSER_STATE.selected.has(globalIdx) ? 'selected' : ''}">
+            <td><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
+            <td>${catBadges[c.category] || ''}</td>
             <td><span class="card-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span></td>
             <td class="card-number">${c.cc.replace(/(\d{4})/g, '$1 ').trim()}</td>
             <td>${c.validity}</td>
-            <td>${c.bin}</td>
-            <td>${c.bank || '—'}</td>
-            <td>${c.cardType || '—'}</td>
-            <td class="date-cell">${c.msgDate ? c.msgDate.split('T')[0] : ''}</td>
-        </tr>`).join('');
+            <td><span class="parser-bin-ref">${c.bin}</span> <span class="parser-bin-count-tag">${binHint}</span></td>
+            <td title="${c.bankName || ''}">${shortBank}</td>
+            <td>${c.country || '—'}</td>
+            <td class="parser-score-cell"><span class="parser-score parser-score-${c.score >= 70 ? 'high' : c.score >= 40 ? 'mid' : 'low'}">${c.score}</span></td>
+            <td>${recIcons[c.recommendation] || ''}</td>
+        </tr>`;
+    }).join('');
 
     el.innerHTML = `
         <div class="parser-bin-stats">
-            <span class="parser-bin-title">📋 Found by BIN:</span>
+            <span class="parser-bin-title">📋 BINs (tab):</span>
             ${topBins.map(([bin, cnt]) => `<span class="parser-bin-chip">${bin} <b>${cnt}</b></span>`).join('')}
         </div>
         <div class="parser-toolbar">
-            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" checked> Select All (${list.length})</label>
+            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === all.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size} of ${all.length})</label>
             <div class="parser-add-section">
                 <select id="parser-target-country">
                     ${STATE.countries.map(co => `<option value="${co.id}" ${co.id === STATE.currentCountry ? 'selected' : ''}>${co.flag} ${co.name}</option>`).join('')}
                 </select>
+                <div class="parser-status-presets">
+                    <span class="parser-preset-label">Status:</span>
+                    <button class="parser-preset ${PARSER_STATE.addMode === 'none' ? 'active' : ''}" data-mode="none">—</button>
+                    <button class="parser-preset ${PARSER_STATE.addMode === 'status-a' ? 'active' : ''}" data-mode="status-a">A</button>
+                    <button class="parser-preset ${PARSER_STATE.addMode === 'status-r' ? 'active' : ''}" data-mode="status-r">R</button>
+                    <button class="parser-preset ${PARSER_STATE.addMode === 'status-v' ? 'active' : ''}" data-mode="status-v">V</button>
+                </div>
                 <button class="btn-primary parser-add-btn" id="parser-add-btn">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
-                    ADD TO CARDS (${PARSER_STATE.selected.size})
+                    ADD TO WORKSPACE (${PARSER_STATE.selected.size})
+                </button>
+                <button class="btn-secondary parser-ready-btn" id="parser-ready-btn" title="Send selected to Ready to Work">
+                    ✅ READY (${PARSER_STATE.selected.size})
                 </button>
             </div>
         </div>
         <table class="data-table parser-table">
             <thead><tr>
-                <th></th><th>#</th><th>Holder</th><th>Card Number</th><th>Exp</th><th>BIN</th><th>Bank</th><th>Card Type</th><th>Date</th>
+                <th></th><th>STATUS</th><th>Holder</th><th>Card Number</th><th>Exp</th><th>BIN (proj)</th><th>Bank</th><th>GEO</th><th>Score</th><th>Rec</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>`;
 
-    // Checkbox handlers
+    // ──── EVENT HANDLERS ────
+
+    // Checkboxes
     el.querySelectorAll('.parser-check').forEach(cb => {
         cb.addEventListener('change', () => {
             const idx = parseInt(cb.dataset.idx);
             if (cb.checked) PARSER_STATE.selected.add(idx);
             else PARSER_STATE.selected.delete(idx);
-            const addBtn = document.getElementById('parser-add-btn');
-            if (addBtn) addBtn.textContent = `ADD TO CARDS (${PARSER_STATE.selected.size})`;
+            updateParserButtons();
         });
     });
 
+    // Select all
     const selectAll = document.getElementById('parser-select-all');
     if (selectAll) {
         selectAll.addEventListener('change', () => {
-            const checked = selectAll.checked;
-            PARSER_STATE.selected = checked ? new Set(list.map((_, i) => i)) : new Set();
-            el.querySelectorAll('.parser-check').forEach(cb => { cb.checked = checked; });
-            const addBtn = document.getElementById('parser-add-btn');
-            if (addBtn) addBtn.textContent = `ADD TO CARDS (${PARSER_STATE.selected.size})`;
+            if (selectAll.checked) {
+                PARSER_STATE.selected = new Set(all.map((_, i) => i));
+            } else {
+                PARSER_STATE.selected = new Set();
+            }
+            el.querySelectorAll('.parser-check').forEach(cb => { cb.checked = selectAll.checked; });
+            updateParserButtons();
         });
     }
 
-    document.getElementById('parser-add-btn').addEventListener('click', addParsedToCards);
+    // Status presets
+    el.querySelectorAll('.parser-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+            PARSER_STATE.addMode = btn.dataset.mode;
+            el.querySelectorAll('.parser-preset').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // Add to Workspace
+    document.getElementById('parser-add-btn')?.addEventListener('click', () => addParsedToCards(false));
+    // Send to Ready to Work
+    document.getElementById('parser-ready-btn')?.addEventListener('click', () => addParsedToCards(true));
 }
 
-function addParsedToCards() {
+function updateParserButtons() {
+    const addBtn = document.getElementById('parser-add-btn');
+    if (addBtn) addBtn.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg> ADD TO WORKSPACE (${PARSER_STATE.selected.size})`;
+    const readyBtn = document.getElementById('parser-ready-btn');
+    if (readyBtn) readyBtn.textContent = `✅ READY (${PARSER_STATE.selected.size})`;
+}
+
+// ──── ADD TO CARDS / READY ────
+
+function addParsedToCards(asReady) {
     const targetCountry = document.getElementById('parser-target-country').value;
-    const list = PARSER_STATE.filtered;
+    const list = PARSER_STATE.analyzed;
     let added = 0;
 
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
@@ -3567,7 +3905,7 @@ function addParsedToCards() {
         const today = new Date();
         const dateStr = `${String(today.getDate()).padStart(2,'0')}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getFullYear()).slice(2)}`;
 
-        STATE.cards.push({
+        const card = {
             id: crypto.randomUUID(),
             name: c.name || 'UNKNOWN',
             surname: c.surname || '',
@@ -3577,22 +3915,35 @@ function addParsedToCards() {
             amount: '',
             notes: '',
             date: dateStr,
-            cardAdd: false,
-            runAds: false,
-            verified: false,
+            cardAdd: PARSER_STATE.addMode === 'status-a',
+            runAds: PARSER_STATE.addMode === 'status-r',
+            verified: PARSER_STATE.addMode === 'status-v',
             starred: false,
             mailVerify: false,
             mailSubmit: false,
-            mailNone: false
-        });
+            mailNone: false,
+            readyToWork: asReady
+        };
+
+        STATE.cards.push(card);
+        existingNumbers.add(c.cc);
         added++;
     });
 
     if (added > 0) {
         save();
         renderSidebar();
-        updateSidebarBadges();
-        toast(`✅ Added ${added} new cards to ${STATE.countries.find(co => co.id === targetCountry)?.name || targetCountry}`, 'success');
+        const dest = asReady ? 'Ready to Work' : (STATE.countries.find(co => co.id === targetCountry)?.name || targetCountry);
+        toast(`✅ Added ${added} cards to ${dest}`, 'success');
+
+        // Re-analyze to update duplicate status
+        PARSER_STATE.analyzed = analyzeCards(PARSER_STATE.analyzed.map(c => ({
+            cc: c.cc, mm: c.mm, yy: c.yy, cvv: c.cvv, name: c.name, surname: c.surname,
+            bank: c.bank, cardType: c.cardType, country: c.country, billing: c.billing,
+            msgDate: c.msgDate, validity: c.validity, bin: c.bin
+        })));
+        PARSER_STATE.selected = new Set();
+        renderParserResults();
     } else {
         toast('No new cards to add (all duplicates)', 'info');
     }
