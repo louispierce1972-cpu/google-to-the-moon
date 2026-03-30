@@ -3294,111 +3294,51 @@ deleteConfirmBtn.addEventListener('click', () => {
 let PARSER_STATE = {
     rawMessages: [],
     file: null,
-    allCards: [],
-    analyzed: [],
-    activeTab: 'all',
+    filtered: [],
     selected: new Set(),
-    addMode: 'none' // none | status-a | status-r | status-v
+    binFilter: ''  // active BIN filter for yellow highlight
 };
 
-// ──── ANALYSIS PIPELINE ────
+// ──── HELPERS ────
 
-function analyzeCards(cards) {
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    const existingMap = new Map();
-    STATE.cards.forEach(c => {
-        existingMap.set(c.cardNumber.replace(/\s/g, ''), c);
-    });
-
-    // Count BINs in project
-    const projectBinCounts = {};
+function getProjectBinCounts() {
+    const counts = {};
     STATE.cards.forEach(c => {
         const num = (c.cardNumber || '').replace(/[\s\-]/g, '');
         if (num.length >= 6) {
             const b = num.slice(0, 6);
-            projectBinCounts[b] = (projectBinCounts[b] || 0) + 1;
+            counts[b] = (counts[b] || 0) + 1;
         }
     });
+    return counts;
+}
 
-    const now = new Date();
-    const nowMM = now.getMonth() + 1;
-    const nowYY = now.getFullYear() % 100;
+function formatCardDisplay(cc, highlightBins) {
+    if (cc.length < 10) return cc;
+    const bin6 = cc.slice(0, 6);
+    const last4 = cc.slice(-4);
+    const mid = cc.length - 10; // digits between bin6 and last4
+    const mask = mid > 0 ? ' •••• ' : ' ';
 
-    return cards.map(c => {
-        const isDuplicate = existingNumbers.has(c.cc);
-        const existingCard = isDuplicate ? existingMap.get(c.cc) : null;
-        const binCountInProject = projectBinCounts[c.bin] || 0;
-        const isNewBin = binCountInProject === 0;
+    if (highlightBins && highlightBins.has(bin6)) {
+        return `<span class="parser-bin-hl">${bin6}</span>${mask}${last4}`;
+    }
+    return `${bin6}${mask}${last4}`;
+}
 
-        // Bank name from BIN_CACHE or parsed
-        const cached = BIN_CACHE[c.bin];
-        const bankName = c.bank || (cached ? (cached.bank || cached.issuer || '') : '');
-
-        // Issues check
-        const issues = [];
-        const cmm = parseInt(c.mm);
-        const cyy = parseInt(c.yy);
-        if (cyy < nowYY || (cyy === nowYY && cmm < nowMM)) issues.push('expired');
-        if (!c.name && !c.surname) issues.push('no_name');
-        if (!c.cvv || c.cvv.length < 3) issues.push('no_cvv');
-        if (c.cc.length < 15) issues.push('short_number');
-
-        // Quality score (0-100)
-        let score = 0;
-        if (c.name && c.surname) score += 30;
-        else if (c.name || c.surname) score += 15;
-        if (c.cvv && c.cvv.length >= 3) score += 20;
-        if (!issues.includes('expired')) score += 20;
-        if (bankName) score += 15;
-        if (binCountInProject > 0) score += 10;
-        if (c.cc.length >= 15) score += 5;
-
-        // Recommendation
-        let recommendation = 'add';
-        if (isDuplicate) {
-            // Check if imported card has fresher expiry
-            if (existingCard) {
-                const existingNum = existingCard.cardNumber?.replace(/\s/g, '') || '';
-                // For replace: we'd need to compare expiry, simplified check
-                recommendation = 'skip';
-            } else {
-                recommendation = 'skip';
-            }
-        } else if (score < 30) {
-            recommendation = 'skip';
-        } else if (issues.length > 0 && score < 60) {
-            recommendation = 'review';
-        } else if (score >= 60) {
-            recommendation = 'add';
-        } else {
-            recommendation = 'review';
-        }
-
-        // Category assignment (priority: duplicate → review → topbin → ready → new)
-        let category = 'new';
-        if (isDuplicate) {
-            category = 'duplicate';
-        } else if (issues.length > 0 && score < 50) {
-            category = 'review';
-        } else if (binCountInProject >= 5) {
-            category = 'topbin';
-        } else if (score >= 70 && issues.length === 0) {
-            category = 'ready';
-        }
-
-        return {
-            ...c,
-            isDuplicate,
-            existingCardId: existingCard?.id || null,
-            binCountInProject,
-            isNewBin,
-            bankName,
-            issues,
-            score,
-            recommendation,
-            category
-        };
-    });
+function parseDateInput(val) {
+    if (!val) return '';
+    val = val.trim();
+    // DD.MM.YYYY → YYYY-MM-DD
+    let m = val.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    // YYYY/MM/DD → YYYY-MM-DD
+    m = val.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    // Already YYYY-MM-DD
+    m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return val;
+    return '';
 }
 
 // ──── RENDER PARSER ────
@@ -3425,10 +3365,10 @@ function renderParser() {
             <div class="parser-filter-row">
                 <div class="parser-filter-group">
                     <label>BINs <span class="parser-hint">(comma or newline separated)</span></label>
-                    <textarea id="parser-bins" rows="3" placeholder="450220, 526809, 552489..."></textarea>
+                    <textarea id="parser-bins" rows="2" placeholder="450220, 526809, 552489..."></textarea>
                 </div>
                 <div class="parser-filter-group">
-                    <label>Country <span class="parser-hint">(from Billing, e.g. IL, US)</span></label>
+                    <label>Country <span class="parser-hint">(from Billing)</span></label>
                     <input type="text" id="parser-country" placeholder="IL">
                 </div>
                 <div class="parser-filter-group">
@@ -3442,37 +3382,21 @@ function renderParser() {
                     <input type="text" id="parser-min-validity" placeholder="05/26" value="${String(new Date().getMonth()+1).padStart(2,'0')}/${String(new Date().getFullYear()).slice(2)}">
                 </div>
                 <div class="parser-filter-group">
-                    <label>Date From</label>
-                    <input type="date" id="parser-date-from">
+                    <label>Date From <span class="parser-hint">(YYYY-MM-DD)</span></label>
+                    <input type="text" id="parser-date-from" placeholder="2026-01-01">
                 </div>
                 <div class="parser-filter-group">
-                    <label>Date To</label>
-                    <input type="date" id="parser-date-to">
+                    <label>Date To <span class="parser-hint">(YYYY-MM-DD)</span></label>
+                    <input type="text" id="parser-date-to" placeholder="2026-12-31">
                 </div>
                 <div class="parser-filter-group" style="align-self:flex-end">
-                    <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates in file</label>
-                </div>
-            </div>
-            <div class="parser-filter-row parser-smart-filters">
-                <div class="parser-filter-group">
-                    <label>Min BIN count in project</label>
-                    <input type="number" id="parser-min-bin-count" placeholder="0" min="0" value="">
-                </div>
-                <div class="parser-filter-group" style="align-self:flex-end">
-                    <label class="parser-checkbox"><input type="checkbox" id="parser-exclude-known"> Exclude known BINs</label>
-                </div>
-                <div class="parser-filter-group" style="align-self:flex-end">
-                    <label class="parser-checkbox"><input type="checkbox" id="parser-only-new-bins"> Only new BINs</label>
-                </div>
-                <div class="parser-filter-group">
-                    <label>Min quality score</label>
-                    <input type="number" id="parser-min-score" placeholder="0" min="0" max="100" value="">
+                    <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates</label>
                 </div>
             </div>
             <div class="parser-actions">
                 <button class="btn-primary parser-parse-btn" id="parser-parse-btn" disabled>
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-                    PARSE & ANALYZE
+                    PARSE
                 </button>
                 <span class="parser-status" id="parser-status"></span>
             </div>
@@ -3481,12 +3405,17 @@ function renderParser() {
         <!-- STATS BAR -->
         <div class="parser-stats hidden" id="parser-stats"></div>
 
-        <!-- TAB STRIP -->
-        <div class="parser-tabs hidden" id="parser-tabs"></div>
-
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
     </div>`;
+
+    // Normalize date fields on blur
+    ['parser-date-from', 'parser-date-to'].forEach(id => {
+        document.getElementById(id).addEventListener('blur', (e) => {
+            const norm = parseDateInput(e.target.value);
+            if (norm) e.target.value = norm;
+        });
+    });
 
     // Upload handlers
     const dropZone = document.getElementById('parser-drop-zone');
@@ -3500,8 +3429,7 @@ function renderParser() {
 
     document.getElementById('parser-parse-btn').addEventListener('click', runParser);
 
-    // If we already have results, re-render them
-    if (PARSER_STATE.analyzed.length > 0) renderParserResults();
+    if (PARSER_STATE.filtered.length > 0) renderParserResults();
 }
 
 function loadParserFile(file) {
@@ -3594,7 +3522,7 @@ function runParser() {
     if (!PARSER_STATE.rawMessages) return;
 
     const status = document.getElementById('parser-status');
-    status.textContent = '⏳ Parsing & analyzing...';
+    status.textContent = '⏳ Parsing...';
 
     // Read filters
     const binsRaw = document.getElementById('parser-bins').value.trim();
@@ -3602,15 +3530,12 @@ function runParser() {
     const countryFilter = document.getElementById('parser-country').value.trim().toUpperCase();
     const bankFilter = document.getElementById('parser-bank').value.trim().toLowerCase();
     const minValidity = document.getElementById('parser-min-validity').value.trim();
-    const dateFrom = document.getElementById('parser-date-from').value;
-    const dateTo = document.getElementById('parser-date-to').value;
+    const dateFrom = parseDateInput(document.getElementById('parser-date-from').value);
+    const dateTo = parseDateInput(document.getElementById('parser-date-to').value);
     const dedup = document.getElementById('parser-dedup').checked;
 
-    // Smart filters
-    const minBinCount = parseInt(document.getElementById('parser-min-bin-count').value) || 0;
-    const excludeKnown = document.getElementById('parser-exclude-known').checked;
-    const onlyNewBins = document.getElementById('parser-only-new-bins').checked;
-    const minScore = parseInt(document.getElementById('parser-min-score').value) || 0;
+    // Save active BIN filter for highlighting
+    PARSER_STATE.binFilter = binsRaw;
 
     // Parse min validity
     let minMM = 0, minYY = 0;
@@ -3655,7 +3580,7 @@ function runParser() {
         });
     }
 
-    // Dedup by card number (within file)
+    // Dedup by card number
     if (dedup) {
         const seen = new Set();
         filtered = filtered.filter(c => {
@@ -3665,182 +3590,111 @@ function runParser() {
         });
     }
 
-    // ──── ANALYZE ────
-    const analyzed = analyzeCards(filtered);
+    PARSER_STATE.filtered = filtered;
+    PARSER_STATE.selected = new Set(filtered.map((_, i) => i));
 
-    // Smart filters (post-analysis)
-    let finalList = analyzed;
-    if (minBinCount > 0) {
-        finalList = finalList.filter(c => c.binCountInProject >= minBinCount);
-    }
-    if (excludeKnown) {
-        finalList = finalList.filter(c => c.isNewBin);
-    }
-    if (onlyNewBins) {
-        finalList = finalList.filter(c => c.isNewBin);
-    }
-    if (minScore > 0) {
-        finalList = finalList.filter(c => c.score >= minScore);
-    }
-
-    PARSER_STATE.allCards = allCards;
-    PARSER_STATE.analyzed = finalList;
-    PARSER_STATE.selected = new Set(finalList.map((_, i) => i).filter(i => finalList[i].recommendation === 'add'));
-    PARSER_STATE.activeTab = 'all';
-
-    status.textContent = '✅ Done';
+    status.textContent = `✅ ${filtered.length} cards found`;
 
     renderParserResults();
-    toast(`Analyzed: ${finalList.length} cards from ${totalInLog.toLocaleString()} total`, 'success');
+    toast(`Found: ${filtered.length} cards from ${totalInLog.toLocaleString()} in log`, 'success');
 }
 
-// ──── RENDER PARSER RESULTS (Steps 3-6) ────
+// ──── RENDER RESULTS ────
 
 function renderParserResults() {
     const el = document.getElementById('parser-results');
     if (!el) return;
 
-    const all = PARSER_STATE.analyzed;
-    if (all.length === 0) {
+    const list = PARSER_STATE.filtered;
+    if (list.length === 0) {
         document.getElementById('parser-stats')?.classList.add('hidden');
-        document.getElementById('parser-tabs')?.classList.add('hidden');
         el.innerHTML = '<div class="empty-state"><p>No cards found matching filters</p></div>';
         return;
     }
 
-    // Count categories
-    const counts = { all: all.length, new: 0, duplicate: 0, topbin: 0, ready: 0, review: 0 };
-    all.forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1; });
+    // Project data for cross-reference
+    const projectBinCounts = getProjectBinCounts();
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+
+    // BIN highlight set
+    const hlBins = PARSER_STATE.binFilter
+        ? new Set(PARSER_STATE.binFilter.split(/[\s,\n]+/).filter(b => b.length >= 4))
+        : null;
+
+    // Stats
+    let newCount = 0, dupCount = 0;
+    list.forEach(c => {
+        if (existingNumbers.has(c.cc)) dupCount++;
+        else newCount++;
+    });
 
     // ──── STAT BAR ────
     const statsEl = document.getElementById('parser-stats');
     statsEl.classList.remove('hidden');
-    const expired = all.filter(c => c.issues.includes('expired')).length;
     statsEl.innerHTML = `
-        <div class="stat-card total parser-stat-click" data-tab="all"><span class="stat-label">Total</span><span class="stat-value">${counts.all}</span></div>
-        <div class="stat-card verified parser-stat-click" data-tab="new"><span class="stat-label">New</span><span class="stat-value">${counts.new}</span></div>
-        <div class="stat-card parser-stat-ready parser-stat-click" data-tab="ready"><span class="stat-label">Ready</span><span class="stat-value">${counts.ready}</span></div>
-        <div class="stat-card suspended parser-stat-click" data-tab="duplicate"><span class="stat-label">Duplicates</span><span class="stat-value">${counts.duplicate}</span></div>
-        <div class="stat-card top-bins parser-stat-click" data-tab="topbin"><span class="stat-label">Top BIN</span><span class="stat-value">${counts.topbin}</span></div>
-        <div class="stat-card parser-stat-review parser-stat-click" data-tab="review"><span class="stat-label">Review</span><span class="stat-value">${counts.review}</span></div>
+        <div class="stat-card total"><span class="stat-label">Found</span><span class="stat-value">${list.length}</span></div>
+        <div class="stat-card verified"><span class="stat-label">New</span><span class="stat-value">${newCount}</span></div>
+        <div class="stat-card suspended"><span class="stat-label">Duplicates</span><span class="stat-value">${dupCount}</span></div>
     `;
-    statsEl.querySelectorAll('.parser-stat-click').forEach(card => {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-            PARSER_STATE.activeTab = card.dataset.tab;
-            renderParserResults();
-        });
-    });
 
-    // ──── TAB STRIP ────
-    const tabsEl = document.getElementById('parser-tabs');
-    tabsEl.classList.remove('hidden');
-    const tabs = [
-        { id: 'all', label: 'ALL', count: counts.all },
-        { id: 'new', label: 'NEW', count: counts.new },
-        { id: 'ready', label: 'READY', count: counts.ready },
-        { id: 'duplicate', label: 'DUPLICATES', count: counts.duplicate },
-        { id: 'topbin', label: 'TOP BIN', count: counts.topbin },
-        { id: 'review', label: 'REVIEW', count: counts.review },
-    ];
-    tabsEl.innerHTML = tabs.map(t =>
-        `<button class="parser-tab ${PARSER_STATE.activeTab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label} <span class="parser-tab-count">${t.count}</span></button>`
-    ).join('');
-    tabsEl.querySelectorAll('.parser-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            PARSER_STATE.activeTab = btn.dataset.tab;
-            renderParserResults();
-        });
-    });
-
-    // ──── FILTER BY TAB ────
-    const list = PARSER_STATE.activeTab === 'all'
-        ? all
-        : all.filter(c => c.category === PARSER_STATE.activeTab);
-
-    if (list.length === 0) {
-        el.innerHTML = '<div class="empty-state"><p>No cards in this category</p></div>';
-        return;
-    }
-
-    // ──── BIN summary for current tab ────
+    // ──── BIN summary ────
     const binStats = {};
     list.forEach(c => { binStats[c.bin] = (binStats[c.bin] || 0) + 1; });
     const topBins = Object.entries(binStats).sort((a,b) => b[1]-a[1]).slice(0, 15);
 
     // ──── TABLE ROWS ────
-    const recIcons = { add: '✅', skip: '⏭', replace: '🔄', review: '👁' };
-    const catBadges = {
-        new: '<span class="parser-badge parser-badge-new">NEW</span>',
-        duplicate: '<span class="parser-badge parser-badge-dup">DUP</span>',
-        topbin: '<span class="parser-badge parser-badge-top">TOP</span>',
-        ready: '<span class="parser-badge parser-badge-ready">READY</span>',
-        review: '<span class="parser-badge parser-badge-review">REVIEW</span>'
-    };
-    const catRowClass = {
-        new: '', duplicate: 'parser-row-dup', topbin: 'parser-row-top', ready: 'parser-row-ready', review: 'parser-row-review'
-    };
+    const rows = list.map((c, i) => {
+        const isDup = existingNumbers.has(c.cc);
+        const binInProj = projectBinCounts[c.bin] || 0;
+        const bank = c.bank || '';
+        const shortBank = bank.length > 22 ? bank.slice(0, 22) + '…' : (bank || '—');
+        const cardHtml = formatCardDisplay(c.cc, hlBins);
+        const dupLabel = isDup ? '<span class="parser-dup-tag">DUP</span>' : '';
+        const binCountLabel = binInProj > 0 ? `<span class="parser-bin-in-proj">${binInProj}</span>` : '<span class="parser-bin-new">new</span>';
 
-    // Map analyzed index for selected set
-    const analyzedIndexMap = new Map();
-    all.forEach((c, idx) => analyzedIndexMap.set(c, idx));
-
-    const rows = list.map(c => {
-        const globalIdx = analyzedIndexMap.get(c);
-        const binHint = c.isNewBin ? 'new' : `${c.binCountInProject}×`;
-        const shortBank = c.bankName ? (c.bankName.length > 20 ? c.bankName.slice(0, 20) + '…' : c.bankName) : '—';
         return `
-        <tr class="${catRowClass[c.category] || ''} ${PARSER_STATE.selected.has(globalIdx) ? 'selected' : ''}">
-            <td><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
-            <td>${catBadges[c.category] || ''}</td>
-            <td><span class="card-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span></td>
-            <td class="card-number">${c.cc.replace(/(\d{4})/g, '$1 ').trim()}</td>
+        <tr class="${isDup ? 'parser-row-dup' : ''} ${PARSER_STATE.selected.has(i) ? 'selected' : ''}">
+            <td><input type="checkbox" ${PARSER_STATE.selected.has(i) ? 'checked' : ''} data-idx="${i}" class="parser-check"></td>
+            <td>${i + 1}</td>
+            <td>${dupLabel}</td>
+            <td class="parser-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
+            <td class="parser-card-num">${cardHtml}</td>
             <td>${c.validity}</td>
-            <td><span class="parser-bin-ref">${c.bin}</span> <span class="parser-bin-count-tag">${binHint}</span></td>
-            <td title="${c.bankName || ''}">${shortBank}</td>
+            <td class="parser-bin-cell">${c.bin} ${binCountLabel}</td>
+            <td title="${bank}">${shortBank}</td>
             <td>${c.country || '—'}</td>
-            <td class="parser-score-cell"><span class="parser-score parser-score-${c.score >= 70 ? 'high' : c.score >= 40 ? 'mid' : 'low'}">${c.score}</span></td>
-            <td>${recIcons[c.recommendation] || ''}</td>
         </tr>`;
     }).join('');
 
     el.innerHTML = `
         <div class="parser-bin-stats">
-            <span class="parser-bin-title">📋 BINs (tab):</span>
-            ${topBins.map(([bin, cnt]) => `<span class="parser-bin-chip">${bin} <b>${cnt}</b></span>`).join('')}
+            <span class="parser-bin-title">📋 BINs found:</span>
+            ${topBins.map(([bin, cnt]) => {
+                const inProj = projectBinCounts[bin] || 0;
+                return `<span class="parser-bin-chip">${bin} <b>${cnt}</b>${inProj > 0 ? ` <span class="parser-chip-proj">(${inProj} in project)</span>` : ''}</span>`;
+            }).join('')}
         </div>
         <div class="parser-toolbar">
-            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === all.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size} of ${all.length})</label>
+            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === list.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
             <div class="parser-add-section">
                 <select id="parser-target-country">
                     ${STATE.countries.map(co => `<option value="${co.id}" ${co.id === STATE.currentCountry ? 'selected' : ''}>${co.flag} ${co.name}</option>`).join('')}
                 </select>
-                <div class="parser-status-presets">
-                    <span class="parser-preset-label">Status:</span>
-                    <button class="parser-preset ${PARSER_STATE.addMode === 'none' ? 'active' : ''}" data-mode="none">—</button>
-                    <button class="parser-preset ${PARSER_STATE.addMode === 'status-a' ? 'active' : ''}" data-mode="status-a">A</button>
-                    <button class="parser-preset ${PARSER_STATE.addMode === 'status-r' ? 'active' : ''}" data-mode="status-r">R</button>
-                    <button class="parser-preset ${PARSER_STATE.addMode === 'status-v' ? 'active' : ''}" data-mode="status-v">V</button>
-                </div>
                 <button class="btn-primary parser-add-btn" id="parser-add-btn">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                     ADD TO WORKSPACE (${PARSER_STATE.selected.size})
-                </button>
-                <button class="btn-secondary parser-ready-btn" id="parser-ready-btn" title="Send selected to Ready to Work">
-                    ✅ READY (${PARSER_STATE.selected.size})
                 </button>
             </div>
         </div>
+        <div class="parser-table-wrap">
         <table class="data-table parser-table">
             <thead><tr>
-                <th></th><th>STATUS</th><th>Holder</th><th>Card Number</th><th>Exp</th><th>BIN (proj)</th><th>Bank</th><th>GEO</th><th>Score</th><th>Rec</th>
+                <th></th><th>#</th><th></th><th>Holder</th><th>Card</th><th>Exp</th><th>BIN</th><th>Bank</th><th>GEO</th>
             </tr></thead>
             <tbody>${rows}</tbody>
-        </table>`;
+        </table>
+        </div>`;
 
     // ──── EVENT HANDLERS ────
-
-    // Checkboxes
     el.querySelectorAll('.parser-check').forEach(cb => {
         cb.addEventListener('change', () => {
             const idx = parseInt(cb.dataset.idx);
@@ -3850,47 +3704,28 @@ function renderParserResults() {
         });
     });
 
-    // Select all
     const selectAll = document.getElementById('parser-select-all');
     if (selectAll) {
         selectAll.addEventListener('change', () => {
-            if (selectAll.checked) {
-                PARSER_STATE.selected = new Set(all.map((_, i) => i));
-            } else {
-                PARSER_STATE.selected = new Set();
-            }
+            PARSER_STATE.selected = selectAll.checked ? new Set(list.map((_, i) => i)) : new Set();
             el.querySelectorAll('.parser-check').forEach(cb => { cb.checked = selectAll.checked; });
             updateParserButtons();
         });
     }
 
-    // Status presets
-    el.querySelectorAll('.parser-preset').forEach(btn => {
-        btn.addEventListener('click', () => {
-            PARSER_STATE.addMode = btn.dataset.mode;
-            el.querySelectorAll('.parser-preset').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-
-    // Add to Workspace
     document.getElementById('parser-add-btn')?.addEventListener('click', () => addParsedToCards(false));
-    // Send to Ready to Work
-    document.getElementById('parser-ready-btn')?.addEventListener('click', () => addParsedToCards(true));
 }
 
 function updateParserButtons() {
     const addBtn = document.getElementById('parser-add-btn');
-    if (addBtn) addBtn.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg> ADD TO WORKSPACE (${PARSER_STATE.selected.size})`;
-    const readyBtn = document.getElementById('parser-ready-btn');
-    if (readyBtn) readyBtn.textContent = `✅ READY (${PARSER_STATE.selected.size})`;
+    if (addBtn) addBtn.textContent = `ADD TO WORKSPACE (${PARSER_STATE.selected.size})`;
 }
 
-// ──── ADD TO CARDS / READY ────
+// ──── ADD TO WORKSPACE ────
 
 function addParsedToCards(asReady) {
     const targetCountry = document.getElementById('parser-target-country').value;
-    const list = PARSER_STATE.analyzed;
+    const list = PARSER_STATE.filtered;
     let added = 0;
 
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
@@ -3899,13 +3734,12 @@ function addParsedToCards(asReady) {
         const c = list[idx];
         if (!c) return;
 
-        // Skip if card already exists in tracker
         if (existingNumbers.has(c.cc)) return;
 
         const today = new Date();
         const dateStr = `${String(today.getDate()).padStart(2,'0')}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getFullYear()).slice(2)}`;
 
-        const card = {
+        STATE.cards.push({
             id: crypto.randomUUID(),
             name: c.name || 'UNKNOWN',
             surname: c.surname || '',
@@ -3915,17 +3749,15 @@ function addParsedToCards(asReady) {
             amount: '',
             notes: '',
             date: dateStr,
-            cardAdd: PARSER_STATE.addMode === 'status-a',
-            runAds: PARSER_STATE.addMode === 'status-r',
-            verified: PARSER_STATE.addMode === 'status-v',
+            cardAdd: false,
+            runAds: false,
+            verified: false,
             starred: false,
             mailVerify: false,
             mailSubmit: false,
             mailNone: false,
             readyToWork: asReady
-        };
-
-        STATE.cards.push(card);
+        });
         existingNumbers.add(c.cc);
         added++;
     });
@@ -3935,13 +3767,6 @@ function addParsedToCards(asReady) {
         renderSidebar();
         const dest = asReady ? 'Ready to Work' : (STATE.countries.find(co => co.id === targetCountry)?.name || targetCountry);
         toast(`✅ Added ${added} cards to ${dest}`, 'success');
-
-        // Re-analyze to update duplicate status
-        PARSER_STATE.analyzed = analyzeCards(PARSER_STATE.analyzed.map(c => ({
-            cc: c.cc, mm: c.mm, yy: c.yy, cvv: c.cvv, name: c.name, surname: c.surname,
-            bank: c.bank, cardType: c.cardType, country: c.country, billing: c.billing,
-            msgDate: c.msgDate, validity: c.validity, bin: c.bin
-        })));
         PARSER_STATE.selected = new Set();
         renderParserResults();
     } else {
