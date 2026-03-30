@@ -1,0 +1,68 @@
+{
+  "messages": [
+    {
+      "date": "2026-03-15",
+      "text": "💳 CC: 4500 0312 3456 7890\n📅 Validity: 09 / 28\n🔐 CVV: 123\n👶 Holder: JOHN SMITH\n🏦 Bank: REVOLUT LTD.\n📊 Card Type: VISA DEBIT\n🏷 Billing: Toronto, ON, CA"
+    },
+    {
+      "date": "2026-03-15",
+      "text": "💳 CC: 4500 0398 7654 3210\n📅 Validity: 12 / 27\n🔐 CVV: 456\n👶 Holder: MARIA GARCIA\n🏦 Bank: REVOLUT LTD.\n📊 Card Type: VISA DEBIT\n🏷 Billing: Vancouver, BC, CA"
+    },
+    {
+      "date": "2026-03-16",
+      "text": "💳 CC: 4500 0355 1122 3344\n📅 Validity: 06 / 27\n🔐 CVV: 789\n👶 Holder: ALEX BROWN\n🏦 Bank: REVOLUT LTD.\n📊 Card Type: VISA DEBIT\n🏷 Billing: Montreal, QC, CA"
+    },
+    {
+      "date": "2026-03-17",
+      "text": "💳 CC: 4242 4200 1111 2222\n📅 Validity: 03 / 28\n🔐 CVV: 321\n👶 Holder: EMMA WILSON\n🏦 Bank: STRIPE PAYMENTS UK, LTD.\n📊 Card Type: VISA CREDIT\n🏷 Billing: London, GB"
+    },
+    {
+      "date": "2026-03-17",
+      "text": "💳 CC: 4242 4200 3333 4444\n📅 Validity: 11 / 27\n🔐 CVV: 654\n👶 Holder: JAMES TAYLOR\n🏦 Bank: STRIPE PAYMENTS UK, LTD.\n📊 Card Type: VISA CREDIT\n🏷 Billing: Manchester, GB"
+    },
+    {
+      "date": "2026-03-18",
+      "text": "💳 CC: 5326 1000 5555 6666\n📅 Validity: 08 / 28\n🔐 CVV: 987\n👶 Holder: OLIVIA MARTINEZ\n🏦 Bank: ISRACARD LTD.\n📊 Card Type: MASTERCARD CREDIT\n🏷 Billing: Tel Aviv, IL"
+    },
+    {
+      "date": "2026-03-18",
+      "text": "💳 CC: 5326 1000 7777 8888\n📅 Validity: 05 / 27\n🔐 CVV: 147\n👶 Holder: DANIEL COHEN\n🏦 Bank: ISRACARD LTD.\n📊 Card Type: MASTERCARD CREDIT\n🏷 Billing: Haifa, IL"
+    },
+    {
+      "date": "2026-03-19",
+      "text": "💳 CC: 5326 1000 9999 0000\n📅 Validity: 02 / 29\n🔐 CVV: 258\n👶 Holder: SARAH LEVY\n🏦 Bank: ISRACARD LTD.\n📊 Card Type: MASTERCARD CREDIT\n🏷 Billing: Jerusalem, IL"
+    },
+    {
+      "date": "2026-03-20",
+      "text": "💳 CC: 4000 1234 5678 9010\n📅 Validity: 07 / 27\n🔐 CVV: 369\n👶 Holder: MICHAEL JOHNSON\n🏦 Bank: CHASE BANK USA\n📊 Card Type: VISA DEBIT\n🏷 Billing: New York, NY, US"
+    },
+    {
+      "date": "2026-03-20",
+      "text": "💳 CC: 4000 1234 1111 2222\n📅 Validity: 10 / 28\n🔐 CVV: 741\n👶 Holder: JESSICA WILLIAMS\n🏦 Bank: CHASE BANK USA\n📊 Card Type: VISA DEBIT\n🏷 Billing: Los Angeles, CA, US"
+    },
+    {
+      "date": "2026-03-21",
+      "text": "💳 CC: 4000 1234 3333 4444\n📅 Validity: 01 / 28\n🔐 CVV: 852\n👶 Holder: ROBERT DAVIS\n🏦 Bank: CHASE BANK USA\n📊 Card Type: VISA DEBIT\n🏷 Billing: Chicago, IL, US"
+    },
+    {
+      "date": "2026-03-21",
+      "text": "💳 CC: 4000 1234 5555 6666\n📅 Validity: 04 / 27\n🔐 CVV: 963\n👶 Holder: LINDA ANDERSON\n🏦 Bank: CHASE BANK USA\n📊 Card Type: VISA DEBIT\n🏷 Billing: Miami, FL, US"
+    },
+    {
+      "date": "2026-03-22",
+      "text": "💳 CC: 5555 8800 1234 5678\n📅 Validity: 09 / 29\n🔐 CVV: 159\n👶 Holder: THOMAS MUELLER\n🏦 Bank: DEUTSCHE KREDITBANK AG\n📊 Card Type: MASTERCARD DEBIT\n🏷 Billing: Berlin, DE"
+    },
+    {
+      "date": "2026-03-22",
+      "text": "💳 CC: 5555 8800 8765 4321\n📅 Validity: 11 / 28\n🔐 CVV: 357\n👶 Holder: ANNA SCHMIDT\n🏦 Bank: DEUTSCHE KREDITBANK AG\n📊 Card Type: MASTERCARD DEBIT\n🏷 Billing: Munich, DE"
+    },
+    {
+      "date": "2026-03-15",
+      "text": "💳 CC: 4500 0312 3456 7890\n📅 Validity: 09 / 28\n🔐 CVV: 123\n👶 Holder: JOHN SMITH\n🏦 Bank: REVOLUT LTD.\n📊 Card Type: VISA DEBIT\n🏷 Billing: Toronto, ON, CA"
+    },
+    {
+      "date": "2026-03-23",
+      "text": "💳 CC: 4242 4200 5555 6789\n📅 Validity: 06 / 28\n🔐 CVV: 482\n👶 Holder: WILLIAM HARRIS\n🏦 Bank: STRIPE PAYMENTS UK, LTD.\n📊 Card Type: VISA CREDIT\n🏷 Billing: Birmingham, GB"
+    }
+  ]
+}

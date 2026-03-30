@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -3339,6 +3339,64 @@ function detectGeo(billing, country) {
         if (knownCodes.includes(upper)) return upper;
     }
     return '';
+}
+
+function flattenText(textArray) {
+    if (typeof textArray === 'string') return textArray;
+    if (!Array.isArray(textArray)) return '';
+    return textArray.map(item => typeof item === 'string' ? item : (item && item.text ? String(item.text) : '')).join('');
+}
+
+function extractCardsFromMessages(messages) {
+    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/gs;
+    const holderP = /👶\s*Holder:\s*(.+)/i;
+    const bankP = /🏦\s*Bank:\s*(.+)/i;
+    const typeP = /📊\s*Card Type:\s*(.+)/i;
+    const billingP = /🏷\s*Billing:\s*(.+)/i;
+
+    const cards = [];
+    for (const msg of messages) {
+        const fullText = flattenText(msg.text);
+        if (!fullText) continue;
+        const msgDate = msg.date || '';
+
+        pattern.lastIndex = 0;
+        let m;
+        while ((m = pattern.exec(fullText)) !== null) {
+            const ccRaw = m[1].replace(/\s/g, '');
+            let mm = m[2];
+            let yy = m[3];
+            const cvv = m[4];
+            if (yy.length === 4) yy = yy.slice(2);
+
+            const holderM = fullText.match(holderP);
+            const bankM = fullText.match(bankP);
+            const typeM = fullText.match(typeP);
+            const billingM = fullText.match(billingP);
+
+            const holder = holderM ? holderM[1].trim() : '';
+            const nameParts = holder.split(/\s+/);
+            const name = nameParts[0] || '';
+            const surname = nameParts.slice(1).join(' ') || '';
+
+            const bank = bankM ? bankM[1].trim() : '';
+            const cardType = typeM ? typeM[1].trim() : '';
+            const billing = billingM ? billingM[1].trim() : '';
+            const country = billing.split(',')[0]?.trim() || '';
+
+            cards.push({
+                cc: ccRaw,
+                mm, yy, cvv,
+                name, surname,
+                bank, cardType,
+                country, billing,
+                msgDate,
+                validity: `${mm}/${yy}`,
+                bin: ccRaw.substring(0, 6)
+            });
+        }
+    }
+    return cards;
 }
 
 // ──── RENDER PARSER ────
