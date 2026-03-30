@@ -311,6 +311,17 @@ function binCount(bin, countryFilter) {
 // ──── FILTERED CARDS ────
 function sortCards(cards, field, dir) {
     const mult = dir === 'asc' ? 1 : -1;
+
+    // Pre-build BIN count map from the full cards array for efficient sort
+    let binCountMap = null;
+    if (field === 'bin') {
+        binCountMap = {};
+        cards.forEach(c => {
+            const b = getBin(c.cardNumber);
+            binCountMap[b] = (binCountMap[b] || 0) + 1;
+        });
+    }
+
     return [...cards].sort((a, b) => {
         let va, vb;
         switch (field) {
@@ -321,9 +332,16 @@ function sortCards(cards, field, dir) {
             case 'notes':
                 va = (a.notes || '').toLowerCase(); vb = (b.notes || '').toLowerCase();
                 return mult * va.localeCompare(vb);
-            case 'bin':
-                va = getBin(a.cardNumber); vb = getBin(b.cardNumber);
-                return mult * va.localeCompare(vb);
+            case 'bin': {
+                const binA = getBin(a.cardNumber);
+                const binB = getBin(b.cardNumber);
+                const countA = binCountMap[binA] || 0;
+                const countB = binCountMap[binB] || 0;
+                // Primary: sort by count (numeric)
+                if (countA !== countB) return mult * (countA - countB);
+                // Tiebreaker: sort by BIN value (numeric)
+                return mult * (parseInt(binA, 10) - parseInt(binB, 10));
+            }
             case 'type':
                 va = (a.docType || '').toLowerCase(); vb = (b.docType || '').toLowerCase();
                 return mult * va.localeCompare(vb);
@@ -2567,102 +2585,242 @@ function showBackupImportModal(data, filename) {
     backupOverlay.classList.remove('hidden');
 }
 
+// Pre-scanned import data for step-2 resolution
+let _importScan = null;
+
 function executeBackupImport(mode) {
     if (!pendingBackup) return;
     const data = pendingBackup;
 
     if (mode === 'replace') {
+        // REPLACE ALL — clear everything, import all
         STATE.cards = [];
         STATE.docs = [];
         STATE.trash = [];
         STATE.notes = '';
+        importAllRecords(data);
+        finishImport();
+        return;
     }
 
-    // Import countries from backup (merge new ones)
-    if (data.countries && Array.isArray(data.countries)) {
-        data.countries.forEach(c => {
-            if (!STATE.countries.find(e => e.id === c.id)) {
-                STATE.countries.push(c);
-            }
-        });
+    // MERGE mode — pre-scan for duplicates
+    const scan = preScanImport(data);
+    _importScan = scan;
+
+    if (scan.dupCards.length === 0 && scan.dupDocs.length === 0) {
+        // No duplicates — import directly
+        importNewOnly(scan);
+        finishImport();
+        return;
     }
 
-    // Detect format
+    // Show step-2 duplicate resolution
+    document.getElementById('backup-step1').classList.add('hidden');
+    document.getElementById('backup-step2').classList.remove('hidden');
+
+    const totalDups = scan.dupCards.length + scan.dupDocs.length;
+    document.getElementById('dup-summary').innerHTML = `
+        <div class="dup-icon">⚠️</div>
+        <div class="dup-text">
+            <strong>${totalDups} duplicate${totalDups !== 1 ? 's' : ''} found</strong>
+            <span class="dup-detail">
+                ${scan.dupCards.length ? scan.dupCards.length + ' card' + (scan.dupCards.length !== 1 ? 's' : '') : ''}
+                ${scan.dupCards.length && scan.dupDocs.length ? ' + ' : ''}
+                ${scan.dupDocs.length ? scan.dupDocs.length + ' doc' + (scan.dupDocs.length !== 1 ? 's' : '') : ''}
+                already exist • ${scan.newCards.length + scan.newDocs.length} new records will be added
+            </span>
+        </div>
+    `;
+}
+
+function preScanImport(data) {
     const isV2 = data.version === '2.0';
-
-    // Import cards
     const rawCards = data.cards || [];
-    let addedCards = 0;
+    const rawDocs = isV2 ? (data.docs || []) : (data.mydocuments || data.docs || []);
+
+    const newCards = [];
+    const dupCards = []; // { incoming, existing }
+    const newDocs = [];
+    const dupDocs = [];
+
     rawCards.forEach(c => {
         const isDeleted = !isV2 && (c.is_deleted === 1 || c.is_deleted === true);
+        if (isDeleted) return;
         const converted = isV2 ? { ...c, id: c.id || genId() } : convertOldCard(c);
-        if (isDeleted) {
-            if (mode === 'replace' || !STATE.trash.find(t => t.cardNumber === converted.cardNumber)) {
-                STATE.trash.push(converted);
-            }
+        const existing = STATE.cards.find(e => e.cardNumber === converted.cardNumber);
+        if (existing) {
+            dupCards.push({ incoming: converted, existing });
         } else {
-            if (mode === 'replace' || !STATE.cards.find(e => e.cardNumber === converted.cardNumber)) {
-                STATE.cards.push(converted);
-                addedCards++;
-            }
+            newCards.push(converted);
         }
     });
 
-    // Import trash (v2 has separate trash array)
-    if (isV2 && data.trash && Array.isArray(data.trash)) {
-        data.trash.forEach(c => {
-            const t = { ...c, id: c.id || genId() };
-            if (mode === 'replace' || !STATE.trash.find(e => e.cardNumber === t.cardNumber)) {
-                STATE.trash.push(t);
-            }
-        });
-    }
-
-    // Import docs (v2: data.docs, v1: data.mydocuments)
-    const rawDocs = isV2 ? (data.docs || []) : (data.mydocuments || data.docs || []);
-    let addedDocs = 0;
     rawDocs.forEach(d => {
         const isDeleted = !isV2 && (d.is_deleted === 1 || d.is_deleted === true);
         if (isDeleted) return;
         const converted = isV2 ? { ...d, id: d.id || genId() } : convertOldDoc(d);
-        if (mode === 'replace' || !STATE.docs.find(e => e.fullName === converted.fullName && e.country === converted.country)) {
-            STATE.docs.push(converted);
-            addedDocs++;
+        const existing = STATE.docs.find(e => e.fullName === converted.fullName && e.country === converted.country);
+        if (existing) {
+            dupDocs.push({ incoming: converted, existing });
+        } else {
+            newDocs.push(converted);
         }
     });
 
-    // Import notes
+    return { data, isV2, newCards, dupCards, newDocs, dupDocs };
+}
+
+function importNewOnly(scan) {
+    scan.newCards.forEach(c => { c.id = genId(); STATE.cards.push(c); });
+    scan.newDocs.forEach(d => { d.id = genId(); STATE.docs.push(d); });
+    importExtras(scan.data);
+    const msg = `Added: ${scan.newCards.length} cards, ${scan.newDocs.length} docs` +
+        (scan.dupCards.length + scan.dupDocs.length > 0 ? ` (${scan.dupCards.length + scan.dupDocs.length} duplicates skipped)` : '');
+    toast(msg, 'success');
+}
+
+function importWithReplace(scan) {
+    // Add new records
+    scan.newCards.forEach(c => { c.id = genId(); STATE.cards.push(c); });
+    scan.newDocs.forEach(d => { d.id = genId(); STATE.docs.push(d); });
+
+    // Replace existing with imported data
+    let replaced = 0;
+    scan.dupCards.forEach(({ incoming, existing }) => {
+        Object.assign(existing, incoming, { id: existing.id });
+        replaced++;
+    });
+    scan.dupDocs.forEach(({ incoming, existing }) => {
+        Object.assign(existing, incoming, { id: existing.id });
+        replaced++;
+    });
+
+    importExtras(scan.data);
+    toast(`Added: ${scan.newCards.length + scan.newDocs.length} new, replaced: ${replaced} existing`, 'success');
+}
+
+function importWithDuplicates(scan) {
+    // Add new records
+    scan.newCards.forEach(c => { c.id = genId(); STATE.cards.push(c); });
+    scan.newDocs.forEach(d => { d.id = genId(); STATE.docs.push(d); });
+
+    // Also add duplicates as new records with new IDs
+    let dupAdded = 0;
+    scan.dupCards.forEach(({ incoming }) => {
+        incoming.id = genId();
+        incoming.isDuplicate = true;
+        STATE.cards.push(incoming);
+        dupAdded++;
+    });
+    scan.dupDocs.forEach(({ incoming }) => {
+        incoming.id = genId();
+        incoming.isDuplicate = true;
+        STATE.docs.push(incoming);
+        dupAdded++;
+    });
+
+    importExtras(scan.data);
+    toast(`Added: ${scan.newCards.length + scan.newDocs.length} new + ${dupAdded} duplicates`, 'success');
+}
+
+function importAllRecords(data) {
+    const isV2 = data.version === '2.0';
+    const rawCards = data.cards || [];
+    rawCards.forEach(c => {
+        const isDeleted = !isV2 && (c.is_deleted === 1 || c.is_deleted === true);
+        const converted = isV2 ? { ...c, id: c.id || genId() } : convertOldCard(c);
+        if (isDeleted) {
+            STATE.trash.push(converted);
+        } else {
+            STATE.cards.push(converted);
+        }
+    });
+
+    if (isV2 && data.trash && Array.isArray(data.trash)) {
+        data.trash.forEach(c => {
+            STATE.trash.push({ ...c, id: c.id || genId() });
+        });
+    }
+
+    const rawDocs = isV2 ? (data.docs || []) : (data.mydocuments || data.docs || []);
+    rawDocs.forEach(d => {
+        const isDeleted = !isV2 && (d.is_deleted === 1 || d.is_deleted === true);
+        if (isDeleted) return;
+        STATE.docs.push(isV2 ? { ...d, id: d.id || genId() } : convertOldDoc(d));
+    });
+
+    importExtras(data);
+    toast(`Imported: ${STATE.cards.length} cards, ${STATE.docs.length} docs`, 'success');
+}
+
+function importExtras(data) {
+    // Countries
+    if (data.countries && Array.isArray(data.countries)) {
+        data.countries.forEach(c => {
+            if (!STATE.countries.find(e => e.id === c.id)) STATE.countries.push(c);
+        });
+    }
+    // Notes
     if (data.notes) {
         const noteContent = typeof data.notes === 'string' ? data.notes : (data.notes.content || '');
-        if (mode === 'replace') {
-            STATE.notes = noteContent;
-        } else if (noteContent) {
+        if (noteContent) {
             STATE.notes = STATE.notes ? STATE.notes + '\n\n--- Imported ---\n' + noteContent : noteContent;
         }
     }
-
-    // Import BIN cache
+    // BIN cache
     if (data.binCache && typeof data.binCache === 'object') {
         Object.assign(BIN_CACHE, data.binCache);
     }
+}
 
+function finishImport() {
     ensureDataIntegrity();
     save();
     backupOverlay.classList.add('hidden');
     pendingBackup = null;
+    _importScan = null;
+    // Reset step visibility
+    document.getElementById('backup-step1').classList.remove('hidden');
+    document.getElementById('backup-step2').classList.add('hidden');
     renderAll();
-    toast(`Imported: ${addedCards} cards, ${addedDocs} docs`, 'success');
+}
+
+function closeBackupModal() {
+    backupOverlay.classList.add('hidden');
+    pendingBackup = null;
+    _importScan = null;
+    document.getElementById('backup-step1').classList.remove('hidden');
+    document.getElementById('backup-step2').classList.add('hidden');
 }
 
 // Import button (sidebar)
 document.getElementById('restore-backup-btn').addEventListener('click', openBackupFileDialog);
 
-// Backup import modal buttons
+// Backup import modal buttons — Step 1
 document.getElementById('backup-replace').addEventListener('click', () => executeBackupImport('replace'));
 document.getElementById('backup-merge').addEventListener('click', () => executeBackupImport('merge'));
-document.getElementById('backup-import-close').addEventListener('click', () => { backupOverlay.classList.add('hidden'); pendingBackup = null; });
-document.getElementById('backup-import-cancel').addEventListener('click', () => { backupOverlay.classList.add('hidden'); pendingBackup = null; });
-backupOverlay.addEventListener('click', (e) => { if (e.target === backupOverlay) { backupOverlay.classList.add('hidden'); pendingBackup = null; } });
+
+// Step 2 — duplicate resolution
+document.getElementById('dup-skip').addEventListener('click', () => {
+    if (!_importScan) return;
+    importNewOnly(_importScan);
+    finishImport();
+});
+document.getElementById('dup-replace').addEventListener('click', () => {
+    if (!_importScan) return;
+    importWithReplace(_importScan);
+    finishImport();
+});
+document.getElementById('dup-add').addEventListener('click', () => {
+    if (!_importScan) return;
+    importWithDuplicates(_importScan);
+    finishImport();
+});
+
+// Close handlers
+document.getElementById('backup-import-close').addEventListener('click', closeBackupModal);
+document.getElementById('backup-import-cancel').addEventListener('click', closeBackupModal);
+backupOverlay.addEventListener('click', (e) => { if (e.target === backupOverlay) closeBackupModal(); });
 
 document.getElementById('backup-btn').addEventListener('click', () => {
     const data = {

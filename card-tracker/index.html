@@ -466,24 +466,46 @@
                 </button>
             </div>
             <div class="modal-body backup-body">
-                <div class="backup-meta" id="backup-meta">
-                    <!-- Filled by JS: date, version -->
+                <div class="backup-meta" id="backup-meta"></div>
+                <div class="backup-stats" id="backup-stats"></div>
+
+                <!-- STEP 1: Choose mode -->
+                <div id="backup-step1">
+                    <div class="backup-mode-label">Choose import mode:</div>
+                    <div class="backup-modes">
+                        <button class="backup-mode-btn replace" id="backup-replace">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115.36-6.36L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15.36 6.36L3 16"/></svg>
+                            <span class="mode-title">REPLACE ALL</span>
+                            <span class="mode-desc">Clear database & restore</span>
+                        </button>
+                        <button class="backup-mode-btn merge" id="backup-merge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 00-1.172-2.872L3 3"/><path d="M15 9l6-6"/></svg>
+                            <span class="mode-title">ADD TO EXISTING</span>
+                            <span class="mode-desc">Smart merge with duplicate detection</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="backup-stats" id="backup-stats">
-                    <!-- Filled by JS: cards, mycards, docs, notes counts -->
-                </div>
-                <div class="backup-mode-label">Choose import mode:</div>
-                <div class="backup-modes">
-                    <button class="backup-mode-btn replace" id="backup-replace">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115.36-6.36L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15.36 6.36L3 16"/></svg>
-                        <span class="mode-title">REPLACE ALL</span>
-                        <span class="mode-desc">Clear database & restore</span>
-                    </button>
-                    <button class="backup-mode-btn merge" id="backup-merge">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 00-1.172-2.872L3 3"/><path d="M15 9l6-6"/></svg>
-                        <span class="mode-title">MERGE</span>
-                        <span class="mode-desc">Add only new records</span>
-                    </button>
+
+                <!-- STEP 2: Duplicate resolution (hidden by default) -->
+                <div id="backup-step2" class="hidden">
+                    <div class="dup-summary" id="dup-summary"></div>
+                    <div class="dup-actions">
+                        <button class="dup-action-btn skip" id="dup-skip">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                            <span class="dup-btn-title">SKIP DUPLICATES</span>
+                            <span class="dup-btn-desc">Add only new records</span>
+                        </button>
+                        <button class="dup-action-btn replace-dup" id="dup-replace">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+                            <span class="dup-btn-title">REPLACE EXISTING</span>
+                            <span class="dup-btn-desc">Update existing with new data</span>
+                        </button>
+                        <button class="dup-action-btn add-dup" id="dup-add">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg>
+                            <span class="dup-btn-title">ALLOW DUPLICATES</span>
+                            <span class="dup-btn-desc">Keep both versions</span>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer backup-footer">
