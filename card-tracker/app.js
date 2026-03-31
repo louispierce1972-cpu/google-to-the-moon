@@ -561,7 +561,6 @@ function renderSidebar() {
 
     // Update collection badges
     document.getElementById('badge-all-cards').textContent = STATE.cards.length;
-    document.getElementById('badge-my-card').textContent = STATE.cards.length;
     document.getElementById('badge-favorites').textContent = STATE.cards.filter(c => isFavorite(c)).length;
     document.getElementById('badge-active').textContent = STATE.cards.filter(c => isActiveNow(c)).length;
     document.getElementById('badge-ready-work').textContent = STATE.cards.filter(c => c.readyToWork).length;
@@ -1710,11 +1709,11 @@ function updateStatsInPlace() {
 }
 
 function updateSidebarBadges() {
-    const myCardBadge = document.getElementById('badge-my-card');
+    const allCardsBadge = document.getElementById('badge-all-cards');
     const favBadge = document.getElementById('badge-favorites');
     const activeBadge = document.getElementById('badge-active');
     const trashBadge = document.getElementById('badge-trash');
-    if (myCardBadge) myCardBadge.textContent = STATE.cards.length;
+    if (allCardsBadge) allCardsBadge.textContent = STATE.cards.length;
     if (favBadge) favBadge.textContent = STATE.cards.filter(c => isFavorite(c)).length;
     if (activeBadge) activeBadge.textContent = STATE.cards.filter(c => isActiveNow(c)).length;
     if (trashBadge) trashBadge.textContent = STATE.trash.length;
