@@ -3766,6 +3766,7 @@ function renderParserResults() {
                     ${STATE.countries.map(co => `<option value="${co.id}" ${co.id === STATE.currentCountry ? 'selected' : ''}>${co.flag} ${co.name}</option>`).join('')}
                 </select>
                 <button class="btn-primary parser-add-btn" id="parser-add-btn">ADD TO READY TO WORK (${PARSER_STATE.selected.size})</button>
+                <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
             </div>
         </div>
 
@@ -3802,11 +3803,48 @@ function renderParserResults() {
         });
     }
     document.getElementById('parser-add-btn')?.addEventListener('click', addCollectedToCards);
+    document.getElementById('parser-add-notes-btn')?.addEventListener('click', addCollectedToNotes);
 }
 
 function updateParserButtons() {
     const addBtn = document.getElementById('parser-add-btn');
+    const notesBtn = document.getElementById('parser-add-notes-btn');
     if (addBtn) addBtn.textContent = `ADD TO READY TO WORK (${PARSER_STATE.selected.size})`;
+    if (notesBtn) notesBtn.textContent = `📝 ADD TO NOTES (${PARSER_STATE.selected.size})`;
+}
+
+function addCollectedToNotes() {
+    const list = PARSER_STATE.collected;
+    if (PARSER_STATE.selected.size === 0) { toast('No cards selected', 'warning'); return; }
+
+    const lines = [];
+    const addedIndices = new Set();
+    PARSER_STATE.selected.forEach(idx => {
+        const c = list[idx];
+        if (!c) return;
+        lines.push(`${c.name} ${c.surname} | ${c.cc} | ${c.validity} | BIN:${c.bin} | ${c.bank || '-'} | ${c.detectedGeo || '-'}`);
+        addedIndices.add(idx);
+    });
+
+    if (lines.length > 0) {
+        const header = `\n--- Parser Import (${new Date().toLocaleDateString()}) ---`;
+        const block = header + '\n' + lines.join('\n');
+        STATE.notes = (STATE.notes || '') + block + '\n';
+        STATE.notesLastSaved = Date.now();
+
+        // Remove processed cards from parser results
+        PARSER_STATE.collected = PARSER_STATE.collected.filter((_, i) => !addedIndices.has(i));
+        const binMap = {};
+        PARSER_STATE.collected.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
+        PARSER_STATE.binGroups = Object.entries(binMap)
+            .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
+            .sort((a, b) => b.count - a.count);
+        PARSER_STATE.selected = new Set(PARSER_STATE.collected.map((_, i) => i));
+
+        saveData();
+        renderParserResults();
+        toast(`${lines.length} cards added to Notes`, 'success');
+    }
 }
 
 function clearParser() {
