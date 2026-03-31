@@ -730,6 +730,18 @@ function renderContent() {
         footer.style.display = 'none';
         return;
     }
+
+    if (STATE.currentView === 'generator') {
+        renderGenerator();
+        footer.style.display = 'none';
+        return;
+    }
+
+    if (STATE.currentView === 'builder') {
+        renderBuilder();
+        footer.style.display = 'none';
+        return;
+    }
     footer.style.display = 'flex';
 
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
@@ -1097,6 +1109,14 @@ function renderPageTitle() {
         case 'new-cards':
             flagEl.textContent = '🔍';
             titleEl.textContent = 'Parser';
+            break;
+        case 'generator':
+            flagEl.textContent = '⚙️';
+            titleEl.textContent = 'Generator';
+            break;
+        case 'builder':
+            flagEl.textContent = '🏗️';
+            titleEl.textContent = 'Builder';
             break;
         case 'ready-to-work':
             flagEl.textContent = '✅';
@@ -3399,6 +3419,64 @@ function extractCardsFromMessages(messages) {
     return cards;
 }
 
+// ──── RENDER GENERATOR ────
+
+function renderGenerator() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.innerHTML = '';
+
+    area.innerHTML = `
+    <div class="tool-stub-container">
+        <div class="tool-stub-icon">⚙️</div>
+        <h2 class="tool-stub-title">Generator</h2>
+        <p class="tool-stub-desc">Document generation tool — coming soon</p>
+        <div class="tool-stub-features">
+            <div class="tool-stub-feature">
+                <span class="tool-stub-dot" style="background:#818CF8"></span>
+                <span>Quick document templates</span>
+            </div>
+            <div class="tool-stub-feature">
+                <span class="tool-stub-dot" style="background:#22C55E"></span>
+                <span>Auto-fill from card data</span>
+            </div>
+            <div class="tool-stub-feature">
+                <span class="tool-stub-dot" style="background:#F59E0B"></span>
+                <span>Batch generation</span>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ──── RENDER BUILDER ────
+
+function renderBuilder() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.innerHTML = '';
+
+    area.innerHTML = `
+    <div class="tool-stub-container">
+        <div class="tool-stub-icon">🏗️</div>
+        <h2 class="tool-stub-title">Builder</h2>
+        <p class="tool-stub-desc">Tag combination builder — Agoda + BIN + Amount + Comment</p>
+        <div class="tool-stub-features">
+            <div class="tool-stub-feature">
+                <span class="tool-stub-dot" style="background:#818CF8"></span>
+                <span>Build tag combinations</span>
+            </div>
+            <div class="tool-stub-feature">
+                <span class="tool-stub-dot" style="background:#22C55E"></span>
+                <span>Save presets</span>
+            </div>
+            <div class="tool-stub-feature">
+                <span class="tool-stub-dot" style="background:#F59E0B"></span>
+                <span>Export ready combinations</span>
+            </div>
+        </div>
+    </div>`;
+}
+
 // ──── RENDER PARSER ────
 
 function renderParser() {
@@ -3437,11 +3515,19 @@ function renderParser() {
             <div class="parser-filter-row">
                 <div class="parser-filter-group">
                     <label>Date From</label>
-                    <input type="text" id="parser-date-from" placeholder="YYYY-MM-DD">
+                    <div class="parser-date-selects" id="parser-date-from-wrap">
+                        <select id="parser-df-year"><option value="">Year</option></select>
+                        <select id="parser-df-month"><option value="">MM</option></select>
+                        <select id="parser-df-day"><option value="">DD</option></select>
+                    </div>
                 </div>
                 <div class="parser-filter-group">
                     <label>Date To</label>
-                    <input type="text" id="parser-date-to" placeholder="YYYY-MM-DD">
+                    <div class="parser-date-selects" id="parser-date-to-wrap">
+                        <select id="parser-dt-year"><option value="">Year</option></select>
+                        <select id="parser-dt-month"><option value="">MM</option></select>
+                        <select id="parser-dt-day"><option value="">DD</option></select>
+                    </div>
                 </div>
                 <div class="parser-filter-group">
                     <label>Min Validity (months)</label>
@@ -3461,6 +3547,7 @@ function renderParser() {
         <div class="parser-actions">
             <button class="btn-primary parser-parse-btn" id="parser-parse-btn" disabled>🔍 PARSE</button>
             <button class="btn-primary parser-collect-btn" id="parser-collect-btn" disabled>📦 COLLECT ALL</button>
+            <button class="btn-outline parser-clear-btn" id="parser-clear-btn">🗑 CLEAR</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -3526,8 +3613,8 @@ function runParse() {
     const binFilters = binRaw ? binRaw.split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4) : [];
     const countryFilter = document.getElementById('parser-country').value.trim().toUpperCase();
     const bankFilter = document.getElementById('parser-bank').value.trim().toLowerCase();
-    const dateFrom = document.getElementById('parser-date-from').value.trim();
-    const dateTo = document.getElementById('parser-date-to').value.trim();
+    const dateFrom = getDateFromDropdowns('df');
+    const dateTo = getDateFromDropdowns('dt');
     const minValidity = parseInt(document.getElementById('parser-min-validity').value) || 0;
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
@@ -3678,7 +3765,7 @@ function renderParserResults() {
                 <select id="parser-target-country">
                     ${STATE.countries.map(co => `<option value="${co.id}" ${co.id === STATE.currentCountry ? 'selected' : ''}>${co.flag} ${co.name}</option>`).join('')}
                 </select>
-                <button class="btn-primary parser-add-btn" id="parser-add-btn">ADD TO ALL CARDS (${PARSER_STATE.selected.size})</button>
+                <button class="btn-primary parser-add-btn" id="parser-add-btn">ADD TO READY TO WORK (${PARSER_STATE.selected.size})</button>
             </div>
         </div>
 
@@ -3719,10 +3806,50 @@ function renderParserResults() {
 
 function updateParserButtons() {
     const addBtn = document.getElementById('parser-add-btn');
-    if (addBtn) addBtn.textContent = `ADD TO ALL CARDS (${PARSER_STATE.selected.size})`;
+    if (addBtn) addBtn.textContent = `ADD TO READY TO WORK (${PARSER_STATE.selected.size})`;
 }
 
-// ──── ADD TO ALL CARDS ────
+function clearParser() {
+    PARSER_STATE.rawMessages = [];
+    PARSER_STATE.collected = [];
+    PARSER_STATE.binGroups = [];
+    PARSER_STATE.selected = new Set();
+    PARSER_STATE.file = '';
+    PARSER_STATE.binFilter = null;
+    renderParser();
+    toast('Parser cleared', 'info');
+}
+
+function populateDateDropdowns() {
+    const curYear = new Date().getFullYear();
+    const minYear = 2026;
+    const maxYear = curYear + 5;
+    ['df', 'dt'].forEach(prefix => {
+        const ySel = document.getElementById(`parser-${prefix}-year`);
+        const mSel = document.getElementById(`parser-${prefix}-month`);
+        const dSel = document.getElementById(`parser-${prefix}-day`);
+        if (!ySel) return;
+        for (let y = minYear; y <= maxYear; y++) {
+            ySel.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+        for (let m = 1; m <= 12; m++) {
+            mSel.innerHTML += `<option value="${String(m).padStart(2,'0')}">${String(m).padStart(2,'0')}</option>`;
+        }
+        for (let d = 1; d <= 31; d++) {
+            dSel.innerHTML += `<option value="${String(d).padStart(2,'0')}">${String(d).padStart(2,'0')}</option>`;
+        }
+    });
+}
+
+function getDateFromDropdowns(prefix) {
+    const y = document.getElementById(`parser-${prefix}-year`)?.value;
+    const m = document.getElementById(`parser-${prefix}-month`)?.value;
+    const d = document.getElementById(`parser-${prefix}-day`)?.value;
+    if (!y) return '';
+    return `${y}-${m || '01'}-${d || '01'}`;
+}
+
+// ──── ADD TO READY TO WORK ────
 
 function addCollectedToCards() {
     const targetCountry = document.getElementById('parser-target-country')?.value || STATE.currentCountry;
@@ -3730,6 +3857,7 @@ function addCollectedToCards() {
     const detectGeoFlag = document.getElementById('parser-detect-geo')?.checked || false;
     const list = PARSER_STATE.collected;
     let added = 0, replaced = 0;
+    const addedIndices = new Set();
 
     const existingNumbers = new Map();
     STATE.cards.forEach(c => { existingNumbers.set(c.cardNumber.replace(/\s/g, ''), c); });
@@ -3747,6 +3875,7 @@ function addCollectedToCards() {
                 if (c.surname) existing.surname = c.surname;
                 replaced++;
             }
+            addedIndices.add(idx);
             return;
         }
 
@@ -3771,19 +3900,29 @@ function addCollectedToCards() {
             mailVerify: false,
             mailSubmit: false,
             mailNone: false,
-            readyToWork: false
+            readyToWork: true
         });
         existingNumbers.set(c.cc, STATE.cards[STATE.cards.length - 1]);
+        addedIndices.add(idx);
         added++;
     });
 
     if (added > 0 || replaced > 0) {
+        // Remove processed cards from parser results
+        PARSER_STATE.collected = PARSER_STATE.collected.filter((_, i) => !addedIndices.has(i));
+        // Rebuild bin groups
+        const binMap = {};
+        PARSER_STATE.collected.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
+        PARSER_STATE.binGroups = Object.entries(binMap)
+            .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
+            .sort((a, b) => b.count - a.count);
+        PARSER_STATE.selected = new Set(PARSER_STATE.collected.map((_, i) => i));
+
         save();
         renderSidebar();
-        let msg = `✅ Added ${added} cards`;
-        if (replaced > 0) msg += `, updated ${replaced} duplicates`;
+        let msg = `✅ ${added} cards → Ready to Work`;
+        if (replaced > 0) msg += `, ${replaced} updated`;
         toast(msg, 'success');
-        PARSER_STATE.selected = new Set();
         renderParserResults();
     } else {
         toast('No new cards to add (all duplicates)', 'info');

@@ -412,7 +412,20 @@ textarea {
     font-weight: var(--fw-bold);
     letter-spacing: var(--ls-wider);
     color: var(--text-dim);
-    text-transform: uppercase
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px
+}
+
+.section-icon {
+    font-size: 11px;
+    filter: saturate(0.8)
+}
+
+.nav-section + .nav-section {
+    border-top: 1px solid rgba(255,255,255,0.04);
+    margin-top: 2px
 }
 
 .nav-item {
@@ -420,26 +433,43 @@ textarea {
     align-items: center;
     gap: var(--sp-2);
     width: 100%;
-    padding: 7px var(--sp-5);
+    padding: 8px var(--sp-5);
     border: none;
     background: none;
     color: var(--text-muted);
     font-size: var(--fs-base);
     font-weight: var(--fw-medium);
     cursor: pointer;
-    transition: all var(--t-fast);
+    transition: all 0.18s ease;
     text-align: left;
-    position: relative
+    position: relative;
+    border-radius: 0
+}
+
+.nav-item svg {
+    opacity: 0.5;
+    transition: opacity 0.18s ease, color 0.18s ease;
+    flex-shrink: 0
 }
 
 .nav-item:hover {
-    background: var(--bg-hover);
-    color: var(--text-secondary)
+    background: linear-gradient(90deg, rgba(99,102,241,0.08) 0%, transparent 100%);
+    color: var(--text-primary)
+}
+
+.nav-item:hover svg {
+    opacity: 0.85;
+    color: #818CF8
 }
 
 .nav-item.active {
-    background: var(--bg-hover);
+    background: linear-gradient(90deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.03) 100%);
     color: var(--text-primary)
+}
+
+.nav-item.active svg {
+    opacity: 1;
+    color: #818CF8
 }
 
 .nav-item.active::before {
@@ -448,26 +478,62 @@ textarea {
     left: 0;
     top: 4px;
     bottom: 4px;
-    width: 2px;
-    background: var(--accent);
-    border-radius: 0 2px 2px 0
+    width: 3px;
+    background: linear-gradient(180deg, #818CF8, #6366F1);
+    border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 8px rgba(99,102,241,0.4)
 }
 
+/* ── Colored Badges ── */
 .nav-badge {
     margin-left: auto;
-    background: var(--bg-elevated);
-    color: var(--text-dim);
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-semi);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
     padding: 1px 7px;
     border-radius: 10px;
     min-width: 20px;
-    text-align: center
+    text-align: center;
+    transition: all 0.18s ease
+}
+
+.badge-default {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-dim)
+}
+
+.badge-blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60A5FA
+}
+
+.badge-green {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ADE80
+}
+
+.badge-yellow {
+    background: rgba(234, 179, 8, 0.15);
+    color: #FACC15
+}
+
+.badge-red {
+    background: rgba(239, 68, 68, 0.12);
+    color: #F87171
 }
 
 .nav-item.active .nav-badge {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-secondary)
+    filter: brightness(1.2)
+}
+
+/* ── Sidebar footer ── */
+.sidebar-footer-title {
+    padding: 6px var(--sp-5) 2px;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--ls-wider);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    opacity: 0.6
 }
 
 .country-item {
@@ -588,32 +654,41 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 3px 6px;
+    padding: 4px 6px;
     border-radius: var(--r-xs);
     margin-bottom: 2px;
     position: relative;
-    overflow: hidden
+    overflow: hidden;
+    transition: transform 0.15s ease
 }
 
+.top-bins-row:hover {
+    transform: translateX(2px)
+}
+
+/* Gradient bars by rank */
 .top-bins-bar {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    background: rgba(99, 102, 241, 0.08);
     border-radius: var(--r-xs);
     transition: width var(--t-base)
 }
 
-.top-bins-bin {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-secondary);
-    position: relative;
-    z-index: 1
+.top-bins-row:nth-child(-n+3) .top-bins-bar {
+    background: linear-gradient(90deg, rgba(99,102,241,0.2) 0%, rgba(129,140,248,0.1) 100%)
 }
 
-.top-bins-val {
+.top-bins-row:nth-child(n+4):nth-child(-n+7) .top-bins-bar {
+    background: linear-gradient(90deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.05) 100%)
+}
+
+.top-bins-row:nth-child(n+8) .top-bins-bar {
+    background: rgba(255,255,255,0.04)
+}
+
+.top-bins-bin {
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: var(--fw-bold);
@@ -622,11 +697,84 @@ textarea {
     z-index: 1
 }
 
+.top-bins-val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--fw-black);
+    color: #818CF8;
+    position: relative;
+    z-index: 1
+}
+
+.top-bins-row:nth-child(n+4):nth-child(-n+7) .top-bins-val {
+    color: #60A5FA
+}
+
+.top-bins-row:nth-child(n+8) .top-bins-val {
+    color: var(--text-dim)
+}
+
 .top-bins-empty {
     font-size: 10px;
     color: var(--text-dim);
     text-align: center;
     padding: var(--sp-2) 0
+}
+
+/* ── Tool stub pages ── */
+.tool-stub-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+    padding: 60px 20px
+}
+
+.tool-stub-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px rgba(99,102,241,0.3))
+}
+
+.tool-stub-title {
+    font-size: 24px;
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+    margin-bottom: 8px
+}
+
+.tool-stub-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 32px
+}
+
+.tool-stub-features {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--r-lg);
+    padding: 24px 32px
+}
+
+.tool-stub-feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-secondary)
+}
+
+.tool-stub-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0
 }
 
 .top-bins-info {
@@ -3099,15 +3247,13 @@ body.modal-open {
     gap: 3px
 }
 
-/* CC tag: green when active (like A) */
+/* CC tag: green active / gray inactive = same as A */
 .status-btn.btn-vcc {
-    width: auto;
-    min-width: 24px;
-    height: 18px;
-    padding: 0 4px;
-    font-size: 8px;
-    letter-spacing: 0.3px;
-    line-height: 18px
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+    font-size: var(--fs-sm);
+    letter-spacing: 0
 }
 
 .status-btn.btn-vcc.active {
@@ -3122,15 +3268,14 @@ body.modal-open {
     color: var(--text-dim)
 }
 
-/* DOC tag: green when active (like A) */
+/* DOC tag: green active / gray inactive = same as A */
 .status-btn.btn-sdoc {
     width: auto;
     min-width: 26px;
-    height: 18px;
-    padding: 0 4px;
-    font-size: 8px;
-    letter-spacing: 0.3px;
-    line-height: 18px
+    height: 26px;
+    padding: 0 5px;
+    font-size: var(--fs-sm);
+    letter-spacing: 0
 }
 
 .status-btn.btn-sdoc.active {
@@ -3784,6 +3929,48 @@ tr:hover .bin-info:not(:empty) {
     cursor: not-allowed
 }
 
+/* CLEAR button */
+.parser-clear-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: var(--fw-black);
+    letter-spacing: 0.5px;
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #EF4444;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all var(--t-base)
+}
+
+.parser-clear-btn:hover {
+    background: rgba(239, 68, 68, 0.12)
+}
+
+/* Date dropdown selects */
+.parser-date-selects {
+    display: flex;
+    gap: 4px
+}
+
+.parser-date-selects select {
+    flex: 1;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-xs);
+    color: var(--text-primary);
+    font-size: 12px;
+    padding: 6px 4px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    appearance: auto
+}
+
+.parser-date-selects select:focus {
+    border-color: rgba(99, 102, 241, 0.5);
+    outline: none
+}
+
 /* ──── TOP BINS BAR ──── */
 .parser-topbins-bar {
     background: rgba(255,255,255,0.02);
@@ -3937,10 +4124,9 @@ tr:hover .bin-info:not(:empty) {
 
 .app.density-compact .status-btn.btn-vcc,
 .app.density-compact .status-btn.btn-sdoc {
-    font-size: 8px;
-    min-width: 26px;
     height: 22px;
-    padding: 0 3px
+    min-width: 22px;
+    padding: 0 4px
 }
 
 .app.density-compact .status-btns {
