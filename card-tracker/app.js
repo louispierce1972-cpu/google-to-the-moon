@@ -3514,19 +3514,17 @@ function renderParser() {
             </div>
             <div class="parser-filter-row">
                 <div class="parser-filter-group">
-                    <label>Date From</label>
+                    <label>Exp From <span class="parser-filter-hint">(card expiry)</span></label>
                     <div class="parser-date-selects" id="parser-date-from-wrap">
-                        <select id="parser-df-year"><option value="">Year</option></select>
                         <select id="parser-df-month"><option value="">MM</option></select>
-                        <select id="parser-df-day"><option value="">DD</option></select>
+                        <select id="parser-df-year"><option value="">Year</option></select>
                     </div>
                 </div>
                 <div class="parser-filter-group">
-                    <label>Date To</label>
+                    <label>Exp To</label>
                     <div class="parser-date-selects" id="parser-date-to-wrap">
-                        <select id="parser-dt-year"><option value="">Year</option></select>
                         <select id="parser-dt-month"><option value="">MM</option></select>
-                        <select id="parser-dt-day"><option value="">DD</option></select>
+                        <select id="parser-dt-year"><option value="">Year</option></select>
                     </div>
                 </div>
                 <div class="parser-filter-group">
@@ -3567,6 +3565,9 @@ function renderParser() {
 
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
+
+    // Populate date dropdowns with options
+    populateDateDropdowns();
 
     if (PARSER_STATE.collected.length > 0) renderParserResults();
 }
@@ -3613,8 +3614,8 @@ function runParse() {
     const binFilters = binRaw ? binRaw.split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4) : [];
     const countryFilter = document.getElementById('parser-country').value.trim().toUpperCase();
     const bankFilter = document.getElementById('parser-bank').value.trim().toLowerCase();
-    const dateFrom = getDateFromDropdowns('df');
-    const dateTo = getDateFromDropdowns('dt');
+    const dateFrom = ''; // unused, kept for compat
+    const dateTo = '';
     const minValidity = parseInt(document.getElementById('parser-min-validity').value) || 0;
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
@@ -3637,11 +3638,22 @@ function runParse() {
     if (bankFilter) {
         allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
     }
-    if (dateFrom) {
-        allCards = allCards.filter(c => (c.msgDate || '') >= dateFrom);
+    // Expiry date filter (MM/YY)
+    const expFrom = getExpFromDropdowns('df');
+    const expTo = getExpFromDropdowns('dt');
+    if (expFrom > 0) {
+        allCards = allCards.filter(c => {
+            let y = parseInt(c.yy); if (y < 100) y += 2000;
+            const cardExp = y * 100 + parseInt(c.mm);
+            return cardExp >= expFrom;
+        });
     }
-    if (dateTo) {
-        allCards = allCards.filter(c => (c.msgDate || '') <= dateTo);
+    if (expTo > 0) {
+        allCards = allCards.filter(c => {
+            let y = parseInt(c.yy); if (y < 100) y += 2000;
+            const cardExp = y * 100 + parseInt(c.mm);
+            return cardExp <= expTo;
+        });
     }
     if (minValidity > 0) {
         const now = new Date();
@@ -3865,26 +3877,21 @@ function populateDateDropdowns() {
     ['df', 'dt'].forEach(prefix => {
         const ySel = document.getElementById(`parser-${prefix}-year`);
         const mSel = document.getElementById(`parser-${prefix}-month`);
-        const dSel = document.getElementById(`parser-${prefix}-day`);
-        if (!ySel) return;
+        if (!ySel || !mSel) return;
         for (let y = minYear; y <= maxYear; y++) {
             ySel.innerHTML += `<option value="${y}">${y}</option>`;
         }
         for (let m = 1; m <= 12; m++) {
             mSel.innerHTML += `<option value="${String(m).padStart(2,'0')}">${String(m).padStart(2,'0')}</option>`;
         }
-        for (let d = 1; d <= 31; d++) {
-            dSel.innerHTML += `<option value="${String(d).padStart(2,'0')}">${String(d).padStart(2,'0')}</option>`;
-        }
     });
 }
 
-function getDateFromDropdowns(prefix) {
+function getExpFromDropdowns(prefix) {
     const y = document.getElementById(`parser-${prefix}-year`)?.value;
     const m = document.getElementById(`parser-${prefix}-month`)?.value;
-    const d = document.getElementById(`parser-${prefix}-day`)?.value;
-    if (!y) return '';
-    return `${y}-${m || '01'}-${d || '01'}`;
+    if (!y) return 0;
+    return parseInt(y) * 100 + parseInt(m || '01');
 }
 
 // ──── ADD TO READY TO WORK ────
