@@ -3208,8 +3208,9 @@ async function viperRequest(path, method, body) {
     const token = getViperToken();
     if (!token) { toast('Enter your Viper API token', 'warning'); return null; }
 
-    const targetUrl = `${VIPER_BASE}${path}`;
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+    // Use local proxy (node proxy.js) to bypass CORS
+    const LOCAL_PROXY = 'http://localhost:3777';
+    const fetchUrl = `${LOCAL_PROXY}${path}`;
 
     const opts = {
         method,
@@ -3221,7 +3222,7 @@ async function viperRequest(path, method, body) {
     if (body) opts.body = JSON.stringify(body);
 
     try {
-        const res = await fetch(proxyUrl, opts);
+        const res = await fetch(fetchUrl, opts);
         if (!res.ok) {
             const err = await res.json().catch(() => ({ Error: `HTTP ${res.status}` }));
             toast(`Viper Error: ${err.Error || res.statusText}`, 'error');
