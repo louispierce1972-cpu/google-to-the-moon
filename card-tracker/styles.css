@@ -4397,3 +4397,138 @@ tr:hover .bin-info:not(:empty) {
     color: var(--c-text-secondary);
     font-weight: 600
 }
+
+/* ──── Format Selection Modal ──── */
+.format-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px
+}
+.format-option-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--r-sm);
+    padding: 10px 14px;
+    cursor: pointer;
+    color: var(--c-text-primary);
+    text-align: left;
+    transition: all 0.15s
+}
+.format-option-btn:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: var(--c-accent);
+    transform: translateX(2px)
+}
+.format-icon {
+    font-size: 20px;
+    flex-shrink: 0
+}
+.format-label {
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+    min-width: 100px
+}
+.format-desc {
+    font-size: 11px;
+    color: var(--c-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+/* ──── Checker Controls ──── */
+.checker-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px
+}
+.checker-token-row, .checker-method-row {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+.checker-token-row .checker-label,
+.checker-method-row .checker-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--c-text-secondary);
+    white-space: nowrap;
+    min-width: 65px
+}
+.checker-token-input {
+    flex: 1;
+    background: var(--c-bg-input);
+    border: 1px solid var(--c-border);
+    color: var(--c-text-primary);
+    border-radius: var(--r-sm);
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: var(--ff-mono)
+}
+.checker-balance {
+    font-size: 12px;
+    font-weight: 700;
+    color: #22C55E;
+    white-space: nowrap
+}
+.checker-method-select {
+    flex: 1;
+    background: var(--c-bg-input);
+    border: 1px solid var(--c-border);
+    color: var(--c-text-primary);
+    border-radius: var(--r-sm);
+    padding: 5px 10px;
+    font-size: 12px
+}
+.btn-sm {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--c-text-secondary);
+    border-radius: var(--r-sm);
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s
+}
+.btn-sm:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--c-text-primary)
+}
+
+/* ──── Checker Status Badge ──── */
+.checker-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--r-sm);
+    margin-left: auto
+}
+.checker-status-badge.checking {
+    color: #FBBF24;
+    background: rgba(251,191,36,0.1)
+}
+.checker-status-badge.done {
+    color: #22C55E;
+    background: rgba(34,197,94,0.1)
+}
+.checker-status-badge.error {
+    color: #EF4444;
+    background: rgba(239,68,68,0.1)
+}
+
+/* ──── Checker Result Colors ──── */
+.chk-alive {
+    color: #22C55E;
+    font-weight: 700
+}
+.chk-dead {
+    color: #EF4444;
+    font-weight: 700
+}
