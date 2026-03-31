@@ -749,6 +749,92 @@
         </div>
     </div>
 
+    <!-- CHECKER OVERLAY -->
+    <div id="checker-overlay" class="modal-overlay hidden">
+        <div class="modal checker-modal">
+            <div class="modal-header">
+                <h3>🐍 VIPER CHECKER</h3>
+                <span class="modal-subtitle">Check cards via Viper API</span>
+                <button class="modal-close" id="checker-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body checker-body">
+                <!-- Controls -->
+                <div class="checker-controls">
+                    <div class="checker-token-row">
+                        <span class="checker-label">API TOKEN</span>
+                        <input type="password" id="checker-token" class="checker-token-input" placeholder="VIPER-xxxxxxxxxxxx">
+                        <button class="btn-sm" id="checker-balance-btn">BALANCE</button>
+                        <span class="checker-balance" id="checker-balance-display"></span>
+                    </div>
+                    <div class="checker-method-row">
+                        <span class="checker-label">METHOD</span>
+                        <select id="checker-method" class="checker-method-select">
+                            <option value="AUTH">AUTH (default)</option>
+                        </select>
+                        <button class="btn-sm" id="checker-load-methods">LOAD</button>
+                    </div>
+                </div>
+                <!-- Input -->
+                <div class="checker-section">
+                    <div class="checker-output-header">
+                        <span class="checker-label">CARDS INPUT</span>
+                        <span id="checker-input-count" style="font-size:10px;color:var(--text-dim)">0 cards</span>
+                    </div>
+                    <textarea id="checker-input" class="checker-textarea" rows="5" placeholder="4242424242424242 03 27 111&#10;5555555555554444 12 28 222&#10;&#10;One card per line: CCN MM YY CVV"></textarea>
+                </div>
+                <!-- Check button -->
+                <div style="display:flex;align-items:center;gap:8px">
+                    <button class="btn-primary" id="checker-check-btn" style="flex:1">
+                        ⚡ CHECK CARDS
+                    </button>
+                    <span id="checker-status" class="checker-status-badge"></span>
+                </div>
+                <!-- Output -->
+                <div class="checker-section">
+                    <div class="checker-output-header">
+                        <span class="checker-label">RESULTS</span>
+                        <button class="btn-copy-sm" id="checker-copy-results">📋 COPY</button>
+                    </div>
+                    <pre class="checker-output" id="checker-output">Results will appear here...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMAT SELECTION MODAL -->
+    <div id="format-modal-overlay" class="modal-overlay hidden">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>📋 SELECT FORMAT</h3>
+                <span class="modal-subtitle">Choose export format for Notes</span>
+                <button class="modal-close" id="format-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="format-options">
+                    <button class="format-option-btn" data-format="full">
+                        <span class="format-icon">💳</span>
+                        <span class="format-label">Full Info</span>
+                        <span class="format-desc">CC, Validity, CVV, Holder, Bank, Type</span>
+                    </button>
+                    <button class="format-option-btn" data-format="checker">
+                        <span class="format-icon">⚡</span>
+                        <span class="format-label">Checker</span>
+                        <span class="format-desc">4242424242424242 03 27 111</span>
+                    </button>
+                    <button class="format-option-btn" data-format="raw">
+                        <span class="format-icon">📄</span>
+                        <span class="format-label">Raw Data</span>
+                        <span class="format-desc">4242424242424242|03|27|111</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST NOTIFICATIONS -->
     <div id="toast-container" class="toast-container"></div>
 

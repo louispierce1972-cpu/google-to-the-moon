@@ -4180,4 +4180,352 @@ function addCollectedToCards() {
             b.classList.toggle('active', b.dataset.density === density);
         });
     }
+
+    /* ═══════════════════════════════════════════
+       NOTES HELPER FUNCTIONS
+       ═══════════════════════════════════════════ */
+    function saveNotesAction() {
+        const textarea = document.getElementById('notes-textarea');
+        if (!textarea) return;
+        STATE.notes = textarea.value;
+        STATE.notesLastSaved = new Date().toISOString();
+        save();
+        toast('Notes saved', 'success');
+        const savedInfo = document.querySelector('.notes-saved-info');
+        if (savedInfo) savedInfo.textContent = 'Saved ' + new Date().toLocaleTimeString();
+    }
+
+    function changeNotesFontSize(delta) {
+        STATE.notesFontSize = Math.max(10, Math.min(24, (STATE.notesFontSize || 14) + delta));
+        const textarea = document.getElementById('notes-textarea');
+        if (textarea) textarea.style.fontSize = STATE.notesFontSize + 'px';
+        const display = document.getElementById('notes-font-size-display');
+        if (display) display.textContent = STATE.notesFontSize;
+        save();
+    }
+
+    function importNotesAction() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.txt,.csv,.text';
+        input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const textarea = document.getElementById('notes-textarea');
+                if (textarea) {
+                    textarea.value += (textarea.value ? '\n' : '') + ev.target.result;
+                    textarea.dispatchEvent(new Event('input'));
+                }
+                toast('Imported: ' + file.name, 'success');
+            };
+            reader.readAsText(file);
+        });
+        input.click();
+    }
+
+    function exportNotesAction() {
+        const textarea = document.getElementById('notes-textarea');
+        if (!textarea || !textarea.value.trim()) {
+            toast('Notes are empty', 'error');
+            return;
+        }
+        const blob = new Blob([textarea.value], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'notes_' + new Date().toISOString().slice(0, 10) + '.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('Notes exported', 'success');
+    }
+
+    /* ═══════════════════════════════════════════
+       FORMAT SELECTION (ADD TO NOTES from Parser)
+       ═══════════════════════════════════════════ */
+    function addCollectedToNotes(cards) {
+        if (!cards || !cards.length) {
+            toast('No cards to add', 'error');
+            return;
+        }
+        // Show format selection modal
+        const overlay = document.getElementById('format-modal-overlay');
+        overlay.classList.remove('hidden');
+
+        const closeModal = () => overlay.classList.add('hidden');
+        document.getElementById('format-modal-close').onclick = closeModal;
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); }, { once: true });
+
+        overlay.querySelectorAll('.format-option-btn').forEach(btn => {
+            btn.onclick = () => {
+                const format = btn.dataset.format;
+                let lines = [];
+
+                cards.forEach(c => {
+                    const num = (c.number || c.cardNumber || '').replace(/\s/g, '');
+                    const expM = (c.expMonth || c.exp_month || '').toString().padStart(2, '0');
+                    const expY = (c.expYear || c.exp_year || '').toString().slice(-2);
+                    const cvv = c.cvv || c.cvc || '';
+                    const holder = c.holder || c.name || '';
+                    const bank = c.bank || '';
+                    const type = c.type || c.cardType || '';
+
+                    if (format === 'full') {
+                        lines.push(`💳 CC: ${num}`);
+                        lines.push(`📅 Validity: ${expM}/${expY}`);
+                        lines.push(`🔐 CVV: ${cvv}`);
+                        lines.push(`👶 Holder: ${holder}`);
+                        lines.push(`🏦 Bank: ${bank}`);
+                        lines.push(`📊 Card Type: ${type}`);
+                        lines.push('');
+                    } else if (format === 'checker') {
+                        lines.push(`${num} ${expM} ${expY} ${cvv}`);
+                    } else if (format === 'raw') {
+                        lines.push(`${num}|${expM}|${expY}|${cvv}`);
+                    }
+                });
+
+                // Append to notes
+                STATE.notes = (STATE.notes || '') + (STATE.notes ? '\n' : '') + lines.join('\n');
+                STATE.notesLastSaved = new Date().toISOString();
+                save();
+                closeModal();
+                toast(`Added ${cards.length} cards to Notes (${format})`, 'success');
+            };
+        });
+    }
+
+    /* ═══════════════════════════════════════════
+       VIPER CHECKER API INTEGRATION
+       ═══════════════════════════════════════════ */
+    const PROXY_BASE = 'http://localhost:3777';
+
+    async function viperRequest(path, method = 'GET', body = null) {
+        const token = document.getElementById('checker-token')?.value || localStorage.getItem('viper_token') || '';
+        const opts = {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        };
+        if (body) opts.body = JSON.stringify(body);
+
+        const res = await fetch(PROXY_BASE + path, opts);
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.Error || `HTTP ${res.status}`);
+        }
+        return data;
+    }
+
+    function openChecker() {
+        const overlay = document.getElementById('checker-overlay');
+        overlay.classList.remove('hidden');
+
+        // Restore saved token
+        const savedToken = localStorage.getItem('viper_token') || '';
+        const tokenInput = document.getElementById('checker-token');
+        if (savedToken && tokenInput) tokenInput.value = savedToken;
+
+        // Auto-load cards from Notes in checker format
+        const notesText = STATE.notes || '';
+        const cardRegex = /(\d{16})\s+(0?[1-9]|1[012])\s+(\d{2}|\d{4})\s+(\d{3})/g;
+        const matches = [];
+        let m;
+        while ((m = cardRegex.exec(notesText)) !== null) {
+            matches.push(m[0]);
+        }
+        const inputArea = document.getElementById('checker-input');
+        if (inputArea && matches.length) {
+            inputArea.value = matches.join('\n');
+            updateCheckerInputCount();
+        }
+
+        // Bind events (use onclick to avoid duplicate listeners)
+        document.getElementById('checker-close').onclick = closeChecker;
+        overlay.onclick = (e) => { if (e.target === overlay) closeChecker(); };
+        document.getElementById('checker-balance-btn').onclick = fetchBalance;
+        document.getElementById('checker-load-methods').onclick = loadCheckMethods;
+        document.getElementById('checker-check-btn').onclick = checkCards;
+        document.getElementById('checker-copy-results').onclick = copyResults;
+        if (inputArea) inputArea.oninput = updateCheckerInputCount;
+
+        // Save token on change
+        if (tokenInput) tokenInput.oninput = () => {
+            localStorage.setItem('viper_token', tokenInput.value);
+        };
+    }
+
+    function closeChecker() {
+        document.getElementById('checker-overlay').classList.add('hidden');
+    }
+
+    function updateCheckerInputCount() {
+        const input = document.getElementById('checker-input');
+        const count = document.getElementById('checker-input-count');
+        if (!input || !count) return;
+        const lines = input.value.trim().split('\n').filter(l => l.trim());
+        count.textContent = lines.length + ' cards';
+    }
+
+    async function fetchBalance() {
+        const display = document.getElementById('checker-balance-display');
+        try {
+            display.textContent = '...';
+            display.style.color = '#A1A1AA';
+            const data = await viperRequest('/profile/balance', 'POST');
+            display.textContent = '💰 ' + data.balance + ' checks';
+            display.style.color = '#22C55E';
+        } catch (e) {
+            display.textContent = '❌ ' + e.message;
+            display.style.color = '#EF4444';
+        }
+    }
+
+    async function loadCheckMethods() {
+        const select = document.getElementById('checker-method');
+        try {
+            const data = await viperRequest('/check/available', 'GET');
+            select.innerHTML = '';
+            (data.result || []).forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.code;
+                opt.textContent = m.code + ' — ' + m.description;
+                select.appendChild(opt);
+            });
+            toast('Loaded ' + (data.result || []).length + ' methods', 'success');
+        } catch (e) {
+            toast('Failed to load methods: ' + e.message, 'error');
+        }
+    }
+
+    async function checkCards() {
+        const input = document.getElementById('checker-input');
+        const output = document.getElementById('checker-output');
+        const status = document.getElementById('checker-status');
+        const checkBtn = document.getElementById('checker-check-btn');
+
+        const lines = (input?.value || '').trim().split('\n').filter(l => l.trim());
+        if (!lines.length) {
+            toast('No cards to check', 'error');
+            return;
+        }
+
+        const method = document.getElementById('checker-method')?.value || 'AUTH';
+
+        // Update UI
+        status.textContent = 'CHECKING...';
+        status.className = 'checker-status-badge checking';
+        checkBtn.disabled = true;
+        output.textContent = 'Sending cards to Viper API...';
+
+        try {
+            // Use v2 API with polling
+            const checkData = await viperRequest('/check/v2', 'POST', {
+                data: lines,
+                check_type: method
+            });
+
+            const purchaseId = checkData.purchase_id;
+
+            // Show invalid items immediately
+            let results = [];
+            if (checkData.invalid_items && checkData.invalid_items.length) {
+                results = [...checkData.invalid_items];
+                output.textContent = formatCheckerResults(results) + '\n\n⏳ Polling for remaining results...';
+            } else {
+                output.textContent = '⏳ Waiting for results (purchase: ' + purchaseId + ')...';
+            }
+
+            // Poll for results
+            let attempts = 0;
+            const maxAttempts = 60; // 5 min max
+            const pollInterval = 5000; // 5 sec
+
+            const poll = async () => {
+                attempts++;
+                try {
+                    const pollData = await viperRequest('/check/poll/' + purchaseId, 'GET');
+
+                    if (pollData.result && pollData.result.length) {
+                        results = [...results, ...pollData.result];
+                    }
+
+                    if (pollData.status === 'confirmed' || attempts >= maxAttempts) {
+                        // Done
+                        status.textContent = 'DONE';
+                        status.className = 'checker-status-badge done';
+                        checkBtn.disabled = false;
+                        output.textContent = formatCheckerResults(results);
+                        return;
+                    }
+
+                    // Still pending
+                    output.textContent = formatCheckerResults(results) + '\n\n⏳ Polling... (' + attempts + '/' + maxAttempts + ')';
+                    setTimeout(poll, pollInterval);
+                } catch (e) {
+                    status.textContent = 'ERROR';
+                    status.className = 'checker-status-badge error';
+                    checkBtn.disabled = false;
+                    output.textContent += '\n\n❌ Poll error: ' + e.message;
+                }
+            };
+
+            setTimeout(poll, pollInterval);
+
+        } catch (e) {
+            status.textContent = 'ERROR';
+            status.className = 'checker-status-badge error';
+            checkBtn.disabled = false;
+            output.textContent = '❌ Error: ' + e.message;
+        }
+    }
+
+    function formatCheckerResults(results) {
+        if (!results.length) return 'No results yet...';
+
+        return results.map(r => {
+            const isAlive = (r.status || '').toUpperCase() === 'ALIVE';
+            const isDead = (r.status || '').toUpperCase() === 'DEAD';
+            const icon = isAlive ? '✅' : isDead ? '💀' : '⚠️';
+            const statusText = (r.status || 'UNKNOWN').toUpperCase();
+
+            let line = `${icon} ${r.card} - ${statusText}`;
+            const details = [];
+            if (r.details) details.push('Status code - ' + r.details);
+            if (r.brand) details.push('Система - ' + r.brand);
+            if (r.type) details.push('Type - ' + r.type);
+            if (r.level) details.push('Level - ' + r.level);
+            if (r.country) details.push('Country - ' + r.country);
+
+            if (details.length) {
+                line += '\n' + details.map(d => '├ ' + d).join('\n');
+            }
+            return line;
+        }).join('\n\n');
+    }
+
+    function copyResults() {
+        const output = document.getElementById('checker-output');
+        if (!output) return;
+        navigator.clipboard.writeText(output.textContent).then(() => {
+            toast('Results copied', 'success');
+        }).catch(() => {
+            // Fallback for file:// protocol
+            const range = document.createRange();
+            range.selectNodeContents(output);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('copy');
+            sel.removeAllRanges();
+            toast('Results copied', 'success');
+        });
+    }
+
+    // Expose addCollectedToNotes globally for parser
+    window.addCollectedToNotes = addCollectedToNotes;
+
 })();

@@ -22,6 +22,11 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
+        // Debug logging
+        console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${viperPath}`);
+        console.log(`  Auth: ${req.headers.authorization ? req.headers.authorization.substring(0, 20) + '...' : 'NONE'}`);
+        console.log(`  Body: ${body ? body.substring(0, 100) : '(empty)'}`);
+
         const options = {
             hostname: VIPER_HOST,
             path: viperPath,
@@ -44,6 +49,7 @@ const server = http.createServer((req, res) => {
             let data = '';
             proxyRes.on('data', chunk => data += chunk);
             proxyRes.on('end', () => {
+                console.log(`  Response: ${proxyRes.statusCode} (${data.substring(0, 100)})`);
                 res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
                 res.end(data);
             });
