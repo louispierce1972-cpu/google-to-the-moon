@@ -778,9 +778,7 @@ function renderContent() {
         const bin = getBin(c.cardNumber);
         const bc = binCount(bin, countryForBin);
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const fullName = (c.name + ' ' + c.surname).toUpperCase();
-        const nameCount = cards.filter(x => (x.name + ' ' + x.surname).toUpperCase() === fullName).length;
-        const nameBadge = nameCount > 1 ? `<span class="name-count-badge ${getCountColor(nameCount)}">(${nameCount})</span>` : '';
+        const binBadge = bc > 1 ? `<span class="name-count-badge ${getCountColor(bc)}">(${bc})</span>` : '';
         const binColorClass = getCountColor(bc);
 
         const getMailBadge = (card) => {
@@ -802,14 +800,14 @@ function renderContent() {
                     <span class="card-name">
                         ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}
                         <span class="flag">${flag}</span>
-                        ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${nameBadge}
+                        ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${binBadge}
                     </span>
                     <span class="card-number">${maskCard(c.cardNumber)}</span>
                     ${(() => { const info = getBinInfo(getBin(c.cardNumber)); const txt = formatBinInfoText(info); return txt ? `<span class="bin-info">${txt}</span>` : `<span class="bin-info" data-bin="${getBin(c.cardNumber)}"></span>`; })()}
                 </div>
             </td>
             <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}', this)">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
-            <td class="bin-cell">${bin} <span class="bin-count ${binColorClass}">(${bc})</span></td>
+            <td class="bin-cell">${bin}</td>
             <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
             <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
             <td class="mail-cell">
@@ -1297,14 +1295,25 @@ window.toggleStatus = function (id, field) {
     const card = STATE.cards.find(c => c.id === id);
     if (card) {
         card[field] = !card[field];
+
+        // V/R mutual exclusion: V and R cannot be active at the same time
+        if (field === 'verified' && card.verified) {
+            card.runAds = false;
+        } else if (field === 'runAds' && card.runAds) {
+            card.verified = false;
+        }
+
         save();
 
-        // Targeted DOM update: toggle button class without re-render
+        // Targeted DOM update: toggle button classes without re-render
         const row = document.querySelector(`tr[data-id="${id}"]`);
         if (row) {
-            const fieldMap = { cardAdd: 'btn-a', runAds: 'btn-r', verified: 'btn-v' };
-            const btn = row.querySelector(`.status-btn.${fieldMap[field]}`);
-            if (btn) btn.classList.toggle('active', card[field]);
+            const btnA = row.querySelector('.status-btn.btn-a');
+            const btnR = row.querySelector('.status-btn.btn-r');
+            const btnV = row.querySelector('.status-btn.btn-v');
+            if (btnA) btnA.classList.toggle('active', card.cardAdd);
+            if (btnR) btnR.classList.toggle('active', card.runAds);
+            if (btnV) btnV.classList.toggle('active', card.verified);
         }
 
         // Update stat counters in-place
@@ -3322,9 +3331,11 @@ deleteConfirmBtn.addEventListener('click', () => {
 let PARSER_STATE = {
     rawMessages: [],
     file: null,
-    collected: [],    // all parsed cards from file
-    binGroups: [],    // [{bin, count, cards}] sorted by count desc
-    selected: new Set()
+    collected: [],
+    binGroups: [],
+    selected: new Set(),
+    binFilter: null,
+    sortBy: 'index'
 };
 
 // ──── HELPERS ────
@@ -3512,33 +3523,11 @@ function renderParser() {
                     <input type="text" id="parser-bank" placeholder="Bank name...">
                 </div>
             </div>
-            <div class="parser-filter-row">
-                <div class="parser-filter-group">
-                    <label>Exp From <span class="parser-filter-hint">(card expiry)</span></label>
-                    <div class="parser-date-selects" id="parser-date-from-wrap">
-                        <select id="parser-df-month"><option value="">MM</option></select>
-                        <select id="parser-df-year"><option value="">Year</option></select>
-                    </div>
-                </div>
-                <div class="parser-filter-group">
-                    <label>Exp To</label>
-                    <div class="parser-date-selects" id="parser-date-to-wrap">
-                        <select id="parser-dt-month"><option value="">MM</option></select>
-                        <select id="parser-dt-year"><option value="">Year</option></select>
-                    </div>
-                </div>
-                <div class="parser-filter-group">
-                    <label>Min Validity (months)</label>
-                    <input type="number" id="parser-min-validity" placeholder="0" min="0">
-                </div>
-            </div>
         </div>
 
         <!-- OPTIONS -->
         <div class="parser-options">
             <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates</label>
-            <label class="parser-checkbox"><input type="checkbox" id="parser-auto-replace"> Auto replace duplicates</label>
-            <label class="parser-checkbox"><input type="checkbox" id="parser-detect-geo" checked> Detect GEO</label>
         </div>
 
         <!-- ACTIONS -->
@@ -3566,8 +3555,6 @@ function renderParser() {
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
 
-    // Populate date dropdowns with options
-    populateDateDropdowns();
 
     if (PARSER_STATE.collected.length > 0) renderParserResults();
 }
@@ -3607,22 +3594,17 @@ function runParse() {
     status.textContent = '⏳ Parsing...';
 
     const dedup = document.getElementById('parser-dedup').checked;
-    const detectGeoFlag = document.getElementById('parser-detect-geo').checked;
 
     // Read filters
     const binRaw = document.getElementById('parser-bins').value.trim();
     const binFilters = binRaw ? binRaw.split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4) : [];
     const countryFilter = document.getElementById('parser-country').value.trim().toUpperCase();
     const bankFilter = document.getElementById('parser-bank').value.trim().toLowerCase();
-    const dateFrom = ''; // unused, kept for compat
-    const dateTo = '';
-    const minValidity = parseInt(document.getElementById('parser-min-validity').value) || 0;
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
 
-    if (detectGeoFlag) {
-        allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
-    }
+    // Always detect GEO
+    allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
 
     // Apply filters
     if (binFilters.length > 0) {
@@ -3638,33 +3620,7 @@ function runParse() {
     if (bankFilter) {
         allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
     }
-    // Expiry date filter (MM/YY)
-    const expFrom = getExpFromDropdowns('df');
-    const expTo = getExpFromDropdowns('dt');
-    if (expFrom > 0) {
-        allCards = allCards.filter(c => {
-            let y = parseInt(c.yy); if (y < 100) y += 2000;
-            const cardExp = y * 100 + parseInt(c.mm);
-            return cardExp >= expFrom;
-        });
-    }
-    if (expTo > 0) {
-        allCards = allCards.filter(c => {
-            let y = parseInt(c.yy); if (y < 100) y += 2000;
-            const cardExp = y * 100 + parseInt(c.mm);
-            return cardExp <= expTo;
-        });
-    }
-    if (minValidity > 0) {
-        const now = new Date();
-        const nowM = now.getFullYear() * 12 + now.getMonth();
-        allCards = allCards.filter(c => {
-            let y = parseInt(c.yy);
-            if (y < 100) y += 2000;
-            const cardM = y * 12 + (parseInt(c.mm) - 1);
-            return (cardM - nowM) >= minValidity;
-        });
-    }
+
 
     if (dedup) {
         const seen = new Set();
@@ -3683,13 +3639,10 @@ function collectAll() {
     status.textContent = '⏳ Collecting...';
 
     const dedup = document.getElementById('parser-dedup').checked;
-    const detectGeoFlag = document.getElementById('parser-detect-geo').checked;
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
-
-    if (detectGeoFlag) {
-        allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
-    }
+    // Always detect GEO
+    allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
     if (dedup) {
         const seen = new Set();
         allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
@@ -3718,86 +3671,149 @@ function finishParsing(allCards, status) {
 
 // ──── RENDER RESULTS ────
 
-function renderParserResults() {
+function renderParserResults(geoFilter) {
     const el = document.getElementById('parser-results');
     if (!el) return;
 
-    const list = PARSER_STATE.collected;
+    let list = PARSER_STATE.collected;
     if (list.length === 0) {
         el.innerHTML = '<div class="empty-state"><p>No cards found</p></div>';
         return;
     }
 
-    const projectBinCounts = getProjectBinCounts();
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    // ──── GEO data ────
+    const geoMap = {};
+    list.forEach(c => {
+        const geo = (c.detectedGeo || c.country || '').toUpperCase();
+        if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1;
+    });
+    const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
 
-    let newCount = 0, dupCount = 0;
-    list.forEach(c => { if (existingNumbers.has(c.cc)) dupCount++; else newCount++; });
+    const countryFlags = {
+        US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',AE:'🇦🇪',AU:'🇦🇺',IT:'🇮🇹',ES:'🇪🇸',
+        NL:'🇳🇱',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',RU:'🇷🇺',UA:'🇺🇦',PL:'🇵🇱',
+        SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',IE:'🇮🇪',PT:'🇵🇹',
+        CZ:'🇨🇿',IL:'🇮🇱',SG:'🇸🇬',HK:'🇭🇰',NZ:'🇳🇿',SA:'🇸🇦',ZA:'🇿🇦',TR:'🇹🇷',TH:'🇹🇭',
+        PH:'🇵🇭',MY:'🇲🇾',ID:'🇮🇩',VN:'🇻🇳',AR:'🇦🇷',CL:'🇨🇱',CO:'🇨🇴',PE:'🇵🇪',EG:'🇪🇬'
+    };
+    const countryNames = {
+        US:'United States',CA:'Canada',GB:'United Kingdom',DE:'Germany',FR:'France',AE:'UAE',
+        AU:'Australia',IT:'Italy',ES:'Spain',NL:'Netherlands',BR:'Brazil',MX:'Mexico',
+        JP:'Japan',KR:'South Korea',IN:'India',RU:'Russia',UA:'Ukraine',PL:'Poland',
+        SE:'Sweden',NO:'Norway',DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',
+        BE:'Belgium',IE:'Ireland',PT:'Portugal',CZ:'Czech Republic',IL:'Israel',SG:'Singapore',
+        HK:'Hong Kong',NZ:'New Zealand',SA:'Saudi Arabia',ZA:'South Africa',TR:'Turkey',
+        TH:'Thailand',PH:'Philippines',MY:'Malaysia',ID:'Indonesia',VN:'Vietnam',
+        AR:'Argentina',CL:'Chile',CO:'Colombia',PE:'Peru',EG:'Egypt'
+    };
 
-    // ──── TOP BINS (compact bar) ────
-    const topBinsHtml = PARSER_STATE.binGroups.slice(0, 30).map(g => {
-        const inProj = projectBinCounts[g.bin] || 0;
-        const projBadge = inProj > 0 ? `<sup class="parser-proj-sup">${inProj}</sup>` : '';
-        const isHighlighted = PARSER_STATE.binFilter && PARSER_STATE.binFilter.has(g.bin);
-        return `<span class="parser-top-bin ${isHighlighted ? 'hl' : ''}" title="${g.count} cards, ${inProj} in base">${g.bin} <b>${g.count}</b>${projBadge}</span>`;
+    // Apply GEO filter to displayed list
+    const activeGeo = geoFilter || '';
+    let displayList = list;
+    if (activeGeo) {
+        displayList = list.filter(c => (c.detectedGeo || c.country || '').toUpperCase() === activeGeo);
+    }
+
+    // ──── GEO dropdown ────
+    const geoDropdownHtml = `
+        <div class="parser-geo-filter">
+            <label>GEO Filter</label>
+            <select id="parser-geo-select">
+                <option value="">ALL (${list.length})</option>
+                ${geoList.map(([code, cnt]) => {
+                    const fl = countryFlags[code] || '🏳️';
+                    const nm = countryNames[code] || code;
+                    return `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${fl} ${nm} (${cnt})</option>`;
+                }).join('')}
+            </select>
+        </div>`;
+
+    // ──── BIN Analytics ────
+    const binAnalytics = {};
+    displayList.forEach(c => {
+        if (!binAnalytics[c.bin]) binAnalytics[c.bin] = { count: 0, bank: c.bank || '' };
+        binAnalytics[c.bin].count++;
+        if (!binAnalytics[c.bin].bank && c.bank) binAnalytics[c.bin].bank = c.bank;
+    });
+    const sortedBins = Object.entries(binAnalytics)
+        .map(([bin, d]) => ({ bin, count: d.count, bank: d.bank }))
+        .sort((a, b) => b.count - a.count);
+
+    const binAnalyticsHtml = sortedBins.slice(0, 50).map(b => {
+        const bankShort = b.bank.length > 20 ? b.bank.slice(0, 20) + '…' : (b.bank || '—');
+        return `<div class="parser-bin-row"><span class="parser-bin-val">${b.bin}</span><span class="parser-bin-bank">${bankShort}</span><span class="parser-bin-cnt">${b.count}</span></div>`;
     }).join('');
 
-    // ──── TABLE ROWS (compact) ────
-    const rows = list.map((c, i) => {
+    // ──── TABLE ROWS ────
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const parserBinCounts = {};
+    displayList.forEach(c => { parserBinCounts[c.bin] = (parserBinCounts[c.bin] || 0) + 1; });
+
+    // Sort support
+    const sortBy = PARSER_STATE.sortBy || 'index';
+    let sortedDisplay = [...displayList];
+    if (sortBy === 'bin-desc') {
+        sortedDisplay.sort((a, b) => (parserBinCounts[b.bin] || 0) - (parserBinCounts[a.bin] || 0));
+    } else if (sortBy === 'bin-asc') {
+        sortedDisplay.sort((a, b) => (parserBinCounts[a.bin] || 0) - (parserBinCounts[b.bin] || 0));
+    }
+
+    const rows = sortedDisplay.map((c, i) => {
+        const origIdx = displayList.indexOf(c);
         const isDup = existingNumbers.has(c.cc);
-        const binInProj = projectBinCounts[c.bin] || 0;
         const geo = c.detectedGeo || c.country || '';
-        const bankShort = (c.bank || '').length > 18 ? (c.bank || '').slice(0, 18) + '…' : (c.bank || '—');
+        const bankShort = (c.bank || '').length > 16 ? (c.bank || '').slice(0, 16) + '…' : (c.bank || '—');
         const dupMark = isDup ? '<span class="parser-dup-tag">DUP</span> ' : '';
-        const binTag = binInProj > 0 ? `<span class="parser-bin-in-proj">${binInProj}</span>` : '<span class="parser-bin-new">new</span>';
-        const isHL = PARSER_STATE.binFilter && PARSER_STATE.binFilter.has(c.bin);
+        const binCnt = parserBinCounts[c.bin] || 0;
 
         return `<tr class="${isDup ? 'parser-row-dup' : ''}">
-            <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(i) ? 'checked' : ''} data-idx="${i}" class="parser-check"></td>
+            <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(origIdx) ? 'checked' : ''} data-idx="${origIdx}" class="parser-check"></td>
             <td class="pc-num">${i + 1}</td>
             <td class="pc-holder">${dupMark}${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
             <td class="pc-card">${formatCardBin(c.cc)}</td>
             <td class="pc-exp">${c.validity}</td>
-            <td class="pc-bin ${isHL ? 'parser-bin-hl' : ''}">${c.bin} ${binTag}</td>
+            <td class="pc-bin">${c.bin} <span class="parser-bin-cnt-inline">(${binCnt})</span></td>
             <td class="pc-bank" title="${c.bank || ''}">${bankShort}</td>
             <td class="pc-geo">${geo}</td>
         </tr>`;
     }).join('');
 
-    el.innerHTML = `
-        <!-- TOP BINS BAR -->
-        <div class="parser-topbins-bar">
-            <div class="parser-topbins-scroll">${topBinsHtml}</div>
-        </div>
+    const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
 
-        <!-- TOOLBAR -->
+    el.innerHTML = `
+        <!-- GEO + TOOLBAR -->
         <div class="parser-toolbar">
-            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === list.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
+            ${geoDropdownHtml}
+            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
             <div class="parser-add-section">
-                <select id="parser-target-country">
-                    ${STATE.countries.map(co => `<option value="${co.id}" ${co.id === STATE.currentCountry ? 'selected' : ''}>${co.flag} ${co.name}</option>`).join('')}
-                </select>
-                <button class="btn-primary parser-add-btn" id="parser-add-btn">ADD TO READY TO WORK (${PARSER_STATE.selected.size})</button>
                 <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
             </div>
+        </div>
+
+        <!-- BIN ANALYTICS -->
+        <div class="parser-bin-analytics">
+            <div class="parser-bin-analytics-header">📊 BIN Analytics (${sortedBins.length} unique)</div>
+            <div class="parser-bin-analytics-list">${binAnalyticsHtml}</div>
         </div>
 
         <!-- TABLE -->
         <div class="parser-table-wrap">
         <table class="data-table parser-table">
             <colgroup>
-                <col style="width:30px"><col style="width:36px">
-                <col style="width:18%"><col style="width:15%"><col style="width:50px">
-                <col style="width:12%"><col style="width:20%"><col style="width:40px">
+                <col style="width:28px"><col style="width:32px">
+                <col style="width:17%"><col style="width:14%"><col style="width:45px">
+                <col style="width:11%"><col style="width:18%"><col style="width:36px">
             </colgroup>
             <thead><tr>
-                <th></th><th>#</th><th>HOLDER</th><th>CARD</th><th>EXP</th><th>BIN</th><th>BANK</th><th>GEO</th>
+                <th></th><th>#</th><th>HOLDER</th><th>CARD</th><th>EXP</th>
+                <th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN count">BIN ${binSortIcon}</th>
+                <th>BANK</th><th>GEO</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>
         </div>`;
 
-    // Events
+    // ──── Events ────
     el.querySelectorAll('.parser-check').forEach(cb => {
         cb.addEventListener('change', () => {
             const idx = parseInt(cb.dataset.idx);
@@ -3809,19 +3825,29 @@ function renderParserResults() {
     const selectAll = document.getElementById('parser-select-all');
     if (selectAll) {
         selectAll.addEventListener('change', () => {
-            PARSER_STATE.selected = selectAll.checked ? new Set(list.map((_, i) => i)) : new Set();
+            PARSER_STATE.selected = selectAll.checked ? new Set(displayList.map((_, i) => i)) : new Set();
             el.querySelectorAll('.parser-check').forEach(cb => { cb.checked = selectAll.checked; });
             updateParserButtons();
         });
     }
-    document.getElementById('parser-add-btn')?.addEventListener('click', addCollectedToCards);
+
     document.getElementById('parser-add-notes-btn')?.addEventListener('click', addCollectedToNotes);
+
+    // GEO filter change
+    document.getElementById('parser-geo-select')?.addEventListener('change', (e) => {
+        renderParserResults(e.target.value);
+    });
+
+    // BIN sort toggle
+    document.getElementById('parser-sort-bin')?.addEventListener('click', () => {
+        if (PARSER_STATE.sortBy === 'bin-desc') PARSER_STATE.sortBy = 'bin-asc';
+        else PARSER_STATE.sortBy = 'bin-desc';
+        renderParserResults(activeGeo);
+    });
 }
 
 function updateParserButtons() {
-    const addBtn = document.getElementById('parser-add-btn');
     const notesBtn = document.getElementById('parser-add-notes-btn');
-    if (addBtn) addBtn.textContent = `ADD TO READY TO WORK (${PARSER_STATE.selected.size})`;
     if (notesBtn) notesBtn.textContent = `📝 ADD TO NOTES (${PARSER_STATE.selected.size})`;
 }
 
@@ -3866,6 +3892,7 @@ function clearParser() {
     PARSER_STATE.selected = new Set();
     PARSER_STATE.file = '';
     PARSER_STATE.binFilter = null;
+    PARSER_STATE.sortBy = 'index';
     renderParser();
     toast('Parser cleared', 'info');
 }
@@ -3899,7 +3926,7 @@ function getExpFromDropdowns(prefix) {
 function addCollectedToCards() {
     const targetCountry = document.getElementById('parser-target-country')?.value || STATE.currentCountry;
     const autoReplace = document.getElementById('parser-auto-replace')?.checked || false;
-    const detectGeoFlag = document.getElementById('parser-detect-geo')?.checked || false;
+    const detectGeoFlag = true;
     const list = PARSER_STATE.collected;
     let added = 0, replaced = 0;
     const addedIndices = new Set();

@@ -4303,3 +4303,97 @@ tr:hover .bin-info:not(:empty) {
 .app.density-comfortable .stat-value {
     font-size: 30px
 }
+
+/* ──── Parser BIN Analytics ──── */
+.parser-bin-analytics {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--r-sm);
+    margin-bottom: var(--sp-2);
+    max-height: 180px;
+    overflow-y: auto
+}
+.parser-bin-analytics-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--c-text-secondary);
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    position: sticky;
+    top: 0;
+    background: var(--c-bg-card);
+    z-index: 1
+}
+.parser-bin-analytics-list {
+    padding: 2px 0
+}
+.parser-bin-row {
+    display: grid;
+    grid-template-columns: 70px 1fr 45px;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    align-items: center
+}
+.parser-bin-row:hover {
+    background: rgba(255,255,255,0.04)
+}
+.parser-bin-val {
+    font-family: var(--ff-mono);
+    font-weight: 700;
+    color: var(--c-accent)
+}
+.parser-bin-bank {
+    color: var(--c-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+.parser-bin-cnt {
+    text-align: right;
+    font-weight: 700;
+    color: #22C55E
+}
+
+/* ──── Parser GEO Filter ──── */
+.parser-geo-filter {
+    display: flex;
+    align-items: center;
+    gap: 6px
+}
+.parser-geo-filter label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--c-text-secondary);
+    white-space: nowrap
+}
+.parser-geo-filter select {
+    background: var(--c-bg-input);
+    border: 1px solid var(--c-border);
+    color: var(--c-text-primary);
+    border-radius: var(--r-sm);
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 160px;
+    max-width: 220px
+}
+
+/* ──── Parser Sort Header ──── */
+.parser-sort-th {
+    cursor: pointer;
+    user-select: none
+}
+.parser-sort-th:hover {
+    color: var(--c-accent)
+}
+
+/* ──── Parser inline BIN count ──── */
+.parser-bin-cnt-inline {
+    font-size: 10px;
+    color: var(--c-text-secondary);
+    font-weight: 600
+}
