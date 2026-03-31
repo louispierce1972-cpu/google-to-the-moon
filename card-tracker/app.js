@@ -203,7 +203,7 @@ function getBin(num) { return num.replace(/\s/g, '').slice(0, 6); }
 function maskCard(num) {
     const n = num.replace(/\s/g, '');
     if (n.length < 8) return n;
-    return n.slice(0, 4) + ' •••• ' + n.slice(-4);
+    return n.slice(0, 6) + ' •••• ' + n.slice(-4);
 }
 
 function formatCardInput(val) {
