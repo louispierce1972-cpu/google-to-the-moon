@@ -327,6 +327,9 @@ function isActiveNow(card) { return !!card.starred; }
 // ──── GEO FILTER (My Card / Global Docs) ────
 let _geoFilter = 'all'; // 'all' or country id
 
+// ──── MULTI-SELECT ────
+let _selectedCards = new Set();
+
 // ──── BIN COUNT ────
 function binCount(bin, countryFilter) {
     return STATE.cards.filter(c => getBin(c.cardNumber) === bin && (!countryFilter || c.country === countryFilter)).length;
@@ -821,8 +824,8 @@ function renderContent() {
         };
 
         return `
-        <tr data-id="${c.id}">
-            <td class="td-num">${idx}</td>
+        <tr data-id="${c.id}" class="${_selectedCards.has(c.id) ? 'row-selected' : ''}">
+            <td class="td-num"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
             <td>
                 <div class="card-cell">
                     <span class="card-name">
@@ -875,7 +878,7 @@ function renderContent() {
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
                     <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
                     <th class="sortable" data-sort="notes">Notes ${sortIcon('notes')}</th>
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
@@ -1371,6 +1374,108 @@ window.permanentDelete = function (id) {
     toast('Permanently deleted', 'info');
 };
 
+// ──── MULTI-SELECT ACTIONS ────
+
+function toggleCardSelect(id, checked) {
+    if (checked) _selectedCards.add(id);
+    else _selectedCards.delete(id);
+    // Update row highlight
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) row.classList.toggle('row-selected', checked);
+    // Update select-all checkbox state
+    const allCb = document.getElementById('select-all-cb');
+    if (allCb) {
+        const allCbs = document.querySelectorAll('.row-select-cb');
+        allCb.checked = allCbs.length > 0 && _selectedCards.size >= allCbs.length;
+    }
+    updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.row-select-cb').forEach(cb => {
+        const id = cb.dataset.cardId;
+        cb.checked = checked;
+        if (checked) _selectedCards.add(id);
+        else _selectedCards.delete(id);
+        const row = cb.closest('tr');
+        if (row) row.classList.toggle('row-selected', checked);
+    });
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    let bar = document.getElementById('bulk-action-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'bulk-action-bar';
+        bar.className = 'bulk-action-bar hidden';
+        bar.innerHTML = `
+            <span class="bulk-count"></span>
+            <button class="bulk-btn bulk-copy" onclick="bulkCopyCards()">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                Copy All
+            </button>
+            <button class="bulk-btn bulk-delete" onclick="bulkDeleteCards()">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                Delete
+            </button>
+            <button class="bulk-btn bulk-clear" onclick="clearSelection()">✕</button>
+        `;
+        document.body.appendChild(bar);
+    }
+    const count = _selectedCards.size;
+    if (count > 0) {
+        bar.classList.remove('hidden');
+        bar.querySelector('.bulk-count').textContent = `${count} selected`;
+    } else {
+        bar.classList.add('hidden');
+    }
+}
+
+function formatCardForCopy(card) {
+    const bin = getBin(card.cardNumber);
+    const binInfo = getBinInfo(bin);
+    const bank = binInfo?.bank || '';
+    const cType = binInfo?.type || card.cardType || '';
+    const mm = card.month || card.mm || '';
+    const yy = card.year || card.yy || '';
+    const cvv = card.cvv || '';
+    const lines = [`${card.cardNumber} ${mm} ${yy} ${cvv}`];
+    if (card.name || card.surname) lines.push(`${card.name || ''} ${card.surname || ''}`.trim());
+    if (bank || cType) lines.push(`${bank} ${cType}`.trim());
+    return lines.join('\n');
+}
+
+function bulkCopyCards() {
+    const cards = STATE.cards.filter(c => _selectedCards.has(c.id));
+    if (cards.length === 0) return;
+    const text = cards.map(c => formatCardForCopy(c)).join('\n\n');
+    navigator.clipboard?.writeText(text);
+    toast(`${cards.length} cards copied`, 'success');
+    clearSelection();
+}
+
+function bulkDeleteCards() {
+    const ids = [..._selectedCards];
+    const cards = STATE.cards.filter(c => ids.includes(c.id));
+    if (cards.length === 0) return;
+    STATE.trash.push(...cards);
+    STATE.cards = STATE.cards.filter(c => !ids.includes(c.id));
+    save();
+    clearSelection();
+    renderAll();
+    toast(`${cards.length} cards moved to trash`, 'info');
+}
+
+function clearSelection() {
+    _selectedCards.clear();
+    document.querySelectorAll('.row-select-cb').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('.row-selected').forEach(r => r.classList.remove('row-selected'));
+    const allCb = document.getElementById('select-all-cb');
+    if (allCb) allCb.checked = false;
+    updateBulkBar();
+}
+
 // ──── CONTEXT MENU ────
 const CARD_MENU_HTML = `
     <button class="ctx-item" data-action="copy">
@@ -1397,17 +1502,7 @@ function handleCardMenuAction(action) {
     if (!card) return;
     switch (action) {
         case 'copy': {
-            const bin = getBin(card.cardNumber);
-            const binInfo = getBinInfo(bin);
-            const bank = binInfo?.bank || '';
-            const cType = binInfo?.type || card.cardType || '';
-            const mm = card.month || card.mm || '';
-            const yy = card.year || card.yy || '';
-            const cvv = card.cvv || '';
-            const lines = [`${card.cardNumber} ${mm} ${yy} ${cvv}`];
-            if (card.name || card.surname) lines.push(`${card.name || ''} ${card.surname || ''}`.trim());
-            if (bank || cType) lines.push(`${bank} ${cType}`.trim());
-            const text = lines.join('\n');
+            const text = formatCardForCopy(card);
             navigator.clipboard?.writeText(text);
             toast('Copied to clipboard', 'success');
             break;
