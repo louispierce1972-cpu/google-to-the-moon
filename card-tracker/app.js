@@ -412,9 +412,17 @@ function getFilteredCards() {
         case 'ready-to-work':
             cards = STATE.cards.filter(c => c.readyToWork === true);
             break;
-        case 'all-cards':
-            cards = [...STATE.cards];
+        case 'all-cards': {
+            // Deduplicate by card number — show only unique cards
+            const seen = new Set();
+            cards = STATE.cards.filter(c => {
+                const num = c.cardNumber.replace(/\s/g, '');
+                if (seen.has(num)) return false;
+                seen.add(num);
+                return true;
+            });
             break;
+        }
         case 'trash':
             cards = [...STATE.trash];
             break;
@@ -2353,12 +2361,16 @@ function openEditModal(card) {
     document.getElementById('edit-month').value = card.month;
     document.getElementById('edit-year').value = card.year;
     document.getElementById('edit-cvv').value = card.cvv;
-    // edit-doc-type removed
     document.getElementById('edit-amount').value = card.amount;
     document.getElementById('edit-notes').value = card.notes || '';
     document.getElementById('edit-mail-verify').checked = card.mailVerify || false;
     document.getElementById('edit-mail-submit').checked = card.mailSubmit || false;
     document.getElementById('edit-mail-none').checked = card.mailNone || false;
+    // Populate country dropdown
+    const editCountrySel = document.getElementById('edit-country');
+    editCountrySel.innerHTML = STATE.countries.map(c =>
+        `<option value="${c.id}" ${c.id === card.country ? 'selected' : ''}>${c.flag} ${c.name}</option>`
+    ).join('');
     // Clear old BIN info form element in edit modal
     const editBinEl = document.getElementById('edit-card-type-badge')?.parentElement?.querySelector('.bin-info-form');
     if (editBinEl) editBinEl.remove();
@@ -2382,23 +2394,41 @@ document.getElementById('edit-save').addEventListener('click', () => {
     const id = document.getElementById('edit-id').value;
     const card = STATE.cards.find(c => c.id === id);
     if (card) {
+        const oldCountry = card.country;
         card.name = document.getElementById('edit-name').value.trim();
         card.surname = document.getElementById('edit-surname').value.trim();
         card.cardNumber = document.getElementById('edit-card').value.replace(/\s/g, '');
         card.cardType = getCardType(card.cardNumber);
-        // docType editing removed
         card.month = document.getElementById('edit-month').value;
         card.year = document.getElementById('edit-year').value;
         card.cvv = document.getElementById('edit-cvv').value;
         card.amount = document.getElementById('edit-amount').value;
         card.notes = document.getElementById('edit-notes').value;
+        card.country = document.getElementById('edit-country').value;
         card.mailVerify = document.getElementById('edit-mail-verify').checked;
         card.mailSubmit = document.getElementById('edit-mail-submit').checked;
         card.mailNone = document.getElementById('edit-mail-none').checked;
+
+        // If country changed, re-link doc in new country
+        if (card.country !== oldCountry) {
+            // Remove card from old doc's cardIds
+            if (card.docId) {
+                const oldDoc = STATE.docs.find(d => d.id === card.docId);
+                if (oldDoc && oldDoc.cardIds) {
+                    oldDoc.cardIds = oldDoc.cardIds.filter(cid => cid !== card.id);
+                    oldDoc.use = Math.max(0, (oldDoc.use || 1) - 1);
+                }
+                card.docId = null;
+            }
+            // Re-link to doc in new country
+            ensureDoc(card);
+        }
+
         save();
         editOverlay.classList.add('hidden');
         renderAll();
-        toast('Card updated', 'success');
+        const moved = card.country !== oldCountry;
+        toast(moved ? `Card moved to ${card.country} & updated` : 'Card updated', 'success');
     }
 });
 
