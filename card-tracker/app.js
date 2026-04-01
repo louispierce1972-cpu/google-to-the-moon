@@ -268,30 +268,51 @@ function ensureDataIntegrity() {
     STATE.cards = STATE.cards.map(fixId);
     STATE.docs = STATE.docs.map(fixId);
     STATE.trash = STATE.trash.map(fixId);
+
+    // ── Migration: link existing cards ↔ docs ──
+    // Ensure every doc has cardIds array
+    STATE.docs.forEach(d => { if (!d.cardIds) d.cardIds = []; });
+    // Link cards that have name+surname to matching docs
+    STATE.cards.forEach(card => {
+        if (card.docId) return; // already linked
+        const fullName = `${card.name || ''} ${card.surname || ''}`.trim().toUpperCase();
+        if (!fullName || fullName === 'UNKNOWN') return;
+        const doc = STATE.docs.find(d => d.fullName === fullName && d.country === card.country);
+        if (doc) {
+            card.docId = doc.id;
+            if (!doc.cardIds.includes(card.id)) doc.cardIds.push(card.id);
+        }
+    });
 }
 
-// ──── AUTO DOC CREATION ────
+// ──── AUTO DOC CREATION (with card↔doc linking) ────
 function ensureDoc(card) {
     const fullName = `${card.name} ${card.surname}`.trim().toUpperCase();
-    if (!fullName) return;
+    if (!fullName || fullName === 'UNKNOWN') return;
     const existing = STATE.docs.find(d => d.fullName === fullName && d.country === card.country);
     if (existing) {
         existing.use = (existing.use || 0) + 1;
+        if (!existing.cardIds) existing.cardIds = [];
+        if (!existing.cardIds.includes(card.id)) existing.cardIds.push(card.id);
+        card.docId = existing.id;
     } else {
+        const docId = genId();
         STATE.docs.push({
-            id: genId(),
+            id: docId,
             fullName,
             name: card.name,
             surname: card.surname,
             country: card.country,
             type: '-',
             use: 1,
+            cardIds: [card.id],
             verified: 0,
             suspended: 0,
             status: 'waiting',
             date: todayStr(),
             notes: ''
         });
+        card.docId = docId;
     }
 }
 
@@ -943,7 +964,7 @@ function renderDocs() {
             <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
-            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
+            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x ${(d.cardIds && d.cardIds.length) ? '<span class="link-badge" title="Linked cards">🔗' + d.cardIds.length + '</span>' : ''}</td>
             <td>
                 <div class="status-btns vs-counters">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
@@ -2092,17 +2113,20 @@ function smartParseCards(text) {
     const lines = text.split('\n');
     const cards = [];
     const seen = new Set();
+    // Noise words to ignore when extracting names
+    const noiseWords = new Set(['cvv','exp','cc','card','visa','mastercard','amex','discover','jcb','bin','the','and','or','of']);
 
     for (const rawLine of lines) {
-        const line = rawLine.trim();
+        let line = rawLine.trim();
         if (!line) continue;
 
+        // Normalize pipe/semicolon separators to spaces for uniform parsing
+        const normalized = line.replace(/[|;]/g, ' ');
+
         // Extract card number: try structured formats first, then raw digits
-        // Format: 4 groups of 4 (with spaces/dashes)
-        let cardMatch = line.match(/\b(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})\b/);
+        let cardMatch = normalized.match(/\b(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})\b/);
         if (!cardMatch) {
-            // Continuous 13-19 digits
-            cardMatch = line.match(/\b(\d{13,19})\b/);
+            cardMatch = normalized.match(/\b(\d{13,19})\b/);
         }
         if (!cardMatch) continue;
 
@@ -2112,32 +2136,43 @@ function smartParseCards(text) {
         seen.add(cardNum);
 
         // Remove the card number from line for further parsing
-        const rest = line.replace(cardMatch[0], ' ');
+        let rest = normalized.replace(cardMatch[0], ' ');
 
-        // Extract expiry: MM/YY or MM|YY or MM YY (where MM is 01-12, YY is 2 digits)
+        // Extract expiry: MM/YY or MM YY (where MM is 01-12, YY is 2 digits)
         let mm = '', yy = '';
-        const expMatch = rest.match(/\b(0[1-9]|1[0-2])\s*[\/|\\.\-]\s*(\d{2})\b/);
+        const expMatch = rest.match(/\b(0[1-9]|1[0-2])\s*[\/\\.\-]\s*(\d{2})\b/);
         if (expMatch) {
             mm = expMatch[1];
             yy = expMatch[2];
+            rest = rest.replace(expMatch[0], ' ');
         }
 
-        // Extract CVV: 3-4 digits (not part of card number, not the expiry)
+        // Extract CVV: 3-4 digits
         let cvv = '';
-        const restAfterExp = expMatch ? rest.replace(expMatch[0], ' ') : rest;
-        // Look for standalone 3-4 digit numbers
-        const cvvCandidates = restAfterExp.match(/\b(\d{3,4})\b/g);
+        const cvvCandidates = rest.match(/\b(\d{3,4})\b/g);
         if (cvvCandidates) {
-            // Pick the first 3-4 digit number that isn't part of the card or year
             for (const c of cvvCandidates) {
                 if (c !== mm && c !== yy && c !== cardNum.slice(-4)) {
                     cvv = c;
+                    rest = rest.replace(new RegExp('\\b' + c + '\\b'), ' ');
                     break;
                 }
             }
         }
 
-        cards.push({ cardNum, mm, yy, cvv });
+        // ── Extract names: remaining alphabetic words (2+ letters) ──
+        let name = '', surname = '';
+        // Remove any remaining digits and clean up
+        const nameText = rest.replace(/\d+/g, ' ').replace(/[^a-zA-Zа-яА-ЯёЁ\s]/g, ' ').trim();
+        const nameWords = nameText.split(/\s+/).filter(w => w.length >= 2 && !noiseWords.has(w.toLowerCase()));
+        if (nameWords.length >= 1) {
+            name = nameWords[0].charAt(0).toUpperCase() + nameWords[0].slice(1).toLowerCase();
+        }
+        if (nameWords.length >= 2) {
+            surname = nameWords.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        }
+
+        cards.push({ cardNum, mm, yy, cvv, name, surname });
     }
 
     return cards;
@@ -2151,15 +2186,19 @@ function renderListPreview(cards) {
         return;
     }
 
-    const preview = cards.slice(0, 5).map(c => {
+    const withName = cards.filter(c => c.name).length;
+
+    const preview = cards.slice(0, 8).map(c => {
         const masked = c.cardNum.replace(/(\d{4})(\d+)(\d{4})/, '$1 •••• $3');
         const exp = c.mm && c.yy ? `${c.mm}/${c.yy}` : '——';
         const cvv = c.cvv || '———';
-        return `<div class="list-preview-row">${masked} <span class="list-sep">|</span> ${exp} <span class="list-sep">|</span> ${cvv}</div>`;
+        const holder = c.name ? `<span class="list-holder">${c.name} ${c.surname || ''}</span>` : '';
+        return `<div class="list-preview-row">${masked} <span class="list-sep">|</span> ${exp} <span class="list-sep">|</span> ${cvv} ${holder}</div>`;
     }).join('');
 
-    const more = cards.length > 5 ? `<div class="list-preview-more">...and ${cards.length - 5} more</div>` : '';
-    el.innerHTML = preview + more;
+    const more = cards.length > 8 ? `<div class="list-preview-more">...and ${cards.length - 8} more</div>` : '';
+    const stats = `<div class="list-stats-badge">✔️ ${cards.length} cards · ${withName} docs · ${withName} links</div>`;
+    el.innerHTML = stats + preview + more;
 }
 
 document.getElementById('list-textarea').addEventListener('input', function () {
@@ -2244,7 +2283,7 @@ document.getElementById('modal-save').addEventListener('click', () => {
 
             const card = {
                 id: genId(),
-                name: '', surname: '',
+                name: p.name || '', surname: p.surname || '',
                 cardNumber: p.cardNum,
                 month: p.mm, year: p.yy, cvv: p.cvv,
                 cardType: getCardType(p.cardNum),
