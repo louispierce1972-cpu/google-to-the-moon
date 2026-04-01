@@ -2108,7 +2108,6 @@ document.getElementById('edit-card')?.addEventListener('input', function () {
     this.value = formatCardInput(this.value);
     const type = getCardType(this.value);
     document.getElementById('edit-card-type-badge').textContent = type;
-    // BIN lookup
     const digits = this.value.replace(/\s/g, '');
     if (digits.length >= 6) {
         const bin = digits.slice(0, 6);
@@ -2131,17 +2130,16 @@ function smartParseCards(text) {
     const lines = text.split('\n');
     const cards = [];
     const seen = new Set();
-    // Noise words to ignore when extracting names
     const noiseWords = new Set(['cvv','exp','cc','card','visa','mastercard','amex','discover','jcb','bin','the','and','or','of']);
 
     for (const rawLine of lines) {
         let line = rawLine.trim();
         if (!line) continue;
 
-        // Normalize pipe/semicolon separators to spaces for uniform parsing
+        // Normalize pipe/semicolon separators to spaces
         const normalized = line.replace(/[|;]/g, ' ');
 
-        // Extract card number: try structured formats first, then raw digits
+        // ── Step 1: Extract card number ──
         let cardMatch = normalized.match(/\b(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})\b/);
         if (!cardMatch) {
             cardMatch = normalized.match(/\b(\d{13,19})\b/);
@@ -2153,34 +2151,49 @@ function smartParseCards(text) {
         if (seen.has(cardNum)) continue;
         seen.add(cardNum);
 
-        // Remove the card number from line for further parsing
-        let rest = normalized.replace(cardMatch[0], ' ');
+        // Everything after card number
+        let rest = normalized.replace(cardMatch[0], ' ').trim();
 
-        // Extract expiry: MM/YY or MM YY (where MM is 01-12, YY is 2 digits)
-        let mm = '', yy = '';
-        const expMatch = rest.match(/\b(0[1-9]|1[0-2])\s*[\/\\.\-]\s*(\d{2})\b/);
-        if (expMatch) {
-            mm = expMatch[1];
-            yy = expMatch[2];
-            rest = rest.replace(expMatch[0], ' ');
-        }
+        // ── Step 2: Extract expiry + CVV ──
+        let mm = '', yy = '', cvv = '';
 
-        // Extract CVV: 3-4 digits
-        let cvv = '';
-        const cvvCandidates = rest.match(/\b(\d{3,4})\b/g);
-        if (cvvCandidates) {
-            for (const c of cvvCandidates) {
-                if (c !== mm && c !== yy && c !== cardNum.slice(-4)) {
-                    cvv = c;
-                    rest = rest.replace(new RegExp('\\b' + c + '\\b'), ' ');
-                    break;
+        // Try format: MM/YY CVV  (slash/dot/dash separated)
+        const expSlash = rest.match(/\b(0[1-9]|1[0-2])\s*[\/\.\-]\s*(\d{2})\b/);
+        if (expSlash) {
+            mm = expSlash[1];
+            yy = expSlash[2];
+            rest = rest.replace(expSlash[0], ' ').trim();
+            // Next 3-4 digit number = CVV
+            const cvvM = rest.match(/\b(\d{3,4})\b/);
+            if (cvvM) {
+                cvv = cvvM[1];
+                rest = rest.replace(cvvM[0], ' ').trim();
+            }
+        } else {
+            // Try format: MM YY CVV  (space-separated, sequential)
+            const seqMatch = rest.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
+            if (seqMatch) {
+                mm = seqMatch[1];
+                yy = seqMatch[2];
+                cvv = seqMatch[3];
+                rest = rest.replace(seqMatch[0], ' ').trim();
+            } else {
+                // Fallback: grab any 3-4 digit as CVV
+                const nums = rest.match(/\b(\d{3,4})\b/g);
+                if (nums) {
+                    for (const n of nums) {
+                        if (n !== cardNum.slice(-4)) {
+                            cvv = n;
+                            rest = rest.replace(new RegExp('\\b' + n + '\\b'), ' ');
+                            break;
+                        }
+                    }
                 }
             }
         }
 
-        // ── Extract names: remaining alphabetic words (2+ letters) ──
+        // ── Step 3: Extract names from remaining text ──
         let name = '', surname = '';
-        // Remove any remaining digits and clean up
         const nameText = rest.replace(/\d+/g, ' ').replace(/[^a-zA-Zа-яА-ЯёЁ\s]/g, ' ').trim();
         const nameWords = nameText.split(/\s+/).filter(w => w.length >= 2 && !noiseWords.has(w.toLowerCase()));
         if (nameWords.length >= 1) {
