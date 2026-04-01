@@ -4570,8 +4570,7 @@ function addCollectedToCards() {
         });
     }
 
-    // Expose addCollectedToNotes globally for parser
-    window.addCollectedToNotes = addCollectedToNotes;
+    // Expose openChecker globally for parser
     window.openChecker = openChecker;
 
 })();
