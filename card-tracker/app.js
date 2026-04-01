@@ -1397,7 +1397,11 @@ function handleCardMenuAction(action) {
     if (!card) return;
     switch (action) {
         case 'copy': {
-            const text = `${card.name} ${card.surname}|${card.cardNumber}|${card.month}|${card.year}|${card.cvv}|${card.amount}|${card.notes}`;
+            const bin = getBin(card.cardNumber);
+            const binInfo = getBinInfo(bin);
+            const bank = binInfo?.bank || '';
+            const cardType = binInfo?.type || card.cardType || '';
+            const text = `${card.cardNumber} ${card.month} ${card.year} ${card.cvv}\n${card.name} ${card.surname}\n${bank} ${cardType}`.trim();
             navigator.clipboard?.writeText(text);
             toast('Copied to clipboard', 'success');
             break;
