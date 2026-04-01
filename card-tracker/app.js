@@ -685,7 +685,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (STATE.currentView === 'notes') {
+    if (['notes','generator','builder'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -3513,31 +3513,474 @@ function extractCardsFromMessages(messages) {
 
 // ──── RENDER GENERATOR ────
 
+// ═══════════════════════════════════════════
+//        DOCUMENT GENERATOR (ID Forge Clone)
+// ═══════════════════════════════════════════
+
+const GEN_DOCS = [
+    { id:'ca-dl', country:'US', cat:'DRIVER LICENSE', name:'California', icon:'🚗', active:true },
+    { id:'us-pp', country:'US', cat:'PASSPORT', name:'US Passport', icon:'📘', active:false },
+    { id:'on-dl', country:'CA', cat:'DRIVER LICENSE', name:'Ontario', icon:'🚗', active:true },
+    { id:'bc-dl', country:'CA', cat:'DRIVER LICENSE', name:'British Columbia', icon:'🚗', active:true },
+    { id:'ca-pp', country:'CA', cat:'PASSPORT', name:'Canadian Passport', icon:'📘', active:true },
+    { id:'rogers', country:'CA', cat:'UTILITY BILLS', name:'Rogers Bill', icon:'📄', active:true },
+    { id:'au-nsw', country:'AU', cat:'DRIVER LICENSE', name:'New South Wales', icon:'🚗', active:false },
+    { id:'au-vic', country:'AU', cat:'DRIVER LICENSE', name:'Victoria', icon:'🚗', active:false },
+    { id:'au-pp', country:'AU', cat:'PASSPORT', name:'Australian Passport', icon:'📘', active:false },
+    { id:'de-dl', country:'DE', cat:'DRIVER LICENSE', name:'Germany DL', icon:'🚗', active:false },
+];
+
+const GEN_COUNTRIES = [
+    { code:'US', name:'United States', flag:'🇺🇸' },
+    { code:'CA', name:'Canada', flag:'🇨🇦' },
+    { code:'AU', name:'Australia', flag:'🇦🇺' },
+    { code:'DE', name:'Germany', flag:'🇩🇪' },
+];
+
+let _genState = { docId: 'ca-dl', sex: 'M', result: null };
+
+/* ── Helpers ── */
+const _rInt = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const _rPick = arr => arr[_rInt(0,arr.length-1)];
+const _pad2 = n => String(n).padStart(2,'0');
+const _rDigits = n => Array.from({length:n},()=>_rInt(0,9)).join('');
+const _rLetter = () => String.fromCharCode(65+_rInt(0,25));
+const _rLetters = n => Array.from({length:n},()=>_rLetter()).join('');
+
+const _MALE_FIRST = ['JAMES','JOHN','ROBERT','MICHAEL','WILLIAM','DAVID','RICHARD','JOSEPH','THOMAS','CHARLES','DANIEL','MATTHEW','ANTHONY','MARK','STEVEN','PAUL','ANDREW','JOSHUA','KENNETH','KEVIN'];
+const _FEMALE_FIRST = ['MARY','PATRICIA','JENNIFER','LINDA','BARBARA','ELIZABETH','SUSAN','JESSICA','SARAH','KAREN','LISA','NANCY','BETTY','MARGARET','SANDRA','ASHLEY','DOROTHY','KIMBERLY','EMILY','DONNA'];
+const _LAST_NAMES = ['SMITH','JOHNSON','WILLIAMS','BROWN','JONES','GARCIA','MILLER','DAVIS','RODRIGUEZ','MARTINEZ','HERNANDEZ','LOPEZ','GONZALEZ','WILSON','ANDERSON','THOMAS','TAYLOR','MOORE','JACKSON','MARTIN','LEE','PEREZ','THOMPSON','WHITE','HARRIS','SANCHEZ','CLARK','RAMIREZ','LEWIS','ROBINSON'];
+const _HAIR = ['BRN','BLK','BLN','RED','GRY','WHT','SDY','AUB'];
+const _EYES = ['BRN','BLU','GRN','HZL','GRY','BLK'];
+const _CA_CITIES = [{c:'LOS ANGELES',z:'900'},{c:'SAN FRANCISCO',z:'941'},{c:'SAN DIEGO',z:'921'},{c:'SAN JOSE',z:'951'},{c:'SACRAMENTO',z:'958'},{c:'FRESNO',z:'937'},{c:'LONG BEACH',z:'908'},{c:'OAKLAND',z:'946'},{c:'BAKERSFIELD',z:'933'},{c:'ANAHEIM',z:'928'}];
+const _CA_STREETS = ['MAIN ST','OAK AVE','ELM ST','MAPLE DR','CEDAR LN','PINE RD','WALNUT ST','BROADWAY','SUNSET BLVD','PACIFIC AVE','MISSION ST','MARKET ST','VALENCIA ST','FOLSOM ST','GEARY BLVD'];
+const _ON_CITIES = [{c:'TORONTO',p:'M'},{c:'OTTAWA',p:'K'},{c:'MISSISSAUGA',p:'L'},{c:'BRAMPTON',p:'L'},{c:'HAMILTON',p:'L'},{c:'LONDON',p:'N'},{c:'MARKHAM',p:'L'},{c:'VAUGHAN',p:'L'},{c:'KITCHENER',p:'N'},{c:'WINDSOR',p:'N'}];
+const _BC_CITIES = [{c:'VANCOUVER',p:'V'},{c:'SURREY',p:'V'},{c:'BURNABY',p:'V'},{c:'RICHMOND',p:'V'},{c:'KELOWNA',p:'V'},{c:'VICTORIA',p:'V'},{c:'NANAIMO',p:'V'},{c:'KAMLOOPS',p:'V'}];
+const _MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const _MONTHS_FR = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function _genDOB(sex) {
+    const age = _rInt(30,50);
+    const y = new Date().getFullYear() - age;
+    const m = _rInt(1,12), d = _rInt(1,28);
+    return { y, m, d };
+}
+function _genName(sex) {
+    const fn = sex==='F' ? _rPick(_FEMALE_FIRST) : _rPick(_MALE_FIRST);
+    const ln = _rPick(_LAST_NAMES);
+    return { fn, ln };
+}
+function _parseTemplate(text) {
+    const t = {};
+    if (!text) return t;
+    const lines = text.split('\n');
+    for (const line of lines) {
+        const l = line.replace(/^[^\w]*/, '').trim();
+        if (/^holder:/i.test(l)) t.holder = l.replace(/^holder:\s*/i,'').trim();
+        if (/^billing:/i.test(l)) t.billing = l.replace(/^billing:\s*/i,'').trim();
+        if (/^zip:/i.test(l)) t.zip = l.replace(/^zip:\s*/i,'').trim();
+    }
+    return t;
+}
+
+/* ═══ CALIFORNIA DL ═══ */
+function generateCaliforniaDL(sex, tpl) {
+    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const dob = _genDOB(sex);
+    const expY = new Date().getFullYear() + _rInt(2,5);
+    const issY = new Date().getFullYear() - _rInt(0,3);
+    const dlNum = _rLetter() + _rDigits(7);
+    const city = _rPick(_CA_CITIES);
+    const addr = `${_rInt(100,9999)} ${_rPick(_CA_STREETS)}`;
+    const hgt = sex==='F' ? `${_rPick(['5'])}' - ${_pad2(_rInt(0,8))}"` : `${_rPick(['5','6'])}' - ${_pad2(_rInt(0,11))}"`;
+    const wgt = sex==='F' ? `${_rInt(110,160)} lb` : `${_rInt(150,220)} lb`;
+    const serial = `${_pad2(dob.m)}${_pad2(dob.d)}${String(dob.y).slice(2)}`;
+
+    return {
+        title: 'California Driver License',
+        sections: [{
+            name: 'FRONT', copyLabel: 'Copy Front',
+            fields: [
+                { label:'DL', value: dlNum },
+                { label:'EXP', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${expY}` },
+                { label:'LN', value: ln },
+                { label:'FN', value: fn },
+                { label:'CLASS', value: 'C' },
+                { label:'DOB', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${dob.y}` },
+                { label:'DOB (NO SLASH)', value: `${_pad2(dob.m)}${_pad2(dob.d)}${dob.y}` },
+                { label:'SERIAL (VERT)', value: serial },
+                { label:'SEX', value: sex },
+                { label:'HAIR', value: _rPick(_HAIR) },
+                { label:'EYES', value: _rPick(_EYES) },
+                { label:'HGT', value: hgt },
+                { label:'WGT', value: wgt },
+                { label:'ADDRESS', value: `${addr}, ${city.c}, CA ${city.z}${_rDigits(2)}` },
+                { label:'ISS', value: `${_pad2(_rInt(1,12))}/${_pad2(_rInt(1,28))}/${issY}` },
+                { label:'DD', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${dob.y}${_rDigits(4)}${_rLetters(2)}/${_rLetters(2)}/${_rDigits(4)}` },
+            ]
+        },{
+            name: 'BACK', copyLabel: 'Copy Back',
+            fields: [
+                { label:'SERIAL', value: serial },
+                { label:'REV', value: `Rev ${_pad2(_rInt(1,12))}/${_pad2(_rInt(1,28))}/${new Date().getFullYear()-_rInt(1,3)}` },
+                { label:'INVENTORY', value: `${_rDigits(5)}${_rLetters(2)}${dlNum}${_rDigits(5)}` },
+            ]
+        }]
+    };
+}
+
+/* ═══ ONTARIO DL ═══ */
+function generateOntarioDL(sex, tpl) {
+    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const dob = _genDOB(sex);
+    const city = _rPick(_ON_CITIES);
+    const dlNum = `${ln[0]}${_rDigits(4)}-${_rDigits(5)}-${_rDigits(5)}`;
+    const issDate = `${new Date().getFullYear()-_rInt(0,2)}/${_pad2(_rInt(1,12))}/${_pad2(_rInt(1,28))}`;
+    const expDate = `${new Date().getFullYear()+_rInt(2,5)}/${_pad2(dob.m)}/${_pad2(dob.d)}`;
+    const postal = `${city.p}${_rInt(1,9)}${_rLetter()} ${_rInt(1,9)}${_rLetter()}${_rInt(1,9)}`;
+
+    return {
+        title: 'Ontario Driver\'s Licence',
+        sections: [{
+            name: 'NAME / NOM', copyLabel: 'Copy All',
+            fields: [
+                { label:'1. FIRST NAME', value: fn },
+                { label:'2. LAST NAME', value: ln },
+                { label:'MIDDLE NAME', value: _rPick(_MALE_FIRST.concat(_FEMALE_FIRST)).slice(0,1) + '.' },
+            ]
+        },{
+            name: 'ADDRESS / ADRESSE',
+            fields: [
+                { label:'ADDRESS', value: `${_rInt(100,9999)} ${_rPick(_CA_STREETS)}` },
+                { label:'CITY', value: city.c },
+                { label:'PROVINCE', value: 'ON' },
+                { label:'POSTAL CODE', value: postal },
+            ]
+        },{
+            name: 'DOCUMENT / NUMÉRO',
+            fields: [
+                { label:'4D. DL NUMBER', value: dlNum },
+                { label:'4A. ISS / DÉL', value: issDate },
+                { label:'4B. EXP', value: expDate },
+                { label:'5. DD / REF', value: `DB${_rDigits(7)}` },
+                { label:'12. REST / COND', value: `*${_rDigits(7)}*` },
+            ]
+        },{
+            name: 'PERSONAL',
+            fields: [
+                { label:'15. SEX', value: sex },
+                { label:'9. CLASS', value: 'G' },
+                { label:'16. HEIGHT', value: `${_rInt(155,195)} cm` },
+                { label:'3. DOB', value: `${dob.y}/${_pad2(dob.m)}/${_pad2(dob.d)}` },
+            ]
+        }]
+    };
+}
+
+/* ═══ BC DL ═══ */
+function generateBCDL(sex, tpl) {
+    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const dob = _genDOB(sex);
+    const city = _rPick(_BC_CITIES);
+    const dlNum = _rDigits(7);
+    const postal = `${city.p}${_rInt(1,9)}${_rLetter()} ${_rInt(1,9)}${_rLetter()}${_rInt(1,9)}`;
+
+    return {
+        title: 'British Columbia Driver\'s Licence',
+        sections: [{
+            name: 'FRONT',
+            fields: [
+                { label:'FULL NAME', value: `${ln}, ${fn}` },
+                { label:'ADDRESS', value: `${_rInt(100,9999)} ${_rPick(_CA_STREETS)}` },
+                { label:'CITY', value: `${city.c}, BC` },
+                { label:'POSTAL CODE', value: postal },
+                { label:'DL NUMBER', value: dlNum },
+                { label:'ISS', value: `${new Date().getFullYear()-_rInt(0,3)}-${_rPick(_MONTHS_SHORT)}-${_pad2(_rInt(1,28))}` },
+                { label:'EXP', value: `${new Date().getFullYear()+_rInt(2,5)}-${_rPick(_MONTHS_SHORT)}-${_pad2(dob.d)}` },
+                { label:'DOB', value: `${dob.y}-${_rPick(_MONTHS_SHORT)}-${_pad2(dob.d)}` },
+                { label:'SEX', value: sex },
+                { label:'HAIR', value: _rPick(_HAIR) },
+                { label:'EYES', value: _rPick(_EYES) },
+                { label:'HEIGHT', value: `${_rInt(155,195)} cm` },
+                { label:'WEIGHT', value: `${(_rInt(550,950)/10).toFixed(1)} kg` },
+            ]
+        },{
+            name: 'BACK SIDE',
+            fields: [
+                { label:'RESTRICTIONS', value: sex==='F' ? 'MUST DISPLAY "N" SIGN' : '47 0 BAC; MUST DISPLAY "N" SIGN' },
+                { label:'HEALTH NUMBER', value: `${_rDigits(4)} ${_rDigits(3)} ${_rDigits(3)}` },
+                { label:'BARCODE', value: `${_rLetter()}${_rDigits(7)}` },
+            ]
+        }]
+    };
+}
+
+/* ═══ CANADIAN PASSPORT ═══ */
+function generateCanadianPassport(sex, tpl) {
+    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const dob = _genDOB(sex);
+    const ppNum = _rLetters(2) + _rDigits(6);
+    const expY = new Date().getFullYear() + _rInt(5,10);
+    const issY = expY - 10;
+    const mrzSurname = ln.replace(/[^A-Z]/g,'');
+    const mrzGiven = fn.replace(/[^A-Z]/g,'');
+    const line1 = `P<CAN${mrzSurname}<<${mrzGiven}${'<'.repeat(Math.max(0, 44 - 5 - mrzSurname.length - 2 - mrzGiven.length))}`.slice(0,44);
+    const dobStr = `${String(dob.y).slice(2)}${_pad2(dob.m)}${_pad2(dob.d)}`;
+    const expStr = `${String(expY).slice(2)}${_pad2(dob.m)}${_pad2(dob.d)}`;
+    const cd = n => String(n % 10);
+    const line2 = `${ppNum}<${cd(_rInt(0,9))}CAN${dobStr}${cd(_rInt(0,9))}${sex}${expStr}${cd(_rInt(0,9))}${'<'.repeat(14)}${cd(_rInt(0,9))}`.slice(0,44);
+
+    const provinces = ['ONTARIO','BRITISH COLUMBIA','QUEBEC','ALBERTA','NOVA SCOTIA'];
+
+    return {
+        title: 'Canadian Passport',
+        sections: [{
+            name: 'DOCUMENT INFO',
+            fields: [
+                { label:'TYPE', value: 'P' },
+                { label:'COUNTRY', value: 'CAN' },
+                { label:'PASSPORT NO.', value: ppNum },
+                { label:'SURNAME', value: ln },
+                { label:'GIVEN NAMES', value: fn },
+                { label:'NATIONALITY', value: 'CANADIAN / CANADIENNE' },
+                { label:'DOB', value: `${_pad2(dob.d)} ${_MONTHS_EN[dob.m-1].toUpperCase()} /${_MONTHS_FR[dob.m-1]} ${String(dob.y).slice(2)}` },
+                { label:'SEX', value: sex },
+                { label:'PLACE OF BIRTH', value: _rPick(provinces) },
+                { label:'DATE OF ISSUE', value: `${_pad2(_rInt(1,28))} ${_MONTHS_EN[_rInt(0,11)].toUpperCase()} ${String(issY).slice(2)}` },
+                { label:'DATE OF EXPIRY', value: `${_pad2(_rInt(1,28))} ${_MONTHS_EN[_rInt(0,11)].toUpperCase()} ${String(expY).slice(2)}` },
+                { label:'AUTHORITY', value: _rPick(provinces) },
+            ]
+        },{
+            name: 'PERFO / SERIAL',
+            fields: [
+                { label:'SERIAL 1', value: ppNum },
+                { label:'SERIAL 2', value: `${_rLetters(3)}${_rDigits(5)}` },
+            ]
+        },{
+            name: 'MRZ (MACHINE READABLE ZONE)',
+            fields: [
+                { label:'LINE 1', value: line1 },
+                { label:'LINE 2', value: line2 },
+            ]
+        }]
+    };
+}
+
+/* ═══ ROGERS BILL ═══ */
+function generateRogersBill(sex, tpl) {
+    const holder = tpl.holder || `${_rPick(_MALE_FIRST)} ${_rPick(_LAST_NAMES)}`;
+    const billing = tpl.billing || 'CA, ON, Toronto, 5 Bay Street';
+    const zip = tpl.zip || `M${_rInt(1,9)}${_rLetter()} ${_rInt(1,9)}${_rLetter()}${_rInt(1,9)}`;
+    const total = (_rInt(8000,25000)/100).toFixed(2);
+    const pastDue = (_rInt(0,3000)/100).toFixed(2);
+    const saved = (_rInt(200,1500)/100).toFixed(2);
+    const payDate = new Date(Date.now() + _rInt(10,30)*86400000);
+    const billDate = new Date(Date.now() - _rInt(1,5)*86400000);
+
+    return {
+        title: 'Rogers Bill',
+        sections: [{
+            name: 'GREETING',
+            fields: [
+                { label:'HELLO', value: holder },
+            ]
+        },{
+            name: 'TOTAL DUE',
+            fields: [
+                { label:'$ TOTAL DUE', value: `$${total}` },
+                { label:'PAST DUE BALANCE', value: `$${pastDue}` },
+                { label:'PAY $ BY DATE', value: `$${total}` },
+                { label:'REQUIRED PAYMENT DATE', value: `${_pad2(payDate.getDate())} ${_MONTHS_EN[payDate.getMonth()]}, ${payDate.getFullYear()}` },
+                { label:'YOU SAVED $', value: `$${saved}` },
+            ]
+        },{
+            name: 'SUMMARY',
+            fields: [
+                { label:'BALANCE FORWARD', value: `$${pastDue}` },
+                { label:'BUNDLED SERVICES', value: `$${(_rInt(5000,15000)/100).toFixed(2)}` },
+                { label:'TOTAL (INCL HST)', value: `$${total}` },
+            ]
+        },{
+            name: 'BOTTOM SECTION',
+            fields: [
+                { label:'POSTAL LINE', value: `##POSTAL${zip.replace(/\s/g,'')} ${_rDigits(23)};C;QCC;${_rDigits(9)};${_rDigits(3)}` },
+                { label:'ACCOUNT NUMBER', value: _rDigits(9) },
+                { label:'BILL DATE', value: `${_MONTHS_EN[billDate.getMonth()].toUpperCase()} ${_pad2(billDate.getDate())}, ${billDate.getFullYear()}` },
+                { label:'BARCODE', value: _rDigits(30) },
+            ]
+        }]
+    };
+}
+
+/* ═══ DISPATCH ═══ */
+function generateDocument(docId, sex, templateText) {
+    const tpl = _parseTemplate(templateText);
+    switch(docId) {
+        case 'ca-dl': return generateCaliforniaDL(sex, tpl);
+        case 'on-dl': return generateOntarioDL(sex, tpl);
+        case 'bc-dl': return generateBCDL(sex, tpl);
+        case 'ca-pp': return generateCanadianPassport(sex, tpl);
+        case 'rogers': return generateRogersBill(sex, tpl);
+        default: return null;
+    }
+}
+
+/* ═══ RENDER ═══ */
 function renderGenerator() {
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
-    bar.innerHTML = '';
+    bar.style.display = 'none';
+
+    // Build sidebar tree
+    let sidebarHTML = '';
+    GEN_COUNTRIES.forEach(country => {
+        const docs = GEN_DOCS.filter(d => d.country === country.code);
+        if (!docs.length) return;
+        const cats = [...new Set(docs.map(d => d.cat))];
+        let childrenHTML = '';
+        cats.forEach(cat => {
+            const catIcon = cat==='DRIVER LICENSE' ? '🚗' : cat==='PASSPORT' ? '📘' : '⚡';
+            childrenHTML += `<div class="gen-cat">${catIcon} ${cat}</div>`;
+            docs.filter(d => d.cat===cat).forEach(d => {
+                const active = d.id === _genState.docId;
+                const badge = d.active ? '<span class="gen-badge-active">✓</span>' : '<span class="gen-badge-locked">🔒</span>';
+                childrenHTML += `<button class="gen-doc-item ${active?'active':''} ${d.active?'':'locked'}" data-doc="${d.id}" ${d.active?'':'disabled'}>${d.name} ${badge}</button>`;
+            });
+        });
+        sidebarHTML += `
+            <div class="gen-country-group">
+                <div class="gen-country-header"><span class="gen-country-flag">${country.flag}</span> ${country.name}</div>
+                ${childrenHTML}
+            </div>`;
+    });
+
+    const doc = GEN_DOCS.find(d => d.id === _genState.docId);
+    const showSexToggle = doc && doc.cat === 'DRIVER LICENSE' || doc?.id === 'ca-pp';
+    const showTemplate = doc?.cat !== 'UTILITY BILLS';
+
+    // Config panel
+    let configHTML = `<h2 class="gen-title">${doc?.icon||''} ${doc?.name || 'Select'} ${doc?.active ? '<span class="gen-active-badge">Active</span>' : ''}</h2><hr class="gen-hr">`;
+
+    if (showSexToggle) {
+        configHTML += `
+            <div class="gen-sex-row">
+                <span class="gen-label">Sex:</span>
+                <button class="gen-sex-btn ${_genState.sex==='M'?'active':''}" data-sex="M">👤 Male (30-50)</button>
+                <button class="gen-sex-btn ${_genState.sex==='F'?'active':''}" data-sex="F">👤 Female (30-50)</button>
+            </div>`;
+    }
+
+    if (showTemplate) {
+        configHTML += `
+            <div class="gen-template-box">
+                <div class="gen-template-header">
+                    <span>◎ TEMPLATE (OPTIONAL):</span>
+                </div>
+                <textarea class="gen-template-input" id="gen-template" placeholder="👶 Holder: John Doe\n🏷 Billing: US, CA, Los Angeles, 123 Main St\n📦 ZIP: 90001"></textarea>
+            </div>`;
+    } else {
+        configHTML += `
+            <div class="gen-template-box">
+                <div class="gen-template-header">
+                    <span>👤 HOLDER + ADDRESS (OPTIONAL):</span>
+                    <button class="gen-copy-tpl-btn" id="gen-copy-tpl">📋 Copy Template</button>
+                </div>
+                <textarea class="gen-template-input" id="gen-template" placeholder="👶 Holder: Nicole Ellen Ross\n🏷 Billing: CA, ON, Toronto, 5 Bay Street\n📦 ZIP: M2K 6C2"></textarea>
+            </div>`;
+    }
+
+    configHTML += `<button class="gen-generate-btn" id="gen-generate-btn">🔄 Generate</button>`;
+
+    // Output
+    let outputHTML = '';
+    if (_genState.result) {
+        _genState.result.sections.forEach((sec, si) => {
+            outputHTML += `<div class="gen-section">
+                <div class="gen-section-header">
+                    <span class="gen-section-title">${sec.name}</span>
+                    <button class="gen-copy-section-btn" data-si="${si}">${sec.copyLabel || 'Copy'}</button>
+                </div>`;
+            sec.fields.forEach((f, fi) => {
+                outputHTML += `
+                    <div class="gen-field-row">
+                        <span class="gen-field-label">${f.label}</span>
+                        <span class="gen-field-value">${f.value}</span>
+                        <div class="gen-field-actions">
+                            <button class="gen-regen-btn" data-si="${si}" data-fi="${fi}" title="Regenerate">🔄</button>
+                            <button class="gen-copy-btn" data-val="${f.value.replace(/"/g,'&quot;')}" title="Copy">📋</button>
+                        </div>
+                    </div>`;
+            });
+            outputHTML += '</div>';
+        });
+        outputHTML += `<button class="gen-copy-all-btn" id="gen-copy-all">📋 Copy All</button>`;
+    }
 
     area.innerHTML = `
-    <div class="tool-stub-container">
-        <div class="tool-stub-icon">⚙️</div>
-        <h2 class="tool-stub-title">Generator</h2>
-        <p class="tool-stub-desc">Document generation tool — coming soon</p>
-        <div class="tool-stub-features">
-            <div class="tool-stub-feature">
-                <span class="tool-stub-dot" style="background:#818CF8"></span>
-                <span>Quick document templates</span>
+        <div class="gen-container">
+            <div class="gen-sidebar">${sidebarHTML}</div>
+            <div class="gen-main">
+                <div class="gen-config">${configHTML}</div>
+                <div class="gen-output">${outputHTML}</div>
             </div>
-            <div class="tool-stub-feature">
-                <span class="tool-stub-dot" style="background:#22C55E"></span>
-                <span>Auto-fill from card data</span>
-            </div>
-            <div class="tool-stub-feature">
-                <span class="tool-stub-dot" style="background:#F59E0B"></span>
-                <span>Batch generation</span>
-            </div>
-        </div>
-    </div>`;
+        </div>`;
+
+    // ── Event bindings ──
+    area.querySelectorAll('.gen-doc-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _genState.docId = btn.dataset.doc;
+            _genState.result = null;
+            renderGenerator();
+        });
+    });
+    area.querySelectorAll('.gen-sex-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _genState.sex = btn.dataset.sex;
+            renderGenerator();
+        });
+    });
+    document.getElementById('gen-generate-btn')?.addEventListener('click', () => {
+        const tplText = document.getElementById('gen-template')?.value || '';
+        _genState.result = generateDocument(_genState.docId, _genState.sex, tplText);
+        renderGenerator();
+    });
+    document.getElementById('gen-copy-tpl')?.addEventListener('click', () => {
+        const tpl = `👶 Holder: John Doe\n🏷 Billing: CA, ON, Toronto, 5 Bay Street\n📦 ZIP: M2K 6C2`;
+        navigator.clipboard?.writeText(tpl);
+        toast('Template copied', 'success');
+    });
+    area.querySelectorAll('.gen-copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard?.writeText(btn.dataset.val);
+            toast('Copied', 'success');
+        });
+    });
+    area.querySelectorAll('.gen-copy-section-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const si = parseInt(btn.dataset.si);
+            const sec = _genState.result?.sections[si];
+            if (sec) {
+                const text = sec.fields.map(f => `${f.label}: ${f.value}`).join('\n');
+                navigator.clipboard?.writeText(text);
+                toast(`${sec.name} copied`, 'success');
+            }
+        });
+    });
+    document.getElementById('gen-copy-all')?.addEventListener('click', () => {
+        if (_genState.result) {
+            const text = _genState.result.sections.map(s => `── ${s.name} ──\n` + s.fields.map(f => `${f.label}: ${f.value}`).join('\n')).join('\n\n');
+            navigator.clipboard?.writeText(text);
+            toast('All copied', 'success');
+        }
+    });
+    area.querySelectorAll('.gen-regen-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tplText = document.getElementById('gen-template')?.value || '';
+            _genState.result = generateDocument(_genState.docId, _genState.sex, tplText);
+            renderGenerator();
+        });
+    });
 }
 
 // ──── RENDER BUILDER ────
