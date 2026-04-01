@@ -553,61 +553,44 @@ function getCountColor(count) {
 //          RENDERING
 // ══════════════════════════════════════
 
-function renderSidebar() {
-    const list = document.getElementById('countries-list');
-    list.innerHTML = '';
+function renderSidebar() { renderTopNav(); }
 
-    STATE.countries.forEach(country => {
-        const countryCards = STATE.cards.filter(c => c.country === country.id);
-        const countryDocs = STATE.docs.filter(d => d.country === country.id);
-        const isExpanded = true;
-
-        const isDefault = ['canada', 'usa'].includes(country.id);
-
-        const html = `
-            <div class="country-group">
-                <button class="country-item" data-country="${country.id}" onclick="expandCountry('${country.id}')">
-                    <span class="country-flag">${country.flag}</span>
-                    <span>${country.name}</span>
-                    <span class="country-count">${countryCards.length + countryDocs.length}</span>
-                    ${!isDefault ? `<span class="country-delete" onclick="event.stopPropagation(); deleteCountry('${country.id}')" title="Delete country">×</span>` : ''}
-                </button>
-                <div class="country-sub" style="max-height: ${isExpanded ? '200px' : '0'}">
-                    <button class="nav-item ${STATE.currentView === 'cards' && STATE.currentCountry === country.id ? 'active' : ''}"
-                            onclick="navigate('cards', '${country.id}')">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
-                        <span>Workspace</span>
-                        <span class="nav-badge">${countryCards.length}</span>
-                    </button>
-                    <button class="nav-item ${STATE.currentView === 'docs' && STATE.currentCountry === country.id ? 'active' : ''}"
-                            onclick="navigate('docs', '${country.id}')">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
-                        <span>Docs</span>
-                        <span class="nav-badge">${countryDocs.length}</span>
-                    </button>
-                </div>
-            </div>
-        `;
-        list.insertAdjacentHTML('beforeend', html);
+function renderTopNav() {
+    const sel = document.getElementById('tn-country');
+    if (sel) {
+        const prev = sel.value;
+        sel.innerHTML = STATE.countries.map(c => {
+            const cnt = STATE.cards.filter(card => card.country === c.id).length;
+            return `<option value="${c.id}">${c.flag} ${c.name} (${cnt})</option>`;
+        }).join('');
+        sel.value = STATE.currentCountry || (STATE.countries[0]?.id || '');
+        if (!prev) sel.value = STATE.currentCountry;
+    }
+    document.querySelectorAll('.tn-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.view === STATE.currentView);
     });
-
-    // Update collection badges
-    document.getElementById('badge-all-cards').textContent = STATE.cards.length;
-    document.getElementById('badge-favorites').textContent = STATE.cards.filter(c => isFavorite(c)).length;
-    document.getElementById('badge-active').textContent = STATE.cards.filter(c => isActiveNow(c)).length;
-    document.getElementById('badge-ready-work').textContent = STATE.cards.filter(c => c.readyToWork).length;
-    document.getElementById('badge-global-docs').textContent = STATE.docs.length;
-    document.getElementById('badge-trash').textContent = STATE.trash.length;
-
-    // Highlight active collection
-    document.querySelectorAll('.sidebar-nav .nav-item[data-view]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.view === STATE.currentView);
-    });
-
-    // Update TOP BINS
-    updateTopBinsGeo();
-    renderTopBins();
+    const badge = document.getElementById('badge-trash');
+    if (badge) badge.textContent = STATE.trash.length || '';
 }
+
+// Top nav tab clicks
+document.querySelectorAll('.tn-tab').forEach(tab => {
+    tab.addEventListener('click', () => navigate(tab.dataset.view));
+});
+
+// Country dropdown
+document.getElementById('tn-country')?.addEventListener('change', function () {
+    navigate('cards', this.value);
+});
+
+// Settings dropdown
+document.getElementById('tn-settings-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('tn-settings-dropdown')?.classList.toggle('hidden');
+});
+document.addEventListener('click', () => {
+    document.getElementById('tn-settings-dropdown')?.classList.add('hidden');
+});
 
 // ──── TOP BINS ────
 let _topBinsMode = 'count'; // 'count' or 'amount'
@@ -1080,14 +1063,33 @@ function renderNotes() {
 
     // Attach notes event listeners
     const textarea = document.getElementById('notes-textarea');
+    let _notesSaveTimer = null;
     textarea.addEventListener('input', () => {
         const nums = (textarea.value || '').split('\n').length;
         document.getElementById('notes-line-nums').textContent = Array.from({ length: nums }, (_, i) => i + 1).join('\n');
-        document.getElementById('notes-line-count') && (document.querySelector('.notes-line-count').textContent = nums + ' lines');
+        const lc = document.querySelector('.notes-line-count');
+        if (lc) lc.textContent = nums + ' lines';
+        // Show "Editing..." status
+        const si = document.querySelector('.notes-saved-info');
+        if (si) si.textContent = 'Editing...';
+        // Debounced autosave
+        clearTimeout(_notesSaveTimer);
+        _notesSaveTimer = setTimeout(() => {
+            STATE.notes = textarea.value;
+            STATE.notesLastSaved = Date.now();
+            save();
+            if (si) si.textContent = 'Saved';
+        }, 600);
     });
     textarea.addEventListener('scroll', () => {
         document.getElementById('notes-line-nums').scrollTop = textarea.scrollTop;
+        STATE.notesScrollPos = textarea.scrollTop;
     });
+    // Restore scroll position
+    if (STATE.notesScrollPos) {
+        textarea.scrollTop = STATE.notesScrollPos;
+        document.getElementById('notes-line-nums').scrollTop = STATE.notesScrollPos;
+    }
 
     document.getElementById('notes-save-btn').addEventListener('click', saveNotesAction);
     document.getElementById('notes-checker-btn').addEventListener('click', openChecker);
@@ -1107,6 +1109,13 @@ function renderFooter(count, page, totalPages) {
 function renderPageTitle() {
     const flagEl = document.getElementById('page-flag');
     const titleEl = document.getElementById('page-title-text');
+    if (!flagEl || !titleEl) { /* No page title elements — using top nav tabs */
+        const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'docs', 'global-docs'].includes(STATE.currentView);
+        const addBtn = document.getElementById('add-card-btn');
+        if (addBtn) addBtn.style.display = showAdd ? 'flex' : 'none';
+        renderGeoFilterBar();
+        return;
+    }
 
     const country = STATE.countries.find(c => c.id === STATE.currentCountry);
 
@@ -1260,10 +1269,7 @@ window.deleteCountry = function (id) {
     toast(`Country "${country.name}" deleted`, 'info');
 };
 
-// Collection nav
-document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
-    btn.addEventListener('click', () => navigate(btn.dataset.view));
-});
+
 
 // ──── CARD ACTIONS ────
 window.toggleStar = function (id) {
@@ -2068,7 +2074,7 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
 });
 
 // ──── SIDEBAR TOGGLE (Mobile) ────
-document.getElementById('toggle-sidebar').addEventListener('click', () => {
+document.getElementById('toggle-sidebar')?.addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
 });
 
