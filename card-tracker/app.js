@@ -3163,216 +3163,8 @@ function changeNotesFontSize(delta) {
 }
 
 // ──── CHECKER ────
-const checkerOverlay = document.getElementById('checker-overlay');
-
-const VIPER_BASE = 'https://api.viperchecker.cc';
-
-function getViperToken() {
-    return document.getElementById('checker-token')?.value || localStorage.getItem('viper_token') || '';
-}
-
-function saveViperToken() {
-    const token = document.getElementById('checker-token')?.value || '';
-    if (token) localStorage.setItem('viper_token', token);
-}
-
-function openChecker() {
-    checkerOverlay.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    document.getElementById('checker-output').textContent = 'Results will appear here...';
-    document.getElementById('checker-status-badge').textContent = '';
-
-    // Restore saved token
-    const savedToken = localStorage.getItem('viper_token') || '';
-    document.getElementById('checker-token').value = savedToken;
-
-    // Auto-load checker-format cards from Notes
-    const notes = STATE.notes || '';
-    const checkerRegex = /(\d{13,19})\s+(0?[1-9]|1[012])\s+(\d{2,4})\s+(\d{3,4})/g;
-    const cardLines = [];
-    let m;
-    while ((m = checkerRegex.exec(notes)) !== null) {
-        cardLines.push(m[0]);
-    }
-    document.getElementById('checker-input').value = cardLines.join('\n');
-    document.getElementById('checker-input').focus();
-}
-
-function closeChecker() {
-    checkerOverlay.classList.add('hidden');
-    document.body.style.overflow = '';
-}
-
-async function viperRequest(path, method, body) {
-    saveViperToken();
-    const token = getViperToken();
-    if (!token) { toast('Enter your Viper API token', 'warning'); return null; }
-
-    // Use local proxy (node proxy.js) to bypass CORS
-    const LOCAL_PROXY = 'http://localhost:3777';
-    const fetchUrl = `${LOCAL_PROXY}${path}`;
-
-    const opts = {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        }
-    };
-    if (body) opts.body = JSON.stringify(body);
-
-    try {
-        const res = await fetch(fetchUrl, opts);
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ Error: `HTTP ${res.status}` }));
-            toast(`Viper Error: ${err.Error || res.statusText}`, 'error');
-            return null;
-        }
-        return await res.json();
-    } catch (e) {
-        toast(`Network error: ${e.message}`, 'error');
-        return null;
-    }
-}
-
-async function viperBalance() {
-    const data = await viperRequest('/profile/balance', 'POST');
-    if (data) {
-        document.getElementById('checker-balance').textContent = `${data.balance} checks`;
-        toast(`Balance: ${data.balance} checks`, 'info');
-    }
-}
-
-async function viperLoadMethods() {
-    const data = await viperRequest('/check/available', 'GET');
-    if (data && data.result) {
-        const sel = document.getElementById('checker-method');
-        sel.innerHTML = data.result.map(m =>
-            `<option value="${m.code}">${m.code} — ${m.description}</option>`
-        ).join('');
-        toast(`Loaded ${data.result.length} check methods`, 'success');
-    }
-}
-
-async function checkCardsViper() {
-    const input = document.getElementById('checker-input').value.trim();
-    if (!input) { toast('No cards to check', 'warning'); return; }
-
-    const lines = input.split('\n').filter(l => l.trim());
-    if (lines.length === 0) { toast('No valid card lines', 'warning'); return; }
-    if (lines.length > 30) { toast('Max 30 cards per request', 'warning'); return; }
-
-    const checkType = document.getElementById('checker-method').value || 'AUTH';
-    const outputEl = document.getElementById('checker-output');
-    const statusEl = document.getElementById('checker-status-badge');
-    const runBtn = document.getElementById('checker-run');
-
-    outputEl.textContent = '⏳ Sending to Viper...';
-    statusEl.textContent = 'CHECKING...';
-    statusEl.className = 'checker-status-badge checking';
-    runBtn.disabled = true;
-
-    // Use v2 API + polling
-    const v2Data = await viperRequest('/check/v2', 'POST', {
-        data: lines,
-        check_type: checkType
-    });
-
-    if (!v2Data) {
-        outputEl.textContent = 'Error: Failed to send cards.';
-        statusEl.textContent = 'ERROR';
-        statusEl.className = 'checker-status-badge error';
-        runBtn.disabled = false;
-        return;
-    }
-
-    // Show invalid items immediately
-    let resultLines = [];
-    if (v2Data.invalid_items && v2Data.invalid_items.length > 0) {
-        v2Data.invalid_items.forEach(item => {
-            resultLines.push(formatCheckerResult(item));
-        });
-    }
-
-    const purchaseId = v2Data.purchase_id;
-    if (!purchaseId) {
-        // No purchase_id = all invalid
-        outputEl.innerHTML = resultLines.join('\n') || 'All cards were invalid.';
-        statusEl.textContent = 'DONE';
-        statusEl.className = 'checker-status-badge done';
-        runBtn.disabled = false;
-        return;
-    }
-
-    // Poll for results
-    outputEl.textContent = '⏳ Polling for results...';
-    let attempts = 0;
-    const maxAttempts = 60; // 5 min with 5s interval
-
-    const poll = async () => {
-        attempts++;
-        const pollData = await viperRequest(`/check/poll/${purchaseId}`, 'GET');
-        if (!pollData) {
-            statusEl.textContent = 'POLL ERROR';
-            statusEl.className = 'checker-status-badge error';
-            runBtn.disabled = false;
-            return;
-        }
-
-        if (pollData.status === 'confirmed' || attempts >= maxAttempts) {
-            // Final results
-            if (pollData.result) {
-                pollData.result.forEach(item => {
-                    resultLines.push(formatCheckerResult(item));
-                });
-            }
-            outputEl.innerHTML = resultLines.join('\n') || 'No results returned.';
-
-            const alive = resultLines.filter(l => l.includes('ALIVE')).length;
-            const dead = resultLines.filter(l => l.includes('DEAD')).length;
-            statusEl.textContent = `✅ ${alive} ALIVE  💀 ${dead} DEAD`;
-            statusEl.className = 'checker-status-badge done';
-            runBtn.disabled = false;
-        } else {
-            // Still pending
-            outputEl.textContent = `⏳ Polling... (attempt ${attempts}/${maxAttempts})`;
-            setTimeout(poll, 5000);
-        }
-    };
-    setTimeout(poll, 3000);
-}
-
-function formatCheckerResult(item) {
-    const card = item.card || '';
-    const status = (item.status || '').toUpperCase();
-    const isAlive = status === 'ALIVE';
-    const icon = isAlive ? '✅' : status === 'DEAD' ? '💀' : '⚠️';
-    const details = item.details || '';
-    const brand = item.brand || '';
-    const type = item.type || '';
-    const level = item.level || '';
-    const country = item.country || '';
-
-    return `<span class="chk-${isAlive ? 'alive' : 'dead'}">${icon} ${card} - ${status}</span>
-├ Status code - ${details}
-├ Система - ${brand}
-├ Тип - ${type}
-├ Уровень - ${level}
-└ Код региона - ${country}
-`;
-}
-
-// ──── Checker Event Listeners ────
-document.getElementById('checker-run').addEventListener('click', checkCardsViper);
-document.getElementById('checker-copy').addEventListener('click', () => {
-    const text = document.getElementById('checker-output').textContent;
-    navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success'));
-});
-document.getElementById('checker-close').addEventListener('click', closeChecker);
-document.getElementById('checker-cancel').addEventListener('click', closeChecker);
-document.getElementById('checker-balance-btn').addEventListener('click', viperBalance);
-document.getElementById('checker-load-methods').addEventListener('click', viperLoadMethods);
-checkerOverlay.addEventListener('click', (e) => { if (e.target === checkerOverlay) closeChecker(); });
+// Checker implementation is in the IIFE below (line ~4300+)
+// openChecker is exposed via window.openChecker from that IIFE
 
 // ──── DROPDOWN MENUS ────
 function closeAllDropdowns() {
@@ -3650,6 +3442,7 @@ function renderParser() {
 
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
+    document.getElementById('parser-clear-btn').addEventListener('click', clearParser);
 
 
     if (PARSER_STATE.collected.length > 0) renderParserResults();
@@ -4036,7 +3829,7 @@ function executeAddToNotes(format) {
             .sort((a, b) => b.count - a.count);
         PARSER_STATE.selected = new Set(PARSER_STATE.collected.map((_, i) => i));
 
-        saveData();
+        save();
         renderParserResults();
         toast(`${addedIndices.size} cards added to Notes (${formatLabel})`, 'success');
     }
@@ -4132,6 +3925,7 @@ function addCollectedToCards() {
             readyToWork: true
         });
         existingNumbers.set(c.cc, STATE.cards[STATE.cards.length - 1]);
+        ensureDoc(STATE.cards[STATE.cards.length - 1]);
         addedIndices.add(idx);
         added++;
     });
@@ -4527,5 +4321,6 @@ function addCollectedToCards() {
 
     // Expose addCollectedToNotes globally for parser
     window.addCollectedToNotes = addCollectedToNotes;
+    window.openChecker = openChecker;
 
 })();

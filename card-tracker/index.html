@@ -634,54 +634,7 @@
         </div>
     </div>
 
-    <!-- CHECKER MODAL -->
-    <div id="checker-overlay" class="modal-overlay hidden">
-        <div class="modal checker-modal">
-            <div class="modal-header">
-                <h3>🐍 VIPER CHECKER</h3>
-                <p class="modal-subtitle">Check cards via Viper API — ALIVE / DEAD</p>
-                <button class="modal-close" id="checker-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body checker-body">
-                <div class="checker-controls">
-                    <div class="checker-token-row">
-                        <label class="checker-label">API Token</label>
-                        <input type="password" id="checker-token" class="checker-token-input" placeholder="VIPER-..." />
-                        <button class="btn-sm" id="checker-balance-btn" title="Check Balance">💰 Balance</button>
-                        <span id="checker-balance" class="checker-balance">—</span>
-                    </div>
-                    <div class="checker-method-row">
-                        <label class="checker-label">Check Type</label>
-                        <select id="checker-method" class="checker-method-select">
-                            <option value="AUTH">AUTH (default)</option>
-                        </select>
-                        <button class="btn-sm" id="checker-load-methods">Load Methods</button>
-                    </div>
-                </div>
-                <div class="checker-section">
-                    <label class="checker-label">INPUT — cards from Notes (auto-loaded)</label>
-                    <textarea id="checker-input" class="checker-textarea" rows="6" placeholder="4242424242424242 03 27 111&#10;One card per line: CCN MM YY CVV"></textarea>
-                </div>
-                <div class="checker-section">
-                    <div class="checker-output-header">
-                        <label class="checker-label">RESULTS</label>
-                        <span id="checker-status-badge" class="checker-status-badge"></span>
-                        <button class="btn-copy-sm" id="checker-copy">Copy</button>
-                    </div>
-                    <pre id="checker-output" class="checker-output">Results will appear here...</pre>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-cancel" id="checker-cancel">Close</button>
-                <button class="btn-primary" id="checker-run">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
-                    CHECK CARDS
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- CHECKER MODAL is defined below (single instance) -->
 
     <!-- ADD DOCUMENT MODAL -->
     <div id="add-doc-overlay" class="modal-overlay hidden">
