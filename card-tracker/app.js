@@ -5,7 +5,7 @@
 // ──── STATE ────
 const STATE = {
     user: null,
-    currentView: 'cards',       // cards, docs, my-card, favorites, active-now, notes, trash
+    currentView: 'cards',
     currentCountry: 'canada',
     countries: [
         { id: 'canada', name: 'Canada', flag: '🇨🇦' },
@@ -14,6 +14,9 @@ const STATE = {
     cards: [],
     docs: [],
     notes: '',
+    notesTabs: [],
+    notesActiveTab: '',
+    notesTagFilter: 'all',
     trash: [],
     search: '',
     page: 1,
@@ -28,6 +31,13 @@ const STATE = {
     notesLastSaved: null,
     settings: {},
 };
+
+const NOTES_TAGS = [
+    { id: 'work', label: 'WORK', color: '#3B82F6' },
+    { id: 'test', label: 'TEST', color: '#F59E0B' },
+    { id: 'important', label: 'IMPORTANT', color: '#EF4444' },
+    { id: 'personal', label: 'PERSONAL', color: '#22C55E' },
+];
 
 const CREDENTIALS = { username: 'admin', password: 'google2026' };
 
@@ -229,6 +239,8 @@ function save() {
     try {
         localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
         localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
+        localStorage.setItem('ct_notes_tabs', JSON.stringify(STATE.notesTabs));
+        localStorage.setItem('ct_notes_active', STATE.notesActiveTab);
         localStorage.setItem('ct_notes', STATE.notes);
         localStorage.setItem('ct_trash', JSON.stringify(STATE.trash));
         localStorage.setItem('ct_countries', JSON.stringify(STATE.countries));
@@ -250,11 +262,34 @@ function load() {
         if (saved) STATE.countries = JSON.parse(saved);
         const settings = localStorage.getItem('ct_settings');
         if (settings) STATE.settings = JSON.parse(settings);
+        // Load notesTabs
+        const tabsRaw = localStorage.getItem('ct_notes_tabs');
+        if (tabsRaw) {
+            STATE.notesTabs = JSON.parse(tabsRaw);
+            STATE.notesActiveTab = localStorage.getItem('ct_notes_active') || (STATE.notesTabs[0]?.id || '');
+        }
     } catch (e) {
         console.error('Load error:', e);
     }
     loadBinCache();
     ensureDataIntegrity();
+    migrateNotesToTabs();
+}
+
+function migrateNotesToTabs() {
+    if (STATE.notesTabs.length === 0) {
+        const firstTab = {
+            id: 'tab-' + Date.now(),
+            title: 'Main',
+            content: STATE.notes || '',
+            pinned: false,
+            tag: null,
+            created: Date.now(),
+            scrollPos: 0
+        };
+        STATE.notesTabs = [firstTab];
+        STATE.notesActiveTab = firstTab.id;
+    }
 }
 
 // Ensure every record has a unique ID and required fields
@@ -1012,56 +1047,114 @@ function renderDocs() {
     renderFooter(docs.length, 1, 1);
 }
 
+function _getActiveNoteTab() {
+    return STATE.notesTabs.find(t => t.id === STATE.notesActiveTab) || STATE.notesTabs[0];
+}
+
+function _getSortedTabs() {
+    let tabs = [...STATE.notesTabs];
+    if (STATE.notesTagFilter !== 'all') {
+        tabs = tabs.filter(t => t.tag === STATE.notesTagFilter);
+    }
+    return tabs.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || a.created - b.created);
+}
+
+function _saveActiveTab() {
+    const textarea = document.getElementById('notes-textarea');
+    if (!textarea) return;
+    const tab = _getActiveNoteTab();
+    if (tab) {
+        tab.content = textarea.value;
+        tab.scrollPos = textarea.scrollTop;
+        STATE.notes = textarea.value;
+        STATE.notesLastSaved = Date.now();
+        save();
+    }
+}
+
 function renderNotes() {
     const area = document.getElementById('content-area');
-    const lines = (STATE.notes || '').split('\n');
+    const activeTab = _getActiveNoteTab();
+    if (!activeTab) return;
+
+    const sortedTabs = _getSortedTabs();
+    const content = activeTab.content || '';
+    const lines = content.split('\n');
     const lineCount = lines.length || 1;
     const lineNums = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
     const savedTime = STATE.notesLastSaved ? new Date(STATE.notesLastSaved).toLocaleTimeString() : '—';
 
+    // Tab bar
+    let tabsHTML = sortedTabs.map(t => {
+        const isActive = t.id === STATE.notesActiveTab;
+        const tagDot = t.tag ? `<span class="nt-tag-dot" style="background:${NOTES_TAGS.find(tg=>tg.id===t.tag)?.color||'#666'}"></span>` : '';
+        const pinIcon = t.pinned ? '<span class="nt-pin">📌</span>' : '';
+        return `<button class="nt-tab ${isActive?'active':''}" data-tab="${t.id}">
+            ${pinIcon}${tagDot}<span class="nt-tab-title" data-tab="${t.id}">${t.title}</span>
+            ${STATE.notesTabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
+        </button>`;
+    }).join('');
+    tabsHTML += `<button class="nt-new-tab" id="nt-new-tab">+ New</button>`;
+
+    // Tag filter bar
+    let tagFilterHTML = `<button class="nt-filter-btn ${STATE.notesTagFilter==='all'?'active':''}" data-filter="all">ALL</button>`;
+    NOTES_TAGS.forEach(tag => {
+        tagFilterHTML += `<button class="nt-filter-btn ${STATE.notesTagFilter===tag.id?'active':''}" data-filter="${tag.id}">
+            <span class="nt-filter-dot" style="background:${tag.color}"></span>${tag.label}
+        </button>`;
+    });
+
+    // Tag selector for active tab
+    const activeTag = activeTab.tag;
+    let tagSelectHTML = `<button class="nt-tag-select-btn ${!activeTag?'active':''}" data-set-tag="">—</button>`;
+    NOTES_TAGS.forEach(tag => {
+        tagSelectHTML += `<button class="nt-tag-select-btn ${activeTag===tag.id?'active':''}" data-set-tag="${tag.id}" style="border-color:${tag.color}">
+            <span class="nt-filter-dot" style="background:${tag.color}"></span>${tag.label}
+        </button>`;
+    });
+
     area.innerHTML = `
         <div class="notes-container">
+            <div class="nt-tab-bar">
+                <div class="nt-tabs-scroll">${tabsHTML}</div>
+            </div>
+            <div class="nt-tag-filter-bar">${tagFilterHTML}</div>
             <div class="notes-toolbar">
                 <div class="notes-toolbar-left">
                     <span class="notes-saved-info">Saved ${savedTime}</span>
                     <span class="notes-divider">|</span>
                     <span class="notes-line-count">${lineCount} lines</span>
+                    <span class="notes-divider">|</span>
+                    <button class="nt-pin-btn" id="nt-pin-active" title="Pin/Unpin">${activeTab.pinned ? '📌 Pinned' : '📌 Pin'}</button>
                 </div>
                 <div class="notes-toolbar-right">
-                    <button class="notes-tool-btn" id="notes-checker-btn" title="Card Checker">
+                    <div class="nt-tag-selector">${tagSelectHTML}</div>
+                    <span class="notes-divider">|</span>
+                    <button class="notes-tool-btn" id="notes-checker-btn">
                         <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
                         CHECKER
                     </button>
-                    <button class="notes-tool-btn" id="notes-save-btn" title="Save">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
-                        SAVE
-                    </button>
+                    <button class="notes-tool-btn" id="notes-save-btn">💾 SAVE</button>
                     <div class="notes-font-controls">
                         <button class="notes-font-btn" id="notes-font-minus" title="Decrease font">−</button>
                         <span class="notes-font-size" id="notes-font-size-display">${STATE.notesFontSize}</span>
                         <button class="notes-font-btn" id="notes-font-plus" title="Increase font">+</button>
                     </div>
-                    <button class="notes-tool-btn" id="notes-import-btn" title="Import">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                        IMPORT
-                    </button>
-                    <button class="notes-tool-btn" id="notes-export-btn" title="Export">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
-                        EXPORT
-                    </button>
+                    <button class="notes-tool-btn" id="notes-import-btn">📥 IMPORT</button>
+                    <button class="notes-tool-btn" id="notes-export-btn">📤 EXPORT</button>
                 </div>
             </div>
             <div class="notes-editor-wrap">
                 <pre class="notes-line-numbers" id="notes-line-nums">${lineNums}</pre>
-                <textarea class="notes-editor" id="notes-textarea" style="font-size:${STATE.notesFontSize}px" placeholder="Write your notes here...">${STATE.notes || ''}</textarea>
+                <textarea class="notes-editor" id="notes-textarea" style="font-size:${STATE.notesFontSize}px" placeholder="Write your notes here...">${content}</textarea>
             </div>
             <div class="notes-status-bar">
-                Click on line number to mark/unmark • Use +/- to change font size • Markers are saved and exported
+                Tab: <strong>${activeTab.title}</strong> · ${lineCount} lines · ${activeTab.tag ? NOTES_TAGS.find(t=>t.id===activeTab.tag)?.label : 'No tag'} · Autosave ON
             </div>
         </div>
     `;
 
-    // Attach notes event listeners
+    // ── Event bindings ──
     const textarea = document.getElementById('notes-textarea');
     let _notesSaveTimer = null;
     textarea.addEventListener('input', () => {
@@ -1069,34 +1162,123 @@ function renderNotes() {
         document.getElementById('notes-line-nums').textContent = Array.from({ length: nums }, (_, i) => i + 1).join('\n');
         const lc = document.querySelector('.notes-line-count');
         if (lc) lc.textContent = nums + ' lines';
-        // Show "Editing..." status
         const si = document.querySelector('.notes-saved-info');
         if (si) si.textContent = 'Editing...';
-        // Debounced autosave
         clearTimeout(_notesSaveTimer);
         _notesSaveTimer = setTimeout(() => {
-            STATE.notes = textarea.value;
-            STATE.notesLastSaved = Date.now();
-            save();
+            _saveActiveTab();
             if (si) si.textContent = 'Saved';
         }, 600);
     });
     textarea.addEventListener('scroll', () => {
         document.getElementById('notes-line-nums').scrollTop = textarea.scrollTop;
-        STATE.notesScrollPos = textarea.scrollTop;
     });
-    // Restore scroll position
-    if (STATE.notesScrollPos) {
-        textarea.scrollTop = STATE.notesScrollPos;
-        document.getElementById('notes-line-nums').scrollTop = STATE.notesScrollPos;
+    if (activeTab.scrollPos) {
+        textarea.scrollTop = activeTab.scrollPos;
+        document.getElementById('notes-line-nums').scrollTop = activeTab.scrollPos;
     }
 
-    document.getElementById('notes-save-btn').addEventListener('click', saveNotesAction);
-    document.getElementById('notes-checker-btn').addEventListener('click', openChecker);
-    document.getElementById('notes-import-btn').addEventListener('click', importNotesAction);
-    document.getElementById('notes-export-btn').addEventListener('click', exportNotesAction);
-    document.getElementById('notes-font-minus').addEventListener('click', () => changeNotesFontSize(-1));
-    document.getElementById('notes-font-plus').addEventListener('click', () => changeNotesFontSize(1));
+    // Tab switching
+    area.querySelectorAll('.nt-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (e.target.classList.contains('nt-tab-close')) return;
+            _saveActiveTab();
+            STATE.notesActiveTab = btn.dataset.tab;
+            save();
+            renderNotes();
+        });
+    });
+
+    // Tab close
+    area.querySelectorAll('.nt-tab-close').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tabId = btn.dataset.tab;
+            if (STATE.notesTabs.length <= 1) return;
+            const tab = STATE.notesTabs.find(t => t.id === tabId);
+            if (tab && tab.content && tab.content.trim()) {
+                if (!confirm(`Close tab "${tab.title}"? Content will be lost.`)) return;
+            }
+            STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
+            if (STATE.notesActiveTab === tabId) {
+                STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+            }
+            save();
+            renderNotes();
+        });
+    });
+
+    // Tab rename (double-click)
+    area.querySelectorAll('.nt-tab-title').forEach(span => {
+        span.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            const tabId = span.dataset.tab;
+            const tab = STATE.notesTabs.find(t => t.id === tabId);
+            if (!tab) return;
+            const newName = prompt('Tab name:', tab.title);
+            if (newName && newName.trim()) {
+                tab.title = newName.trim();
+                save();
+                renderNotes();
+            }
+        });
+    });
+
+    // New tab
+    document.getElementById('nt-new-tab')?.addEventListener('click', () => {
+        _saveActiveTab();
+        const newTab = {
+            id: 'tab-' + Date.now(),
+            title: 'Untitled',
+            content: '',
+            pinned: false,
+            tag: null,
+            created: Date.now(),
+            scrollPos: 0
+        };
+        STATE.notesTabs.push(newTab);
+        STATE.notesActiveTab = newTab.id;
+        save();
+        renderNotes();
+    });
+
+    // Pin toggle
+    document.getElementById('nt-pin-active')?.addEventListener('click', () => {
+        _saveActiveTab();
+        activeTab.pinned = !activeTab.pinned;
+        save();
+        renderNotes();
+    });
+
+    // Tag filter
+    area.querySelectorAll('.nt-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _saveActiveTab();
+            STATE.notesTagFilter = btn.dataset.filter;
+            const filtered = _getSortedTabs();
+            if (filtered.length > 0 && !filtered.find(t => t.id === STATE.notesActiveTab)) {
+                STATE.notesActiveTab = filtered[0].id;
+            }
+            renderNotes();
+        });
+    });
+
+    // Set tag on active tab
+    area.querySelectorAll('.nt-tag-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeTab.tag = btn.dataset.setTag || null;
+            save();
+            renderNotes();
+        });
+    });
+
+    // Toolbar buttons
+    document.getElementById('notes-save-btn')?.addEventListener('click', saveNotesAction);
+    document.getElementById('notes-checker-btn')?.addEventListener('click', openChecker);
+    document.getElementById('notes-import-btn')?.addEventListener('click', importNotesAction);
+    document.getElementById('notes-export-btn')?.addEventListener('click', exportNotesAction);
+    document.getElementById('notes-font-minus')?.addEventListener('click', () => changeNotesFontSize(-1));
+    document.getElementById('notes-font-plus')?.addEventListener('click', () => changeNotesFontSize(1));
 }
 
 function renderFooter(count, page, totalPages) {
@@ -1201,7 +1383,9 @@ function renderGeoFilterBar() {
         bar = document.createElement('div');
         bar.id = 'geo-filter-bar';
         bar.className = 'geo-filter-bar';
-        document.querySelector('.top-bar-left').appendChild(bar);
+        const parent = document.querySelector('.top-bar-left') || document.getElementById('stats-bar');
+        if (!parent) return;
+        parent.appendChild(bar);
     }
 
     const geos = new Set();
@@ -1233,10 +1417,15 @@ function renderAll() {
 
 // ──── NAVIGATION ────
 function navigate(view, country) {
-    // Auto-save notes before leaving notes view
+    // Auto-save active notes tab before leaving notes view
     if (STATE.currentView === 'notes') {
         const textarea = document.getElementById('notes-textarea');
         if (textarea) {
+            const tab = STATE.notesTabs.find(t => t.id === STATE.notesActiveTab);
+            if (tab) {
+                tab.content = textarea.value;
+                tab.scrollPos = textarea.scrollTop;
+            }
             STATE.notes = textarea.value;
             STATE.notesLastSaved = Date.now();
             save();
@@ -4422,7 +4611,6 @@ function addCollectedToNotes() {
 function executeAddToNotes(format) {
     const list = PARSER_STATE.collected;
     const lines = [];
-    const addedIndices = new Set();
 
     PARSER_STATE.selected.forEach(idx => {
         const c = list[idx];
@@ -4446,28 +4634,21 @@ function executeAddToNotes(format) {
         } else {
             lines.push(`${c.name} ${c.surname} | ${c.cc} | ${c.validity} | BIN:${c.bin} | ${c.bank || '-'} | ${c.detectedGeo || '-'}`);
         }
-        addedIndices.add(idx);
     });
 
     if (lines.length > 0) {
         const formatLabel = format === 'full' ? 'Full Info' : format === 'checker' ? 'Checker' : 'Raw';
         const header = `\n--- Parser Import [${formatLabel}] (${new Date().toLocaleDateString()}) ---`;
         const block = header + '\n' + lines.join('\n');
+        // Write to active notes tab
+        const activeTab = _getActiveNoteTab();
+        if (activeTab) {
+            activeTab.content = (activeTab.content || '') + block + '\n';
+        }
         STATE.notes = (STATE.notes || '') + block + '\n';
         STATE.notesLastSaved = Date.now();
-
-        // Remove processed cards from parser results
-        PARSER_STATE.collected = PARSER_STATE.collected.filter((_, i) => !addedIndices.has(i));
-        const binMap = {};
-        PARSER_STATE.collected.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
-        PARSER_STATE.binGroups = Object.entries(binMap)
-            .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
-            .sort((a, b) => b.count - a.count);
-        PARSER_STATE.selected = new Set(PARSER_STATE.collected.map((_, i) => i));
-
         save();
-        renderParserResults();
-        toast(`${addedIndices.size} cards added to Notes (${formatLabel})`, 'success');
+        toast(`${lines.length} cards added to Notes → "${activeTab?.title || 'Main'}" (${formatLabel})`, 'success');
     }
 }
 
@@ -4720,9 +4901,13 @@ function addCollectedToCards() {
                     }
                 });
 
-                // Append to notes
+                // Append to active notes tab
+                const activeTab = _getActiveNoteTab();
+                if (activeTab) {
+                    activeTab.content = (activeTab.content || '') + (activeTab.content ? '\n' : '') + lines.join('\n');
+                }
                 STATE.notes = (STATE.notes || '') + (STATE.notes ? '\n' : '') + lines.join('\n');
-                STATE.notesLastSaved = new Date().toISOString();
+                STATE.notesLastSaved = Date.now();
                 save();
                 closeModal();
                 toast(`Added ${cards.length} cards to Notes (${format})`, 'success');

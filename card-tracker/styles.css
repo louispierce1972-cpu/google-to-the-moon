@@ -2634,6 +2634,156 @@ textarea {
 }
 
 /* ═══════ NOTES VIEW ═══════ */
+/* ═══════ NOTES MULTI-TAB ═══════ */
+.nt-tab-bar {
+    display: flex;
+    align-items: center;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.nt-tabs-scroll {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    overflow-x: auto;
+    flex: 1;
+    scrollbar-width: none;
+}
+.nt-tabs-scroll::-webkit-scrollbar { display: none }
+.nt-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+    border-radius: 6px 6px 0 0;
+    font-family: var(--font-mono);
+    letter-spacing: .3px;
+}
+.nt-tab:hover { background: var(--bg-hover); color: var(--text-secondary) }
+.nt-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: var(--bg-secondary);
+}
+.nt-tab-title { pointer-events: auto; cursor: pointer }
+.nt-tab-close {
+    font-size: 14px;
+    line-height: 1;
+    opacity: .4;
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: 3px;
+    transition: all .12s;
+}
+.nt-tab-close:hover { opacity: 1; background: rgba(239,68,68,.3); color: #fff }
+.nt-pin { font-size: 10px }
+.nt-tag-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.nt-new-tab {
+    padding: 5px 12px;
+    background: none;
+    border: 1px dashed var(--border-default);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    margin-left: 4px;
+    transition: all .15s;
+}
+.nt-new-tab:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(245,158,11,.06);
+}
+.nt-tag-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+.nt-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: all .12s;
+}
+.nt-filter-btn:hover { background: var(--bg-hover); color: var(--text-secondary) }
+.nt-filter-btn.active {
+    background: var(--bg-elevated);
+    border-color: var(--border-default);
+    color: var(--text-primary);
+}
+.nt-filter-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.nt-pin-btn {
+    padding: 2px 8px;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .12s;
+}
+.nt-pin-btn:hover { background: var(--bg-hover); color: var(--accent) }
+.nt-tag-selector {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.nt-tag-select-btn {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .12s;
+}
+.nt-tag-select-btn:hover { background: var(--bg-hover); color: var(--text-secondary) }
+.nt-tag-select-btn.active {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
 .notes-container {
     display: flex;
     flex-direction: column;
@@ -2791,6 +2941,69 @@ textarea {
     font-size: var(--fs-sm);
     font-family: var(--font-mono);
     flex-shrink: 0
+}
+
+/* ═══════ UI CONSISTENCY — GLOBAL OVERRIDES ═══════ */
+
+/* Custom select/dropdown - replaces native look */
+select,
+.custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    padding: 5px 28px 5px 10px;
+    cursor: pointer;
+    outline: none;
+    transition: all .15s;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+}
+select:hover,
+.custom-select:hover {
+    border-color: var(--border-hover);
+    background-color: var(--bg-hover);
+}
+select:focus,
+.custom-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(245,158,11,.15);
+}
+select option {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    padding: 6px 10px;
+}
+
+/* Unified button base */
+button,
+.btn {
+    font-family: var(--font-mono);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 5px;
+}
+
+/* Consistent modal styles */
+.modal-overlay {
+    backdrop-filter: blur(4px);
+}
+.modal-content,
+.modal-box {
+    border-radius: 12px;
+    border: 1px solid var(--border-default);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
 }
 
 /* ═══════ TOAST ═══════ */
