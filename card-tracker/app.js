@@ -16,7 +16,6 @@ const STATE = {
     notes: '',
     notesTabs: [],
     notesActiveTab: '',
-    notesTagFilter: 'all',
     trash: [],
     search: '',
     page: 1,
@@ -32,12 +31,6 @@ const STATE = {
     settings: {},
 };
 
-const NOTES_TAGS = [
-    { id: 'work', label: 'WORK', color: '#3B82F6' },
-    { id: 'test', label: 'TEST', color: '#F59E0B' },
-    { id: 'important', label: 'IMPORTANT', color: '#EF4444' },
-    { id: 'personal', label: 'PERSONAL', color: '#22C55E' },
-];
 
 const CREDENTIALS = { username: 'admin', password: 'google2026' };
 
@@ -993,7 +986,7 @@ function renderDocs() {
             <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
-            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x ${(d.cardIds && d.cardIds.length) ? '<span class="link-badge" title="Linked cards">🔗' + d.cardIds.length + '</span>' : ''}</td>
+            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
             <td>
                 <div class="status-btns vs-counters">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
@@ -1208,14 +1201,7 @@ function renderNotes() {
     document.getElementById('notes-checker-btn')?.addEventListener('click', openChecker);
 }
 
-
-
-
-
-
-
-
-(count, page, totalPages) {
+function renderFooter(count, page, totalPages) {
     document.getElementById('records-count').textContent = `${count} records · Page ${page} of ${totalPages}`;
     document.getElementById('page-info').textContent = `Page ${page} of ${totalPages}`;
     document.getElementById('prev-page').disabled = page <= 1;
@@ -2019,7 +2005,6 @@ window.incrementDocV = function (docId) {
     if (!doc) return;
     doc.verified = (doc.verified || 0) + 1;
     save();
-    // Update only the specific counter in DOM
     const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="v"]`);
     if (el) el.textContent = doc.verified;
     updateDocStatsBar();
@@ -2030,7 +2015,6 @@ window.incrementDocS = function (docId) {
     if (!doc) return;
     doc.suspended = (doc.suspended || 0) + 1;
     save();
-    // Update only the specific counter in DOM
     const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="s"]`);
     if (el) el.textContent = doc.suspended;
     updateDocStatsBar();
