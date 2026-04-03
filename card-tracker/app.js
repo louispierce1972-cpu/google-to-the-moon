@@ -3024,7 +3024,9 @@ function executeBackupImport(mode) {
         STATE.docs = [];
         STATE.trash = [];
         STATE.notes = '';
+        STATE.notesTabs = [];
         importAllRecords(data);
+        migrateNotesToTabs();
         finishImport();
         return;
     }
@@ -3186,11 +3188,37 @@ function importExtras(data) {
             if (!STATE.countries.find(e => e.id === c.id)) STATE.countries.push(c);
         });
     }
-    // Notes
-    if (data.notes) {
+    // Notes — import notesTabs if available, otherwise convert legacy notes string
+    if (data.notesTabs && Array.isArray(data.notesTabs) && data.notesTabs.length > 0) {
+        data.notesTabs.forEach(tab => {
+            const newTab = {
+                ...tab,
+                id: 'tab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)
+            };
+            STATE.notesTabs.push(newTab);
+        });
+        STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+        STATE.notes = STATE.notesTabs[0]?.content || '';
+    } else if (data.notes) {
         const noteContent = typeof data.notes === 'string' ? data.notes : (data.notes.content || '');
         if (noteContent) {
             STATE.notes = STATE.notes ? STATE.notes + '\n\n--- Imported ---\n' + noteContent : noteContent;
+            // Also add as a tab if notesTabs is empty
+            if (STATE.notesTabs.length === 0) {
+                const importedTab = {
+                    id: 'tab-imported-' + Date.now(),
+                    title: 'Imported',
+                    content: noteContent,
+                    created: Date.now(),
+                    scrollPos: 0
+                };
+                STATE.notesTabs.push(importedTab);
+                STATE.notesActiveTab = importedTab.id;
+            } else {
+                // Append to first tab
+                const firstTab = STATE.notesTabs[0];
+                firstTab.content = (firstTab.content || '') + '\n\n--- Imported ---\n' + noteContent;
+            }
         }
     }
     // BIN cache
@@ -3259,7 +3287,8 @@ document.getElementById('backup-btn').addEventListener('click', () => {
         cards: STATE.cards,
         docs: STATE.docs,
         trash: STATE.trash,
-        notes: { id: 'main', content: STATE.notes },
+        notesTabs: STATE.notesTabs,
+        notes: { id: 'main', content: STATE.notesTabs[0]?.content || STATE.notes },
         countries: STATE.countries,
         settings: STATE.settings || {},
         binCache: BIN_CACHE,
