@@ -723,7 +723,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes','generator','builder'].includes(STATE.currentView)) {
+    if (['notes','generator','builder','merchants'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
