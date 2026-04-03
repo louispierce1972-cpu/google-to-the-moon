@@ -769,307 +769,196 @@ function renderStats() {
 
 
     // ═══════════════════════════════════════════
-    //  MERCHANTS MODULE — BIN → Merchant → Amount
+    //  MERCHANTS MODULE — Terminal Workspace
     // ═══════════════════════════════════════════
-
 
     window.renderMerchants = renderMerchants;
 
     function renderMerchants() {
-        if (STATE.merchantView === 'detail' && STATE.merchantDetailId) {
-            renderMerchantDetail();
-        } else {
-            STATE.merchantView = 'list';
-            renderMerchantList();
-        }
-    }
-
-    function renderMerchantList() {
         const area = document.getElementById('content-area');
-        const merchants = STATE.merchants;
 
-        const searchInput = document.getElementById('search-input').value.trim();
-        const searchBin = searchInput.replace(/\D/g, '').slice(0, 6);
-
-        if (searchBin.length >= 6) {
-            renderBinSearchResults(searchBin);
-            return;
-        }
-
-        let rows = '';
-        merchants.forEach((m, i) => {
-            const binCount = STATE.merchantBins.filter(b => b.merchant_id === m.id).length;
-            const totalAmt = STATE.merchantBins.filter(b => b.merchant_id === m.id)
-                .reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
-            rows += `<tr>
-                <td>${i + 1}</td>
-                <td class="merch-name-cell"><strong>${m.name}</strong></td>
-                <td>${binCount}</td>
-                <td>$${totalAmt.toFixed(0)}</td>
-                <td>
-                    <button class="merch-btn merch-open" onclick="openMerchant('${m.id}')">OPEN</button>
-                    <button class="merch-btn merch-del" onclick="deleteMerchant('${m.id}')">×</button>
-                </td>
-            </tr>`;
+        // Build merchant dropdown options
+        let merchOptions = '<option value="">— Select Merchant —</option>';
+        STATE.merchants.forEach(m => {
+            merchOptions += `<option value="${m.id}">${m.name}</option>`;
         });
 
         area.innerHTML = `
-            <div class="merch-module">
-                <div class="merch-toolbar">
-                    <button class="merch-btn merch-add-btn" id="merch-add-btn">+ Add Merchant</button>
-                    <span class="merch-count">${merchants.length} merchants</span>
+            <div class="mt-workspace">
+                <div class="mt-toolbar">
+                    <button class="mt-btn mt-btn-add" id="mt-add-merch-btn">+ Add Merchant</button>
+                    <button class="mt-btn mt-btn-add" id="mt-add-bin-btn">+ Add BIN</button>
+                    <span class="mt-info">${STATE.merchants.length} merchants · ${STATE.merchantBins.length} BINs</span>
                 </div>
-                <div id="merch-add-form" class="merch-add-form hidden">
-                    <input type="text" id="merch-name-input" class="merch-input" placeholder="Merchant Name" autocomplete="off">
-                    <button class="merch-btn merch-save" id="merch-save-btn">SAVE</button>
-                    <button class="merch-btn merch-cancel" id="merch-cancel-btn">CANCEL</button>
+
+                <div id="mt-merch-form" class="mt-inline-form hidden">
+                    <input type="text" id="mt-merch-name" class="mt-input" placeholder="Merchant name..." autocomplete="off">
+                    <button class="mt-btn mt-btn-ok" id="mt-merch-save">OK</button>
+                    <button class="mt-btn mt-btn-x" id="mt-merch-cancel">✕</button>
                 </div>
-                <table class="merch-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>MERCHANT</th>
-                            <th>BINs</th>
-                            <th>TOTAL</th>
-                            <th>ACTIONS</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows || '<tr><td colspan="5" class="merch-empty">No merchants yet. Click "+ Add Merchant" to start.</td></tr>'}</tbody>
-                </table>
+
+                <div id="mt-bin-form" class="mt-inline-form hidden">
+                    <input type="text" id="mt-bin-input" class="mt-input mt-input-sm" placeholder="BIN (6)" maxlength="6" autocomplete="off">
+                    <input type="text" id="mt-amt-input" class="mt-input mt-input-sm" placeholder="Amount" autocomplete="off">
+                    <select id="mt-bin-merchant" class="mt-select">${merchOptions}</select>
+                    <button class="mt-btn mt-btn-ok" id="mt-bin-save">OK</button>
+                    <button class="mt-btn mt-btn-x" id="mt-bin-cancel">✕</button>
+                </div>
+
+                <textarea id="mt-textarea" class="mt-textarea" placeholder="Paste card number or log here...\n\nExamples:\n4242424242424242|12|26|874\n5326101234567890\n4500031122334455 12 26 123"></textarea>
+
+                <button class="mt-btn mt-btn-search" id="mt-search-btn">SEARCH</button>
+
+                <div id="mt-results" class="mt-results"></div>
             </div>
         `;
 
-        document.getElementById('merch-add-btn').addEventListener('click', () => {
-            document.getElementById('merch-add-form').classList.remove('hidden');
-            document.getElementById('merch-name-input').focus();
+        // === Event Listeners ===
+
+        // Add Merchant form
+        document.getElementById('mt-add-merch-btn').addEventListener('click', () => {
+            document.getElementById('mt-merch-form').classList.toggle('hidden');
+            document.getElementById('mt-bin-form').classList.add('hidden');
+            const inp = document.getElementById('mt-merch-name');
+            inp.value = '';
+            inp.focus();
         });
-        document.getElementById('merch-save-btn').addEventListener('click', saveMerchant);
-        document.getElementById('merch-cancel-btn').addEventListener('click', () => {
-            document.getElementById('merch-add-form').classList.add('hidden');
-            document.getElementById('merch-name-input').value = '';
+        document.getElementById('mt-merch-save').addEventListener('click', _mtSaveMerchant);
+        document.getElementById('mt-merch-cancel').addEventListener('click', () => {
+            document.getElementById('mt-merch-form').classList.add('hidden');
         });
-        document.getElementById('merch-name-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') saveMerchant();
-            if (e.key === 'Escape') document.getElementById('merch-cancel-btn').click();
+        document.getElementById('mt-merch-name').addEventListener('keydown', e => {
+            if (e.key === 'Enter') _mtSaveMerchant();
+            if (e.key === 'Escape') document.getElementById('mt-merch-form').classList.add('hidden');
+        });
+
+        // Add BIN form
+        document.getElementById('mt-add-bin-btn').addEventListener('click', () => {
+            if (STATE.merchants.length === 0) { toast('Add a merchant first', 'warning'); return; }
+            document.getElementById('mt-bin-form').classList.toggle('hidden');
+            document.getElementById('mt-merch-form').classList.add('hidden');
+            document.getElementById('mt-bin-input').value = '';
+            document.getElementById('mt-amt-input').value = '';
+            document.getElementById('mt-bin-input').focus();
+        });
+        document.getElementById('mt-bin-save').addEventListener('click', _mtSaveBin);
+        document.getElementById('mt-bin-cancel').addEventListener('click', () => {
+            document.getElementById('mt-bin-form').classList.add('hidden');
+        });
+        document.getElementById('mt-bin-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') { document.getElementById('mt-amt-input').focus(); }
+        });
+        document.getElementById('mt-amt-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') _mtSaveBin();
+        });
+
+        // SEARCH
+        document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
+
+        // Ctrl+Enter shortcut in textarea
+        document.getElementById('mt-textarea').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                _mtSearch();
+            }
         });
     }
 
-    function renderMerchantDetail() {
-        const area = document.getElementById('content-area');
-        const merchant = STATE.merchants.find(m => m.id === STATE.merchantDetailId);
-        if (!merchant) { STATE.merchantView = 'list'; renderMerchantList(); return; }
-
-        const bins = STATE.merchantBins.filter(b => b.merchant_id === merchant.id);
-        let rows = '';
-        bins.forEach((b, i) => {
-            const dateStr = b.date ? new Date(b.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
-            rows += `<tr>
-                <td>${i + 1}</td>
-                <td class="merch-bin-cell"><strong>${b.bin}</strong></td>
-                <td>$${parseFloat(b.amount || 0).toFixed(0)}</td>
-                <td>${dateStr}</td>
-                <td><button class="merch-btn merch-del" onclick="deleteMerchBin('${b.id}')">×</button></td>
-            </tr>`;
-        });
-
-        const totalAmt = bins.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
-
-        area.innerHTML = `
-            <div class="merch-module">
-                <div class="merch-toolbar">
-                    <button class="merch-btn" id="merch-back-btn">← BACK</button>
-                    <strong class="merch-detail-title">${merchant.name}</strong>
-                    <span class="merch-count">${bins.length} BINs · $${totalAmt.toFixed(0)} total</span>
-                </div>
-                <div class="merch-detail-actions">
-                    <button class="merch-btn merch-add-btn" id="merch-add-bin-btn">+ Add BIN</button>
-                    <button class="merch-btn" id="merch-bulk-btn">BULK ADD</button>
-                </div>
-                <div id="merch-bin-form" class="merch-add-form hidden">
-                    <input type="text" id="merch-bin-input" class="merch-input" placeholder="BIN (6 digits)" maxlength="6" autocomplete="off">
-                    <input type="text" id="merch-amt-input" class="merch-input merch-input-sm" placeholder="Amount" autocomplete="off">
-                    <button class="merch-btn merch-save" id="merch-bin-save">SAVE</button>
-                    <button class="merch-btn merch-cancel" id="merch-bin-cancel">CANCEL</button>
-                </div>
-                <div id="merch-bulk-form" class="merch-add-form hidden">
-                    <textarea id="merch-bulk-input" class="merch-bulk-textarea" rows="6" placeholder="Paste BINs (one per line):\n424242 200\n532610 150\n450003 300"></textarea>
-                    <div class="merch-bulk-actions">
-                        <button class="merch-btn merch-save" id="merch-bulk-save">PARSE & ADD</button>
-                        <button class="merch-btn merch-cancel" id="merch-bulk-cancel">CANCEL</button>
-                    </div>
-                </div>
-                <table class="merch-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>BIN</th>
-                            <th>AMOUNT</th>
-                            <th>DATE</th>
-                            <th>DEL</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows || '<tr><td colspan="5" class="merch-empty">No BINs yet. Click "+ Add BIN" or "BULK ADD".</td></tr>'}</tbody>
-                </table>
-            </div>
-        `;
-
-        document.getElementById('merch-back-btn').addEventListener('click', () => {
-            STATE.merchantView = 'list';
-            STATE.merchantDetailId = null;
-            renderMerchants();
-        });
-        document.getElementById('merch-add-bin-btn').addEventListener('click', () => {
-            document.getElementById('merch-bin-form').classList.remove('hidden');
-            document.getElementById('merch-bulk-form').classList.add('hidden');
-            document.getElementById('merch-bin-input').focus();
-        });
-        document.getElementById('merch-bulk-btn').addEventListener('click', () => {
-            document.getElementById('merch-bulk-form').classList.remove('hidden');
-            document.getElementById('merch-bin-form').classList.add('hidden');
-            document.getElementById('merch-bulk-input').focus();
-        });
-        document.getElementById('merch-bin-save').addEventListener('click', saveMerchBin);
-        document.getElementById('merch-bin-cancel').addEventListener('click', () => {
-            document.getElementById('merch-bin-form').classList.add('hidden');
-        });
-        document.getElementById('merch-bulk-save').addEventListener('click', bulkAddMerchBins);
-        document.getElementById('merch-bulk-cancel').addEventListener('click', () => {
-            document.getElementById('merch-bulk-form').classList.add('hidden');
-        });
-        document.getElementById('merch-bin-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') saveMerchBin();
-        });
-        document.getElementById('merch-amt-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') saveMerchBin();
-        });
-    }
-
-    function renderBinSearchResults(bin6) {
-        const area = document.getElementById('content-area');
-        const matches = STATE.merchantBins.filter(b => b.bin === bin6);
-
-        let rows = '';
-        if (matches.length > 0) {
-            matches.forEach((b, i) => {
-                const merchant = STATE.merchants.find(m => m.id === b.merchant_id);
-                const dateStr = b.date ? new Date(b.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
-                rows += `<tr>
-                    <td>${i + 1}</td>
-                    <td><strong>${merchant?.name || 'Unknown'}</strong></td>
-                    <td>$${parseFloat(b.amount || 0).toFixed(0)}</td>
-                    <td>${dateStr}</td>
-                </tr>`;
-            });
-        }
-
-        const totalAmt = matches.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
-
-        area.innerHTML = `
-            <div class="merch-module">
-                <div class="merch-search-result">
-                    <div class="merch-search-bin">BIN: <strong>${bin6}</strong></div>
-                    ${matches.length > 0
-                        ? `<div class="merch-search-summary">${matches.length} merchant${matches.length !== 1 ? 's' : ''} · $${totalAmt.toFixed(0)} total</div>`
-                        : `<div class="merch-search-none">No records found for this BIN</div>`}
-                </div>
-                ${matches.length > 0 ? `
-                <table class="merch-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>MERCHANT</th>
-                            <th>AMOUNT</th>
-                            <th>DATE</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>` : ''}
-            </div>
-        `;
-    }
-
-    function saveMerchant() {
-        const input = document.getElementById('merch-name-input');
-        const name = input.value.trim();
+    // ── Save Merchant ──
+    function _mtSaveMerchant() {
+        const inp = document.getElementById('mt-merch-name');
+        const name = inp.value.trim();
         if (!name) { toast('Enter merchant name', 'warning'); return; }
         STATE.merchants.push({ id: 'merch-' + Date.now(), name: name });
         save();
         toast(`Merchant "${name}" added`, 'success');
-        renderMerchantList();
+        renderMerchants();
     }
 
-    window.openMerchant = function (id) {
-        STATE.merchantView = 'detail';
-        STATE.merchantDetailId = id;
-        renderMerchants();
-    };
-
-    window.deleteMerchant = function (id) {
-        const m = STATE.merchants.find(x => x.id === id);
-        if (!m) return;
-        if (!confirm(`Delete "${m.name}" and all its BINs?`)) return;
-        STATE.merchants = STATE.merchants.filter(x => x.id !== id);
-        STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
-        save();
-        toast(`Merchant "${m.name}" deleted`, 'info');
-        renderMerchantList();
-    };
-
-    function saveMerchBin() {
-        const binInput = document.getElementById('merch-bin-input');
-        const amtInput = document.getElementById('merch-amt-input');
-        const bin = binInput.value.replace(/\D/g, '').slice(0, 6);
-        const amount = amtInput.value.trim();
+    // ── Save BIN ──
+    function _mtSaveBin() {
+        const bin = document.getElementById('mt-bin-input').value.replace(/\D/g, '').slice(0, 6);
+        const amount = document.getElementById('mt-amt-input').value.trim();
+        const merchantId = document.getElementById('mt-bin-merchant').value;
         if (bin.length < 6) { toast('BIN must be 6 digits', 'warning'); return; }
         if (!amount) { toast('Enter amount', 'warning'); return; }
+        if (!merchantId) { toast('Select a merchant', 'warning'); return; }
         STATE.merchantBins.push({
             id: 'mbin-' + Date.now(),
             bin: bin,
             amount: amount,
-            merchant_id: STATE.merchantDetailId,
+            merchant_id: merchantId,
             date: Date.now()
         });
         save();
-        toast(`BIN ${bin} added ($${amount})`, 'success');
-        renderMerchantDetail();
+        toast(`BIN ${bin} → $${amount} added`, 'success');
+        // Reset form but keep it open for fast entry
+        document.getElementById('mt-bin-input').value = '';
+        document.getElementById('mt-amt-input').value = '';
+        document.getElementById('mt-bin-input').focus();
+        // Update info counter
+        const info = document.querySelector('.mt-info');
+        if (info) info.textContent = `${STATE.merchants.length} merchants · ${STATE.merchantBins.length} BINs`;
     }
 
-    function bulkAddMerchBins() {
-        const textarea = document.getElementById('merch-bulk-input');
+    // ── SEARCH — extract BINs from textarea, lookup merchants ──
+    function _mtSearch() {
+        const textarea = document.getElementById('mt-textarea');
         const text = textarea.value.trim();
-        if (!text) { toast('Paste BIN data', 'warning'); return; }
+        const resultsDiv = document.getElementById('mt-results');
 
-        const lines = text.split('\n').filter(l => l.trim());
-        let added = 0;
-        const seen = new Set();
+        if (!text) { toast('Paste card data first', 'warning'); return; }
 
-        lines.forEach(line => {
-            const parts = line.trim().split(/\s+/);
-            const bin = (parts[0] || '').replace(/\D/g, '').slice(0, 6);
-            const amount = parts[1] || '0';
-            if (bin.length < 6) return;
-            const key = bin + '|' + amount;
-            if (seen.has(key)) return;
-            seen.add(key);
-            STATE.merchantBins.push({
-                id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-                bin: bin,
-                amount: amount,
-                merchant_id: STATE.merchantDetailId,
-                date: Date.now()
-            });
-            added++;
+        // Extract all possible card numbers / BINs from text
+        // Match sequences of 6+ digits (could be full card numbers or just BINs)
+        const digitSeqs = text.match(/\d{6,}/g) || [];
+
+        // Get unique BINs (first 6 digits of each sequence)
+        const bins = [...new Set(digitSeqs.map(s => s.slice(0, 6)))];
+
+        if (bins.length === 0) {
+            resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
+            return;
+        }
+
+        let html = '';
+
+        bins.forEach(bin => {
+            const matches = STATE.merchantBins.filter(b => b.bin === bin);
+
+            html += `<div class="mt-result-block">`;
+            html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong></div>`;
+
+            if (matches.length > 0) {
+                matches.forEach(b => {
+                    const merchant = STATE.merchants.find(m => m.id === b.merchant_id);
+                    const mName = merchant ? merchant.name : 'Unknown';
+                    const amt = parseFloat(b.amount || 0);
+                    html += `<div class="mt-result-row"><span class="mt-col-merchant">${mName}</span> — <span class="mt-col-amount">$${amt.toFixed(0)}</span></div>`;
+                });
+            } else {
+                html += `<div class="mt-no-data">NO DATA</div>`;
+            }
+
+            html += `</div>`;
         });
 
-        save();
-        toast(`Added ${added} BIN${added !== 1 ? 's' : ''}`, 'success');
-        renderMerchantDetail();
+        resultsDiv.innerHTML = html;
     }
 
+    // Keep legacy window functions for compatibility
+    window.openMerchant = function () {};
+    window.deleteMerchant = function (id) {
+        const m = STATE.merchants.find(x => x.id === id);
+        if (!m) return;
+        STATE.merchants = STATE.merchants.filter(x => x.id !== id);
+        STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
+        save();
+        toast(`Merchant "${m.name}" deleted`, 'info');
+    };
     window.deleteMerchBin = function (id) {
         STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== id);
         save();
-        renderMerchantDetail();
     };
 
 function renderContent() {
