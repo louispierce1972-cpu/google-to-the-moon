@@ -29,6 +29,10 @@ const STATE = {
     notesFontSize: 14,
     notesLastSaved: null,
     settings: {},
+    merchants: [],
+    merchantBins: [],
+    merchantView: 'list',
+    merchantDetailId: null,
 };
 
 
@@ -238,6 +242,8 @@ function save() {
         localStorage.setItem('ct_trash', JSON.stringify(STATE.trash));
         localStorage.setItem('ct_countries', JSON.stringify(STATE.countries));
         localStorage.setItem('ct_settings', JSON.stringify(STATE.settings || {}));
+        localStorage.setItem('ct_merchants', JSON.stringify(STATE.merchants));
+        localStorage.setItem('ct_merchant_bins', JSON.stringify(STATE.merchantBins));
         saveBinCache();
     } catch (e) {
         console.error('Save error:', e);
@@ -255,6 +261,10 @@ function load() {
         if (saved) STATE.countries = JSON.parse(saved);
         const settings = localStorage.getItem('ct_settings');
         if (settings) STATE.settings = JSON.parse(settings);
+        const merchRaw = localStorage.getItem('ct_merchants');
+        if (merchRaw) STATE.merchants = JSON.parse(merchRaw);
+        const merchBinsRaw = localStorage.getItem('ct_merchant_bins');
+        if (merchBinsRaw) STATE.merchantBins = JSON.parse(merchBinsRaw);
         // Load notesTabs
         const tabsRaw = localStorage.getItem('ct_notes_tabs');
         if (tabsRaw) {
@@ -757,6 +767,311 @@ function renderStats() {
     `;
 }
 
+
+    // ═══════════════════════════════════════════
+    //  MERCHANTS MODULE — BIN → Merchant → Amount
+    // ═══════════════════════════════════════════
+
+
+    window.renderMerchants = renderMerchants;
+
+    function renderMerchants() {
+        if (STATE.merchantView === 'detail' && STATE.merchantDetailId) {
+            renderMerchantDetail();
+        } else {
+            STATE.merchantView = 'list';
+            renderMerchantList();
+        }
+    }
+
+    function renderMerchantList() {
+        const area = document.getElementById('content-area');
+        const merchants = STATE.merchants;
+
+        const searchInput = document.getElementById('search-input').value.trim();
+        const searchBin = searchInput.replace(/\D/g, '').slice(0, 6);
+
+        if (searchBin.length >= 6) {
+            renderBinSearchResults(searchBin);
+            return;
+        }
+
+        let rows = '';
+        merchants.forEach((m, i) => {
+            const binCount = STATE.merchantBins.filter(b => b.merchant_id === m.id).length;
+            const totalAmt = STATE.merchantBins.filter(b => b.merchant_id === m.id)
+                .reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+            rows += `<tr>
+                <td>${i + 1}</td>
+                <td class="merch-name-cell"><strong>${m.name}</strong></td>
+                <td>${binCount}</td>
+                <td>$${totalAmt.toFixed(0)}</td>
+                <td>
+                    <button class="merch-btn merch-open" onclick="openMerchant('${m.id}')">OPEN</button>
+                    <button class="merch-btn merch-del" onclick="deleteMerchant('${m.id}')">×</button>
+                </td>
+            </tr>`;
+        });
+
+        area.innerHTML = `
+            <div class="merch-module">
+                <div class="merch-toolbar">
+                    <button class="merch-btn merch-add-btn" id="merch-add-btn">+ Add Merchant</button>
+                    <span class="merch-count">${merchants.length} merchants</span>
+                </div>
+                <div id="merch-add-form" class="merch-add-form hidden">
+                    <input type="text" id="merch-name-input" class="merch-input" placeholder="Merchant Name" autocomplete="off">
+                    <button class="merch-btn merch-save" id="merch-save-btn">SAVE</button>
+                    <button class="merch-btn merch-cancel" id="merch-cancel-btn">CANCEL</button>
+                </div>
+                <table class="merch-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>MERCHANT</th>
+                            <th>BINs</th>
+                            <th>TOTAL</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="5" class="merch-empty">No merchants yet. Click "+ Add Merchant" to start.</td></tr>'}</tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById('merch-add-btn').addEventListener('click', () => {
+            document.getElementById('merch-add-form').classList.remove('hidden');
+            document.getElementById('merch-name-input').focus();
+        });
+        document.getElementById('merch-save-btn').addEventListener('click', saveMerchant);
+        document.getElementById('merch-cancel-btn').addEventListener('click', () => {
+            document.getElementById('merch-add-form').classList.add('hidden');
+            document.getElementById('merch-name-input').value = '';
+        });
+        document.getElementById('merch-name-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveMerchant();
+            if (e.key === 'Escape') document.getElementById('merch-cancel-btn').click();
+        });
+    }
+
+    function renderMerchantDetail() {
+        const area = document.getElementById('content-area');
+        const merchant = STATE.merchants.find(m => m.id === STATE.merchantDetailId);
+        if (!merchant) { STATE.merchantView = 'list'; renderMerchantList(); return; }
+
+        const bins = STATE.merchantBins.filter(b => b.merchant_id === merchant.id);
+        let rows = '';
+        bins.forEach((b, i) => {
+            const dateStr = b.date ? new Date(b.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+            rows += `<tr>
+                <td>${i + 1}</td>
+                <td class="merch-bin-cell"><strong>${b.bin}</strong></td>
+                <td>$${parseFloat(b.amount || 0).toFixed(0)}</td>
+                <td>${dateStr}</td>
+                <td><button class="merch-btn merch-del" onclick="deleteMerchBin('${b.id}')">×</button></td>
+            </tr>`;
+        });
+
+        const totalAmt = bins.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+
+        area.innerHTML = `
+            <div class="merch-module">
+                <div class="merch-toolbar">
+                    <button class="merch-btn" id="merch-back-btn">← BACK</button>
+                    <strong class="merch-detail-title">${merchant.name}</strong>
+                    <span class="merch-count">${bins.length} BINs · $${totalAmt.toFixed(0)} total</span>
+                </div>
+                <div class="merch-detail-actions">
+                    <button class="merch-btn merch-add-btn" id="merch-add-bin-btn">+ Add BIN</button>
+                    <button class="merch-btn" id="merch-bulk-btn">BULK ADD</button>
+                </div>
+                <div id="merch-bin-form" class="merch-add-form hidden">
+                    <input type="text" id="merch-bin-input" class="merch-input" placeholder="BIN (6 digits)" maxlength="6" autocomplete="off">
+                    <input type="text" id="merch-amt-input" class="merch-input merch-input-sm" placeholder="Amount" autocomplete="off">
+                    <button class="merch-btn merch-save" id="merch-bin-save">SAVE</button>
+                    <button class="merch-btn merch-cancel" id="merch-bin-cancel">CANCEL</button>
+                </div>
+                <div id="merch-bulk-form" class="merch-add-form hidden">
+                    <textarea id="merch-bulk-input" class="merch-bulk-textarea" rows="6" placeholder="Paste BINs (one per line):\n424242 200\n532610 150\n450003 300"></textarea>
+                    <div class="merch-bulk-actions">
+                        <button class="merch-btn merch-save" id="merch-bulk-save">PARSE & ADD</button>
+                        <button class="merch-btn merch-cancel" id="merch-bulk-cancel">CANCEL</button>
+                    </div>
+                </div>
+                <table class="merch-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>BIN</th>
+                            <th>AMOUNT</th>
+                            <th>DATE</th>
+                            <th>DEL</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows || '<tr><td colspan="5" class="merch-empty">No BINs yet. Click "+ Add BIN" or "BULK ADD".</td></tr>'}</tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById('merch-back-btn').addEventListener('click', () => {
+            STATE.merchantView = 'list';
+            STATE.merchantDetailId = null;
+            renderMerchants();
+        });
+        document.getElementById('merch-add-bin-btn').addEventListener('click', () => {
+            document.getElementById('merch-bin-form').classList.remove('hidden');
+            document.getElementById('merch-bulk-form').classList.add('hidden');
+            document.getElementById('merch-bin-input').focus();
+        });
+        document.getElementById('merch-bulk-btn').addEventListener('click', () => {
+            document.getElementById('merch-bulk-form').classList.remove('hidden');
+            document.getElementById('merch-bin-form').classList.add('hidden');
+            document.getElementById('merch-bulk-input').focus();
+        });
+        document.getElementById('merch-bin-save').addEventListener('click', saveMerchBin);
+        document.getElementById('merch-bin-cancel').addEventListener('click', () => {
+            document.getElementById('merch-bin-form').classList.add('hidden');
+        });
+        document.getElementById('merch-bulk-save').addEventListener('click', bulkAddMerchBins);
+        document.getElementById('merch-bulk-cancel').addEventListener('click', () => {
+            document.getElementById('merch-bulk-form').classList.add('hidden');
+        });
+        document.getElementById('merch-bin-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveMerchBin();
+        });
+        document.getElementById('merch-amt-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveMerchBin();
+        });
+    }
+
+    function renderBinSearchResults(bin6) {
+        const area = document.getElementById('content-area');
+        const matches = STATE.merchantBins.filter(b => b.bin === bin6);
+
+        let rows = '';
+        if (matches.length > 0) {
+            matches.forEach((b, i) => {
+                const merchant = STATE.merchants.find(m => m.id === b.merchant_id);
+                const dateStr = b.date ? new Date(b.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+                rows += `<tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${merchant?.name || 'Unknown'}</strong></td>
+                    <td>$${parseFloat(b.amount || 0).toFixed(0)}</td>
+                    <td>${dateStr}</td>
+                </tr>`;
+            });
+        }
+
+        const totalAmt = matches.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+
+        area.innerHTML = `
+            <div class="merch-module">
+                <div class="merch-search-result">
+                    <div class="merch-search-bin">BIN: <strong>${bin6}</strong></div>
+                    ${matches.length > 0
+                        ? `<div class="merch-search-summary">${matches.length} merchant${matches.length !== 1 ? 's' : ''} · $${totalAmt.toFixed(0)} total</div>`
+                        : `<div class="merch-search-none">No records found for this BIN</div>`}
+                </div>
+                ${matches.length > 0 ? `
+                <table class="merch-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>MERCHANT</th>
+                            <th>AMOUNT</th>
+                            <th>DATE</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>` : ''}
+            </div>
+        `;
+    }
+
+    function saveMerchant() {
+        const input = document.getElementById('merch-name-input');
+        const name = input.value.trim();
+        if (!name) { toast('Enter merchant name', 'warning'); return; }
+        STATE.merchants.push({ id: 'merch-' + Date.now(), name: name });
+        save();
+        toast(`Merchant "${name}" added`, 'success');
+        renderMerchantList();
+    }
+
+    window.openMerchant = function (id) {
+        STATE.merchantView = 'detail';
+        STATE.merchantDetailId = id;
+        renderMerchants();
+    };
+
+    window.deleteMerchant = function (id) {
+        const m = STATE.merchants.find(x => x.id === id);
+        if (!m) return;
+        if (!confirm(`Delete "${m.name}" and all its BINs?`)) return;
+        STATE.merchants = STATE.merchants.filter(x => x.id !== id);
+        STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
+        save();
+        toast(`Merchant "${m.name}" deleted`, 'info');
+        renderMerchantList();
+    };
+
+    function saveMerchBin() {
+        const binInput = document.getElementById('merch-bin-input');
+        const amtInput = document.getElementById('merch-amt-input');
+        const bin = binInput.value.replace(/\D/g, '').slice(0, 6);
+        const amount = amtInput.value.trim();
+        if (bin.length < 6) { toast('BIN must be 6 digits', 'warning'); return; }
+        if (!amount) { toast('Enter amount', 'warning'); return; }
+        STATE.merchantBins.push({
+            id: 'mbin-' + Date.now(),
+            bin: bin,
+            amount: amount,
+            merchant_id: STATE.merchantDetailId,
+            date: Date.now()
+        });
+        save();
+        toast(`BIN ${bin} added ($${amount})`, 'success');
+        renderMerchantDetail();
+    }
+
+    function bulkAddMerchBins() {
+        const textarea = document.getElementById('merch-bulk-input');
+        const text = textarea.value.trim();
+        if (!text) { toast('Paste BIN data', 'warning'); return; }
+
+        const lines = text.split('\n').filter(l => l.trim());
+        let added = 0;
+        const seen = new Set();
+
+        lines.forEach(line => {
+            const parts = line.trim().split(/\s+/);
+            const bin = (parts[0] || '').replace(/\D/g, '').slice(0, 6);
+            const amount = parts[1] || '0';
+            if (bin.length < 6) return;
+            const key = bin + '|' + amount;
+            if (seen.has(key)) return;
+            seen.add(key);
+            STATE.merchantBins.push({
+                id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                bin: bin,
+                amount: amount,
+                merchant_id: STATE.merchantDetailId,
+                date: Date.now()
+            });
+            added++;
+        });
+
+        save();
+        toast(`Added ${added} BIN${added !== 1 ? 's' : ''}`, 'success');
+        renderMerchantDetail();
+    }
+
+    window.deleteMerchBin = function (id) {
+        STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== id);
+        save();
+        renderMerchantDetail();
+    };
+
 function renderContent() {
     const area = document.getElementById('content-area');
     const footer = document.getElementById('table-footer');
@@ -781,6 +1096,11 @@ function renderContent() {
 
     if (STATE.currentView === 'builder') {
         renderBuilder();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'merchants') {
+        renderMerchants();
         footer.style.display = 'none';
         return;
     }
@@ -1257,6 +1577,10 @@ function renderPageTitle() {
         case 'builder':
             flagEl.textContent = '🏗️';
             titleEl.textContent = 'Builder';
+            break;
+        case 'merchants':
+            flagEl.textContent = '🏪';
+            titleEl.textContent = STATE.merchantView === 'detail' ? 'Merchant Detail' : 'Merchants';
             break;
         case 'ready-to-work':
             flagEl.textContent = '✅';
@@ -5151,7 +5475,9 @@ function addCollectedToCards() {
         });
     }
 
+
     // Expose openChecker globally for parser
     window.openChecker = openChecker;
 
 })();
+
