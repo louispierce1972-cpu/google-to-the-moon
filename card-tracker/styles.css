@@ -5625,3 +5625,67 @@ tr.row-selected td {
     padding: 6px 8px;
     resize: vertical;
 }
+
+/* ═══════ USAGE BADGES ═══════ */
+.usage-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 0 4px;
+    margin-left: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    letter-spacing: .3px;
+    transition: opacity .15s;
+}
+.usage-badge:hover { opacity: .7; }
+
+.usage-card {
+    color: #38BDF8;
+    background: rgba(56,189,248,.1);
+}
+.usage-name {
+    color: #A78BFA;
+    background: rgba(167,139,250,.1);
+}
+.usage-names {
+    color: #FBBF24;
+    background: rgba(251,191,36,.1);
+}
+
+/* ═══════ EXPAND DRAWER ═══════ */
+.expand-drawer td {
+    padding: 0 !important;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.drawer-content {
+    background: rgba(0,0,0,.25);
+    border-left: 3px solid #38BDF8;
+    padding: 6px 12px;
+}
+.drawer-header {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    letter-spacing: .5px;
+}
+.drawer-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 2px 0;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+.drawer-row:hover {
+    background: rgba(255,255,255,.03);
+}
+.drawer-flag { width: 18px; text-align: center; }
+.drawer-name { width: 180px; color: var(--text-primary); font-weight: 600; }
+.drawer-card { width: 160px; color: var(--text-dim); }
+.drawer-status { width: 60px; color: #38BDF8; font-weight: 600; }
+.drawer-date { color: var(--text-dim); }

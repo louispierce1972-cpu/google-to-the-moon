@@ -468,13 +468,20 @@ function getFilteredCards() {
             cards = STATE.cards.filter(c => c.readyToWork === true);
             break;
         case 'all-cards': {
-            // Deduplicate by card number — show only unique cards
-            const seen = new Set();
-            cards = STATE.cards.filter(c => {
+            // Group by card number — show aggregate view
+            const cardGroups = {};
+            STATE.cards.forEach(c => {
                 const num = c.cardNumber.replace(/\s/g, '');
-                if (seen.has(num)) return false;
-                seen.add(num);
-                return true;
+                if (!cardGroups[num]) cardGroups[num] = [];
+                cardGroups[num].push(c);
+            });
+            cards = Object.values(cardGroups).map(group => {
+                const first = { ...group[0] };
+                first._cardUsage = group.length;
+                const uniqueNames = new Set(group.map(c => (c.name + ' ' + c.surname).toUpperCase()));
+                first._nameCount = uniqueNames.size;
+                first._groupCards = group;
+                return first;
             });
             break;
         }
@@ -484,6 +491,24 @@ function getFilteredCards() {
         default:
             cards = STATE.cards.filter(c => c.country === STATE.currentCountry);
     }
+
+    // Build usage maps for badges (Workspace indicators)
+    if (!['all-cards', 'trash'].includes(STATE.currentView)) {
+        const cardUsageMap = {};
+        const nameUsageMap = {};
+        STATE.cards.forEach(c => {
+            const num = c.cardNumber.replace(/\s/g, '');
+            cardUsageMap[num] = (cardUsageMap[num] || 0) + 1;
+            const fullName = (c.name + ' ' + c.surname).toUpperCase();
+            nameUsageMap[fullName] = (nameUsageMap[fullName] || 0) + 1;
+        });
+        cards.forEach(c => {
+            const num = c.cardNumber.replace(/\s/g, '');
+            c._cardUsage = cardUsageMap[num] || 1;
+            c._nameUsage = nameUsageMap[(c.name + ' ' + c.surname).toUpperCase()] || 1;
+        });
+    }
+
     if (STATE.search.length >= 2) {
         const s = STATE.search.toLowerCase();
         cards = cards.filter(c =>
@@ -514,6 +539,21 @@ function getFilteredDocs() {
         const s = STATE.search.toLowerCase();
         docs = docs.filter(d => d.fullName.toLowerCase().includes(s) || (d.notes || '').toLowerCase().includes(s));
     }
+
+    // Group by (name + type + country) — show usage count
+    const docGroupMap = {};
+    docs.forEach(d => {
+        const key = `${(d.fullName || '').toUpperCase()}|${d.type || ''}|${d.country || ''}`;
+        if (!docGroupMap[key]) docGroupMap[key] = [];
+        docGroupMap[key].push(d);
+    });
+    docs = Object.values(docGroupMap).map(group => {
+        const first = { ...group[0] };
+        first._groupCount = group.length;
+        first.use = (first.use || 0) + (group.length > 1 ? group.length - 1 : 0);
+        return first;
+    });
+
     // Apply doc sorting
     if (STATE.docSortField) {
         const mult = STATE.docSortDir === 'asc' ? 1 : -1;
@@ -531,7 +571,7 @@ function getFilteredDocs() {
                 return mult * (a.country || '').localeCompare(b.country || '');
             }
             if (STATE.docSortField === 'use') {
-                return mult * ((a.use || 0) - (b.use || 0));
+                return mult * ((a._groupCount || 1) - (b._groupCount || 1));
             }
             if (STATE.docSortField === 'vs') {
                 return mult * ((a.verified || 0) + (a.suspended || 0) - ((b.verified || 0) + (b.suspended || 0)));
@@ -1298,6 +1338,18 @@ function renderContent() {
         const binBadge = bc > 1 ? `<span class="name-count-badge ${getCountColor(bc)}">(${bc})</span>` : '';
         const binColorClass = getCountColor(bc);
 
+        // Usage badges
+        const isAllCards = STATE.currentView === 'all-cards';
+        const cardUsageBadge = (c._cardUsage && c._cardUsage > 1)
+            ? `<span class="usage-badge usage-card" onclick="event.stopPropagation(); _showCardDrawer('${c.cardNumber.replace(/\s/g, '')}', this)" title="Card used ${c._cardUsage} times">📇${c._cardUsage}</span>`
+            : '';
+        const nameUsageBadge = (!isAllCards && c._nameUsage && c._nameUsage > 1)
+            ? `<span class="usage-badge usage-name" onclick="event.stopPropagation(); _showNameDrawer('${(c.name + ' ' + c.surname).toUpperCase().replace(/'/g, "\\'")}', this)" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
+            : '';
+        const allCardsNamesBadge = (isAllCards && c._nameCount && c._nameCount > 1)
+            ? `<span class="usage-badge usage-names" title="${c._nameCount} unique names">👤${c._nameCount}</span>`
+            : '';
+
         const getMailBadge = (card) => {
             if (card.mailNone) return '';
             if (card.mailVerify || card.mailSubmit) {
@@ -1317,9 +1369,9 @@ function renderContent() {
                     <span class="card-name">
                         ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}
                         <span class="flag">${flag}</span>
-                        ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${binBadge}
+                        ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${binBadge} ${nameUsageBadge} ${allCardsNamesBadge}
                     </span>
-                    <span class="card-number">${maskCard(c.cardNumber)}</span>
+                    <span class="card-number">${maskCard(c.cardNumber)} ${cardUsageBadge}</span>
                     ${(() => { const info = getBinInfo(getBin(c.cardNumber)); const txt = formatBinInfoText(info); return txt ? `<span class="bin-info">${txt}</span>` : `<span class="bin-info" data-bin="${getBin(c.cardNumber)}"></span>`; })()}
                 </div>
             </td>
@@ -1471,7 +1523,7 @@ function renderDocs() {
             <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
-            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
+            <td class="use-cell" style="${getUseColor(d._groupCount || d.use || 0)}">${d._groupCount || d.use || 0}x</td>
             <td>
                 <div class="status-btns vs-counters">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
@@ -1979,6 +2031,85 @@ window.permanentDelete = function (id) {
     save();
     renderAll();
     toast('Permanently deleted', 'info');
+};
+
+// ═══════ EXPAND DRAWERS ═══════
+
+window._showCardDrawer = function (cardNum, el) {
+    // Close existing drawer
+    const existing = document.querySelector('.expand-drawer');
+    if (existing) {
+        const wasForSame = existing.dataset.key === 'card:' + cardNum;
+        existing.remove();
+        if (wasForSame) return;
+    }
+
+    const matches = STATE.cards.filter(c => c.cardNumber.replace(/\s/g, '') === cardNum);
+    if (matches.length <= 1) return;
+
+    const rowsHtml = matches.map(c => {
+        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
+        return `<div class="drawer-row">
+            <span class="drawer-flag">${flag}</span>
+            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
+            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
+        </div>`;
+    }).join('');
+
+    const tr = el.closest('tr');
+    if (!tr) return;
+    const colCount = tr.children.length;
+    const drawerTr = document.createElement('tr');
+    drawerTr.className = 'expand-drawer';
+    drawerTr.dataset.key = 'card:' + cardNum;
+    drawerTr.innerHTML = `<td colspan="${colCount}">
+        <div class="drawer-content">
+            <div class="drawer-header">📇 ${matches.length} records with this card</div>
+            ${rowsHtml}
+        </div>
+    </td>`;
+    tr.after(drawerTr);
+};
+
+window._showNameDrawer = function (fullName, el) {
+    const existing = document.querySelector('.expand-drawer');
+    if (existing) {
+        const wasForSame = existing.dataset.key === 'name:' + fullName;
+        existing.remove();
+        if (wasForSame) return;
+    }
+
+    const matches = STATE.cards.filter(c => (c.name + ' ' + c.surname).toUpperCase() === fullName);
+    if (matches.length <= 1) return;
+
+    const rowsHtml = matches.map(c => {
+        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
+        return `<div class="drawer-row">
+            <span class="drawer-flag">${flag}</span>
+            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
+            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
+        </div>`;
+    }).join('');
+
+    const tr = el.closest('tr');
+    if (!tr) return;
+    const colCount = tr.children.length;
+    const drawerTr = document.createElement('tr');
+    drawerTr.className = 'expand-drawer';
+    drawerTr.dataset.key = 'name:' + fullName;
+    drawerTr.innerHTML = `<td colspan="${colCount}">
+        <div class="drawer-content">
+            <div class="drawer-header">👤 ${matches.length} records with this name</div>
+            ${rowsHtml}
+        </div>
+    </td>`;
+    tr.after(drawerTr);
 };
 
 // ──── MULTI-SELECT ACTIONS ────
