@@ -1687,9 +1687,6 @@ function renderDocs() {
     };
 
     let rows = docs.map((d, i) => {
-        const previewThumb = d.preview
-            ? `<img src="${d.preview}" class="doc-preview-thumb" onclick="event.stopPropagation(); _docShowPreview('${d.id}')" title="Click to enlarge">`
-            : `<span class="doc-no-preview">—</span>`;
         const newBadge = d.docStatus === 'new'
             ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
             : '';
@@ -1697,7 +1694,6 @@ function renderDocs() {
         return `
         <tr class="doc-row" onclick="_toggleDocDrawer('${d.id}', this)">
             <td class="td-num">${i + 1}</td>
-            <td class="td-preview" onclick="event.stopPropagation()">${previewThumb}</td>
             <td>
                 <div class="card-cell">
                     <span class="card-name">
@@ -1734,7 +1730,6 @@ function renderDocs() {
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Img</th>
                     <th class="sortable-doc" data-sort="name">Name ${docSortIcon('name')}</th>
                     <th class="sortable-doc" data-sort="notes">Notes ${docSortIcon('notes')}</th>
                     <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
