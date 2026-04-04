@@ -723,7 +723,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes','generator','builder','merchants'].includes(STATE.currentView)) {
+    if (['notes','generator','builder','merchants','analytics'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -769,8 +769,248 @@ function renderStats() {
 
 
     // ═══════════════════════════════════════════
-    //  MERCHANTS MODULE — Terminal Workspace
+    //  ANALYTICS MODULE — BIN Performance
     // ═══════════════════════════════════════════
+
+    let _anPeriod = 0; // 0 = all, 7/14/30 = days
+
+    // Parse DD.MM.YY string to timestamp
+    function _anParseDate(dateStr) {
+        if (!dateStr) return 0;
+        if (typeof dateStr === 'number') return dateStr;
+        const parts = dateStr.split('.');
+        if (parts.length !== 3) return 0;
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const year = 2000 + parseInt(parts[2]);
+        return new Date(year, month, day).getTime();
+    }
+
+    function renderAnalytics() {
+        const area = document.getElementById('content-area');
+        const now = Date.now();
+        const DAY = 86400000;
+
+        // Get all cards (current country)
+        const allCards = STATE.cards.filter(c => c.country === STATE.currentCountry);
+
+        // Period filter
+        const periodMs = _anPeriod > 0 ? _anPeriod * DAY : 0;
+        const cards = periodMs > 0
+            ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) <= periodMs; })
+            : allCards;
+
+        // Previous period cards for trend comparison
+        const prevCards = periodMs > 0
+            ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) > periodMs && (now - t) <= periodMs * 2; })
+            : [];
+
+        // Build BIN stats
+        const binMap = {};
+        cards.forEach(c => {
+            const bin = getBin(c.cardNumber);
+            if (!bin || bin.length < 6) return;
+            if (!binMap[bin]) binMap[bin] = { bin, used: 0, a: 0, r: 0, v: 0, cards: [] };
+            binMap[bin].used++;
+            if (c.cardAdd) binMap[bin].a++;
+            if (c.runAds) binMap[bin].r++;
+            if (c.verified) binMap[bin].v++;
+            binMap[bin].cards.push(c);
+        });
+
+        // Previous period BIN stats for trend
+        const prevBinMap = {};
+        prevCards.forEach(c => {
+            const bin = getBin(c.cardNumber);
+            if (!bin || bin.length < 6) return;
+            if (!prevBinMap[bin]) prevBinMap[bin] = { used: 0, a: 0 };
+            prevBinMap[bin].used++;
+            if (c.cardAdd) prevBinMap[bin].a++;
+        });
+
+        // Sort by USED desc
+        const bins = Object.values(binMap).sort((a, b) => b.used - a.used);
+
+        // Build grid rows
+        let rowsHtml = '';
+        if (bins.length === 0) {
+            rowsHtml = '<div class="an-empty">No data for this period</div>';
+        } else {
+            bins.forEach(b => {
+                const rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
+
+                // Trend calculation
+                let trendHtml = '<span class="an-trend an-trend-na">——</span>';
+                if (_anPeriod > 0 && prevBinMap[b.bin]) {
+                    const prevRate = prevBinMap[b.bin].used > 0
+                        ? Math.round((prevBinMap[b.bin].a / prevBinMap[b.bin].used) * 100) : 0;
+                    const delta = rate - prevRate;
+                    if (delta > 0) {
+                        trendHtml = `<span class="an-trend an-trend-up">▲ +${delta}%</span>`;
+                    } else if (delta < 0) {
+                        trendHtml = `<span class="an-trend an-trend-down">▼ ${delta}%</span>`;
+                    } else {
+                        trendHtml = '<span class="an-trend an-trend-na">── 0%</span>';
+                    }
+                }
+
+                // Rate color class
+                let rateClass = 'an-rate-bad';
+                if (rate >= 60) rateClass = 'an-rate-good';
+                else if (rate >= 30) rateClass = 'an-rate-mid';
+
+                rowsHtml += `<div class="an-row" data-bin="${b.bin}">
+                    <span class="an-cell an-cell-bin">${b.bin}</span>
+                    <span class="an-cell an-cell-num">${b.used}</span>
+                    <span class="an-cell an-cell-a">${b.a}</span>
+                    <span class="an-cell an-cell-r">${b.r}</span>
+                    <span class="an-cell an-cell-v">${b.v}</span>
+                    <span class="an-cell ${rateClass}">${rate}%</span>
+                    <span class="an-cell">${trendHtml}</span>
+                </div>`;
+            });
+        }
+
+        area.innerHTML = `
+            <div class="an-workspace">
+                <div class="an-period-bar">
+                    <button class="an-period-btn ${_anPeriod === 7 ? 'active' : ''}" data-days="7">7d</button>
+                    <button class="an-period-btn ${_anPeriod === 14 ? 'active' : ''}" data-days="14">14d</button>
+                    <button class="an-period-btn ${_anPeriod === 30 ? 'active' : ''}" data-days="30">30d</button>
+                    <button class="an-period-btn ${_anPeriod === 0 ? 'active' : ''}" data-days="0">All</button>
+                    <span class="an-summary">${bins.length} BINs · ${cards.length} cards</span>
+                </div>
+                <div class="an-grid-wrap">
+                    <div class="an-grid-header">
+                        <span class="an-cell an-cell-bin">BIN</span>
+                        <span class="an-cell an-cell-num">USED</span>
+                        <span class="an-cell an-cell-a">A</span>
+                        <span class="an-cell an-cell-r">R</span>
+                        <span class="an-cell an-cell-v">V</span>
+                        <span class="an-cell">RATE</span>
+                        <span class="an-cell">TREND</span>
+                    </div>
+                    <div class="an-grid-body">${rowsHtml}</div>
+                </div>
+            </div>
+            <div id="an-modal" class="an-modal hidden"></div>
+        `;
+
+        // Period button listeners
+        area.querySelectorAll('.an-period-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                _anPeriod = parseInt(btn.dataset.days);
+                renderAnalytics();
+            });
+        });
+
+        // Row click → detail modal
+        area.querySelectorAll('.an-row').forEach(row => {
+            row.addEventListener('click', () => {
+                _anShowDetail(row.dataset.bin, binMap[row.dataset.bin], prevBinMap[row.dataset.bin]);
+            });
+        });
+    }
+
+    function _anShowDetail(bin, data, prevData) {
+        const modal = document.getElementById('an-modal');
+        if (!modal || !data) return;
+
+        const rate = data.used > 0 ? Math.round((data.a / data.used) * 100) : 0;
+
+        // Trend
+        let trendStr = '——';
+        if (_anPeriod > 0 && prevData) {
+            const prevRate = prevData.used > 0 ? Math.round((prevData.a / prevData.used) * 100) : 0;
+            const delta = rate - prevRate;
+            if (delta > 0) trendStr = `▲ +${delta}%`;
+            else if (delta < 0) trendStr = `▼ ${delta}%`;
+            else trendStr = '── 0%';
+        }
+
+        // Rate color
+        let rateClass = 'an-rate-bad';
+        if (rate >= 60) rateClass = 'an-rate-good';
+        else if (rate >= 30) rateClass = 'an-rate-mid';
+
+        // Mini timeline — last 10 entries by date
+        const sorted = [...data.cards].sort((a, b) => (_anParseDate(b.date) || 0) - (_anParseDate(a.date) || 0)).slice(0, 10);
+        let timelineHtml = '';
+        sorted.forEach(c => {
+            const d = c.date || '—';
+            let statusTag = '';
+            if (c.cardAdd) statusTag += '<span class="an-tag an-tag-a">A</span>';
+            if (c.runAds) statusTag += '<span class="an-tag an-tag-r">R</span>';
+            if (c.verified) statusTag += '<span class="an-tag an-tag-v">V</span>';
+            if (!c.cardAdd && !c.runAds && !c.verified) statusTag = '<span class="an-tag an-tag-none">—</span>';
+            timelineHtml += `<div class="an-tl-row"><span class="an-tl-date">${d}</span>${statusTag}</div>`;
+        });
+
+        // BIN info from cache
+        const binInfo = BIN_CACHE[bin];
+        let binMeta = '';
+        if (binInfo) {
+            binMeta = `<div class="an-detail-meta">${binInfo.scheme || ''} · ${binInfo.type || ''} · ${binInfo.bank || ''}</div>`;
+        }
+
+        modal.innerHTML = `
+            <div class="an-detail">
+                <div class="an-detail-header">
+                    <span class="an-detail-bin">${bin}</span>
+                    <button class="an-detail-close" id="an-close">✕</button>
+                </div>
+                ${binMeta}
+                <div class="an-detail-stats">
+                    <div class="an-detail-stat">
+                        <span class="an-detail-label">USED</span>
+                        <span class="an-detail-value">${data.used}</span>
+                    </div>
+                    <div class="an-detail-stat">
+                        <span class="an-detail-label">A</span>
+                        <span class="an-detail-value an-cell-a">${data.a}</span>
+                    </div>
+                    <div class="an-detail-stat">
+                        <span class="an-detail-label">R</span>
+                        <span class="an-detail-value an-cell-r">${data.r}</span>
+                    </div>
+                    <div class="an-detail-stat">
+                        <span class="an-detail-label">V</span>
+                        <span class="an-detail-value an-cell-v">${data.v}</span>
+                    </div>
+                    <div class="an-detail-stat">
+                        <span class="an-detail-label">RATE</span>
+                        <span class="an-detail-value ${rateClass}">${rate}%</span>
+                    </div>
+                    <div class="an-detail-stat">
+                        <span class="an-detail-label">TREND</span>
+                        <span class="an-detail-value">${trendStr}</span>
+                    </div>
+                </div>
+                <div class="an-detail-tl-title">LAST ${sorted.length} ENTRIES</div>
+                <div class="an-detail-tl">${timelineHtml}</div>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+
+        document.getElementById('an-close').addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+
+        // Escape to close
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                modal.classList.add('hidden');
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+
 
     window.renderMerchants = renderMerchants;
 
@@ -990,6 +1230,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'merchants') {
         renderMerchants();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'analytics') {
+        renderAnalytics();
         footer.style.display = 'none';
         return;
     }
