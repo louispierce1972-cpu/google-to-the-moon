@@ -33,6 +33,7 @@ const STATE = {
     merchantBins: [],
     merchantView: 'list',
     merchantDetailId: null,
+    trashCards: [],
 };
 
 
@@ -244,6 +245,7 @@ function save() {
         localStorage.setItem('ct_settings', JSON.stringify(STATE.settings || {}));
         localStorage.setItem('ct_merchants', JSON.stringify(STATE.merchants));
         localStorage.setItem('ct_merchant_bins', JSON.stringify(STATE.merchantBins));
+        localStorage.setItem('ct_trash_cards', JSON.stringify(STATE.trashCards || []));
         saveBinCache();
     } catch (e) {
         console.error('Save error:', e);
@@ -265,6 +267,18 @@ function load() {
         if (merchRaw) STATE.merchants = JSON.parse(merchRaw);
         const merchBinsRaw = localStorage.getItem('ct_merchant_bins');
         if (merchBinsRaw) STATE.merchantBins = JSON.parse(merchBinsRaw);
+        // Load trashCards
+        const trashCardsRaw = localStorage.getItem('ct_trash_cards');
+        if (trashCardsRaw) STATE.trashCards = JSON.parse(trashCardsRaw);
+        // Load parser base
+        const parserBaseRaw = localStorage.getItem('ct_parser_base');
+        if (parserBaseRaw) {
+            try {
+                const pb = JSON.parse(parserBaseRaw);
+                PARSER_STATE.collected = pb.collected || [];
+                PARSER_STATE.file = pb.file || '';
+            } catch(e) {}
+        }
         // Load notesTabs
         const tabsRaw = localStorage.getItem('ct_notes_tabs');
         if (tabsRaw) {
@@ -1426,14 +1440,23 @@ function renderDocs() {
         return 'color: var(--red)';
     };
 
-    let rows = docs.map((d, i) => `
+    let rows = docs.map((d, i) => {
+        const previewThumb = d.preview
+            ? `<img src="${d.preview}" class="doc-preview-thumb" onclick="event.stopPropagation(); _docShowPreview('${d.id}')" title="Click to enlarge">`
+            : `<span class="doc-no-preview">—</span>`;
+        const newBadge = d.docStatus === 'new'
+            ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
+            : '';
+        return `
         <tr>
             <td class="td-num">${i + 1}</td>
+            <td class="td-preview">${previewThumb}</td>
             <td>
                 <div class="card-cell">
                     <span class="card-name">
                         <span class="flag">${flag}</span>
                         ${d.fullName}
+                        ${newBadge}
                     </span>
                 </div>
             </td>
@@ -1451,7 +1474,7 @@ function renderDocs() {
             <td class="date-cell">${d.date}</td>
             <td><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">⋯</button></td>
         </tr>
-    `).join('');
+    `}).join('');
 
     const docSortIcon = (field) => {
         if (STATE.docSortField !== field) return '↕';
@@ -1463,6 +1486,7 @@ function renderDocs() {
             <thead>
                 <tr>
                     <th>#</th>
+                    <th>Img</th>
                     <th class="sortable-doc" data-sort="name">Name ${docSortIcon('name')}</th>
                     <th class="sortable-doc" data-sort="notes">Notes ${docSortIcon('notes')}</th>
                     <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
@@ -2498,6 +2522,27 @@ window.decrementDocS = function (docId) {
     updateDocStatsBar();
 };
 
+// ──── DOC PREVIEW LIGHTBOX ────
+window._docShowPreview = function(docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc || !doc.preview) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'doc-lightbox';
+    overlay.innerHTML = `<img src="${doc.preview}" class="doc-lightbox-img"><button class="doc-lightbox-close">✕</button>`;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.classList.contains('doc-lightbox-close')) overlay.remove(); });
+    document.body.appendChild(overlay);
+};
+
+// ──── DOC CLEAR NEW STATUS ────
+window._docClearNew = function(docId) {
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.docStatus = '';
+    save();
+    const badge = document.querySelector(`.doc-status-new[onclick*="${docId}"]`);
+    if (badge) badge.remove();
+};
+
 // ──── DOC TYPE CYCLE ────
 window.cycleDocType = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
@@ -2507,7 +2552,12 @@ window.cycleDocType = function (docId) {
     const idx = types.indexOf(current);
     doc.type = types[(idx + 1) % types.length];
     save();
-    renderAll();
+    // DOM-only update — no full re-render
+    const el = document.querySelector(`.clickable-type[onclick*="'${docId}'"]`);
+    if (el) {
+        el.textContent = doc.type && doc.type !== '-' ? doc.type : '-';
+        el.className = `doc-type-badge clickable-type ${(doc.type || '').toLowerCase()}`;
+    }
 };
 
 // ──── DOC MODAL ────
@@ -2525,14 +2575,14 @@ function openDocModal() {
 
     // Reset fields
     document.getElementById('doc-list-type').value = 'PP';
-    document.getElementById('doc-list-status').value = 'waiting';
-    document.getElementById('doc-list-quality').value = 'original';
     document.getElementById('doc-list-notes').value = '';
     document.getElementById('doc-list-textarea').value = '';
     document.getElementById('doc-list-parsed-count').textContent = '0 documents detected';
     document.getElementById('doc-list-parsed-count').classList.remove('has-cards');
     document.getElementById('doc-list-preview').innerHTML = '';
     document.getElementById('doc-save-btn-text').textContent = 'Add Documents';
+    const imgInput = document.getElementById('doc-list-preview-img');
+    if (imgInput) imgInput.value = '';
 
     setTimeout(() => document.getElementById('doc-list-textarea').focus(), 100);
 }
@@ -2583,58 +2633,61 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
 
     const country = document.getElementById('doc-list-country').value;
     const docType = document.getElementById('doc-list-type').value;
-    const status = document.getElementById('doc-list-status').value;
-    const quality = document.getElementById('doc-list-quality').value;
     const sharedNotes = document.getElementById('doc-list-notes').value.trim();
 
-    // Map status to verified/suspended values
-    let verified = 0, suspended = 0, statusStr = 'waiting';
-    switch (status) {
-        case 'verified': verified = 1; statusStr = 'verified'; break;
-        case 'failed': suspended = 1; statusStr = 'failed'; break;
-        case 'waiting': statusStr = 'waiting'; break;
-        case 'none': statusStr = ''; break;
+    // Read preview image if provided
+    const imgInput = document.getElementById('doc-list-preview-img');
+    const imgFile = imgInput && imgInput.files && imgInput.files[0];
+
+    function _doAddDocs(previewBase64) {
+        const dateStr = todayStr();
+        let added = 0;
+
+        lines.forEach(line => {
+            const fullName = line.trim().toUpperCase();
+            if (!fullName) return;
+
+            // Check for duplicate by fullName + country
+            if (STATE.docs.find(d => d.fullName === fullName && d.country === country)) return;
+
+            const parts = fullName.split(/\s+/);
+            const name = parts[0] || '';
+            const surname = parts.slice(1).join(' ') || '';
+
+            STATE.docs.push({
+                id: genId(),
+                fullName,
+                name,
+                surname,
+                type: docType,
+                notes: sharedNotes,
+                verified: 0,
+                suspended: 0,
+                docStatus: 'new',
+                preview: previewBase64 || '',
+                use: 1,
+                country,
+                date: dateStr,
+            });
+            added++;
+        });
+
+        if (added > 0) {
+            save();
+            renderAll();
+            closeDocModal();
+            toast(`${added} documents added (NEW)`, 'success');
+        } else {
+            toast('All names already exist (duplicates)', 'info');
+        }
     }
 
-    const dateStr = todayStr();
-    let added = 0;
-
-    lines.forEach(line => {
-        const fullName = line.trim().toUpperCase();
-        if (!fullName) return;
-
-        // Check for duplicate by fullName + country
-        if (STATE.docs.find(d => d.fullName === fullName && d.country === country)) return;
-
-        const parts = fullName.split(/\s+/);
-        const name = parts[0] || '';
-        const surname = parts.slice(1).join(' ') || '';
-
-        STATE.docs.push({
-            id: genId(),
-            fullName,
-            name,
-            surname,
-            type: docType,
-            quality,
-            notes: sharedNotes,
-            verified,
-            suspended,
-            status: statusStr,
-            use: 1,
-            country,
-            date: dateStr,
-        });
-        added++;
-    });
-
-    if (added > 0) {
-        save();
-        renderAll();
-        closeDocModal();
-        toast(`${added} documents added`, 'success');
+    if (imgFile) {
+        const reader = new FileReader();
+        reader.onload = (e) => _doAddDocs(e.target.result);
+        reader.readAsDataURL(imgFile);
     } else {
-        toast('All names already exist (duplicates)', 'info');
+        _doAddDocs('');
     }
 });
 
@@ -4613,6 +4666,9 @@ function renderParser() {
     const bar = document.getElementById('stats-bar');
     bar.innerHTML = '';
 
+    const hasBase = PARSER_STATE.collected.length > 0 || PARSER_STATE.rawMessages.length > 0;
+    const trashCount = (STATE.trashCards || []).length;
+
     area.innerHTML = `
     <div class="parser-container">
         <!-- UPLOAD ZONE -->
@@ -4621,7 +4677,7 @@ function renderParser() {
             <div class="parser-upload-content">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 16V4m0 0L8 8m4-4l4 4"/><path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
                 <span class="parser-upload-title">${PARSER_STATE.file ? '📁 ' + PARSER_STATE.file : 'Drop result.json or click to upload'}</span>
-                <span class="parser-upload-hint">Telegram JSON export · 100% local · no internet</span>
+                <span class="parser-upload-hint">Telegram JSON export · 100% local · no internet${hasBase ? ' · 📦 Base saved (' + PARSER_STATE.collected.length + ' cards)' : ''}</span>
             </div>
         </div>
 
@@ -4640,6 +4696,15 @@ function renderParser() {
                     <label>Bank</label>
                     <input type="text" id="parser-bank" placeholder="Bank name...">
                 </div>
+                <div class="parser-filter-group">
+                    <label>Card Type</label>
+                    <select id="parser-type-filter" class="form-select">
+                        <option value="">All Types</option>
+                        <option value="credit">Credit</option>
+                        <option value="debit">Debit</option>
+                        <option value="prepaid">Prepaid</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -4650,11 +4715,21 @@ function renderParser() {
 
         <!-- ACTIONS -->
         <div class="parser-actions">
-            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" disabled>🔍 PARSE</button>
-            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" disabled>📦 COLLECT ALL</button>
+            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>🔍 PARSE</button>
+            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>📦 COLLECT ALL</button>
             <button class="btn-outline parser-clear-btn" id="parser-clear-btn">🗑 CLEAR</button>
-            <span class="parser-status" id="parser-status"></span>
+            <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">🧹 CLEAR BASE</button>
+            <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? '📦 Saved base: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
         </div>
+
+        <!-- TRASH CARDS -->
+        <details class="parser-trash-section" id="parser-trash-section">
+            <summary class="parser-trash-summary">🗑 TRASH CARDS (${trashCount})</summary>
+            <div class="parser-trash-body">
+                <textarea id="parser-trash-textarea" rows="4" placeholder="Paste bad card numbers (one per line)...">${(STATE.trashCards || []).join('\n')}</textarea>
+                <button class="btn-outline" id="parser-trash-save-btn">Save Trash Cards</button>
+            </div>
+        </details>
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
@@ -4673,6 +4748,32 @@ function renderParser() {
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
     document.getElementById('parser-clear-btn').addEventListener('click', clearParser);
+
+    // CLEAR BASE button
+    document.getElementById('parser-clear-base-btn').addEventListener('click', () => {
+        PARSER_STATE.rawMessages = [];
+        PARSER_STATE.collected = [];
+        PARSER_STATE.binGroups = [];
+        PARSER_STATE.selected = new Set();
+        PARSER_STATE.file = '';
+        PARSER_STATE.binFilter = null;
+        PARSER_STATE.sortBy = 'index';
+        localStorage.removeItem('ct_parser_base');
+        renderParser();
+        toast('Parser base cleared', 'info');
+    });
+
+    // TRASH CARDS save button
+    document.getElementById('parser-trash-save-btn').addEventListener('click', () => {
+        const raw = document.getElementById('parser-trash-textarea').value.trim();
+        const numbers = raw.split('\n').map(l => l.replace(/\D/g, '').trim()).filter(l => l.length >= 13);
+        STATE.trashCards = numbers;
+        save();
+        toast(`${numbers.length} trash cards saved`, 'success');
+        // Update summary count
+        const summary = document.querySelector('.parser-trash-summary');
+        if (summary) summary.textContent = `🗑 TRASH CARDS (${numbers.length})`;
+    });
 
 
     if (PARSER_STATE.collected.length > 0) renderParserResults();
@@ -4740,6 +4841,16 @@ function runParse() {
         allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
     }
 
+    // Type filter (credit/debit/prepaid)
+    const typeFilter = document.getElementById('parser-type-filter')?.value || '';
+    if (typeFilter) {
+        allCards = allCards.filter(c => {
+            const info = BIN_CACHE[c.bin];
+            const cardType = (info?.type || c.type || '').toLowerCase();
+            return cardType.includes(typeFilter);
+        });
+    }
+
 
     if (dedup) {
         const seen = new Set();
@@ -4772,6 +4883,17 @@ function collectAll() {
 }
 
 function finishParsing(allCards, status) {
+    // Auto-tag: DUPLICATE / TRASH / NEW
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+    let dupCount = 0, trashCount = 0, newCount = 0;
+    allCards.forEach(c => {
+        const num = c.cc.replace(/\s/g, '');
+        if (existingNumbers.has(num)) { c._tag = 'DUPLICATE'; dupCount++; }
+        else if (trashSet.has(num)) { c._tag = 'TRASH'; trashCount++; }
+        else { c._tag = 'NEW'; newCount++; }
+    });
+
     const binMap = {};
     allCards.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
 
@@ -4783,8 +4905,16 @@ function finishParsing(allCards, status) {
     PARSER_STATE.binGroups = binGroups;
     PARSER_STATE.selected = new Set(allCards.map((_, i) => i));
 
-    status.textContent = `✅ ${allCards.length} cards · ${binGroups.length} BINs`;
-    toast(`Found: ${allCards.length} cards, ${binGroups.length} unique BINs`, 'success');
+    // Save base to localStorage
+    try {
+        localStorage.setItem('ct_parser_base', JSON.stringify({
+            collected: allCards,
+            file: PARSER_STATE.file
+        }));
+    } catch(e) { console.warn('Parser base save error:', e); }
+
+    status.textContent = `✅ ${allCards.length} cards · ${binGroups.length} BINs (${newCount} new, ${dupCount} dup, ${trashCount} trash)`;
+    toast(`Found: ${allCards.length} cards — ${newCount} NEW, ${dupCount} DUP, ${trashCount} TRASH`, 'success');
     renderParserResults();
 }
 
@@ -4882,13 +5012,19 @@ function renderParserResults(geoFilter) {
         const isDup = existingNumbers.has(c.cc);
         const geo = c.detectedGeo || c.country || '';
         const bankShort = (c.bank || '').length > 16 ? (c.bank || '').slice(0, 16) + '…' : (c.bank || '—');
-        const dupMark = isDup ? '<span class="parser-dup-tag">DUP</span> ' : '';
         const binCnt = parserBinCounts[c.bin] || 0;
 
-        return `<tr class="${isDup ? 'parser-row-dup' : ''}">
+        // Tag badge
+        let tagBadge = '';
+        let rowClass = '';
+        if (c._tag === 'TRASH') { tagBadge = '<span class="parser-tag parser-tag-trash">TRASH</span> '; rowClass = 'parser-row-trash'; }
+        else if (c._tag === 'DUPLICATE') { tagBadge = '<span class="parser-tag parser-tag-dup">DUP</span> '; rowClass = 'parser-row-dup'; }
+        else if (c._tag === 'NEW') { tagBadge = '<span class="parser-tag parser-tag-new">NEW</span> '; rowClass = ''; }
+
+        return `<tr class="${rowClass}">
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(origIdx) ? 'checked' : ''} data-idx="${origIdx}" class="parser-check"></td>
             <td class="pc-num">${i + 1}</td>
-            <td class="pc-holder">${dupMark}${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
+            <td class="pc-holder">${tagBadge}${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
             <td class="pc-card">${formatCardBin(c.cc)}</td>
             <td class="pc-exp">${c.validity}</td>
             <td class="pc-bin">${c.bin} <span class="parser-bin-cnt-inline">(${binCnt})</span></td>
@@ -4906,6 +5042,7 @@ function renderParserResults(geoFilter) {
             <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
             <div class="parser-add-section">
                 <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
+                <button class="parser-notes-btn parser-add-new-btn" id="parser-add-new-btn">✅ ADD ONLY NEW</button>
             </div>
         </div>
 
@@ -4951,6 +5088,18 @@ function renderParserResults(geoFilter) {
     }
 
     document.getElementById('parser-add-notes-btn')?.addEventListener('click', addCollectedToNotes);
+
+    // ADD ONLY NEW handler — adds only cards tagged as NEW
+    document.getElementById('parser-add-new-btn')?.addEventListener('click', () => {
+        const list = PARSER_STATE.collected;
+        const newCards = list.filter(c => c._tag === 'NEW');
+        if (newCards.length === 0) { toast('No NEW cards to add', 'warning'); return; }
+        // Select only new card indices
+        const newIndices = new Set();
+        list.forEach((c, i) => { if (c._tag === 'NEW') newIndices.add(i); });
+        PARSER_STATE.selected = newIndices;
+        addCollectedToNotes();
+    });
 
     // GEO filter change
     document.getElementById('parser-geo-select')?.addEventListener('change', (e) => {
