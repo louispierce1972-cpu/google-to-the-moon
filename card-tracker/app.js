@@ -428,8 +428,8 @@ function sortCards(cards, field, dir) {
                 va = parseFloat(a.amount) || 0; vb = parseFloat(b.amount) || 0;
                 return mult * (va - vb);
             case 'status':
-                va = (a.verified ? 4 : 0) + (a.runAds ? 2 : 0) + (a.cardAdd ? 1 : 0);
-                vb = (b.verified ? 4 : 0) + (b.runAds ? 2 : 0) + (b.cardAdd ? 1 : 0);
+                va = (a.verified ? 8 : 0) + (a.minic ? 4 : 0) + (a.runAds ? 2 : 0) + (a.cardAdd ? 1 : 0);
+                vb = (b.verified ? 8 : 0) + (b.minic ? 4 : 0) + (b.runAds ? 2 : 0) + (b.cardAdd ? 1 : 0);
                 return mult * (va - vb);
             case 'mail':
                 va = (a.mailVerify ? 2 : 0) + (a.mailSubmit ? 1 : 0);
@@ -556,6 +556,7 @@ function getCardStats(cards) {
         suspended: cards.filter(c => c.suspended).length,
         cardAdd: cards.filter(c => c.cardAdd).length,
         runAds: cards.filter(c => c.runAds).length,
+        minic: cards.filter(c => c.minic).length,
         active: cards.filter(c => c.starred).length,
     };
 }
@@ -573,6 +574,7 @@ function getMyCardStats() {
         cardAdd: all.filter(c => c.cardAdd).length,
         runAds: all.filter(c => c.runAds).length,
         verify: all.filter(c => c.verified).length,
+        minic: all.filter(c => c.minic).length,
         topCards: all.filter(c => c.cardAdd && c.runAds).length,
         topBins,
     };
@@ -762,6 +764,7 @@ function renderStats() {
             <div class="stat-card card-add"><span class="stat-label">Card Add</span><span class="stat-value">${s.cardAdd}</span></div>
             <div class="stat-card run-ads"><span class="stat-label">Run Ads</span><span class="stat-value">${s.runAds}</span></div>
             <div class="stat-card verified"><span class="stat-label">Verify</span><span class="stat-value">${s.verify}</span></div>
+            <div class="stat-card minic"><span class="stat-label">Minic</span><span class="stat-value">${s.minic}</span></div>
             <div class="stat-card top-cards"><span class="stat-label">Top Cards</span><span class="stat-value">${s.topCards}</span></div>
             <div class="stat-card top-bins"><span class="stat-label">Top BINs</span><span class="stat-value">${s.topBins}</span></div>
         `;
@@ -824,11 +827,12 @@ function renderStats() {
         cards.forEach(c => {
             const bin = getBin(c.cardNumber);
             if (!bin || bin.length < 6) return;
-            if (!binMap[bin]) binMap[bin] = { bin, used: 0, a: 0, r: 0, v: 0, cards: [] };
+            if (!binMap[bin]) binMap[bin] = { bin, used: 0, a: 0, r: 0, v: 0, m: 0, cards: [] };
             binMap[bin].used++;
             if (c.cardAdd) binMap[bin].a++;
             if (c.runAds) binMap[bin].r++;
             if (c.verified) binMap[bin].v++;
+            if (c.minic) binMap[bin].m++;
             binMap[bin].cards.push(c);
         });
 
@@ -879,6 +883,7 @@ function renderStats() {
                     <span class="an-cell an-cell-a">${b.a}</span>
                     <span class="an-cell an-cell-r">${b.r}</span>
                     <span class="an-cell an-cell-v">${b.v}</span>
+                    <span class="an-cell an-cell-m">${b.m}</span>
                     <span class="an-cell ${rateClass}">${rate}%</span>
                     <span class="an-cell">${trendHtml}</span>
                 </div>`;
@@ -901,6 +906,7 @@ function renderStats() {
                         <span class="an-cell an-cell-a">A</span>
                         <span class="an-cell an-cell-r">R</span>
                         <span class="an-cell an-cell-v">V</span>
+                        <span class="an-cell an-cell-m">M</span>
                         <span class="an-cell">RATE</span>
                         <span class="an-cell">TREND</span>
                     </div>
@@ -956,7 +962,8 @@ function renderStats() {
             if (c.cardAdd) statusTag += '<span class="an-tag an-tag-a">A</span>';
             if (c.runAds) statusTag += '<span class="an-tag an-tag-r">R</span>';
             if (c.verified) statusTag += '<span class="an-tag an-tag-v">V</span>';
-            if (!c.cardAdd && !c.runAds && !c.verified) statusTag = '<span class="an-tag an-tag-none">—</span>';
+            if (c.minic) statusTag += '<span class="an-tag an-tag-m">M</span>';
+            if (!c.cardAdd && !c.runAds && !c.verified && !c.minic) statusTag = '<span class="an-tag an-tag-none">—</span>';
             timelineHtml += `<div class="an-tl-row"><span class="an-tl-date">${d}</span>${statusTag}</div>`;
         });
 
@@ -1334,6 +1341,7 @@ function renderContent() {
                         <button class="status-btn btn-a ${c.cardAdd ? 'active' : ''}" onclick="toggleStatus('${c.id}','cardAdd')" title="Card Add">A</button>
                         <button class="status-btn btn-r ${c.runAds ? 'active' : ''}" onclick="toggleStatus('${c.id}','runAds')" title="Run Ads">R</button>
                         <button class="status-btn btn-v ${c.verified ? 'active' : ''}" onclick="toggleStatus('${c.id}','verified')" title="Verify">V</button>
+                        <button class="status-btn btn-m ${c.minic ? 'active' : ''}" onclick="toggleStatus('${c.id}','minic')" title="Minic">M</button>
                     </div>
                 `}
             </td>
@@ -1939,16 +1947,18 @@ window.toggleStatus = function (id, field) {
             const btnA = row.querySelector('.status-btn.btn-a');
             const btnR = row.querySelector('.status-btn.btn-r');
             const btnV = row.querySelector('.status-btn.btn-v');
+            const btnM = row.querySelector('.status-btn.btn-m');
             if (btnA) btnA.classList.toggle('active', card.cardAdd);
             if (btnR) btnR.classList.toggle('active', card.runAds);
             if (btnV) btnV.classList.toggle('active', card.verified);
+            if (btnM) btnM.classList.toggle('active', card.minic);
         }
 
         // Update stat counters in-place
         updateStatsInPlace();
         updateSidebarBadges();
 
-        const labels = { cardAdd: 'Card Add', runAds: 'Run Ads', verified: 'Verified' };
+        const labels = { cardAdd: 'Card Add', runAds: 'Run Ads', verified: 'Verified', minic: 'Minic' };
         toast(`${labels[field]}: ${card[field] ? 'ON' : 'OFF'}`, card[field] ? 'success' : 'info');
     }
 };

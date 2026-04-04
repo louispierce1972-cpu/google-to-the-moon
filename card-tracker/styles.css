@@ -1908,6 +1908,27 @@ textarea {
     color: var(--text-dim)
 }
 
+/* M = Minic: SKY-BLUE when ON, gray OFF */
+.status-btn.btn-m.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38BDF8
+}
+
+.status-btn.btn-m:not(.active) {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: var(--border-default);
+    color: var(--text-dim)
+}
+
+/* Stat card minic */
+.stat-card.minic { border-top: 2px solid #38BDF8; }
+.stat-card.minic .stat-value { color: #38BDF8; }
+
+/* Analytics M tag + cell */
+.an-tag-m { background: rgba(56,189,248,.15); color: #38BDF8; }
+.an-cell-m { color: #38BDF8; }
+
 /* Amount & Date */
 .editable-amt, .editable-note {
     cursor: pointer;
