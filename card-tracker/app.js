@@ -3753,8 +3753,11 @@ function mapGeoToCountry(geo) {
 
 function formatDateFromISO(iso) {
     if (!iso) return todayStr();
+    // Already in DD.MM.YY format — preserve as-is
+    if (/^\d{2}\.\d{2}\.\d{2}$/.test(iso)) return iso;
     try {
         const d = new Date(iso);
+        if (isNaN(d.getTime())) return todayStr();
         return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getFullYear()).slice(2)}`;
     } catch { return todayStr(); }
 }
