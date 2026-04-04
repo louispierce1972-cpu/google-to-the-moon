@@ -481,6 +481,18 @@ function getFilteredCards() {
                 const uniqueNames = new Set(group.map(c => (c.name + ' ' + c.surname).toUpperCase()));
                 first._nameCount = uniqueNames.size;
                 first._groupCards = group;
+                // Find latest date
+                first._lastDate = group.reduce((latest, c) => {
+                    if (!c.date) return latest;
+                    const p = c.date.split('.');
+                    const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date;
+                    return d > latest ? d : latest;
+                }, '');
+                // Convert back to DD.MM.YY for display
+                if (first._lastDate && first._lastDate.includes('-')) {
+                    const pp = first._lastDate.split('-');
+                    first._lastDate = `${pp[2]}.${pp[1]}.${pp[0]}`;
+                }
                 return first;
             });
             break;
@@ -540,20 +552,6 @@ function getFilteredDocs() {
         docs = docs.filter(d => d.fullName.toLowerCase().includes(s) || (d.notes || '').toLowerCase().includes(s));
     }
 
-    // Group by (name + type + country) — show usage count
-    const docGroupMap = {};
-    docs.forEach(d => {
-        const key = `${(d.fullName || '').toUpperCase()}|${d.type || ''}|${d.country || ''}`;
-        if (!docGroupMap[key]) docGroupMap[key] = [];
-        docGroupMap[key].push(d);
-    });
-    docs = Object.values(docGroupMap).map(group => {
-        const first = { ...group[0] };
-        first._groupCount = group.length;
-        first.use = (first.use || 0) + (group.length > 1 ? group.length - 1 : 0);
-        return first;
-    });
-
     // Apply doc sorting
     if (STATE.docSortField) {
         const mult = STATE.docSortDir === 'asc' ? 1 : -1;
@@ -571,7 +569,7 @@ function getFilteredDocs() {
                 return mult * (a.country || '').localeCompare(b.country || '');
             }
             if (STATE.docSortField === 'use') {
-                return mult * ((a._groupCount || 1) - (b._groupCount || 1));
+                return mult * ((a.use || 0) - (b.use || 0));
             }
             if (STATE.docSortField === 'vs') {
                 return mult * ((a.verified || 0) + (a.suspended || 0) - ((b.verified || 0) + (b.suspended || 0)));
@@ -793,6 +791,18 @@ function renderStats() {
             <div class="stat-card verified"><span class="stat-label">Verified</span><span class="stat-value">${s.verified}</span></div>
             <div class="stat-card failed"><span class="stat-label">Failed</span><span class="stat-value">${s.failed}</span></div>
             <div class="stat-card waiting"><span class="stat-label">Waiting</span><span class="stat-value">${s.waiting}</span></div>
+        `;
+        return;
+    }
+
+    if (STATE.currentView === 'all-cards') {
+        const cards = getFilteredCards();
+        const totalUse = cards.reduce((s, c) => s + (c._cardUsage || 1), 0);
+        const avgUse = cards.length > 0 ? (totalUse / cards.length).toFixed(1) : '0';
+        bar.innerHTML = `
+            <div class="stat-card total"><span class="stat-label">Unique Cards</span><span class="stat-value">${cards.length}</span></div>
+            <div class="stat-card card-add"><span class="stat-label">Total Use</span><span class="stat-value">${totalUse}</span></div>
+            <div class="stat-card run-ads"><span class="stat-label">Avg Use</span><span class="stat-value">${avgUse}</span></div>
         `;
         return;
     }
@@ -1306,6 +1316,12 @@ function renderContent() {
         return;
     }
 
+    // ═══════ ALL CARDS — Dedicated Aggregate View ═══════
+    if (STATE.currentView === 'all-cards') {
+        renderAllCards();
+        return;
+    }
+
     // Render cards table
     const cards = getFilteredCards();
     const start = (STATE.page - 1) * STATE.perPage;
@@ -1471,6 +1487,176 @@ function renderContent() {
     }
 }
 
+// ═══════ ALL CARDS — Aggregate Render ═══════
+function renderAllCards() {
+    const area = document.getElementById('content-area');
+    const cards = getFilteredCards(); // already grouped by cardNumber
+    const totalUse = cards.reduce((s, c) => s + (c._cardUsage || 1), 0);
+    const avgUse = cards.length > 0 ? (totalUse / cards.length).toFixed(1) : '0';
+
+    if (cards.length === 0) {
+        area.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+                </div>
+                <p class="empty-title">No cards found</p>
+            </div>
+        `;
+        renderFooter(0, 1, 1);
+        return;
+    }
+
+    const start = (STATE.page - 1) * STATE.perPage;
+    const pageCards = cards.slice(start, start + STATE.perPage);
+    const totalPages = Math.max(1, Math.ceil(cards.length / STATE.perPage));
+
+    const getUseColor = (use) => {
+        if (use <= 1) return '';
+        if (use <= 3) return 'color: var(--green)';
+        if (use <= 6) return 'color: var(--amber)';
+        return 'color: var(--red)';
+    };
+
+    let rows = pageCards.map(c => {
+        const bin = getBin(c.cardNumber);
+        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+        const info = getBinInfo(bin);
+        const binTxt = formatBinInfoText(info);
+        const useCount = c._cardUsage || 1;
+        const names = c._nameCount || 1;
+        const lastDate = c._lastDate || c.date || '—';
+        const cardNum = c.cardNumber.replace(/\s/g, '');
+
+        return `
+        <tr class="ac-row" data-cardnum="${cardNum}" onclick="_toggleAllCardsDrawer('${cardNum}', this)">
+            <td>
+                <div class="card-cell">
+                    <span class="card-name"><span class="flag">${flag}</span> ${maskCard(c.cardNumber)}</span>
+                    ${binTxt ? `<span class="bin-info">${binTxt}</span>` : ''}
+                </div>
+            </td>
+            <td class="bin-cell">${bin}</td>
+            <td class="use-cell" style="${getUseColor(useCount)}">${useCount}x</td>
+            <td class="ac-names-cell">${names}</td>
+            <td class="date-cell">${lastDate}</td>
+        </tr>`;
+    }).join('');
+
+    const sortIcon = (field) => {
+        if (STATE.sortField !== field) return '↕';
+        return STATE.sortDir === 'asc' ? '↑' : '↓';
+    };
+
+    area.innerHTML = `
+        <table class="data-table ac-table">
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
+                    <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
+                    <th class="sortable" data-sort="status">Use ${sortIcon('status')}</th>
+                    <th>Names</th>
+                    <th class="sortable" data-sort="date">Last ${sortIcon('date')}</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+
+    // Attach sort handlers
+    area.querySelectorAll('.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const field = th.dataset.sort;
+            if (STATE.sortField === field) {
+                STATE.sortDir = STATE.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                STATE.sortField = field;
+                STATE.sortDir = 'asc';
+            }
+            renderContent();
+        });
+    });
+
+    renderFooter(cards.length, STATE.page, totalPages);
+}
+
+// All Cards detail drawer toggle
+window._toggleAllCardsDrawer = function(cardNum, rowEl) {
+    const existing = document.querySelector('.expand-drawer');
+    if (existing) {
+        const wasForSame = existing.dataset.key === 'ac:' + cardNum;
+        existing.remove();
+        if (wasForSame) return;
+    }
+
+    const matches = STATE.cards.filter(c => c.cardNumber.replace(/\s/g, '') === cardNum);
+    if (matches.length === 0) return;
+
+    const rowsHtml = matches.map(c => {
+        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
+        return `<div class="drawer-row">
+            <span class="drawer-flag">${flag}</span>
+            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
+            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
+        </div>`;
+    }).join('');
+
+    const colCount = rowEl.children.length;
+    const drawerTr = document.createElement('tr');
+    drawerTr.className = 'expand-drawer';
+    drawerTr.dataset.key = 'ac:' + cardNum;
+    drawerTr.innerHTML = `<td colspan="${colCount}">
+        <div class="drawer-content">
+            <div class="drawer-header">📇 ${matches.length} records with this card</div>
+            ${rowsHtml}
+        </div>
+    </td>`;
+    rowEl.after(drawerTr);
+};
+
+// Documents detail drawer toggle
+window._toggleDocDrawer = function(docId, rowEl) {
+    const existing = document.querySelector('.expand-drawer');
+    if (existing) {
+        const wasForSame = existing.dataset.key === 'doc:' + docId;
+        existing.remove();
+        if (wasForSame) return;
+    }
+
+    const doc = STATE.docs.find(d => d.id === docId);
+    if (!doc || !doc.cardIds || doc.cardIds.length === 0) return;
+
+    const linkedCards = doc.cardIds.map(cid => STATE.cards.find(c => c.id === cid)).filter(Boolean);
+    if (linkedCards.length === 0) return;
+
+    const rowsHtml = linkedCards.map(c => {
+        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
+        return `<div class="drawer-row">
+            <span class="drawer-flag">${flag}</span>
+            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
+            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
+        </div>`;
+    }).join('');
+
+    const colCount = rowEl.children.length;
+    const drawerTr = document.createElement('tr');
+    drawerTr.className = 'expand-drawer';
+    drawerTr.dataset.key = 'doc:' + docId;
+    drawerTr.innerHTML = `<td colspan="${colCount}">
+        <div class="drawer-content">
+            <div class="drawer-header">👤 ${linkedCards.length} cards linked to ${doc.fullName}</div>
+            ${rowsHtml}
+        </div>
+    </td>`;
+    rowEl.after(drawerTr);
+};
+
 function renderDocs() {
     const area = document.getElementById('content-area');
     const docs = getFilteredDocs();
@@ -1507,10 +1693,11 @@ function renderDocs() {
         const newBadge = d.docStatus === 'new'
             ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
             : '';
+        const cardsCount = (d.cardIds || []).length;
         return `
-        <tr>
+        <tr class="doc-row" onclick="_toggleDocDrawer('${d.id}', this)">
             <td class="td-num">${i + 1}</td>
-            <td class="td-preview">${previewThumb}</td>
+            <td class="td-preview" onclick="event.stopPropagation()">${previewThumb}</td>
             <td>
                 <div class="card-cell">
                     <span class="card-name">
@@ -1520,19 +1707,20 @@ function renderDocs() {
                     </span>
                 </div>
             </td>
-            <td class="note-indicator"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
-            <td class="doc-type"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
+            <td class="note-indicator" onclick="event.stopPropagation()"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
+            <td class="doc-type" onclick="event.stopPropagation()"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
-            <td class="use-cell" style="${getUseColor(d._groupCount || d.use || 0)}">${d._groupCount || d.use || 0}x</td>
+            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
+            <td class="ac-names-cell">${cardsCount}</td>
             <td>
-                <div class="status-btns vs-counters">
+                <div class="status-btns vs-counters" onclick="event.stopPropagation()">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
                     <span class="vs-separator">|</span>
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;">${d.suspended || 0}</span>
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
-            <td><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">⋯</button></td>
+            <td onclick="event.stopPropagation()"><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">⋯</button></td>
         </tr>
     `}).join('');
 
@@ -1552,6 +1740,7 @@ function renderDocs() {
                     <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
                     <th class="sortable-doc" data-sort="geo">Geo ${docSortIcon('geo')}</th>
                     <th class="sortable-doc" data-sort="use">Use ${docSortIcon('use')}</th>
+                    <th>Cards</th>
                     <th class="sortable-doc" data-sort="vs">V / S ${docSortIcon('vs')}</th>
                     <th class="sortable-doc" data-sort="date">Date ${docSortIcon('date')}</th>
                     <th></th>
