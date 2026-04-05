@@ -1087,19 +1087,56 @@ function renderStats() {
 
     function renderMerchants() {
         const area = document.getElementById('content-area');
+        const bar = document.getElementById('stats-bar');
+        if (bar) bar.innerHTML = '';
 
-        // Build merchant dropdown options
-        let merchOptions = '<option value="">— Select Merchant —</option>';
-        STATE.merchants.forEach(m => {
-            merchOptions += `<option value="${m.id}">${m.name}</option>`;
-        });
+        // Ensure all merchants have links array
+        STATE.merchants.forEach(m => { if (!m.links) m.links = []; });
+
+        const isDetail = STATE.merchantView === 'detail' && STATE.merchantDetailId;
+        const detailMerch = isDetail ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
+
+        if (isDetail && detailMerch) {
+            _renderMerchantDetail(area, detailMerch);
+        } else {
+            STATE.merchantView = 'list';
+            _renderMerchantList(area);
+        }
+    }
+
+    // ══════════ MERCHANT LIST VIEW ══════════
+    function _renderMerchantList(area) {
+        const totalBins = STATE.merchantBins.length;
+
+        // Build merchant rows
+        let merchRowsHtml = '';
+        if (STATE.merchants.length === 0) {
+            merchRowsHtml = '<div class="mt-empty">No merchants yet — click "+ Add Merchant" to start</div>';
+        } else {
+            STATE.merchants.forEach(m => {
+                const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
+                const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
+                const totalUses = bins.length;
+                const linkCount = (m.links || []).length;
+                merchRowsHtml += `
+                <div class="mt-merch-row" data-id="${m.id}">
+                    <span class="mt-merch-name" data-id="${m.id}">${m.name}</span>
+                    <span class="mt-merch-stat">${uniqueBins} BINs</span>
+                    <span class="mt-merch-stat">${totalUses} uses</span>
+                    ${linkCount > 0 ? `<span class="mt-merch-stat mt-merch-links-count">🔗 ${linkCount}</span>` : ''}
+                    <div class="mt-merch-actions">
+                        <button class="mt-btn mt-btn-sm mt-btn-edit" data-id="${m.id}" title="Edit">✏️</button>
+                        <button class="mt-btn mt-btn-sm mt-btn-del" data-id="${m.id}" title="Delete">🗑</button>
+                    </div>
+                </div>`;
+            });
+        }
 
         area.innerHTML = `
             <div class="mt-workspace">
                 <div class="mt-toolbar">
                     <button class="mt-btn mt-btn-add" id="mt-add-merch-btn">+ Add Merchant</button>
-                    <button class="mt-btn mt-btn-add" id="mt-add-bin-btn">+ Add BIN</button>
-                    <span class="mt-info">${STATE.merchants.length} merchants · ${STATE.merchantBins.length} BINs</span>
+                    <span class="mt-info">${STATE.merchants.length} merchants · ${totalBins} BINs</span>
                 </div>
 
                 <div id="mt-merch-form" class="mt-inline-form hidden">
@@ -1108,28 +1145,25 @@ function renderStats() {
                     <button class="mt-btn mt-btn-x" id="mt-merch-cancel">✕</button>
                 </div>
 
-                <div id="mt-bin-form" class="mt-inline-form hidden">
-                    <input type="text" id="mt-bin-input" class="mt-input mt-input-sm" placeholder="BIN (6)" maxlength="6" autocomplete="off">
-                    <input type="text" id="mt-amt-input" class="mt-input mt-input-sm" placeholder="Amount" autocomplete="off">
-                    <select id="mt-bin-merchant" class="mt-select">${merchOptions}</select>
-                    <button class="mt-btn mt-btn-ok" id="mt-bin-save">OK</button>
-                    <button class="mt-btn mt-btn-x" id="mt-bin-cancel">✕</button>
+                <!-- MERCHANT LIST -->
+                <div class="mt-merch-list" id="mt-merch-list">${merchRowsHtml}</div>
+
+                <!-- QUICK SEARCH -->
+                <div class="mt-search-section">
+                    <input type="text" id="mt-quick-search" class="mt-input mt-quick-search-input" placeholder="🔍 Quick search — BIN, merchant name, or paste log..." autocomplete="off">
                 </div>
 
-                <textarea id="mt-textarea" class="mt-textarea" placeholder="Paste card number or log here...\n\nExamples:\n4242424242424242|12|26|874\n5326101234567890\n4500031122334455 12 26 123"></textarea>
+                <textarea id="mt-textarea" class="mt-textarea" placeholder="Paste card number or log here...\n\nExamples:\n4242424242424242|12|26|874\n5326101234567890\n4500031122334455 12 26 123\nPrice: $53.98"></textarea>
 
                 <button class="mt-btn mt-btn-search" id="mt-search-btn">SEARCH</button>
 
                 <div id="mt-results" class="mt-results"></div>
-            </div>
-        `;
+            </div>`;
 
-        // === Event Listeners ===
-
-        // Add Merchant form
+        // ── Event listeners ──
+        // Add merchant
         document.getElementById('mt-add-merch-btn').addEventListener('click', () => {
             document.getElementById('mt-merch-form').classList.toggle('hidden');
-            document.getElementById('mt-bin-form').classList.add('hidden');
             const inp = document.getElementById('mt-merch-name');
             inp.value = '';
             inp.focus();
@@ -1143,76 +1177,295 @@ function renderStats() {
             if (e.key === 'Escape') document.getElementById('mt-merch-form').classList.add('hidden');
         });
 
-        // Add BIN form
-        document.getElementById('mt-add-bin-btn').addEventListener('click', () => {
-            if (STATE.merchants.length === 0) { toast('Add a merchant first', 'warning'); return; }
-            document.getElementById('mt-bin-form').classList.toggle('hidden');
-            document.getElementById('mt-merch-form').classList.add('hidden');
-            document.getElementById('mt-bin-input').value = '';
-            document.getElementById('mt-amt-input').value = '';
-            document.getElementById('mt-bin-input').focus();
-        });
-        document.getElementById('mt-bin-save').addEventListener('click', _mtSaveBin);
-        document.getElementById('mt-bin-cancel').addEventListener('click', () => {
-            document.getElementById('mt-bin-form').classList.add('hidden');
-        });
-        document.getElementById('mt-bin-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') { document.getElementById('mt-amt-input').focus(); }
-        });
-        document.getElementById('mt-amt-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') _mtSaveBin();
+        // Click merchant name → open detail
+        document.querySelectorAll('.mt-merch-name').forEach(el => {
+            el.addEventListener('click', () => {
+                STATE.merchantView = 'detail';
+                STATE.merchantDetailId = el.dataset.id;
+                renderMerchants();
+            });
         });
 
-        // SEARCH
+        // Edit merchant
+        document.querySelectorAll('.mt-btn-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _mtEditMerchant(btn.dataset.id);
+            });
+        });
+
+        // Delete merchant
+        document.querySelectorAll('.mt-btn-del').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _mtDeleteMerchant(btn.dataset.id);
+            });
+        });
+
+        // Search
         document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
-
-        // Ctrl+Enter shortcut in textarea
         document.getElementById('mt-textarea').addEventListener('keydown', e => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                _mtSearch();
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
+        });
+
+        // Quick search — instant filter
+        const quickSearch = document.getElementById('mt-quick-search');
+        quickSearch.addEventListener('input', () => {
+            const q = quickSearch.value.trim();
+            if (q.length >= 2) _mtQuickSearch(q);
+            else document.getElementById('mt-results').innerHTML = '';
+        });
+        quickSearch.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                const q = quickSearch.value.trim();
+                if (q) _mtQuickSearch(q);
             }
         });
     }
 
-    // ── Save Merchant ──
+    // ══════════ MERCHANT DETAIL VIEW ══════════
+    function _renderMerchantDetail(area, merch) {
+        const bins = STATE.merchantBins.filter(b => b.merchant_id === merch.id);
+
+        // Group by BIN
+        const binGroups = {};
+        bins.forEach(b => {
+            if (!binGroups[b.bin]) binGroups[b.bin] = { entries: [], bank: '' };
+            binGroups[b.bin].entries.push(b);
+            if (!binGroups[b.bin].bank && b.bank) binGroups[b.bin].bank = b.bank;
+        });
+
+        // Enrich with BIN_CACHE
+        Object.keys(binGroups).forEach(bin => {
+            if (!binGroups[bin].bank && BIN_CACHE[bin]) {
+                binGroups[bin].bank = BIN_CACHE[bin].bank || '';
+            }
+        });
+
+        const sortedBins = Object.entries(binGroups).sort((a, b) => b[1].entries.length - a[1].entries.length);
+
+        let binTableHtml = '';
+        if (sortedBins.length === 0) {
+            binTableHtml = '<div class="mt-empty">No BINs yet — add below</div>';
+        } else {
+            binTableHtml = `
+            <div class="mt-bin-table-wrap">
+            <table class="mt-bin-table">
+                <thead><tr>
+                    <th>BIN</th><th>Bank</th><th>Count</th><th>Last Amount</th><th>Actions</th>
+                </tr></thead>
+                <tbody>${sortedBins.map(([bin, data]) => {
+                    const lastEntry = data.entries[data.entries.length - 1];
+                    const bankShort = (data.bank || '—').length > 20 ? data.bank.slice(0, 20) + '…' : (data.bank || '—');
+                    return `<tr>
+                        <td class="mt-bin-val">${bin}</td>
+                        <td class="mt-bin-bank-cell">${bankShort}</td>
+                        <td class="mt-bin-count">${data.entries.length}</td>
+                        <td class="mt-bin-amount">${lastEntry.amount ? '$' + lastEntry.amount : '—'}</td>
+                        <td class="mt-bin-actions">
+                            <button class="mt-btn mt-btn-sm mt-btn-del-bin" data-bin="${bin}" title="Delete BIN">🗑</button>
+                        </td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>
+            </div>`;
+        }
+
+        // Links
+        const linksHtml = (merch.links || []).map((link, i) => {
+            return `<a href="${link.url}" target="_blank" rel="noopener" class="mt-link-badge">${link.label || link.url} <span class="mt-link-del" data-idx="${i}">✕</span></a>`;
+        }).join('');
+
+        area.innerHTML = `
+            <div class="mt-workspace">
+                <div class="mt-toolbar">
+                    <button class="mt-btn" id="mt-back-btn">← Back</button>
+                    <span class="mt-detail-title">${merch.name}</span>
+                    <span class="mt-info">${sortedBins.length} unique BINs · ${bins.length} total uses</span>
+                </div>
+
+                <!-- BIN TABLE -->
+                ${binTableHtml}
+
+                <!-- LINKS -->
+                <div class="mt-links-section">
+                    <div class="mt-links-header">🔗 Links</div>
+                    <div class="mt-links-list" id="mt-links-list">${linksHtml || '<span class="mt-empty-inline">No links</span>'}</div>
+                    <div class="mt-links-form">
+                        <input type="text" id="mt-link-label" class="mt-input mt-input-sm" placeholder="Label..." autocomplete="off">
+                        <input type="text" id="mt-link-url" class="mt-input" placeholder="https://..." autocomplete="off">
+                        <button class="mt-btn mt-btn-ok" id="mt-link-add">+ Add</button>
+                    </div>
+                </div>
+
+                <!-- ADD BIN -->
+                <div class="mt-add-bin-section">
+                    <div class="mt-add-bin-header">Add BIN</div>
+                    <div class="mt-add-bin-row">
+                        <input type="text" id="mt-bin-single" class="mt-input mt-input-sm" placeholder="BIN (6 digits)" maxlength="6" autocomplete="off">
+                        <input type="text" id="mt-bin-amount" class="mt-input mt-input-sm" placeholder="Amount (opt)" autocomplete="off">
+                        <button class="mt-btn mt-btn-ok" id="mt-bin-add-single">+ Add</button>
+                    </div>
+                    <div class="mt-add-bin-bulk">
+                        <textarea id="mt-bin-bulk" class="mt-textarea-sm" rows="3" placeholder="Bulk: 450553, 424242, 532610\nor one per line"></textarea>
+                        <button class="mt-btn mt-btn-ok" id="mt-bin-add-bulk">+ Add All</button>
+                    </div>
+                </div>
+
+                <!-- SEARCH in context of this merchant -->
+                <textarea id="mt-textarea" class="mt-textarea" placeholder="Paste log to auto-detect BINs and link to ${merch.name}..."></textarea>
+                <button class="mt-btn mt-btn-search" id="mt-search-btn">SEARCH</button>
+                <div id="mt-results" class="mt-results"></div>
+            </div>`;
+
+        // ── Events ──
+        document.getElementById('mt-back-btn').addEventListener('click', () => {
+            STATE.merchantView = 'list';
+            STATE.merchantDetailId = null;
+            renderMerchants();
+        });
+
+        // Add single BIN
+        document.getElementById('mt-bin-add-single').addEventListener('click', () => {
+            const bin = document.getElementById('mt-bin-single').value.replace(/\D/g, '').slice(0, 6);
+            const amount = document.getElementById('mt-bin-amount').value.trim();
+            if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
+            const padded = bin.padEnd(6, '0');
+            _addBinToMerchant(padded, amount, merch.id);
+            document.getElementById('mt-bin-single').value = '';
+            document.getElementById('mt-bin-amount').value = '';
+            renderMerchants();
+        });
+
+        // Bulk BIN add
+        document.getElementById('mt-bin-add-bulk').addEventListener('click', () => {
+            const raw = document.getElementById('mt-bin-bulk').value;
+            const parts = raw.split(/[\s,;|\n]+/).map(s => s.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4);
+            if (parts.length === 0) { toast('No valid BINs found', 'warning'); return; }
+            const unique = [...new Set(parts)];
+            let added = 0;
+            unique.forEach(bin => {
+                const padded = bin.padEnd(6, '0');
+                _addBinToMerchant(padded, '', merch.id);
+                added++;
+            });
+            save();
+            toast(`${added} BINs added to ${merch.name}`, 'success');
+            renderMerchants();
+        });
+
+        // Delete BIN
+        document.querySelectorAll('.mt-btn-del-bin').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bin = btn.dataset.bin;
+                STATE.merchantBins = STATE.merchantBins.filter(b => !(b.bin === bin && b.merchant_id === merch.id));
+                save();
+                toast(`BIN ${bin} removed`, 'info');
+                renderMerchants();
+            });
+        });
+
+        // Add link
+        document.getElementById('mt-link-add').addEventListener('click', () => {
+            const label = document.getElementById('mt-link-label').value.trim();
+            const url = document.getElementById('mt-link-url').value.trim();
+            if (!url) { toast('Enter URL', 'warning'); return; }
+            merch.links = merch.links || [];
+            merch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
+            save();
+            toast('Link added', 'success');
+            renderMerchants();
+        });
+
+        // Delete link
+        document.querySelectorAll('.mt-link-del').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const idx = parseInt(el.dataset.idx);
+                merch.links.splice(idx, 1);
+                save();
+                renderMerchants();
+            });
+        });
+
+        // Search
+        document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
+        document.getElementById('mt-textarea').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
+        });
+    }
+
+    // ══════════ CRUD HELPERS ══════════
+
     function _mtSaveMerchant() {
         const inp = document.getElementById('mt-merch-name');
         const name = inp.value.trim();
         if (!name) { toast('Enter merchant name', 'warning'); return; }
-        STATE.merchants.push({ id: 'merch-' + Date.now(), name: name });
+        STATE.merchants.push({ id: 'merch-' + Date.now(), name: name, links: [] });
         save();
         toast(`Merchant "${name}" added`, 'success');
         renderMerchants();
     }
 
-    // ── Save BIN ──
-    function _mtSaveBin() {
-        const bin = document.getElementById('mt-bin-input').value.replace(/\D/g, '').slice(0, 6);
-        const amount = document.getElementById('mt-amt-input').value.trim();
-        const merchantId = document.getElementById('mt-bin-merchant').value;
-        if (bin.length < 6) { toast('BIN must be 6 digits', 'warning'); return; }
-        if (!amount) { toast('Enter amount', 'warning'); return; }
-        if (!merchantId) { toast('Select a merchant', 'warning'); return; }
+    function _mtEditMerchant(id) {
+        const m = STATE.merchants.find(x => x.id === id);
+        if (!m) return;
+        const row = document.querySelector(`.mt-merch-row[data-id="${id}"]`);
+        if (!row) return;
+        const nameEl = row.querySelector('.mt-merch-name');
+        const oldName = m.name;
+        nameEl.innerHTML = `<input type="text" class="mt-input mt-inline-edit" value="${oldName}" data-id="${id}">`;
+        const input = nameEl.querySelector('input');
+        input.focus();
+        input.select();
+
+        const finish = (save_it) => {
+            if (save_it) {
+                const newName = input.value.trim();
+                if (newName && newName !== oldName) {
+                    m.name = newName;
+                    save();
+                    toast(`Renamed to "${newName}"`, 'success');
+                }
+            }
+            renderMerchants();
+        };
+
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') finish(true);
+            if (e.key === 'Escape') finish(false);
+        });
+        input.addEventListener('blur', () => finish(true));
+    }
+
+    function _mtDeleteMerchant(id) {
+        const m = STATE.merchants.find(x => x.id === id);
+        if (!m) return;
+        const binCount = STATE.merchantBins.filter(b => b.merchant_id === id).length;
+        if (!confirm(`Delete "${m.name}" and its ${binCount} BINs?`)) return;
+        STATE.merchants = STATE.merchants.filter(x => x.id !== id);
+        STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
+        save();
+        toast(`Merchant "${m.name}" deleted`, 'info');
+        renderMerchants();
+    }
+
+    function _addBinToMerchant(bin, amount, merchantId) {
+        const bank = BIN_CACHE[bin] ? (BIN_CACHE[bin].bank || '') : '';
         STATE.merchantBins.push({
-            id: 'mbin-' + Date.now(),
+            id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
             bin: bin,
-            amount: amount,
+            amount: amount || '',
             merchant_id: merchantId,
+            bank: bank,
             date: Date.now()
         });
         save();
-        toast(`BIN ${bin} → $${amount} added`, 'success');
-        // Reset form but keep it open for fast entry
-        document.getElementById('mt-bin-input').value = '';
-        document.getElementById('mt-amt-input').value = '';
-        document.getElementById('mt-bin-input').focus();
-        // Update info counter
-        const info = document.querySelector('.mt-info');
-        if (info) info.textContent = `${STATE.merchants.length} merchants · ${STATE.merchantBins.length} BINs`;
     }
 
-    // ── SEARCH — extract BINs from textarea, lookup merchants ──
+    // ══════════ ENHANCED SEARCH ══════════
+
     function _mtSearch() {
         const textarea = document.getElementById('mt-textarea');
         const text = textarea.value.trim();
@@ -1220,12 +1473,13 @@ function renderStats() {
 
         if (!text) { toast('Paste card data first', 'warning'); return; }
 
-        // Extract all possible card numbers / BINs from text
-        // Match sequences of 6+ digits (could be full card numbers or just BINs)
+        // Extract card numbers and amounts
         const digitSeqs = text.match(/\d{6,}/g) || [];
-
-        // Get unique BINs (first 6 digits of each sequence)
         const bins = [...new Set(digitSeqs.map(s => s.slice(0, 6)))];
+
+        // Extract amounts from text
+        const amountMatch = text.match(/(?:\$|Price[:\s]*\$?|Amount[:\s]*\$?|Total[:\s]*\$?)(\d+(?:\.\d{1,2})?)/i);
+        const detectedAmount = amountMatch ? amountMatch[1] : '';
 
         if (bins.length === 0) {
             resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
@@ -1236,37 +1490,173 @@ function renderStats() {
 
         bins.forEach(bin => {
             const matches = STATE.merchantBins.filter(b => b.bin === bin);
+            const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
+            const bankName = bankInfo ? (bankInfo.bank || '—') : (matches.length > 0 && matches[0].bank ? matches[0].bank : '—');
+            const bankCountry = bankInfo ? (bankInfo.country || '') : '';
+            const bankType = bankInfo ? (bankInfo.type || '') : '';
+
+            // Group by merchant
+            const byMerchant = {};
+            matches.forEach(b => {
+                const mId = b.merchant_id;
+                if (!byMerchant[mId]) byMerchant[mId] = { entries: [], name: '' };
+                byMerchant[mId].entries.push(b);
+                const m = STATE.merchants.find(x => x.id === mId);
+                if (m) byMerchant[mId].name = m.name;
+            });
 
             html += `<div class="mt-result-block">`;
-            html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong></div>`;
+            html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
+            if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
+            if (bankCountry) html += ` <span class="mt-result-geo">${bankCountry}</span>`;
+            if (bankType) html += ` <span class="mt-result-type">${bankType}</span>`;
+            html += `</div>`;
 
-            if (matches.length > 0) {
-                matches.forEach(b => {
-                    const merchant = STATE.merchants.find(m => m.id === b.merchant_id);
-                    const mName = merchant ? merchant.name : 'Unknown';
-                    const amt = parseFloat(b.amount || 0);
-                    html += `<div class="mt-result-row"><span class="mt-col-merchant">${mName}</span> — <span class="mt-col-amount">$${amt.toFixed(0)}</span></div>`;
+            if (Object.keys(byMerchant).length > 0) {
+                Object.entries(byMerchant).forEach(([mId, data]) => {
+                    const lastEntry = data.entries[data.entries.length - 1];
+                    const m = STATE.merchants.find(x => x.id === mId);
+                    const links = m && m.links ? m.links : [];
+
+                    html += `<div class="mt-result-merchant-block">`;
+                    html += `<div class="mt-result-row">`;
+                    html += `<span class="mt-col-merchant">${data.name}</span>`;
+                    html += ` — Used: <strong>${data.entries.length}</strong> times`;
+                    if (lastEntry.amount) html += ` — Last: <span class="mt-col-amount">$${lastEntry.amount}</span>`;
+                    html += `</div>`;
+
+                    // Links
+                    if (links.length > 0) {
+                        html += `<div class="mt-result-links">`;
+                        links.forEach(l => {
+                            html += `<a href="${l.url}" target="_blank" rel="noopener" class="mt-link-badge-sm">[${l.label}]</a>`;
+                        });
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
                 });
             } else {
-                html += `<div class="mt-no-data">NO DATA</div>`;
+                html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
+            }
+
+            // Show detected amount
+            if (detectedAmount) {
+                html += `<div class="mt-result-amount-detected">💰 Detected amount: $${detectedAmount}</div>`;
+            }
+
+            // Quick action — add to merchant
+            if (STATE.merchants.length > 0) {
+                let options = STATE.merchants.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+                html += `<div class="mt-result-action">
+                    <select class="mt-select mt-result-merch-select" data-bin="${bin}" data-amount="${detectedAmount}">${options}</select>
+                    <button class="mt-btn mt-btn-ok mt-result-add-btn" data-bin="${bin}">+ Link</button>
+                </div>`;
             }
 
             html += `</div>`;
         });
 
         resultsDiv.innerHTML = html;
+
+        // Wire up "Link" buttons
+        resultsDiv.querySelectorAll('.mt-result-add-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bin = btn.dataset.bin;
+                const select = resultsDiv.querySelector(`.mt-result-merch-select[data-bin="${bin}"]`);
+                const merchantId = select.value;
+                const amount = select.dataset.amount || '';
+                _addBinToMerchant(bin, amount, merchantId);
+                const mName = STATE.merchants.find(m => m.id === merchantId)?.name || '';
+                toast(`BIN ${bin} linked to ${mName}`, 'success');
+                _mtSearch(); // Refresh results
+            });
+        });
     }
 
-    // Keep legacy window functions for compatibility
+    // ══════════ QUICK SEARCH ══════════
+
+    function _mtQuickSearch(query) {
+        const resultsDiv = document.getElementById('mt-results');
+        if (!resultsDiv) return;
+        const q = query.toUpperCase();
+        const qDigits = query.replace(/\D/g, '');
+
+        let html = '';
+        let found = false;
+
+        // Search by BIN
+        if (qDigits.length >= 4) {
+            const binPrefix = qDigits.slice(0, 6);
+            const matches = STATE.merchantBins.filter(b => b.bin.startsWith(binPrefix));
+
+            if (matches.length > 0) {
+                found = true;
+                const byBin = {};
+                matches.forEach(b => {
+                    if (!byBin[b.bin]) byBin[b.bin] = [];
+                    byBin[b.bin].push(b);
+                });
+
+                Object.entries(byBin).forEach(([bin, entries]) => {
+                    const bankInfo = BIN_CACHE[bin];
+                    const bankName = bankInfo ? (bankInfo.bank || '—') : (entries[0].bank || '—');
+                    html += `<div class="mt-result-block">`;
+                    html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
+                    if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
+                    html += `</div>`;
+
+                    const byMerch = {};
+                    entries.forEach(e => {
+                        if (!byMerch[e.merchant_id]) byMerch[e.merchant_id] = [];
+                        byMerch[e.merchant_id].push(e);
+                    });
+                    Object.entries(byMerch).forEach(([mId, es]) => {
+                        const m = STATE.merchants.find(x => x.id === mId);
+                        const last = es[es.length - 1];
+                        html += `<div class="mt-result-row"><span class="mt-col-merchant">${m ? m.name : 'Unknown'}</span> — Used: <strong>${es.length}</strong>`;
+                        if (last.amount) html += ` — Last: <span class="mt-col-amount">$${last.amount}</span>`;
+                        html += `</div>`;
+                        if (m && m.links && m.links.length > 0) {
+                            html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
+                        }
+                    });
+                    html += `</div>`;
+                });
+            }
+        }
+
+        // Search by merchant name
+        STATE.merchants.forEach(m => {
+            if (m.name.toUpperCase().includes(q)) {
+                found = true;
+                const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
+                const uniqueBins = [...new Set(bins.map(b => b.bin))];
+                html += `<div class="mt-result-block">`;
+                html += `<div class="mt-result-bin"><span class="mt-col-merchant">${m.name}</span> — ${uniqueBins.length} BINs · ${bins.length} uses</div>`;
+                uniqueBins.slice(0, 10).forEach(bin => {
+                    const count = bins.filter(b => b.bin === bin).length;
+                    const last = bins.filter(b => b.bin === bin).pop();
+                    const bankInfo = BIN_CACHE[bin];
+                    const bankName = bankInfo ? (bankInfo.bank || '') : '';
+                    html += `<div class="mt-result-row">BIN: <strong>${bin}</strong>${bankName ? ' · 🏦 ' + bankName : ''} — ${count}x${last && last.amount ? ' · $' + last.amount : ''}</div>`;
+                });
+                if (m.links && m.links.length > 0) {
+                    html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
+                }
+                html += `</div>`;
+            }
+        });
+
+        if (!found) {
+            html = `<div class="mt-no-data">No results for "${query}"</div>`;
+        }
+
+        resultsDiv.innerHTML = html;
+    }
+
+    // Legacy compat
     window.openMerchant = function () {};
-    window.deleteMerchant = function (id) {
-        const m = STATE.merchants.find(x => x.id === id);
-        if (!m) return;
-        STATE.merchants = STATE.merchants.filter(x => x.id !== id);
-        STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
-        save();
-        toast(`Merchant "${m.name}" deleted`, 'info');
-    };
+    window.deleteMerchant = function (id) { _mtDeleteMerchant(id); };
     window.deleteMerchBin = function (id) {
         STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== id);
         save();
