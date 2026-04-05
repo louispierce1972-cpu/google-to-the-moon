@@ -1949,7 +1949,8 @@ function renderContent() {
 
     // Attach sort handlers
     area.querySelectorAll('.sortable').forEach(th => {
-        th.addEventListener('click', () => {
+        th.addEventListener('click', (e) => {
+            if (e.target.classList.contains('col-resize-handle')) return; // don't sort on resize
             const field = th.dataset.sort;
             if (STATE.sortField === field) {
                 STATE.sortDir = STATE.sortDir === 'asc' ? 'desc' : 'asc';
@@ -1960,6 +1961,9 @@ function renderContent() {
             renderContent();
         });
     });
+
+    // Column resize
+    initColumnResize(area.querySelector('.data-table'), 'workspace');
 
     renderFooter(cards.length, STATE.page, totalPages);
 
@@ -2063,7 +2067,8 @@ function renderAllCards() {
 
     // Attach sort handlers
     area.querySelectorAll('.sortable').forEach(th => {
-        th.addEventListener('click', () => {
+        th.addEventListener('click', (e) => {
+            if (e.target.classList.contains('col-resize-handle')) return;
             const field = th.dataset.sort;
             if (STATE.sortField === field) {
                 STATE.sortDir = STATE.sortDir === 'asc' ? 'desc' : 'asc';
@@ -2075,6 +2080,7 @@ function renderAllCards() {
         });
     });
 
+    initColumnResize(area.querySelector('.data-table'), 'allcards');
     renderFooter(cards.length, STATE.page, totalPages);
 }
 
@@ -2245,7 +2251,8 @@ function renderDocs() {
 
     // Attach doc sort handlers
     area.querySelectorAll('.sortable-doc').forEach(th => {
-        th.addEventListener('click', () => {
+        th.addEventListener('click', (e) => {
+            if (e.target.classList.contains('col-resize-handle')) return;
             const field = th.dataset.sort;
             if (STATE.docSortField === field) {
                 STATE.docSortDir = STATE.docSortDir === 'asc' ? 'desc' : 'asc';
@@ -2257,6 +2264,7 @@ function renderDocs() {
         });
     });
 
+    initColumnResize(area.querySelector('.data-table'), 'documents');
     renderFooter(docs.length, 1, 1);
 }
 
@@ -6827,4 +6835,65 @@ function addCollectedToCards() {
     window.openChecker = openChecker;
 
 })();
+
+// ═══════ COLUMN RESIZE UTILITY ═══════
+function initColumnResize(table, storageKey) {
+    if (!table) return;
+    const ths = table.querySelectorAll('thead th');
+    if (ths.length === 0) return;
+
+    const key = 'ct_colwidths_' + (storageKey || 'default');
+
+    // Restore saved widths
+    try {
+        const saved = JSON.parse(localStorage.getItem(key));
+        if (saved && Array.isArray(saved)) {
+            ths.forEach((th, i) => {
+                if (saved[i]) th.style.width = saved[i] + 'px';
+            });
+        }
+    } catch {}
+
+    // Add resize handles
+    ths.forEach((th, i) => {
+        if (th.querySelector('.col-resize-handle')) return; // already has one
+        const handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+
+        let startX, startWidth;
+
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startX = e.pageX;
+            startWidth = th.offsetWidth;
+            handle.classList.add('resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            const onMove = (ev) => {
+                const diff = ev.pageX - startX;
+                const newWidth = Math.max(60, startWidth + diff);
+                th.style.width = newWidth + 'px';
+            };
+
+            const onUp = () => {
+                handle.classList.remove('resizing');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+
+                // Save widths
+                const widths = Array.from(ths).map(t => t.offsetWidth);
+                localStorage.setItem(key, JSON.stringify(widths));
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+
+        th.appendChild(handle);
+    });
+}
 
