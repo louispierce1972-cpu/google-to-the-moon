@@ -1252,20 +1252,26 @@ function renderStats() {
             <div class="mt-bin-table-wrap">
             <table class="mt-bin-table">
                 <thead><tr>
-                    <th>BIN</th><th>Bank</th><th>Count</th><th>Last Amount</th><th>Actions</th>
+                    <th>BIN</th><th>Bank</th><th>Use</th><th>Last Amount</th><th>Currency</th><th>Actions</th>
                 </tr></thead>
                 <tbody>${sortedBins.map(([bin, data]) => {
                     const lastEntry = data.entries[data.entries.length - 1];
                     const bankShort = (data.bank || '—').length > 20 ? data.bank.slice(0, 20) + '…' : (data.bank || '—');
-                    return `<tr>
+                    const currency = lastEntry.currency || '';
+                    // Transaction history rows
+                    const txRows = data.entries.map(e => {
+                        return `<tr class="mt-tx-row" style="display:none" data-parent="${bin}"><td></td><td colspan="2" class="mt-tx-detail">→ ${e.amount || '—'} ${e.currency || ''}</td><td colspan="2" class="mt-tx-date">${e.date ? new Date(e.date).toLocaleDateString() : ''}</td><td></td></tr>`;
+                    }).join('');
+                    return `<tr class="mt-bin-main-row" data-bin="${bin}" title="Click to expand transactions">
                         <td class="mt-bin-val">${bin}</td>
                         <td class="mt-bin-bank-cell">${bankShort}</td>
                         <td class="mt-bin-count">${data.entries.length}</td>
-                        <td class="mt-bin-amount">${lastEntry.amount ? '$' + lastEntry.amount : '—'}</td>
+                        <td class="mt-bin-amount">${lastEntry.amount ? lastEntry.amount : '—'}</td>
+                        <td class="mt-bin-currency">${currency}</td>
                         <td class="mt-bin-actions">
                             <button class="mt-btn mt-btn-sm mt-btn-del-bin" data-bin="${bin}" title="Delete BIN">🗑</button>
                         </td>
-                    </tr>`;
+                    </tr>${txRows}`;
                 }).join('')}</tbody>
             </table>
             </div>`;
@@ -1307,9 +1313,10 @@ function renderStats() {
                         <button class="mt-btn mt-btn-ok" id="mt-bin-add-single">+ Add</button>
                     </div>
                     <div class="mt-add-bin-bulk">
-                        <textarea id="mt-bin-bulk" class="mt-textarea-sm" rows="3" placeholder="Bulk: 450553, 424242, 532610\nor one per line"></textarea>
+                        <textarea id="mt-bin-bulk" class="mt-textarea-sm" rows="5" placeholder="Supported formats:\n412650 - 1,269.00 EUR\n418914 - 1.319,00 EUR\n532932 - 3436.99 SAR\nor just BINs: 450553, 424242"></textarea>
                         <button class="mt-btn mt-btn-ok" id="mt-bin-add-bulk">+ Add All</button>
                     </div>
+                    <div id="mt-bulk-summary" class="mt-bulk-summary hidden"></div>
                 </div>
 
                 <!-- SEARCH in context of this merchant -->
@@ -1337,21 +1344,69 @@ function renderStats() {
             renderMerchants();
         });
 
-        // Bulk BIN add
+        // Bulk BIN add (supports: BIN - AMOUNT CURRENCY, plain BINs, mixed)
         document.getElementById('mt-bin-add-bulk').addEventListener('click', () => {
-            const raw = document.getElementById('mt-bin-bulk').value;
-            const parts = raw.split(/[\s,;|\n]+/).map(s => s.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4);
-            if (parts.length === 0) { toast('No valid BINs found', 'warning'); return; }
-            const unique = [...new Set(parts)];
-            let added = 0;
-            unique.forEach(bin => {
-                const padded = bin.padEnd(6, '0');
-                _addBinToMerchant(padded, '', merch.id);
-                added++;
+            const raw = document.getElementById('mt-bin-bulk').value.trim();
+            if (!raw) { toast('Paste BIN data', 'warning'); return; }
+
+            const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
+            const parsed = [];
+
+            lines.forEach(line => {
+                // Format: BIN - AMOUNT CURRENCY  (e.g. 412650 - 1,269.00 EUR)
+                const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
+                if (richMatch) {
+                    const bin = richMatch[1].padEnd(6, '0');
+                    const amount = _parseAmount(richMatch[2]);
+                    const currency = richMatch[3] || '';
+                    parsed.push({ bin, amount: amount.toString(), currency });
+                    return;
+                }
+                // Fallback: extract 6+ digit sequences as BINs
+                const digits = line.match(/\d{4,}/g);
+                if (digits) {
+                    digits.forEach(d => {
+                        parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' });
+                    });
+                }
             });
+
+            if (parsed.length === 0) { toast('No valid BINs found', 'warning'); return; }
+
+            // Track new vs duplicate
+            const existingBins = new Set(STATE.merchantBins.filter(b => b.merchant_id === merch.id).map(b => b.bin));
+            let newCount = 0, dupCount = 0;
+
+            parsed.forEach(p => {
+                if (existingBins.has(p.bin)) dupCount++;
+                else { newCount++; existingBins.add(p.bin); }
+                _addBinToMerchant(p.bin, p.amount, merch.id, p.currency);
+            });
+
             save();
-            toast(`${added} BINs added to ${merch.name}`, 'success');
-            renderMerchants();
+
+            // Show summary
+            const summaryEl = document.getElementById('mt-bulk-summary');
+            if (summaryEl) {
+                summaryEl.classList.remove('hidden');
+                summaryEl.innerHTML = `✅ Loaded: <strong>${parsed.length}</strong> BINs — <span class="mt-sum-new">${newCount} new</span> · <span class="mt-sum-dup">${dupCount} duplicates</span>`;
+            }
+
+            toast(`${parsed.length} BINs added to ${merch.name}`, 'success');
+            // Re-render after short delay so user sees summary
+            setTimeout(() => renderMerchants(), 1200);
+        });
+
+        // Expand/collapse transaction rows
+        document.querySelectorAll('.mt-bin-main-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('.mt-btn-del-bin')) return; // don't expand on delete click
+                const bin = row.dataset.bin;
+                const txRows = document.querySelectorAll(`.mt-tx-row[data-parent="${bin}"]`);
+                const isVisible = txRows[0] && txRows[0].style.display !== 'none';
+                txRows.forEach(tr => tr.style.display = isVisible ? 'none' : 'table-row');
+                row.classList.toggle('mt-bin-expanded', !isVisible);
+            });
         });
 
         // Delete BIN
@@ -1451,17 +1506,43 @@ function renderStats() {
         renderMerchants();
     }
 
-    function _addBinToMerchant(bin, amount, merchantId) {
+    function _addBinToMerchant(bin, amount, merchantId, currency) {
         const bank = BIN_CACHE[bin] ? (BIN_CACHE[bin].bank || '') : '';
         STATE.merchantBins.push({
             id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
             bin: bin,
             amount: amount || '',
+            currency: currency || '',
             merchant_id: merchantId,
             bank: bank,
             date: Date.now()
         });
         save();
+    }
+
+    // ── Parse amount from various formats ──
+    // Handles: 1,269.00 | 1.269,00 | 2637,99 | 3,436.99 | 1.898,00
+    function _parseAmount(str) {
+        if (!str) return 0;
+        str = str.trim();
+        // Detect format: if last separator is comma and has 1-2 digits after → European (comma = decimal)
+        // If last separator is dot and has 1-2 digits after → US (dot = decimal)
+        const lastComma = str.lastIndexOf(',');
+        const lastDot = str.lastIndexOf('.');
+
+        if (lastComma > lastDot) {
+            // Comma is the decimal separator (European): 1.269,00
+            const clean = str.replace(/\./g, '').replace(',', '.');
+            return parseFloat(clean) || 0;
+        } else if (lastDot > lastComma) {
+            // Dot is the decimal separator (US): 1,269.00
+            const clean = str.replace(/,/g, '');
+            return parseFloat(clean) || 0;
+        } else {
+            // No separator or same position
+            const clean = str.replace(/[^\d.]/g, '');
+            return parseFloat(clean) || 0;
+        }
     }
 
     // ══════════ ENHANCED SEARCH ══════════

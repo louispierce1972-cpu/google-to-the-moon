@@ -5381,6 +5381,70 @@ tr.row-selected td {
     text-align: center;
 }
 
+/* Currency column */
+.mt-bin-currency {
+    color: #818CF8;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .5px;
+}
+
+/* Clickable BIN main rows */
+.mt-bin-main-row {
+    cursor: pointer;
+}
+.mt-bin-main-row:hover {
+    background: var(--bg-hover);
+}
+.mt-bin-main-row .mt-bin-val::before {
+    content: '▸ ';
+    font-size: 9px;
+    color: var(--text-dim);
+    transition: transform .12s;
+}
+.mt-bin-expanded .mt-bin-val::before {
+    content: '▾ ';
+    color: #22C55E;
+}
+
+/* Transaction detail rows */
+.mt-tx-row {
+    background: rgba(255,255,255,.01);
+}
+.mt-tx-row td {
+    padding: 2px 8px !important;
+    font-size: 11px;
+}
+.mt-tx-detail {
+    color: #FBBF24;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+.mt-tx-date {
+    color: var(--text-dim);
+    font-size: 10px;
+    font-family: var(--font-mono);
+}
+
+/* Bulk import summary */
+.mt-bulk-summary {
+    padding: 6px 10px;
+    margin-top: 6px;
+    background: rgba(34,197,94,.08);
+    border: 1px solid rgba(34,197,94,.2);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+.mt-sum-new {
+    color: #22C55E;
+    font-weight: 700;
+}
+.mt-sum-dup {
+    color: #F59E0B;
+    font-weight: 700;
+}
+
 /* ─── LINKS ─── */
 .mt-links-section {
     margin: 8px 12px;
