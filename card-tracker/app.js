@@ -1554,13 +1554,40 @@ function renderStats() {
 
         if (!text) { toast('Paste card data first', 'warning'); return; }
 
-        // Extract card numbers and amounts
-        const digitSeqs = text.match(/\d{6,}/g) || [];
-        const bins = [...new Set(digitSeqs.map(s => s.slice(0, 6)))];
+        // ── Smart BIN extraction: prioritize CC field ──
+        let bins = [];
 
-        // Extract amounts from text
-        const amountMatch = text.match(/(?:\$|Price[:\s]*\$?|Amount[:\s]*\$?|Total[:\s]*\$?)(\d+(?:\.\d{1,2})?)/i);
-        const detectedAmount = amountMatch ? amountMatch[1] : '';
+        // 1. Try to find CC/Card field in the text
+        // Matches: CC: 4165 4903 8860 5285, Card: 4242424242424242, CC Number: ..., etc.
+        const ccPatterns = [
+            /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN)[:\s]+([0-9\s\-]{13,25})/gi,
+            /(?:CC|Card)[:\s]*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})/gi,
+        ];
+
+        for (const pat of ccPatterns) {
+            let match;
+            while ((match = pat.exec(text)) !== null) {
+                const cardNum = match[1].replace(/[\s\-]/g, '');
+                if (cardNum.length >= 13 && cardNum.length <= 19 && /^\d+$/.test(cardNum)) {
+                    bins.push(cardNum.slice(0, 6));
+                }
+            }
+        }
+
+        // 2. Fallback: if no CC field found, look for standalone card numbers (13-19 consecutive digits)
+        //    but ONLY sequences that look like card numbers, not random IDs or phones
+        if (bins.length === 0) {
+            const cardMatches = text.match(/\b\d{13,19}\b/g) || [];
+            cardMatches.forEach(c => bins.push(c.slice(0, 6)));
+        }
+
+        // Deduplicate
+        bins = [...new Set(bins)];
+
+        // Extract amounts separately (does NOT affect BIN search)
+        const amountMatch = text.match(/(?:Price|Amount|Total|Sum)[:\s]*\$?\s*([\d.,]+)/i)
+            || text.match(/\$([\d.,]+)/);
+        const detectedAmount = amountMatch ? _parseAmount(amountMatch[1]).toString() : '';
 
         if (bins.length === 0) {
             resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
