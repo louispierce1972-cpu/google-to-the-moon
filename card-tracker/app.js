@@ -4391,7 +4391,11 @@ let PARSER_STATE = {
     binGroups: [],
     selected: new Set(),
     binFilter: null,
-    sortBy: 'index'
+    sortBy: 'index',
+    statusFilter: 'ALL',
+    excludedIndices: new Set(),
+    excludedBins: [],
+    excludedBanks: []
 };
 
 // ──── HELPERS ────
@@ -5047,17 +5051,24 @@ function renderParser() {
             <button class="btn-primary parser-collect-btn" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>📦 COLLECT ALL</button>
             <button class="btn-outline parser-clear-btn" id="parser-clear-btn">🗑 CLEAR</button>
             <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">🧹 CLEAR BASE</button>
+            <button class="btn-outline parser-trash-add-btn" id="parser-trash-add-btn">🗑 ADD TRASH CARDS (${trashCount})</button>
             <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? '📦 Saved base: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
         </div>
 
-        <!-- TRASH CARDS -->
-        <details class="parser-trash-section" id="parser-trash-section">
-            <summary class="parser-trash-summary">🗑 TRASH CARDS (${trashCount})</summary>
-            <div class="parser-trash-body">
-                <textarea id="parser-trash-textarea" rows="4" placeholder="Paste bad card numbers (one per line)...">${(STATE.trashCards || []).join('\n')}</textarea>
-                <button class="btn-outline" id="parser-trash-save-btn">Save Trash Cards</button>
+        <!-- EXCLUDE BIN / BANK -->
+        <div class="parser-exclude-section" id="parser-exclude-section" style="${PARSER_STATE.collected.length > 0 ? '' : 'display:none'}">
+            <div class="parser-exclude-row">
+                <div class="parser-exclude-group">
+                    <label>Exclude BIN <span class="parser-filter-hint">(comma separated)</span></label>
+                    <input type="text" id="parser-exclude-bins" placeholder="450553, 424242..." value="${PARSER_STATE.excludedBins.join(', ')}">
+                </div>
+                <div class="parser-exclude-group">
+                    <label>Exclude BANK <span class="parser-filter-hint">(comma separated)</span></label>
+                    <input type="text" id="parser-exclude-banks" placeholder="CHASE, TD BANK..." value="${PARSER_STATE.excludedBanks.join(', ')}">
+                </div>
+                <button class="btn-outline parser-exclude-apply-btn" id="parser-exclude-apply-btn">🚫 EXCLUDE SELECTED</button>
             </div>
-        </details>
+        </div>
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
@@ -5086,25 +5097,125 @@ function renderParser() {
         PARSER_STATE.file = '';
         PARSER_STATE.binFilter = null;
         PARSER_STATE.sortBy = 'index';
+        PARSER_STATE.statusFilter = 'ALL';
+        PARSER_STATE.excludedIndices = new Set();
+        PARSER_STATE.excludedBins = [];
+        PARSER_STATE.excludedBanks = [];
         localStorage.removeItem('ct_parser_base');
         renderParser();
         toast('Parser base cleared', 'info');
     });
 
-    // TRASH CARDS save button
-    document.getElementById('parser-trash-save-btn').addEventListener('click', () => {
-        const raw = document.getElementById('parser-trash-textarea').value.trim();
-        const numbers = raw.split('\n').map(l => l.replace(/\D/g, '').trim()).filter(l => l.length >= 13);
-        STATE.trashCards = numbers;
-        save();
-        toast(`${numbers.length} trash cards saved`, 'success');
-        // Update summary count
-        const summary = document.querySelector('.parser-trash-summary');
-        if (summary) summary.textContent = `🗑 TRASH CARDS (${numbers.length})`;
+    // ADD TRASH CARDS button → open modal
+    document.getElementById('parser-trash-add-btn').addEventListener('click', () => {
+        const overlay = document.getElementById('trash-cards-overlay');
+        overlay.classList.remove('hidden');
+        const textarea = document.getElementById('trash-cards-textarea');
+        textarea.value = '';
+        document.getElementById('trash-cards-detected').textContent = '0 cards detected';
+        textarea.focus();
     });
 
+    // Trash modal handlers
+    _initTrashCardModal();
+
+    // EXCLUDE SELECTED button
+    document.getElementById('parser-exclude-apply-btn')?.addEventListener('click', _applyBinBankExclusion);
 
     if (PARSER_STATE.collected.length > 0) renderParserResults();
+}
+
+// ──── TRASH CARD MODAL ────
+function _initTrashCardModal() {
+    const overlay = document.getElementById('trash-cards-overlay');
+    const textarea = document.getElementById('trash-cards-textarea');
+    const closeBtn = document.getElementById('trash-cards-close');
+    const cancelBtn = document.getElementById('trash-cards-cancel');
+    const saveBtn = document.getElementById('trash-cards-save');
+    const detectedEl = document.getElementById('trash-cards-detected');
+
+    if (!overlay || !textarea) return;
+
+    const closeModal = () => { overlay.classList.add('hidden'); };
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    // Auto-detect on input
+    textarea.addEventListener('input', () => {
+        const nums = _extractCardNumbers(textarea.value);
+        detectedEl.textContent = `${nums.length} cards detected`;
+    });
+
+    // Save — APPEND to existing, keep unique
+    saveBtn?.addEventListener('click', () => {
+        const nums = _extractCardNumbers(textarea.value);
+        if (nums.length === 0) { toast('No card numbers detected', 'warning'); return; }
+
+        const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+        let added = 0;
+        nums.forEach(n => {
+            if (!existingSet.has(n)) {
+                STATE.trashCards.push(n);
+                existingSet.add(n);
+                added++;
+            }
+        });
+
+        save();
+        closeModal();
+        toast(`${added} new trash cards added (${STATE.trashCards.length} total)`, 'success');
+
+        // Update button counter
+        const btn = document.getElementById('parser-trash-add-btn');
+        if (btn) btn.textContent = `🗑 ADD TRASH CARDS (${STATE.trashCards.length})`;
+
+        // Re-tag if parser has results
+        if (PARSER_STATE.collected.length > 0) {
+            _retagParserCards();
+            renderParserResults();
+        }
+    });
+}
+
+function _extractCardNumbers(text) {
+    const matches = text.match(/\d[\d\s\-]{11,18}\d/g) || [];
+    const cleaned = matches.map(m => m.replace(/[\s\-]/g, '')).filter(n => n.length >= 13 && n.length <= 19);
+    return [...new Set(cleaned)];
+}
+
+function _retagParserCards() {
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+    PARSER_STATE.collected.forEach(c => {
+        const num = c.cc.replace(/\s/g, '');
+        if (existingNumbers.has(num)) c._tag = 'DUPLICATE';
+        else if (trashSet.has(num)) c._tag = 'TRASH';
+        else c._tag = 'NEW';
+    });
+}
+
+// ──── EXCLUDE BIN / BANK ────
+function _applyBinBankExclusion() {
+    const binInput = document.getElementById('parser-exclude-bins');
+    const bankInput = document.getElementById('parser-exclude-banks');
+    const bins = (binInput?.value || '').split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4);
+    const banks = (bankInput?.value || '').split(/[,;|]+/).map(b => b.trim().toUpperCase()).filter(Boolean);
+
+    PARSER_STATE.excludedBins = bins;
+    PARSER_STATE.excludedBanks = banks;
+
+    // Mark excluded
+    PARSER_STATE.excludedIndices = new Set();
+    PARSER_STATE.collected.forEach((c, i) => {
+        const cardBin = c.bin || c.cc.replace(/\s/g, '').slice(0, 6);
+        const cardBank = (c.bank || '').toUpperCase();
+        if (bins.some(b => cardBin.startsWith(b))) PARSER_STATE.excludedIndices.add(i);
+        if (banks.some(b => cardBank.includes(b))) PARSER_STATE.excludedIndices.add(i);
+    });
+
+    toast(`${PARSER_STATE.excludedIndices.size} cards excluded by BIN/BANK`, 'info');
+    renderParserResults();
 }
 
 function loadParserFile(file) {
@@ -5252,11 +5363,24 @@ function renderParserResults(geoFilter) {
     const el = document.getElementById('parser-results');
     if (!el) return;
 
+    // Show exclude section
+    const excludeSection = document.getElementById('parser-exclude-section');
+    if (excludeSection) excludeSection.style.display = '';
+
     let list = PARSER_STATE.collected;
     if (list.length === 0) {
         el.innerHTML = '<div class="empty-state"><p>No cards found</p></div>';
         return;
     }
+
+    // ──── Counts ────
+    let totalCount = list.length;
+    let newCount = 0, dupCount = 0, trashCount = 0, excludedCount = PARSER_STATE.excludedIndices.size;
+    list.forEach((c, i) => {
+        if (c._tag === 'NEW') newCount++;
+        else if (c._tag === 'DUPLICATE') dupCount++;
+        else if (c._tag === 'TRASH') trashCount++;
+    });
 
     // ──── GEO data ────
     const geoMap = {};
@@ -5284,17 +5408,51 @@ function renderParserResults(geoFilter) {
         AR:'Argentina',CL:'Chile',CO:'Colombia',PE:'Peru',EG:'Egypt'
     };
 
-    // Apply GEO filter to displayed list
+    // Apply GEO filter
     const activeGeo = geoFilter || '';
     let displayList = list;
     if (activeGeo) {
         displayList = list.filter(c => (c.detectedGeo || c.country || '').toUpperCase() === activeGeo);
     }
 
+    // Apply status filter
+    const sf = PARSER_STATE.statusFilter || 'ALL';
+    if (sf === 'NEW') displayList = displayList.filter(c => c._tag === 'NEW');
+    else if (sf === 'DUPLICATE') displayList = displayList.filter(c => c._tag === 'DUPLICATE');
+    else if (sf === 'TRASH') displayList = displayList.filter(c => c._tag === 'TRASH');
+
+    // ──── SUMMARY ────
+    const summaryHtml = `
+        <div class="parser-summary">
+            <span class="ps-item">Total: <strong>${totalCount}</strong></span>
+            <span class="ps-item ps-new">New: <strong>${newCount}</strong></span>
+            <span class="ps-item ps-dup">Duplicates: <strong>${dupCount}</strong></span>
+            <span class="ps-item ps-trash">Trash: <strong>${trashCount}</strong></span>
+            <span class="ps-item ps-excluded">Excluded: <strong>${excludedCount}</strong></span>
+        </div>`;
+
+    // ──── STATUS TABS ────
+    const statusTabsHtml = `
+        <div class="parser-status-tabs">
+            <button class="pst-tab ${sf === 'ALL' ? 'active' : ''}" data-filter="ALL">ALL (${totalCount})</button>
+            <button class="pst-tab pst-new ${sf === 'NEW' ? 'active' : ''}" data-filter="NEW">NEW (${newCount})</button>
+            <button class="pst-tab pst-dup ${sf === 'DUPLICATE' ? 'active' : ''}" data-filter="DUPLICATE">DUPLICATE (${dupCount})</button>
+            <button class="pst-tab pst-trash ${sf === 'TRASH' ? 'active' : ''}" data-filter="TRASH">TRASH (${trashCount})</button>
+        </div>`;
+
+    // ──── ACTION BUTTONS ────
+    const actionsHtml = `
+        <div class="parser-action-bar">
+            <button class="parser-action-btn pa-exclude-dup" id="parser-btn-exclude-dup">🚫 EXCLUDE DUPLICATES</button>
+            <button class="parser-action-btn pa-exclude-trash" id="parser-btn-exclude-trash">🚫 EXCLUDE TRASH</button>
+            <button class="parser-action-btn pa-add-new" id="parser-btn-add-new">✅ ADD ONLY NEW</button>
+            <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
+        </div>`;
+
     // ──── GEO dropdown ────
     const geoDropdownHtml = `
         <div class="parser-geo-filter">
-            <label>GEO Filter</label>
+            <label>GEO</label>
             <select id="parser-geo-select">
                 <option value="">ALL (${list.length})</option>
                 ${geoList.map(([code, cnt]) => {
@@ -5316,17 +5474,25 @@ function renderParserResults(geoFilter) {
         .map(([bin, d]) => ({ bin, count: d.count, bank: d.bank }))
         .sort((a, b) => b.count - a.count);
 
+    const excludedBinSet = new Set(PARSER_STATE.excludedBins);
+    const excludedBankSet = new Set(PARSER_STATE.excludedBanks.map(b => b.toUpperCase()));
+
     const binAnalyticsHtml = sortedBins.slice(0, 50).map(b => {
         const bankShort = b.bank.length > 20 ? b.bank.slice(0, 20) + '…' : (b.bank || '—');
-        return `<div class="parser-bin-row"><span class="parser-bin-val">${b.bin}</span><span class="parser-bin-bank">${bankShort}</span><span class="parser-bin-cnt">${b.count}</span></div>`;
+        const isBinExcluded = PARSER_STATE.excludedBins.some(eb => b.bin.startsWith(eb));
+        const isBankExcluded = PARSER_STATE.excludedBanks.some(eb => (b.bank || '').toUpperCase().includes(eb));
+        const isExcluded = isBinExcluded || isBankExcluded;
+        return `<div class="parser-bin-row ${isExcluded ? 'parser-bin-excluded' : ''}">
+            <span class="parser-bin-val parser-bin-clickable" data-exclude-bin="${b.bin}" title="Click to exclude BIN ${b.bin}">${b.bin}</span>
+            <span class="parser-bin-bank parser-bank-clickable" data-exclude-bank="${b.bank}" title="Click to exclude bank">${bankShort}</span>
+            <span class="parser-bin-cnt">${b.count}</span>
+        </div>`;
     }).join('');
 
     // ──── TABLE ROWS ────
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
     const parserBinCounts = {};
     displayList.forEach(c => { parserBinCounts[c.bin] = (parserBinCounts[c.bin] || 0) + 1; });
 
-    // Sort support
     const sortBy = PARSER_STATE.sortBy || 'index';
     let sortedDisplay = [...displayList];
     if (sortBy === 'bin-desc') {
@@ -5336,62 +5502,78 @@ function renderParserResults(geoFilter) {
     }
 
     const rows = sortedDisplay.map((c, i) => {
-        const origIdx = displayList.indexOf(c);
-        const isDup = existingNumbers.has(c.cc);
+        const globalIdx = PARSER_STATE.collected.indexOf(c);
         const geo = c.detectedGeo || c.country || '';
-        const bankShort = (c.bank || '').length > 16 ? (c.bank || '').slice(0, 16) + '…' : (c.bank || '—');
-        const binCnt = parserBinCounts[c.bin] || 0;
+        const isExcluded = PARSER_STATE.excludedIndices.has(globalIdx);
 
-        // Tag badge
-        let tagBadge = '';
+        // Status tag
+        let statusBadge = '';
         let rowClass = '';
-        if (c._tag === 'TRASH') { tagBadge = '<span class="parser-tag parser-tag-trash">TRASH</span> '; rowClass = 'parser-row-trash'; }
-        else if (c._tag === 'DUPLICATE') { tagBadge = '<span class="parser-tag parser-tag-dup">DUP</span> '; rowClass = 'parser-row-dup'; }
-        else if (c._tag === 'NEW') { tagBadge = '<span class="parser-tag parser-tag-new">NEW</span> '; rowClass = ''; }
+        if (isExcluded) {
+            statusBadge = '<span class="parser-tag parser-tag-excluded">EXCLUDED</span>';
+            rowClass = 'parser-row-excluded';
+        } else if (c._tag === 'TRASH') {
+            statusBadge = '<span class="parser-tag parser-tag-trash">TRASH</span>';
+            rowClass = 'parser-row-trash';
+        } else if (c._tag === 'DUPLICATE') {
+            statusBadge = '<span class="parser-tag parser-tag-dup">DUP</span>';
+            rowClass = 'parser-row-dup';
+        } else if (c._tag === 'NEW') {
+            statusBadge = '<span class="parser-tag parser-tag-new">NEW</span>';
+            rowClass = 'parser-row-new';
+        }
 
         return `<tr class="${rowClass}">
-            <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(origIdx) ? 'checked' : ''} data-idx="${origIdx}" class="parser-check"></td>
-            <td class="pc-num">${i + 1}</td>
-            <td class="pc-holder">${tagBadge}${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
+            <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
+            <td class="pc-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
             <td class="pc-card">${formatCardBin(c.cc)}</td>
             <td class="pc-exp">${c.validity}</td>
-            <td class="pc-bin">${c.bin} <span class="parser-bin-cnt-inline">(${binCnt})</span></td>
-            <td class="pc-bank" title="${c.bank || ''}">${bankShort}</td>
+            <td class="pc-bin">${c.bin}</td>
             <td class="pc-geo">${geo}</td>
+            <td class="pc-status">${statusBadge}</td>
         </tr>`;
     }).join('');
 
     const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
 
     el.innerHTML = `
-        <!-- GEO + TOOLBAR -->
+        ${summaryHtml}
+        ${statusTabsHtml}
+        ${actionsHtml}
+
+        <!-- GEO + SELECT ALL -->
         <div class="parser-toolbar">
             ${geoDropdownHtml}
             <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
-            <div class="parser-add-section">
-                <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
-                <button class="parser-notes-btn parser-add-new-btn" id="parser-add-new-btn">✅ ADD ONLY NEW</button>
-            </div>
         </div>
 
         <!-- BIN ANALYTICS -->
         <div class="parser-bin-analytics">
-            <div class="parser-bin-analytics-header">📊 BIN Analytics (${sortedBins.length} unique)</div>
-            <div class="parser-bin-analytics-list">${binAnalyticsHtml}</div>
+            <div class="parser-bin-analytics-header">
+                <span>📊 BIN Analytics (${sortedBins.length} unique)</span>
+            </div>
+            <div class="parser-bin-analytics-grid">
+                <div class="parser-bin-row parser-bin-header-row">
+                    <span class="parser-bin-val">BIN</span>
+                    <span class="parser-bin-bank">BANK</span>
+                    <span class="parser-bin-cnt">COUNT</span>
+                </div>
+                ${binAnalyticsHtml}
+            </div>
         </div>
 
         <!-- TABLE -->
         <div class="parser-table-wrap">
         <table class="data-table parser-table">
             <colgroup>
-                <col style="width:28px"><col style="width:32px">
-                <col style="width:17%"><col style="width:14%"><col style="width:45px">
-                <col style="width:11%"><col style="width:18%"><col style="width:36px">
+                <col style="width:28px">
+                <col style="width:18%"><col style="width:15%"><col style="width:48px">
+                <col style="width:10%"><col style="width:42px"><col style="width:70px">
             </colgroup>
             <thead><tr>
-                <th></th><th>#</th><th>HOLDER</th><th>CARD</th><th>EXP</th>
+                <th></th><th>NAME</th><th>CARD</th><th>EXP</th>
                 <th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN count">BIN ${binSortIcon}</th>
-                <th>BANK</th><th>GEO</th>
+                <th>GEO</th><th>STATUS</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>
@@ -5409,7 +5591,11 @@ function renderParserResults(geoFilter) {
     const selectAll = document.getElementById('parser-select-all');
     if (selectAll) {
         selectAll.addEventListener('change', () => {
-            PARSER_STATE.selected = selectAll.checked ? new Set(displayList.map((_, i) => i)) : new Set();
+            if (selectAll.checked) {
+                sortedDisplay.forEach(c => { const gi = PARSER_STATE.collected.indexOf(c); PARSER_STATE.selected.add(gi); });
+            } else {
+                sortedDisplay.forEach(c => { const gi = PARSER_STATE.collected.indexOf(c); PARSER_STATE.selected.delete(gi); });
+            }
             el.querySelectorAll('.parser-check').forEach(cb => { cb.checked = selectAll.checked; });
             updateParserButtons();
         });
@@ -5417,14 +5603,32 @@ function renderParserResults(geoFilter) {
 
     document.getElementById('parser-add-notes-btn')?.addEventListener('click', addCollectedToNotes);
 
-    // ADD ONLY NEW handler — adds only cards tagged as NEW
-    document.getElementById('parser-add-new-btn')?.addEventListener('click', () => {
-        const list = PARSER_STATE.collected;
-        const newCards = list.filter(c => c._tag === 'NEW');
+    // Status tab clicks
+    el.querySelectorAll('.pst-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            PARSER_STATE.statusFilter = tab.dataset.filter;
+            renderParserResults(activeGeo);
+        });
+    });
+
+    // Action buttons
+    document.getElementById('parser-btn-exclude-dup')?.addEventListener('click', () => {
+        PARSER_STATE.collected.forEach((c, i) => { if (c._tag === 'DUPLICATE') PARSER_STATE.excludedIndices.add(i); });
+        toast(`Excluded ${dupCount} duplicates`, 'info');
+        renderParserResults(activeGeo);
+    });
+
+    document.getElementById('parser-btn-exclude-trash')?.addEventListener('click', () => {
+        PARSER_STATE.collected.forEach((c, i) => { if (c._tag === 'TRASH') PARSER_STATE.excludedIndices.add(i); });
+        toast(`Excluded ${trashCount} trash cards`, 'info');
+        renderParserResults(activeGeo);
+    });
+
+    document.getElementById('parser-btn-add-new')?.addEventListener('click', () => {
+        const newCards = PARSER_STATE.collected.filter(c => c._tag === 'NEW');
         if (newCards.length === 0) { toast('No NEW cards to add', 'warning'); return; }
-        // Select only new card indices
         const newIndices = new Set();
-        list.forEach((c, i) => { if (c._tag === 'NEW') newIndices.add(i); });
+        PARSER_STATE.collected.forEach((c, i) => { if (c._tag === 'NEW' && !PARSER_STATE.excludedIndices.has(i)) newIndices.add(i); });
         PARSER_STATE.selected = newIndices;
         addCollectedToNotes();
     });
@@ -5439,6 +5643,36 @@ function renderParserResults(geoFilter) {
         if (PARSER_STATE.sortBy === 'bin-desc') PARSER_STATE.sortBy = 'bin-asc';
         else PARSER_STATE.sortBy = 'bin-desc';
         renderParserResults(activeGeo);
+    });
+
+    // BIN click-to-exclude
+    el.querySelectorAll('.parser-bin-clickable').forEach(span => {
+        span.addEventListener('click', () => {
+            const bin = span.dataset.excludeBin;
+            if (!bin) return;
+            const input = document.getElementById('parser-exclude-bins');
+            const current = (input?.value || '').split(/[\s,;|]+/).filter(Boolean);
+            if (!current.includes(bin)) {
+                current.push(bin);
+                if (input) input.value = current.join(', ');
+            }
+            _applyBinBankExclusion();
+        });
+    });
+
+    // BANK click-to-exclude
+    el.querySelectorAll('.parser-bank-clickable').forEach(span => {
+        span.addEventListener('click', () => {
+            const bank = span.dataset.excludeBank;
+            if (!bank) return;
+            const input = document.getElementById('parser-exclude-banks');
+            const current = (input?.value || '').split(/[,;|]+/).map(b => b.trim()).filter(Boolean);
+            if (!current.some(b => b.toUpperCase() === bank.toUpperCase())) {
+                current.push(bank);
+                if (input) input.value = current.join(', ');
+            }
+            _applyBinBankExclusion();
+        });
     });
 }
 
@@ -5542,6 +5776,10 @@ function clearParser() {
     PARSER_STATE.file = '';
     PARSER_STATE.binFilter = null;
     PARSER_STATE.sortBy = 'index';
+    PARSER_STATE.statusFilter = 'ALL';
+    PARSER_STATE.excludedIndices = new Set();
+    PARSER_STATE.excludedBins = [];
+    PARSER_STATE.excludedBanks = [];
     renderParser();
     toast('Parser cleared', 'info');
 }

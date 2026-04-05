@@ -5530,7 +5530,7 @@ tr.row-selected td {
     border: 1px solid var(--border-default);
 }
 
-/* ═══════ PARSER — TAGS + TRASH SECTION + BUTTONS ═══════ */
+/* ═══════ PARSER — TAGS + STATUS TABS + SUMMARY + ACTIONS ═══════ */
 
 /* Parser tag badges */
 .parser-tag {
@@ -5538,22 +5538,27 @@ tr.row-selected td {
     font-size: 9px;
     font-weight: 700;
     font-family: var(--font-mono);
-    padding: 1px 4px;
+    padding: 1px 5px;
     margin-right: 4px;
     letter-spacing: .5px;
     vertical-align: middle;
+    border-radius: 2px;
 }
 .parser-tag-new {
     color: #22C55E;
-    background: rgba(34,197,94,.12);
+    background: rgba(34,197,94,.15);
 }
 .parser-tag-dup {
     color: #F59E0B;
-    background: rgba(245,158,11,.12);
+    background: rgba(245,158,11,.15);
 }
 .parser-tag-trash {
     color: #ef4444;
-    background: rgba(239,68,68,.12);
+    background: rgba(239,68,68,.15);
+}
+.parser-tag-excluded {
+    color: #6B7280;
+    background: rgba(107,114,128,.15);
 }
 
 /* Row styling for tags */
@@ -5563,13 +5568,21 @@ tr.row-selected td {
 .parser-row-dup {
     opacity: .7;
 }
+.parser-row-excluded {
+    opacity: .35;
+}
+.parser-row-excluded td {
+    text-decoration: line-through;
+    text-decoration-color: rgba(255,255,255,.12);
+}
 .parser-row-trash td,
 .parser-row-dup td {
     text-decoration: line-through;
-    text-decoration-color: rgba(255,255,255,.15);
+    text-decoration-color: rgba(255,255,255,.12);
 }
 .parser-row-trash .parser-tag,
-.parser-row-dup .parser-tag {
+.parser-row-dup .parser-tag,
+.parser-row-excluded .parser-tag {
     text-decoration: none;
 }
 
@@ -5580,50 +5593,238 @@ tr.row-selected td {
     padding: 5px 10px;
 }
 
-/* ADD ONLY NEW button */
-.parser-add-new-btn {
-    background: rgba(34,197,94,.12) !important;
-    border-color: rgba(34,197,94,.3) !important;
-    color: #22C55E !important;
+/* ADD TRASH CARDS button */
+.parser-trash-add-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    color: #ef4444 !important;
+    border-color: rgba(239,68,68,.25) !important;
 }
-.parser-add-new-btn:hover {
-    background: rgba(34,197,94,.22) !important;
+.parser-trash-add-btn:hover {
+    background: rgba(239,68,68,.08) !important;
+    color: #ef4444 !important;
 }
 
-/* Trash cards collapsible section */
-.parser-trash-section {
-    margin-top: 8px;
+/* ─── PARSER SUMMARY ─── */
+.parser-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,.02);
     border: 1px solid var(--border-subtle);
-    background: var(--bg-primary);
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    flex-wrap: wrap;
 }
-.parser-trash-summary {
+.ps-item strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+.ps-new strong { color: #22C55E; }
+.ps-dup strong { color: #F59E0B; }
+.ps-trash strong { color: #ef4444; }
+.ps-excluded strong { color: #6B7280; }
+
+/* ─── STATUS FILTER TABS ─── */
+.parser-status-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.pst-tab {
+    flex: 1;
     padding: 6px 10px;
+    background: var(--bg-primary);
+    border: none;
+    border-right: 1px solid var(--border-subtle);
+    color: var(--text-dim);
     font-size: 11px;
     font-weight: 700;
     font-family: var(--font-mono);
-    color: var(--text-dim);
+    letter-spacing: .3px;
     cursor: pointer;
-    letter-spacing: .5px;
+    transition: all .12s;
+    text-align: center;
 }
-.parser-trash-summary:hover {
+.pst-tab:last-child { border-right: none; }
+.pst-tab:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
-.parser-trash-body {
-    padding: 8px 10px;
-    border-top: 1px solid var(--border-subtle);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.pst-tab.active {
+    background: rgba(99,102,241,.12);
+    color: #818CF8;
 }
-.parser-trash-body textarea {
+.pst-tab.pst-new.active {
+    background: rgba(34,197,94,.1);
+    color: #22C55E;
+}
+.pst-tab.pst-dup.active {
+    background: rgba(245,158,11,.1);
+    color: #F59E0B;
+}
+.pst-tab.pst-trash.active {
+    background: rgba(239,68,68,.1);
+    color: #ef4444;
+}
+
+/* ─── ACTION BAR ─── */
+.parser-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.parser-action-btn {
+    padding: 5px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all .12s;
+    white-space: nowrap;
+    letter-spacing: .3px;
+}
+.parser-action-btn:hover {
+    background: var(--bg-active);
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+}
+.pa-exclude-dup:hover {
+    border-color: rgba(245,158,11,.4);
+    color: #F59E0B;
+}
+.pa-exclude-trash:hover {
+    border-color: rgba(239,68,68,.4);
+    color: #ef4444;
+}
+.pa-add-new {
+    background: rgba(34,197,94,.1);
+    border-color: rgba(34,197,94,.3);
+    color: #22C55E;
+}
+.pa-add-new:hover {
+    background: rgba(34,197,94,.2);
+}
+
+/* ─── EXCLUDE BIN / BANK SECTION ─── */
+.parser-exclude-section {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-primary);
+}
+.parser-exclude-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.parser-exclude-group {
+    flex: 1;
+    min-width: 140px;
+}
+.parser-exclude-group label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    margin-bottom: 3px;
+    letter-spacing: .5px;
+}
+.parser-exclude-group input {
     width: 100%;
+    padding: 5px 8px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     color: var(--text-primary);
     font-family: var(--font-mono);
     font-size: 11px;
-    padding: 6px 8px;
-    resize: vertical;
+    outline: none;
+}
+.parser-exclude-group input:focus {
+    border-color: rgba(99,102,241,.4);
+}
+.parser-exclude-apply-btn {
+    padding: 5px 12px !important;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: #ef4444 !important;
+    border-color: rgba(239,68,68,.25) !important;
+    align-self: flex-end;
+}
+.parser-exclude-apply-btn:hover {
+    background: rgba(239,68,68,.08) !important;
+}
+
+/* ─── BIN ANALYTICS GRID (improved) ─── */
+.parser-bin-analytics-grid {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-subtle);
+}
+.parser-bin-header-row {
+    position: sticky;
+    top: 0;
+    background: var(--bg-primary) !important;
+    z-index: 1;
+    border-bottom: 1px solid var(--border-default) !important;
+}
+.parser-bin-header-row .parser-bin-val,
+.parser-bin-header-row .parser-bin-bank,
+.parser-bin-header-row .parser-bin-cnt {
+    color: var(--text-dim) !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: default !important;
+}
+.parser-bin-header-row:hover {
+    background: var(--bg-primary) !important;
+}
+.parser-bin-clickable {
+    cursor: pointer;
+    transition: all .12s;
+}
+.parser-bin-clickable:hover {
+    color: #ef4444 !important;
+    text-decoration: line-through;
+}
+.parser-bank-clickable {
+    cursor: pointer;
+    transition: all .12s;
+}
+.parser-bank-clickable:hover {
+    color: #ef4444 !important;
+    text-decoration: line-through;
+}
+.parser-bin-excluded {
+    opacity: .35;
+}
+.parser-bin-excluded .parser-bin-val,
+.parser-bin-excluded .parser-bin-bank {
+    text-decoration: line-through;
+    text-decoration-color: rgba(239,68,68,.3);
+}
+
+/* Status column in parser table */
+.pc-status {
+    text-align: center;
+    padding: 2px 4px !important;
 }
 
 /* ═══════ ALL CARDS AGGREGATE TABLE ═══════ */
