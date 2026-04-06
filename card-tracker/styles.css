@@ -7308,3 +7308,217 @@ tr.row-selected td {
 .pz-link-btn:hover {
     color: var(--text-primary);
 }
+
+/* ── STAGE LAYOUT ── */
+.pz-stage {
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, .015);
+}
+
+.pz-stage-2 {
+    border-color: rgba(99, 102, 241, .2);
+    background: rgba(99, 102, 241, .03);
+}
+
+.pz-stage-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.pz-stage-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent, #6366F1);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pz-stage-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.pz-stage-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* ── UPLOAD SINGLE (base + minibutton) ── */
+.pz-upload-single {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.pz-upload-single .pz-drop-zone {
+    flex: 1;
+}
+
+.pz-add-mini {
+    width: 32px;
+    border-radius: 6px;
+    border: 1px dashed rgba(255, 255, 255, .15);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all .2s;
+}
+
+.pz-add-mini:hover {
+    border-color: var(--accent, #6366F1);
+    color: var(--accent, #6366F1);
+    background: rgba(99, 102, 241, .08);
+    border-style: solid;
+}
+
+/* ── COMPARE ZONE ── */
+.pz-drop-compare {
+    border-color: rgba(99, 102, 241, .2);
+    min-height: 56px;
+}
+
+.pz-drop-compare:hover,
+.pz-drop-compare.drag-over {
+    border-color: #818cf8;
+    background: rgba(99, 102, 241, .06);
+}
+
+.pz-file-chip-compare {
+    background: rgba(99, 102, 241, .08);
+    border-color: rgba(99, 102, 241, .2);
+}
+
+/* ── DIM BUTTON (CLEAR) ── */
+.pz-btn-dim {
+    background: transparent;
+    border-color: rgba(255, 255, 255, .08);
+    color: var(--text-dim);
+}
+
+.pz-btn-dim:hover:not(:disabled) {
+    border-color: rgba(239, 68, 68, .35);
+    color: #ef4444;
+    background: rgba(239, 68, 68, .06);
+}
+
+/* ── IMPORT BUTTON ── */
+.pz-btn-import {
+    background: rgba(34, 197, 94, .15);
+    border: 1px solid rgba(34, 197, 94, .35);
+    color: #22C55E;
+    padding: 8px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .2s;
+}
+
+.pz-btn-import:hover {
+    background: rgba(34, 197, 94, .25);
+    transform: translateY(-1px);
+}
+
+/* ── SEPARATOR ── */
+.pz-sep {
+    color: rgba(255, 255, 255, .1);
+    font-size: 14px;
+    user-select: none;
+    margin: 0 2px;
+}
+
+/* ── DISABLED FILTER SECTION ── */
+.pz-disabled {
+    opacity: .4;
+    pointer-events: none;
+}
+
+/* ── PARSER STATS BAR ── */
+.parser-stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, .025);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.parser-stats-bar .ps-item {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.parser-stats-bar .ps-item strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.parser-stats-bar .ps-trash strong { color: #ef4444; }
+.parser-stats-bar .ps-dup strong { color: #f59e0b; }
+.parser-stats-bar .ps-compare strong { color: #818cf8; }
+.parser-stats-bar .ps-net strong { color: #22C55E; font-size: 13px; }
+
+/* ── TYPE BUTTONS ROW (flat) ── */
+.parser-type-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.parser-type-btn {
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    border: 1px solid rgba(255, 255, 255, .1);
+    background: rgba(255, 255, 255, .03);
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.parser-type-btn:hover {
+    border-color: rgba(255, 255, 255, .2);
+    color: var(--text-secondary);
+}
+
+.parser-type-btn.active {
+    background: rgba(99, 102, 241, .15);
+    border-color: rgba(99, 102, 241, .4);
+    color: #818cf8;
+}
+
+/* ── ACTION BAR (results) ── */
+.parser-action-bar {
+    display: flex;
+    gap: 8px;
+    padding: 6px 0;
+    flex-wrap: wrap;
+}

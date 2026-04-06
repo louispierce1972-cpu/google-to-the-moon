@@ -5037,18 +5037,17 @@ deleteConfirmBtn.addEventListener('click', () => {
 let PARSER_STATE = {
     rawMessages: [],
     mainFiles: [],    // [{name, size, messages}]
-    excludeFile: null, // {name, size, messages}
+    compareFile: null, // {name, size, cardCount, _binLast4Set}
     file: null,
-    collected: [],
+    collected: [],     // final cards after all steps
+    _cleanCollected: [], // cards after trash+dedup (before compare)
     binGroups: [],
     selected: new Set(),
     binFilter: null,
     sortBy: 'index',
     statusFilter: 'ALL',
-    excludedIndices: new Set(),
-    excludedBins: [],
-    excludedBanks: [],
-    _excludeSet: null
+    _compareSet: null,
+    _pipelineStats: null // {totalRaw, trashRemoved, dupRemoved, compareRemoved, net}
 };
 
 // ──── HELPERS ────
@@ -5740,8 +5739,8 @@ function renderParser() {
     const bar = document.getElementById('stats-bar');
     bar.innerHTML = '';
 
-    const hasBase = PARSER_STATE.collected.length > 0 || PARSER_STATE.rawMessages.length > 0;
-    const trashCount = (STATE.trashCards || []).length;
+    const hasBase = PARSER_STATE.rawMessages.length > 0;
+    const hasParsed = PARSER_STATE.collected.length > 0;
     const totalMessages = PARSER_STATE.rawMessages.length;
 
     // Build file chips HTML for loaded bases
@@ -5749,47 +5748,37 @@ function renderParser() {
         `<span class="pz-file-chip">📁 ${f.name} <span class="pz-chip-count">${f.messages.length}</span><button class="pz-chip-remove" data-base-idx="${i}" title="Remove">×</button></span>`
     ).join('');
 
-    // Exclude file chip
-    const excludeChipHtml = PARSER_STATE.excludeFile 
-        ? `<span class="pz-file-chip pz-file-chip-exclude">🚫 ${PARSER_STATE.excludeFile.name} <span class="pz-chip-count">${PARSER_STATE.excludeFile.cardCount || 0}</span><button class="pz-chip-remove" id="pz-exclude-remove" title="Remove">×</button></span>`
+    // Compare file chip (Stage 2)
+    const compareChipHtml = PARSER_STATE.compareFile
+        ? `<span class="pz-file-chip pz-file-chip-compare">🔍 ${PARSER_STATE.compareFile.name} <span class="pz-chip-count">${PARSER_STATE.compareFile.cardCount || 0} cards</span><button class="pz-chip-remove" id="pz-compare-remove" title="Remove">×</button></span>`
         : '';
 
     area.innerHTML = `
     <div class="parser-container">
-        <!-- TWO-ZONE UPLOAD -->
-        <div class="pz-upload-grid">
-            <div class="pz-upload-col">
-                <div class="pz-col-header">
-                    <span class="pz-col-label">BASE FILES</span>
-                    <button class="pz-add-btn" id="pz-add-base" title="Add another base file">+</button>
-                </div>
+        <!-- STAGE 1: LOAD BASE FILES -->
+        <div class="pz-stage">
+            <div class="pz-stage-header">
+                <span class="pz-stage-num">1</span>
+                <span class="pz-stage-title">LOAD & PARSE</span>
+            </div>
+            <div class="pz-upload-single">
                 <div class="pz-drop-zone" id="pz-base-drop">
-                    <input type="file" id="pz-base-input" accept=".json" hidden>
+                    <input type="file" id="pz-base-input" accept=".json" multiple hidden>
                     <span class="pz-drop-text">${PARSER_STATE.mainFiles.length === 0 ? 'Drop result.json or click' : 'Drop another file or click +'}</span>
                     <span class="pz-drop-hint">Telegram JSON · 100% local</span>
                 </div>
-                <div class="pz-chips" id="pz-base-chips">${baseChipsHtml}</div>
-                ${totalMessages > 0 ? `<div class="pz-msg-count">${totalMessages.toLocaleString()} messages total</div>` : ''}
+                <button class="pz-add-mini" id="pz-add-base" title="Add another base file">+</button>
             </div>
-            <div class="pz-upload-col pz-upload-col-exclude">
-                <div class="pz-col-header">
-                    <span class="pz-col-label">EXCLUDE BASE</span>
-                </div>
-                <div class="pz-drop-zone pz-drop-exclude" id="pz-exclude-drop">
-                    <input type="file" id="pz-exclude-input" accept=".json" hidden>
-                    <span class="pz-drop-text">${PARSER_STATE.excludeFile ? PARSER_STATE.excludeFile.name : 'Drop exclude file'}</span>
-                    <span class="pz-drop-hint">Remove matching cards</span>
-                </div>
-                <div class="pz-chips" id="pz-exclude-chips">${excludeChipHtml}</div>
-            </div>
+            <div class="pz-chips" id="pz-base-chips">${baseChipsHtml}</div>
+            ${totalMessages > 0 ? `<div class="pz-msg-count">${totalMessages.toLocaleString()} messages loaded</div>` : ''}
         </div>
 
-        <!-- FILTERS -->
-        <div class="parser-filters">
+        <!-- FILTERS (collapsible, compact) -->
+        <div class="parser-filters ${hasBase ? '' : 'pz-disabled'}">
             <div class="parser-filter-row">
                 <div class="parser-filter-group parser-filter-bins">
                     <label>BINs <span class="parser-filter-hint">(comma separated)</span></label>
-                    <textarea id="parser-bins" rows="2" placeholder="450003, 424242, 532610..."></textarea>
+                    <textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610..."></textarea>
                 </div>
                 <div class="parser-filter-group">
                     <label>Country</label>
@@ -5799,66 +5788,52 @@ function renderParser() {
                     <label>Bank</label>
                     <input type="text" id="parser-bank" placeholder="Bank name...">
                 </div>
-                <div class="parser-filter-group" style="grid-column: 1 / -1;">
-                    <label>Card Type</label>
-                    <div class="parser-type-btns" id="parser-type-btns">
-                        <div class="parser-type-row">
-                            <button class="parser-type-btn" data-type="credit">Credit</button>
-                            <button class="parser-type-btn" data-type="debit">Debit</button>
-                            <button class="parser-type-btn" data-type="prepaid">Prepaid</button>
-                        </div>
-                        <div class="parser-type-row">
-                            <button class="parser-type-btn" data-network="VISA">Visa</button>
-                            <button class="parser-type-btn" data-network="MASTERCARD">MC</button>
-                            <button class="parser-type-btn" data-network="AMEX">Amex</button>
-                            <button class="parser-type-btn" data-network="DISCOVER">Disc</button>
-                            <button class="parser-type-btn" data-network="ELECTRON">Elec</button>
-                            <button class="parser-type-btn" data-network="MAESTRO">Maes</button>
-                            <button class="parser-type-btn" data-network="JCB">JCB</button>
-                        </div>
-                    </div>
-                </div>
+            </div>
+            <div class="parser-type-btns" id="parser-type-btns">
+                <button class="parser-type-btn" data-type="credit">Credit</button>
+                <button class="parser-type-btn" data-type="debit">Debit</button>
+                <button class="parser-type-btn" data-type="prepaid">Prepaid</button>
+                <span class="pz-sep">|</span>
+                <button class="parser-type-btn" data-network="VISA">Visa</button>
+                <button class="parser-type-btn" data-network="MASTERCARD">MC</button>
+                <button class="parser-type-btn" data-network="AMEX">Amex</button>
+                <button class="parser-type-btn" data-network="DISCOVER">Disc</button>
             </div>
         </div>
 
-        <!-- OPTIONS -->
-        <div class="parser-options">
-            <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates</label>
-            <button class="pz-link-btn" id="parser-trash-link">Trash list (${trashCount})</button>
-        </div>
-
-        <!-- COMPACT ACTIONS -->
+        <!-- ACTION BAR -->
         <div class="pz-actions">
-            <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>PARSE</button>
-            <button class="pz-btn pz-btn-primary" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>COLLECT ALL</button>
-            <button class="pz-btn pz-btn-outline" id="parser-clear-btn">CLEAR</button>
-            <button class="pz-btn pz-btn-outline" id="parser-import-notes-btn">TO NOTES</button>
-            <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? 'Base: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
+            <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>⚡ PARSE & CLEAN</button>
+            <button class="pz-btn pz-btn-dim" id="parser-clear-btn">CLEAR</button>
+            <span class="parser-status" id="parser-status"></span>
         </div>
 
-        <!-- STATS BAR -->
-        <div class="parser-stats-bar" id="parser-stats-bar" style="display:none;">
-            <span class="ps-item">Total: <strong id="ps-total">0</strong></span>
-            <span class="ps-item">Dupes: <strong id="ps-dupes">0</strong></span>
-            <span class="ps-item">Trash: <strong id="ps-trash">0</strong></span>
-            <span class="ps-item">Excluded: <strong id="ps-excluded">0</strong></span>
-            <span class="ps-item ps-net">→ Import: <strong id="ps-net">0</strong></span>
+        <!-- STATS BAR (shown after parse) -->
+        <div class="parser-stats-bar" id="parser-stats-bar" style="${hasParsed ? '' : 'display:none'}">
+            <span class="ps-item">Parsed: <strong id="ps-total">0</strong></span>
+            <span class="ps-item ps-trash">Trash: <strong id="ps-trash">0</strong></span>
+            <span class="ps-item ps-dup">Dupes: <strong id="ps-dupes">0</strong></span>
+            <span class="ps-item ps-compare">Compared: <strong id="ps-compared">0</strong></span>
+            <span class="ps-item ps-net">→ Clean: <strong id="ps-net">0</strong></span>
         </div>
 
-        <!-- EXCLUDE BIN / BANK -->
-        <div class="parser-exclude-section" id="parser-exclude-section" style="${PARSER_STATE.collected.length > 0 ? '' : 'display:none'}">
-            <div class="parser-exclude-row">
-                <div class="parser-exclude-group">
-                    <label>Exclude BIN <span class="parser-filter-hint">(comma separated)</span></label>
-                    <input type="text" id="parser-exclude-bins" placeholder="450553, 424242..." value="${PARSER_STATE.excludedBins.join(', ')}">
-                </div>
-                <div class="parser-exclude-group">
-                    <label>Exclude BANK <span class="parser-filter-hint">(comma separated)</span></label>
-                    <input type="text" id="parser-exclude-banks" placeholder="CHASE, TD BANK..." value="${PARSER_STATE.excludedBanks.join(', ')}">
-                </div>
-                <button class="btn-outline parser-exclude-apply-btn" id="parser-exclude-apply-btn">🚫 EXCLUDE</button>
+        <!-- STAGE 2: COMPARE (shown after parse) -->
+        ${hasParsed ? `
+        <div class="pz-stage pz-stage-2">
+            <div class="pz-stage-header">
+                <span class="pz-stage-num">2</span>
+                <span class="pz-stage-title">COMPARE WITH OLD BASE</span>
+                <span class="pz-stage-hint">Load your old database to remove already known cards</span>
             </div>
-        </div>
+            <div class="pz-upload-single pz-upload-compare">
+                <div class="pz-drop-zone pz-drop-compare" id="pz-compare-drop">
+                    <input type="file" id="pz-compare-input" accept=".json" hidden>
+                    <span class="pz-drop-text">${PARSER_STATE.compareFile ? '✅ ' + PARSER_STATE.compareFile.name : 'Drop old base for comparison'}</span>
+                    <span class="pz-drop-hint">Removes matching cards from clean base</span>
+                </div>
+            </div>
+            ${compareChipHtml ? `<div class="pz-chips">${compareChipHtml}</div>` : ''}
+        </div>` : ''}
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
@@ -5872,7 +5847,7 @@ function renderParser() {
     baseDrop.addEventListener('click', () => baseInput.click());
     baseDrop.addEventListener('dragover', (e) => { e.preventDefault(); baseDrop.classList.add('drag-over'); });
     baseDrop.addEventListener('dragleave', () => baseDrop.classList.remove('drag-over'));
-    baseDrop.addEventListener('drop', (e) => { e.preventDefault(); baseDrop.classList.remove('drag-over'); _loadBaseFile(e.dataTransfer.files[0]); });
+    baseDrop.addEventListener('drop', (e) => { e.preventDefault(); baseDrop.classList.remove('drag-over'); if (e.dataTransfer.files.length) _loadBaseFile(e.dataTransfer.files[0]); });
     baseInput.addEventListener('change', () => { if (baseInput.files[0]) _loadBaseFile(baseInput.files[0]); });
     addBaseBtn.addEventListener('click', (e) => { e.stopPropagation(); baseInput.click(); });
 
@@ -5888,75 +5863,52 @@ function renderParser() {
         });
     });
 
-    // ── EXCLUDE FILE UPLOAD ──
-    const excludeDrop = document.getElementById('pz-exclude-drop');
-    const excludeInput = document.getElementById('pz-exclude-input');
+    // ── COMPARE FILE UPLOAD (Stage 2) ──
+    const compareDrop = document.getElementById('pz-compare-drop');
+    const compareInput = document.getElementById('pz-compare-input');
+    if (compareDrop && compareInput) {
+        compareDrop.addEventListener('click', () => compareInput.click());
+        compareDrop.addEventListener('dragover', (e) => { e.preventDefault(); compareDrop.classList.add('drag-over'); });
+        compareDrop.addEventListener('dragleave', () => compareDrop.classList.remove('drag-over'));
+        compareDrop.addEventListener('drop', (e) => { e.preventDefault(); compareDrop.classList.remove('drag-over'); if (e.dataTransfer.files.length) _loadCompareFile(e.dataTransfer.files[0]); });
+        compareInput.addEventListener('change', () => { if (compareInput.files[0]) _loadCompareFile(compareInput.files[0]); });
+    }
 
-    excludeDrop.addEventListener('click', () => excludeInput.click());
-    excludeDrop.addEventListener('dragover', (e) => { e.preventDefault(); excludeDrop.classList.add('drag-over'); });
-    excludeDrop.addEventListener('dragleave', () => excludeDrop.classList.remove('drag-over'));
-    excludeDrop.addEventListener('drop', (e) => { e.preventDefault(); excludeDrop.classList.remove('drag-over'); _loadExcludeFile(e.dataTransfer.files[0]); });
-    excludeInput.addEventListener('change', () => { if (excludeInput.files[0]) _loadExcludeFile(excludeInput.files[0]); });
-
-    // Remove exclude chip
-    document.getElementById('pz-exclude-remove')?.addEventListener('click', (e) => {
+    // Remove compare chip
+    document.getElementById('pz-compare-remove')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        PARSER_STATE.excludeFile = null;
-        PARSER_STATE._excludeSet = null;
-        renderParser();
-        toast('Exclude base removed', 'info');
+        _removeCompare();
     });
 
-    // ── PARSE / COLLECT / CLEAR / TO NOTES ──
+    // ── PARSE & CLEAN / CLEAR ──
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
-    document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
     document.getElementById('parser-clear-btn').addEventListener('click', () => {
         PARSER_STATE.rawMessages = [];
         PARSER_STATE.mainFiles = [];
-        PARSER_STATE.excludeFile = null;
+        PARSER_STATE.compareFile = null;
         PARSER_STATE.collected = [];
+        PARSER_STATE._cleanCollected = [];
         PARSER_STATE.binGroups = [];
         PARSER_STATE.selected = new Set();
         PARSER_STATE.file = '';
         PARSER_STATE.binFilter = null;
         PARSER_STATE.sortBy = 'index';
         PARSER_STATE.statusFilter = 'ALL';
-        PARSER_STATE.excludedIndices = new Set();
-        PARSER_STATE.excludedBins = [];
-        PARSER_STATE.excludedBanks = [];
-        PARSER_STATE._excludeSet = null;
+        PARSER_STATE._compareSet = null;
+        PARSER_STATE._pipelineStats = null;
         localStorage.removeItem('ct_parser_base');
         renderParser();
         toast('Parser cleared', 'info');
     });
-
-    // TO NOTES
-    document.getElementById('parser-import-notes-btn')?.addEventListener('click', () => {
-        if (PARSER_STATE.collected.length === 0) { toast('No parsed results', 'warning'); return; }
-        // Use addCollectedToNotes with format selection
-        addCollectedToNotes();
-    });
-
-    // Trash link
-    document.getElementById('parser-trash-link')?.addEventListener('click', () => {
-        const overlay = document.getElementById('trash-cards-overlay');
-        overlay.classList.remove('hidden');
-        const textarea = document.getElementById('trash-cards-textarea');
-        textarea.value = '';
-        document.getElementById('trash-cards-detected').textContent = '0 cards detected';
-        textarea.focus();
-    });
-
-    _initTrashCardModal();
-
-    document.getElementById('parser-exclude-apply-btn')?.addEventListener('click', _applyBinBankExclusion);
 
     // Card type toggle buttons
     document.querySelectorAll('.parser-type-btn').forEach(btn => {
         btn.addEventListener('click', () => btn.classList.toggle('active'));
     });
 
-    if (PARSER_STATE.collected.length > 0) renderParserResults();
+    _initTrashCardModal();
+
+    if (hasParsed) renderParserResults();
 }
 
 // ──── LOAD BASE FILE (supports multiple) ────
@@ -5998,78 +5950,87 @@ function _mergeBaseMessages() {
     });
 }
 
-// ──── LOAD EXCLUDE FILE ────
-function _loadExcludeFile(file) {
+// ──── LOAD COMPARE FILE (Stage 2) ────
+function _loadCompareFile(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            
-            // Extract all card numbers using the universal extractor
-            const excludeNumbers = extractAllCardNumbersFromJSON(data);
-            
-            // Also try structured parsing for BIN+last4 matching
-            const msgs = data.messages || (Array.isArray(data) ? data : []);
-            const excludeCards = Array.isArray(msgs) && msgs.length > 0 ? extractCardsFromMessages(msgs) : [];
-            
-            // Build combined exclude set
-            const fullSet = new Set(excludeNumbers);
-            const binLast4Set = new Set();
-            excludeCards.forEach(c => {
-                const cc = (c.cc || '').replace(/[\s\-]/g, '');
-                if (cc.length >= 6) {
-                    fullSet.add(cc);
-                    binLast4Set.add(cc.slice(0, 6) + '_' + cc.slice(-4));
-                }
-            });
-            // Also add BIN+last4 from raw numbers
-            excludeNumbers.forEach(cc => {
-                if (cc.length >= 6) {
-                    binLast4Set.add(cc.slice(0, 6) + '_' + cc.slice(-4));
-                }
-            });
+            const compareNumbers = extractAllCardNumbersFromJSON(data);
 
-            PARSER_STATE.excludeFile = {
+            PARSER_STATE.compareFile = {
                 name: file.name,
                 size: file.size,
-                cardCount: fullSet.size,
-                _binLast4Set: binLast4Set
+                cardCount: compareNumbers.size
             };
-            PARSER_STATE._excludeSet = fullSet;
+            PARSER_STATE._compareSet = compareNumbers;
 
-            // If we already have collected cards, apply exclude immediately
-            if (PARSER_STATE.collected.length > 0) {
-                const before = PARSER_STATE.collected.length;
-                PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
-                    const cc = (c.cc || '').replace(/[\s\-]/g, '');
-                    if (fullSet.has(cc)) return false;
-                    if (cc.length >= 6 && binLast4Set.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
-                    return true;
-                });
-                const removed = before - PARSER_STATE.collected.length;
-
-                // Rebuild binGroups
-                const binMap = {};
-                PARSER_STATE.collected.forEach(c => {
-                    if (!binMap[c.bin]) binMap[c.bin] = [];
-                    binMap[c.bin].push(c);
-                });
-                PARSER_STATE.binGroups = Object.entries(binMap)
-                    .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
-                    .sort((a, b) => b.count - a.count);
-
-                toast(`Excluded ${removed} cards (${PARSER_STATE.collected.length} remaining)`, 'success');
+            // Apply compare to clean collected
+            if (PARSER_STATE._cleanCollected.length > 0) {
+                _applyCompare();
             } else {
-                toast(`Exclude base loaded: ${fullSet.size} card numbers`, 'success');
+                toast(`Compare base loaded: ${compareNumbers.size} card numbers`, 'success');
+                renderParser();
             }
-
-            renderParser();
         } catch (err) {
-            toast('Invalid exclude file: ' + err.message, 'error');
+            toast('Invalid compare file: ' + err.message, 'error');
         }
     };
     reader.readAsText(file);
+}
+
+function _removeCompare() {
+    PARSER_STATE.compareFile = null;
+    PARSER_STATE._compareSet = null;
+    // Restore clean collected (before compare)
+    if (PARSER_STATE._cleanCollected.length > 0) {
+        PARSER_STATE.collected = [...PARSER_STATE._cleanCollected];
+        if (PARSER_STATE._pipelineStats) PARSER_STATE._pipelineStats.compareRemoved = 0;
+        _rebuildBinGroups();
+    }
+    renderParser();
+    toast('Compare base removed', 'info');
+}
+
+function _applyCompare() {
+    if (!PARSER_STATE._compareSet || PARSER_STATE._cleanCollected.length === 0) return;
+    const before = PARSER_STATE._cleanCollected.length;
+    PARSER_STATE.collected = PARSER_STATE._cleanCollected.filter(c => {
+        const cc = (c.cc || '').replace(/[\s\-]/g, '');
+        return !PARSER_STATE._compareSet.has(cc);
+    });
+    const removed = before - PARSER_STATE.collected.length;
+    if (PARSER_STATE._pipelineStats) PARSER_STATE._pipelineStats.compareRemoved = removed;
+    _rebuildBinGroups();
+    _updateStatsBar();
+    toast(`Compared: ${removed} matches removed (${PARSER_STATE.collected.length} remaining)`, 'success');
+    renderParser();
+}
+
+function _rebuildBinGroups() {
+    const binMap = {};
+    PARSER_STATE.collected.forEach(c => {
+        if (!binMap[c.bin]) binMap[c.bin] = [];
+        binMap[c.bin].push(c);
+    });
+    PARSER_STATE.binGroups = Object.entries(binMap)
+        .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
+        .sort((a, b) => b.count - a.count);
+    PARSER_STATE.selected = new Set(PARSER_STATE.collected.map((_, i) => i));
+}
+
+function _updateStatsBar() {
+    const stats = PARSER_STATE._pipelineStats;
+    if (!stats) return;
+    const bar = document.getElementById('parser-stats-bar');
+    if (bar) bar.style.display = 'flex';
+    const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    el('ps-total', stats.totalRaw);
+    el('ps-trash', stats.trashRemoved);
+    el('ps-dupes', stats.dupRemoved);
+    el('ps-compared', stats.compareRemoved || 0);
+    el('ps-net', PARSER_STATE.collected.length);
 }
 
 // ──── TRASH CARD MODAL ────
@@ -6129,217 +6090,144 @@ function _extractCardNumbers(text) {
 
 function _retagParserCards() {
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
     PARSER_STATE.collected.forEach(c => {
         const num = c.cc.replace(/\s/g, '');
-        if (existingNumbers.has(num)) c._tag = 'DUPLICATE';
-        else if (trashSet.has(num)) c._tag = 'TRASH';
+        if (existingNumbers.has(num)) c._tag = 'EXISTING';
         else c._tag = 'NEW';
     });
 }
 
-// ──── EXCLUDE BIN / BANK ────
-function _applyBinBankExclusion() {
-    const binInput = document.getElementById('parser-exclude-bins');
-    const bankInput = document.getElementById('parser-exclude-banks');
-    const bins = (binInput?.value || '').split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4);
-    const banks = (bankInput?.value || '').split(/[,;|]+/).map(b => b.trim().toUpperCase()).filter(Boolean);
+// Keep legacy alias
+function loadParserFile(file) { _loadBaseFile(file); }
 
-    PARSER_STATE.excludedBins = bins;
-    PARSER_STATE.excludedBanks = banks;
-
-    // Mark excluded
-    PARSER_STATE.excludedIndices = new Set();
-    PARSER_STATE.collected.forEach((c, i) => {
-        const cardBin = c.bin || c.cc.replace(/\s/g, '').slice(0, 6);
-        const cardBank = (c.bank || '').toUpperCase();
-        if (bins.some(b => cardBin.startsWith(b))) PARSER_STATE.excludedIndices.add(i);
-        if (banks.some(b => cardBank.includes(b))) PARSER_STATE.excludedIndices.add(i);
-    });
-
-    toast(`${PARSER_STATE.excludedIndices.size} cards excluded by BIN/BANK`, 'info');
-    renderParserResults();
-}
-
-// Keep legacy loadParserFile as alias
-function loadParserFile(file) {
-    _loadBaseFile(file);
-}
-
-// ──── PARSE (with filters) ────
-
+// ──── PARSE & CLEAN (unified) ────
 function runParse() {
     if (!PARSER_STATE.rawMessages.length) return;
     const status = document.getElementById('parser-status');
-    status.textContent = '⏳ Parsing...';
-
-    const dedup = document.getElementById('parser-dedup').checked;
+    if (status) status.textContent = '⏳ Parsing...';
 
     // Read filters
-    const binRaw = document.getElementById('parser-bins').value.trim();
+    const binsEl = document.getElementById('parser-bins');
+    const binRaw = binsEl ? binsEl.value.trim() : '';
     const binFilters = binRaw ? binRaw.split(/[\s,;|]+/).map(b => b.replace(/\D/g, '').slice(0, 6)).filter(b => b.length >= 4) : [];
-    const countryFilter = document.getElementById('parser-country').value.trim().toUpperCase();
-    const bankFilter = document.getElementById('parser-bank').value.trim().toLowerCase();
+    const countryEl = document.getElementById('parser-country');
+    const countryFilter = countryEl ? countryEl.value.trim().toUpperCase() : '';
+    const bankEl = document.getElementById('parser-bank');
+    const bankFilter = bankEl ? bankEl.value.trim().toLowerCase() : '';
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
-
-    // Always detect GEO
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
 
     // Apply filters
-    if (binFilters.length > 0) {
-        allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
-    }
+    if (binFilters.length > 0) allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
     if (countryFilter) {
         const codes = countryFilter.split(/[\s,;]+/).filter(Boolean);
-        allCards = allCards.filter(c => {
-            const geo = (c.detectedGeo || c.country || '').toUpperCase();
-            return codes.some(code => geo.includes(code));
-        });
+        allCards = allCards.filter(c => codes.some(code => (c.detectedGeo || c.country || '').toUpperCase().includes(code)));
     }
-    if (bankFilter) {
-        allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
-    }
+    if (bankFilter) allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
 
-    // Type filter (toggle buttons)
+    // Type/network filter
     const activeTypes = Array.from(document.querySelectorAll('.parser-type-btn.active[data-type]')).map(b => b.dataset.type);
     const activeNetworks = Array.from(document.querySelectorAll('.parser-type-btn.active[data-network]')).map(b => b.dataset.network);
-    if (activeTypes.length > 0) {
-        allCards = allCards.filter(c => {
-            const info = BIN_CACHE[c.bin];
-            const cardType = (info?.type || c.type || '').toLowerCase();
-            return activeTypes.some(t => cardType.includes(t));
-        });
-    }
-    if (activeNetworks.length > 0) {
-        allCards = allCards.filter(c => {
-            const network = getCardType(c.cc || c.cardNumber || c.bin || '');
-            return activeNetworks.includes(network);
-        });
-    }
+    if (activeTypes.length > 0) allCards = allCards.filter(c => { const info = BIN_CACHE[c.bin]; const ct = (info?.type || c.type || '').toLowerCase(); return activeTypes.some(t => ct.includes(t)); });
+    if (activeNetworks.length > 0) allCards = allCards.filter(c => activeNetworks.includes(getCardType(c.cc || c.bin || '')));
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
-
-    // ── STEP-BY-STEP PIPELINE ──
-    _processPipeline(allCards, dedup, status);
+    _processPipeline(allCards, status);
 }
 
-// ──── COLLECT ALL (no filters) ────
-
-function collectAll() {
-    if (!PARSER_STATE.rawMessages.length) return;
-    const status = document.getElementById('parser-status');
-    status.textContent = '⏳ Collecting...';
-
-    const dedup = document.getElementById('parser-dedup').checked;
-
-    let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
-    // Always detect GEO
-    allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
-
-    PARSER_STATE.binFilter = null;
-
-    // ── STEP-BY-STEP PIPELINE ──
-    _processPipeline(allCards, dedup, status);
-}
-
-// ──── TRANSPARENT PROCESSING PIPELINE ────
-// Step 1: Start with merged raw cards
-// Step 2: Remove TRASH
-// Step 3: Remove DUPLICATES (internal dedup)
-// Step 4: Apply EXCLUDE BASE (if loaded and _excludeSet exists)
-// Step 5: Tag remaining cards (NEW / DUPLICATE in project / TRASH)
-// After each step: real counts tracked and shown
-
-function _processPipeline(allCards, dedup, status) {
+// ──── PIPELINE: Parse → Remove Trash → Dedup → Tag → Done ────
+function _processPipeline(allCards, status) {
     const totalRaw = allCards.length;
 
-    // ── Step 1: Remove TRASH ──
+    // Step 1: Remove TRASH
     const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
     let trashRemoved = 0;
     if (trashSet.size > 0) {
-        const beforeTrash = allCards.length;
-        allCards = allCards.filter(c => {
-            const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
-            if (trashSet.has(cc)) { return false; }
-            return true;
-        });
-        trashRemoved = beforeTrash - allCards.length;
+        const before = allCards.length;
+        allCards = allCards.filter(c => !trashSet.has((c.cc || '').replace(/\s/g, '')));
+        trashRemoved = before - allCards.length;
     }
 
-    // ── Step 2: Remove DUPLICATES (internal dedup within parsed data) ──
-    let dupRemoved = 0;
-    if (dedup) {
-        const seen = new Set();
-        const beforeDedup = allCards.length;
-        allCards = allCards.filter(c => {
-            const cc = (c.cc || '').replace(/\s/g, '');
-            if (seen.has(cc)) return false;
-            seen.add(cc);
-            return true;
-        });
-        dupRemoved = beforeDedup - allCards.length;
-    }
+    // Step 2: Dedup (always)
+    const seen = new Set();
+    const before = allCards.length;
+    allCards = allCards.filter(c => { const cc = (c.cc || '').replace(/\s/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
+    const dupRemoved = before - allCards.length;
 
-    // ── Step 3: Apply EXCLUDE BASE (if _excludeSet is pre-loaded) ──
-    let excludeRemoved = 0;
-    if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
-        const beforeExclude = allCards.length;
-        allCards = allCards.filter(c => {
-            const cc = (c.cc || '').replace(/[\s\-]/g, '');
-            return !PARSER_STATE._excludeSet.has(cc);
-        });
-        excludeRemoved = beforeExclude - allCards.length;
-    }
-
-    // ── Step 4: Show stats bar ──
-    const statsBar = document.getElementById('parser-stats-bar');
-    if (statsBar) {
-        statsBar.style.display = 'flex';
-        document.getElementById('ps-total').textContent = totalRaw;
-        document.getElementById('ps-dupes').textContent = dupRemoved;
-        document.getElementById('ps-trash').textContent = trashRemoved;
-        const psExcl = document.getElementById('ps-excluded');
-        if (psExcl) psExcl.textContent = excludeRemoved;
-        document.getElementById('ps-net').textContent = allCards.length;
-    }
-
-    // ── Step 5: Finish with tagging ──
-    finishParsing(allCards, status);
-}
-
-function finishParsing(allCards, status) {
-    // Auto-tag remaining cards: DUPLICATE (already in project) / NEW
+    // Step 3: Tag (NEW vs EXISTING in project)
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    let dupInProject = 0, newCount = 0;
     allCards.forEach(c => {
         const num = (c.cc || '').replace(/\s/g, '');
-        if (existingNumbers.has(num)) { c._tag = 'DUPLICATE'; dupInProject++; }
-        else { c._tag = 'NEW'; newCount++; }
+        c._tag = existingNumbers.has(num) ? 'EXISTING' : 'NEW';
     });
 
-    const binMap = {};
-    allCards.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
+    // Save clean state (before compare)
+    PARSER_STATE._cleanCollected = [...allCards];
+    PARSER_STATE._pipelineStats = { totalRaw, trashRemoved, dupRemoved, compareRemoved: 0 };
 
-    const binGroups = Object.entries(binMap)
-        .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
-        .sort((a, b) => b.count - a.count);
+    // Step 4: Apply compare if already loaded
+    if (PARSER_STATE._compareSet && PARSER_STATE._compareSet.size > 0) {
+        const beforeCompare = allCards.length;
+        allCards = allCards.filter(c => !PARSER_STATE._compareSet.has((c.cc || '').replace(/[\s\-]/g, '')));
+        PARSER_STATE._pipelineStats.compareRemoved = beforeCompare - allCards.length;
+    }
 
+    // Finish
     PARSER_STATE.collected = allCards;
-    PARSER_STATE.binGroups = binGroups;
-    PARSER_STATE.selected = new Set(allCards.map((_, i) => i));
+    _rebuildBinGroups();
 
-    // Save base to localStorage
-    try {
-        localStorage.setItem('ct_parser_base', JSON.stringify({
-            collected: allCards,
-            file: PARSER_STATE.file
-        }));
-    } catch (e) { console.warn('Parser base save error:', e); }
+    if (status) status.textContent = `✅ ${allCards.length} cards ready`;
+    toast(`Parsed: ${totalRaw} → cleaned: ${allCards.length} (${trashRemoved} trash, ${dupRemoved} dupes removed)`, 'success');
+    renderParser();
+}
 
-    status.textContent = `✅ ${allCards.length} cards ready · ${binGroups.length} BINs (${newCount} new, ${dupInProject} already in project)`;
-    toast(`Ready: ${allCards.length} cards — ${newCount} NEW, ${dupInProject} already in project`, 'success');
-    renderParserResults();
+// ──── IMPORT TO PROJECT ────
+function importToProject() {
+    const list = PARSER_STATE.collected;
+    if (list.length === 0) { toast('No cards to import', 'warning'); return; }
+
+    const toImport = [];
+    PARSER_STATE.selected.forEach(idx => {
+        const c = list[idx];
+        if (!c || c._tag === 'EXISTING') return;
+        toImport.push(c);
+    });
+
+    if (toImport.length === 0) { toast('No NEW cards selected for import', 'warning'); return; }
+
+    let added = 0;
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    toImport.forEach(c => {
+        const cc = (c.cc || '').replace(/\s/g, '');
+        if (existingNumbers.has(cc)) return;
+        const geo = (c.detectedGeo || c.country || '').toUpperCase();
+        const countryId = geo.length === 2 ? geo.toLowerCase() : 'canada';
+        STATE.cards.push({
+            id: genId(),
+            name: c.name || '',
+            surname: c.surname || '',
+            cardNumber: cc,
+            month: c.mm || '',
+            year: c.yy || '',
+            cvv: c.cvv || '',
+            amount: '',
+            notes: '',
+            status: [],
+            mailStatus: [],
+            country: countryId,
+            bank: c.bank || '',
+            cardType: c.cardType || '',
+            addedDate: new Date().toISOString()
+        });
+        existingNumbers.add(cc);
+        added++;
+    });
+
+    save();
+    toast(`${added} cards imported to project`, 'success');
+    _retagParserCards();
+    renderParser();
 }
 
 // ──── RENDER RESULTS ────
@@ -6348,425 +6236,123 @@ function renderParserResults(geoFilter) {
     const el = document.getElementById('parser-results');
     if (!el) return;
 
-    // Show exclude section
-    const excludeSection = document.getElementById('parser-exclude-section');
-    if (excludeSection) excludeSection.style.display = '';
-
     let list = PARSER_STATE.collected;
-    if (list.length === 0) {
-        el.innerHTML = '<div class="empty-state"><p>No cards found</p></div>';
-        return;
-    }
+    if (list.length === 0) { el.innerHTML = '<div class="empty-state"><p>No cards found</p></div>'; return; }
 
-    // ──── Counts ────
-    let totalCount = list.length;
-    let newCount = 0, dupCount = 0, trashCount = 0, excludedCount = PARSER_STATE.excludedIndices.size;
-    list.forEach((c, i) => {
-        if (c._tag === 'NEW') newCount++;
-        else if (c._tag === 'DUPLICATE') dupCount++;
-        else if (c._tag === 'TRASH') trashCount++;
-    });
+    // Update stats bar
+    _updateStatsBar();
 
-    // ──── GEO data ────
+    // Counts
+    let newCount = 0, existCount = 0;
+    list.forEach(c => { if (c._tag === 'NEW') newCount++; else existCount++; });
+
+    // GEO
     const geoMap = {};
-    list.forEach(c => {
-        const geo = (c.detectedGeo || c.country || '').toUpperCase();
-        if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1;
-    });
+    list.forEach(c => { const geo = (c.detectedGeo || c.country || '').toUpperCase(); if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1; });
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
-
-    const countryFlags = {
-        US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸',
-        NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', RU: '🇷🇺', UA: '🇺🇦', PL: '🇵🇱',
-        SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹',
-        CZ: '🇨🇿', IL: '🇮🇱', SG: '🇸🇬', HK: '🇭🇰', NZ: '🇳🇿', SA: '🇸🇦', ZA: '🇿🇦', TR: '🇹🇷', TH: '🇹🇭',
-        PH: '🇵🇭', MY: '🇲🇾', ID: '🇮🇩', VN: '🇻🇳', AR: '🇦🇷', CL: '🇨🇱', CO: '🇨🇴', PE: '🇵🇪', EG: '🇪🇬'
-    };
-    const countryNames = {
-        US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE',
-        AU: 'Australia', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', BR: 'Brazil', MX: 'Mexico',
-        JP: 'Japan', KR: 'South Korea', IN: 'India', RU: 'Russia', UA: 'Ukraine', PL: 'Poland',
-        SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria',
-        BE: 'Belgium', IE: 'Ireland', PT: 'Portugal', CZ: 'Czech Republic', IL: 'Israel', SG: 'Singapore',
-        HK: 'Hong Kong', NZ: 'New Zealand', SA: 'Saudi Arabia', ZA: 'South Africa', TR: 'Turkey',
-        TH: 'Thailand', PH: 'Philippines', MY: 'Malaysia', ID: 'Indonesia', VN: 'Vietnam',
-        AR: 'Argentina', CL: 'Chile', CO: 'Colombia', PE: 'Peru', EG: 'Egypt'
-    };
+    const countryFlags = { US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',AE:'🇦🇪',AU:'🇦🇺',IT:'🇮🇹',ES:'🇪🇸',NL:'🇳🇱',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',IE:'🇮🇪',PT:'🇵🇹',IL:'🇮🇱',SG:'🇸🇬',NZ:'🇳🇿',ZA:'🇿🇦',TR:'🇹🇷' };
+    const countryNames = { US:'United States',CA:'Canada',GB:'United Kingdom',DE:'Germany',FR:'France',AE:'UAE',AU:'Australia',IT:'Italy',ES:'Spain',NL:'Netherlands',BR:'Brazil',MX:'Mexico',JP:'Japan',KR:'South Korea',IN:'India',SE:'Sweden',NO:'Norway',DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',BE:'Belgium',IE:'Ireland',PT:'Portugal',IL:'Israel',SG:'Singapore',NZ:'New Zealand',ZA:'South Africa',TR:'Turkey' };
 
     // Apply GEO filter
     const activeGeo = geoFilter || '';
-    let displayList = list;
-    if (activeGeo) {
-        displayList = list.filter(c => (c.detectedGeo || c.country || '').toUpperCase() === activeGeo);
-    }
+    let displayList = activeGeo ? list.filter(c => (c.detectedGeo || c.country || '').toUpperCase() === activeGeo) : list;
 
     // Apply status filter
     const sf = PARSER_STATE.statusFilter || 'ALL';
     if (sf === 'NEW') displayList = displayList.filter(c => c._tag === 'NEW');
-    else if (sf === 'DUPLICATE') displayList = displayList.filter(c => c._tag === 'DUPLICATE');
-    else if (sf === 'TRASH') displayList = displayList.filter(c => c._tag === 'TRASH');
+    else if (sf === 'EXISTING') displayList = displayList.filter(c => c._tag === 'EXISTING');
 
-    // ──── SUMMARY ────
-    const summaryHtml = `
-        <div class="parser-summary">
-            <span class="ps-item">Total: <strong>${totalCount}</strong></span>
-            <span class="ps-item ps-new">New: <strong>${newCount}</strong></span>
-            <span class="ps-item ps-dup">Duplicates: <strong>${dupCount}</strong></span>
-            <span class="ps-item ps-trash">Trash: <strong>${trashCount}</strong></span>
-            <span class="ps-item ps-excluded">Excluded: <strong>${excludedCount}</strong></span>
-        </div>`;
-
-    // ──── STATUS TABS ────
-    const statusTabsHtml = `
-        <div class="parser-status-tabs">
-            <button class="pst-tab ${sf === 'ALL' ? 'active' : ''}" data-filter="ALL">ALL (${totalCount})</button>
-            <button class="pst-tab pst-new ${sf === 'NEW' ? 'active' : ''}" data-filter="NEW">NEW (${newCount})</button>
-            <button class="pst-tab pst-dup ${sf === 'DUPLICATE' ? 'active' : ''}" data-filter="DUPLICATE">DUPLICATE (${dupCount})</button>
-            <button class="pst-tab pst-trash ${sf === 'TRASH' ? 'active' : ''}" data-filter="TRASH">TRASH (${trashCount})</button>
-        </div>`;
-
-    // ──── ACTION BUTTONS ────
-    const actionsHtml = `
-        <div class="parser-action-bar">
-            <button class="parser-action-btn pa-exclude-dup" id="parser-btn-exclude-dup">🚫 EXCLUDE DUPLICATES</button>
-            <button class="parser-action-btn pa-exclude-trash" id="parser-btn-exclude-trash">🚫 EXCLUDE TRASH</button>
-            <button class="parser-action-btn pa-add-new" id="parser-btn-add-new">✅ ADD ONLY NEW</button>
-            <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
-        </div>`;
-
-    // ──── GEO dropdown ────
-    const geoDropdownHtml = `
-        <div class="parser-geo-filter">
-            <label>GEO</label>
-            <select id="parser-geo-select">
-                <option value="">ALL (${list.length})</option>
-                ${geoList.map(([code, cnt]) => {
-        const fl = countryFlags[code] || '🏳️';
-        const nm = countryNames[code] || code;
-        return `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${fl} ${nm} (${cnt})</option>`;
-    }).join('')}
-            </select>
-        </div>`;
-
-    // ──── BIN Analytics ────
-    const binAnalytics = {};
-    displayList.forEach(c => {
-        if (!binAnalytics[c.bin]) binAnalytics[c.bin] = { count: 0, bank: c.bank || '' };
-        binAnalytics[c.bin].count++;
-        if (!binAnalytics[c.bin].bank && c.bank) binAnalytics[c.bin].bank = c.bank;
-    });
-    const sortedBins = Object.entries(binAnalytics)
-        .map(([bin, d]) => ({ bin, count: d.count, bank: d.bank }))
-        .sort((a, b) => b.count - a.count);
-
-    const excludedBinSet = new Set(PARSER_STATE.excludedBins);
-    const excludedBankSet = new Set(PARSER_STATE.excludedBanks.map(b => b.toUpperCase()));
-
-    const binAnalyticsHtml = sortedBins.slice(0, 50).map(b => {
-        const bankShort = b.bank.length > 20 ? b.bank.slice(0, 20) + '…' : (b.bank || '—');
-        const isBinExcluded = PARSER_STATE.excludedBins.some(eb => b.bin.startsWith(eb));
-        const isBankExcluded = PARSER_STATE.excludedBanks.some(eb => (b.bank || '').toUpperCase().includes(eb));
-        const isExcluded = isBinExcluded || isBankExcluded;
-        return `<div class="parser-bin-row ${isExcluded ? 'parser-bin-excluded' : ''}">
-            <span class="parser-bin-val parser-bin-clickable" data-exclude-bin="${b.bin}" title="Click to exclude BIN ${b.bin}">${b.bin}</span>
-            <span class="parser-bin-bank parser-bank-clickable" data-exclude-bank="${b.bank}" title="Click to exclude bank">${bankShort}</span>
-            <span class="parser-bin-cnt">${b.count}</span>
-        </div>`;
-    }).join('');
-
-    // ──── TABLE ROWS ────
-    const parserBinCounts = {};
-    displayList.forEach(c => { parserBinCounts[c.bin] = (parserBinCounts[c.bin] || 0) + 1; });
-
+    // Sort
     const sortBy = PARSER_STATE.sortBy || 'index';
+    const binCounts = {};
+    displayList.forEach(c => { binCounts[c.bin] = (binCounts[c.bin] || 0) + 1; });
     let sortedDisplay = [...displayList];
-    if (sortBy === 'bin-desc') {
-        sortedDisplay.sort((a, b) => (parserBinCounts[b.bin] || 0) - (parserBinCounts[a.bin] || 0));
-    } else if (sortBy === 'bin-asc') {
-        sortedDisplay.sort((a, b) => (parserBinCounts[a.bin] || 0) - (parserBinCounts[b.bin] || 0));
-    }
+    if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin] || 0) - (binCounts[a.bin] || 0));
+    else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin] || 0) - (binCounts[b.bin] || 0));
 
-    const rows = sortedDisplay.map((c, i) => {
+    // Summary
+    const summaryHtml = `<div class="parser-summary">
+        <span class="ps-item">Total: <strong>${list.length}</strong></span>
+        <span class="ps-item ps-new">New: <strong>${newCount}</strong></span>
+        <span class="ps-item ps-dup">In project: <strong>${existCount}</strong></span>
+    </div>`;
+
+    // Status tabs
+    const statusTabsHtml = `<div class="parser-status-tabs">
+        <button class="pst-tab ${sf === 'ALL' ? 'active' : ''}" data-filter="ALL">ALL (${list.length})</button>
+        <button class="pst-tab pst-new ${sf === 'NEW' ? 'active' : ''}" data-filter="NEW">NEW (${newCount})</button>
+        <button class="pst-tab pst-dup ${sf === 'EXISTING' ? 'active' : ''}" data-filter="EXISTING">IN PROJECT (${existCount})</button>
+    </div>`;
+
+    // Import button
+    const importHtml = `<div class="parser-action-bar">
+        <button class="pz-btn pz-btn-import" id="parser-import-btn">🚀 IMPORT TO PROJECT (${newCount} new)</button>
+    </div>`;
+
+    // GEO dropdown
+    const geoHtml = `<div class="parser-geo-filter"><label>GEO</label>
+        <select id="parser-geo-select"><option value="">ALL (${list.length})</option>
+        ${geoList.map(([code, cnt]) => `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${countryFlags[code] || '🏳️'} ${countryNames[code] || code} (${cnt})</option>`).join('')}
+        </select></div>`;
+
+    // BIN analytics (compact)
+    const binAnalytics = {};
+    displayList.forEach(c => { if (!binAnalytics[c.bin]) binAnalytics[c.bin] = { count: 0, bank: c.bank || '' }; binAnalytics[c.bin].count++; });
+    const sortedBins = Object.entries(binAnalytics).map(([bin, d]) => ({ bin, count: d.count, bank: d.bank })).sort((a, b) => b.count - a.count);
+    const binRows = sortedBins.slice(0, 30).map(b => `<div class="parser-bin-row"><span class="parser-bin-val">${b.bin}</span><span class="parser-bin-bank">${b.bank.length > 20 ? b.bank.slice(0, 20) + '…' : (b.bank || '—')}</span><span class="parser-bin-cnt">${b.count}</span></div>`).join('');
+
+    // Table rows
+    const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
+    const rows = sortedDisplay.map(c => {
         const globalIdx = PARSER_STATE.collected.indexOf(c);
         const geo = c.detectedGeo || c.country || '';
-        const isExcluded = PARSER_STATE.excludedIndices.has(globalIdx);
-
-        // Status tag
-        let statusBadge = '';
-        let rowClass = '';
-        if (isExcluded) {
-            statusBadge = '<span class="parser-tag parser-tag-excluded">EXCLUDED</span>';
-            rowClass = 'parser-row-excluded';
-        } else if (c._tag === 'TRASH') {
-            statusBadge = '<span class="parser-tag parser-tag-trash">TRASH</span>';
-            rowClass = 'parser-row-trash';
-        } else if (c._tag === 'DUPLICATE') {
-            statusBadge = '<span class="parser-tag parser-tag-dup">DUP</span>';
-            rowClass = 'parser-row-dup';
-        } else if (c._tag === 'NEW') {
-            statusBadge = '<span class="parser-tag parser-tag-new">NEW</span>';
-            rowClass = 'parser-row-new';
-        }
-
-        return `<tr class="${rowClass}">
+        const isNew = c._tag === 'NEW';
+        const badge = isNew ? '<span class="parser-tag parser-tag-new">NEW</span>' : '<span class="parser-tag parser-tag-dup">EXISTS</span>';
+        return `<tr class="${isNew ? 'parser-row-new' : 'parser-row-dup'}">
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
             <td class="pc-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
             <td class="pc-card">${formatCardBin(c.cc)}</td>
             <td class="pc-exp">${c.validity}</td>
             <td class="pc-bin">${c.bin}</td>
             <td class="pc-geo">${geo}</td>
-            <td class="pc-status">${statusBadge}</td>
+            <td class="pc-status">${badge}</td>
         </tr>`;
     }).join('');
 
-    const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
-
-    el.innerHTML = `
-        ${summaryHtml}
-        ${statusTabsHtml}
-        ${actionsHtml}
-
-        <!-- GEO + SELECT ALL -->
-        <div class="parser-toolbar">
-            ${geoDropdownHtml}
+    el.innerHTML = `${summaryHtml}${statusTabsHtml}${importHtml}
+        <div class="parser-toolbar">${geoHtml}
             <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
         </div>
-
-        <!-- BIN ANALYTICS -->
-        <div class="parser-bin-analytics">
-            <div class="parser-bin-analytics-header">
-                <span>📊 BIN Analytics (${sortedBins.length} unique)</span>
-            </div>
-            <div class="parser-bin-analytics-grid">
-                <div class="parser-bin-row parser-bin-header-row">
-                    <span class="parser-bin-val">BIN</span>
-                    <span class="parser-bin-bank">BANK</span>
-                    <span class="parser-bin-cnt">COUNT</span>
-                </div>
-                ${binAnalyticsHtml}
-            </div>
+        <div class="parser-bin-analytics"><div class="parser-bin-analytics-header"><span>📊 BIN Analytics (${sortedBins.length})</span></div>
+            <div class="parser-bin-analytics-grid"><div class="parser-bin-row parser-bin-header-row"><span class="parser-bin-val">BIN</span><span class="parser-bin-bank">BANK</span><span class="parser-bin-cnt">COUNT</span></div>${binRows}</div>
         </div>
-
-        <!-- TABLE -->
-        <div class="parser-table-wrap">
-        <table class="data-table parser-table">
-            <colgroup>
-                <col style="width:28px">
-                <col style="width:18%"><col style="width:15%"><col style="width:48px">
-                <col style="width:10%"><col style="width:42px"><col style="width:70px">
-            </colgroup>
-            <thead><tr>
-                <th></th><th>NAME</th><th>CARD</th><th>EXP</th>
-                <th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN count">BIN ${binSortIcon}</th>
-                <th>GEO</th><th>STATUS</th>
-            </tr></thead>
+        <div class="parser-table-wrap"><table class="data-table parser-table">
+            <colgroup><col style="width:28px"><col style="width:18%"><col style="width:15%"><col style="width:48px"><col style="width:10%"><col style="width:42px"><col style="width:70px"></colgroup>
+            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>EXP</th><th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN">BIN ${binSortIcon}</th><th>GEO</th><th>STATUS</th></tr></thead>
             <tbody>${rows}</tbody>
-        </table>
-        </div>`;
+        </table></div>`;
 
-    // ──── Events ────
+    // Events
     el.querySelectorAll('.parser-check').forEach(cb => {
-        cb.addEventListener('change', () => {
-            const idx = parseInt(cb.dataset.idx);
-            if (cb.checked) PARSER_STATE.selected.add(idx); else PARSER_STATE.selected.delete(idx);
-            updateParserButtons();
-        });
+        cb.addEventListener('change', () => { const idx = parseInt(cb.dataset.idx); if (cb.checked) PARSER_STATE.selected.add(idx); else PARSER_STATE.selected.delete(idx); });
     });
 
-    const selectAll = document.getElementById('parser-select-all');
-    if (selectAll) {
-        selectAll.addEventListener('change', () => {
-            if (selectAll.checked) {
-                sortedDisplay.forEach(c => { const gi = PARSER_STATE.collected.indexOf(c); PARSER_STATE.selected.add(gi); });
-            } else {
-                sortedDisplay.forEach(c => { const gi = PARSER_STATE.collected.indexOf(c); PARSER_STATE.selected.delete(gi); });
-            }
-            el.querySelectorAll('.parser-check').forEach(cb => { cb.checked = selectAll.checked; });
-            updateParserButtons();
-        });
-    }
+    document.getElementById('parser-select-all')?.addEventListener('change', (e) => {
+        if (e.target.checked) sortedDisplay.forEach(c => PARSER_STATE.selected.add(PARSER_STATE.collected.indexOf(c)));
+        else sortedDisplay.forEach(c => PARSER_STATE.selected.delete(PARSER_STATE.collected.indexOf(c)));
+        el.querySelectorAll('.parser-check').forEach(cb => cb.checked = e.target.checked);
+    });
 
-    document.getElementById('parser-add-notes-btn')?.addEventListener('click', addCollectedToNotes);
-
-    // Status tab clicks
     el.querySelectorAll('.pst-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            PARSER_STATE.statusFilter = tab.dataset.filter;
-            renderParserResults(activeGeo);
-        });
+        tab.addEventListener('click', () => { PARSER_STATE.statusFilter = tab.dataset.filter; renderParserResults(activeGeo); });
     });
 
-    // Action buttons
-    document.getElementById('parser-btn-exclude-dup')?.addEventListener('click', () => {
-        PARSER_STATE.collected.forEach((c, i) => { if (c._tag === 'DUPLICATE') PARSER_STATE.excludedIndices.add(i); });
-        toast(`Excluded ${dupCount} duplicates`, 'info');
-        renderParserResults(activeGeo);
-    });
-
-    document.getElementById('parser-btn-exclude-trash')?.addEventListener('click', () => {
-        PARSER_STATE.collected.forEach((c, i) => { if (c._tag === 'TRASH') PARSER_STATE.excludedIndices.add(i); });
-        toast(`Excluded ${trashCount} trash cards`, 'info');
-        renderParserResults(activeGeo);
-    });
-
-    document.getElementById('parser-btn-add-new')?.addEventListener('click', () => {
-        const newCards = PARSER_STATE.collected.filter(c => c._tag === 'NEW');
-        if (newCards.length === 0) { toast('No NEW cards to add', 'warning'); return; }
-        const newIndices = new Set();
-        PARSER_STATE.collected.forEach((c, i) => { if (c._tag === 'NEW' && !PARSER_STATE.excludedIndices.has(i)) newIndices.add(i); });
-        PARSER_STATE.selected = newIndices;
-        addCollectedToNotes();
-    });
-
-    // GEO filter change
-    document.getElementById('parser-geo-select')?.addEventListener('change', (e) => {
-        renderParserResults(e.target.value);
-    });
-
-    // BIN sort toggle
+    document.getElementById('parser-import-btn')?.addEventListener('click', importToProject);
+    document.getElementById('parser-geo-select')?.addEventListener('change', (e) => renderParserResults(e.target.value));
     document.getElementById('parser-sort-bin')?.addEventListener('click', () => {
-        if (PARSER_STATE.sortBy === 'bin-desc') PARSER_STATE.sortBy = 'bin-asc';
-        else PARSER_STATE.sortBy = 'bin-desc';
+        PARSER_STATE.sortBy = PARSER_STATE.sortBy === 'bin-desc' ? 'bin-asc' : 'bin-desc';
         renderParserResults(activeGeo);
     });
-
-    // BIN click-to-exclude
-    el.querySelectorAll('.parser-bin-clickable').forEach(span => {
-        span.addEventListener('click', () => {
-            const bin = span.dataset.excludeBin;
-            if (!bin) return;
-            const input = document.getElementById('parser-exclude-bins');
-            const current = (input?.value || '').split(/[\s,;|]+/).filter(Boolean);
-            if (!current.includes(bin)) {
-                current.push(bin);
-                if (input) input.value = current.join(', ');
-            }
-            _applyBinBankExclusion();
-        });
-    });
-
-    // BANK click-to-exclude
-    el.querySelectorAll('.parser-bank-clickable').forEach(span => {
-        span.addEventListener('click', () => {
-            const bank = span.dataset.excludeBank;
-            if (!bank) return;
-            const input = document.getElementById('parser-exclude-banks');
-            const current = (input?.value || '').split(/[,;|]+/).map(b => b.trim()).filter(Boolean);
-            if (!current.some(b => b.toUpperCase() === bank.toUpperCase())) {
-                current.push(bank);
-                if (input) input.value = current.join(', ');
-            }
-            _applyBinBankExclusion();
-        });
-    });
-}
-
-function updateParserButtons() {
-    const notesBtn = document.getElementById('parser-add-notes-btn');
-    if (notesBtn) notesBtn.textContent = `📝 ADD TO NOTES (${PARSER_STATE.selected.size})`;
-}
-
-function addCollectedToNotes() {
-    const list = PARSER_STATE.collected;
-    if (PARSER_STATE.selected.size === 0) { toast('No cards selected', 'warning'); return; }
-
-    // Show format selection modal
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width:420px">
-            <h3 style="margin:0 0 12px;font-size:15px;color:var(--c-text-primary)">📝 Choose Export Format</h3>
-            <div class="format-options">
-                <button class="format-option-btn" data-format="full">
-                    <span class="format-icon">📋</span>
-                    <span class="format-label">Full Info</span>
-                    <span class="format-desc">💳 CC, 📅 Validity, 🔐 CVV, 👶 Holder, 🏦 Bank, 📊 Type</span>
-                </button>
-                <button class="format-option-btn" data-format="checker">
-                    <span class="format-icon">🔍</span>
-                    <span class="format-label">Checker Format</span>
-                    <span class="format-desc">4242424242424242 03 27 111</span>
-                </button>
-                <button class="format-option-btn" data-format="raw">
-                    <span class="format-icon">📄</span>
-                    <span class="format-label">Raw Data</span>
-                    <span class="format-desc">Name | CC | Exp | BIN | Bank | GEO</span>
-                </button>
-            </div>
-            <button class="btn-outline" id="format-cancel" style="width:100%;margin-top:8px;padding:6px">Cancel</button>
-        </div>`;
-    document.body.appendChild(modal);
-
-    modal.querySelector('#format-cancel').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-
-    modal.querySelectorAll('.format-option-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const format = btn.dataset.format;
-            modal.remove();
-            executeAddToNotes(format);
-        });
-    });
-}
-
-function executeAddToNotes(format) {
-    const list = PARSER_STATE.collected;
-    const lines = [];
-
-    PARSER_STATE.selected.forEach(idx => {
-        const c = list[idx];
-        if (!c) return;
-
-        const ccClean = (c.cc || '').replace(/\s/g, '');
-        const mm = (c.mm || '').padStart(2, '0');
-        const yy = c.yy || '';
-        const cvv = c.cvv || '000';
-
-        if (format === 'full') {
-            lines.push(`💳 CC: ${ccClean}`);
-            lines.push(`📅 Validity: ${c.validity}`);
-            lines.push(`🔐 CVV: ${cvv}`);
-            lines.push(`👶 Holder: ${c.name} ${c.surname}`);
-            lines.push(`🏦 Bank: ${c.bank || '-'}`);
-            lines.push(`📊 Card Type: ${c.cardType || c.detectedGeo || '-'}`);
-            lines.push('');
-        } else if (format === 'checker') {
-            lines.push(`${ccClean} ${mm} ${yy} ${cvv}`);
-        } else {
-            lines.push(`${c.name} ${c.surname} | ${c.cc} | ${c.validity} | BIN:${c.bin} | ${c.bank || '-'} | ${c.detectedGeo || '-'}`);
-        }
-    });
-
-    if (lines.length > 0) {
-        const formatLabel = format === 'full' ? 'Full Info' : format === 'checker' ? 'Checker' : 'Raw';
-        const header = `\n--- Parser Import [${formatLabel}] (${new Date().toLocaleDateString()}) ---`;
-        const block = header + '\n' + lines.join('\n');
-        // Write to active notes tab
-        const activeTab = _getActiveNoteTab();
-        if (activeTab) {
-            activeTab.content = (activeTab.content || '') + block + '\n';
-        }
-        STATE.notes = (STATE.notes || '') + block + '\n';
-        STATE.notesLastSaved = Date.now();
-        save();
-        toast(`${lines.length} cards added to Notes → "${activeTab?.title || 'Main'}" (${formatLabel})`, 'success');
-    }
-}
-
-function clearParser() {
-    PARSER_STATE.rawMessages = [];
-    PARSER_STATE.collected = [];
-    PARSER_STATE.binGroups = [];
-    PARSER_STATE.selected = new Set();
-    PARSER_STATE.file = '';
-    PARSER_STATE.binFilter = null;
-    PARSER_STATE.sortBy = 'index';
-    PARSER_STATE.statusFilter = 'ALL';
-    PARSER_STATE.excludedIndices = new Set();
-    PARSER_STATE.excludedBins = [];
-    PARSER_STATE.excludedBanks = [];
-    renderParser();
-    toast('Parser cleared', 'info');
 }
 
 function populateDateDropdowns() {
