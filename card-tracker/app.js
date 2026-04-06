@@ -1,15 +1,15 @@
-﻿/* тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
-   CARD TRACKER тАФ Application Logic
-   тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР */
+/* ═══════════════════════════════════════════
+   CARD TRACKER — Application Logic
+   ═══════════════════════════════════════════ */
 
-// тФАтФАтФАтФА STATE тФАтФАтФАтФА
+// ──── STATE ────
 const STATE = {
     user: null,
     currentView: 'cards',
     currentCountry: 'canada',
     countries: [
-        { id: 'canada', name: 'Canada', flag: 'ЁЯЗиЁЯЗж' },
-        { id: 'usa', name: 'United States', flag: 'ЁЯЗ║ЁЯЗ╕' }
+        { id: 'canada', name: 'Canada', flag: '🇨🇦' },
+        { id: 'usa', name: 'United States', flag: '🇺🇸' }
     ],
     cards: [],
     docs: [],
@@ -39,7 +39,7 @@ const STATE = {
 
 const CREDENTIALS = { username: 'admin', password: 'google2026' };
 
-// тФАтФАтФАтФА BIN CACHE (RustBin API) тФАтФАтФАтФА
+// ──── BIN CACHE (RustBin API) ────
 let BIN_CACHE = {};
 
 function loadBinCache() {
@@ -52,7 +52,7 @@ function loadBinCache() {
 function saveBinCache() {
     try {
         localStorage.setItem('ct_bin_cache', JSON.stringify(BIN_CACHE));
-    } catch { /* quota exceeded тАФ ignore */ }
+    } catch { /* quota exceeded — ignore */ }
 }
 
 function getBinInfo(bin) {
@@ -79,7 +79,7 @@ async function lookupBin(bin) {
             const data = await resp.json();
             return _cacheBinData(key, data);
         }
-    } catch { /* CORS blocked тАФ try proxies */ }
+    } catch { /* CORS blocked — try proxies */ }
 
     // Strategy 2: allorigins.win proxy (wraps response)
     try {
@@ -136,10 +136,10 @@ function formatBinInfoText(info) {
     if (info.brand) parts.push(info.brand);
     if (info.type) parts.push(info.type);
     if (info.bank) parts.push(info.bank);
-    return parts.join(' тАв ');
+    return parts.join(' • ');
 }
 
-// тФАтФАтФАтФА COUNTRY DATABASE (ISO 3166-1 alpha-2) тФАтФАтФАтФА
+// ──── COUNTRY DATABASE (ISO 3166-1 alpha-2) ────
 function isoToFlag(code) {
     return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(0x1F1E6 - 65 + ch.charCodeAt(0)));
 }
@@ -147,14 +147,14 @@ function isoToFlag(code) {
 const COUNTRY_DB = {
     AB: 'Abkhazia', AD: 'Andorra', AE: 'United Arab Emirates', AF: 'Afghanistan', AG: 'Antigua and Barbuda',
     AI: 'Anguilla', AL: 'Albania', AM: 'Armenia', AO: 'Angola', AQ: 'Antarctica', AR: 'Argentina',
-    AS: 'American Samoa', AT: 'Austria', AU: 'Australia', AW: 'Aruba', AX: '├Еland Islands', AZ: 'Azerbaijan',
+    AS: 'American Samoa', AT: 'Austria', AU: 'Australia', AW: 'Aruba', AX: 'Åland Islands', AZ: 'Azerbaijan',
     BA: 'Bosnia and Herzegovina', BB: 'Barbados', BD: 'Bangladesh', BE: 'Belgium', BF: 'Burkina Faso',
-    BG: 'Bulgaria', BH: 'Bahrain', BI: 'Burundi', BJ: 'Benin', BL: 'Saint Barth├йlemy', BM: 'Bermuda',
+    BG: 'Bulgaria', BH: 'Bahrain', BI: 'Burundi', BJ: 'Benin', BL: 'Saint Barthélemy', BM: 'Bermuda',
     BN: 'Brunei', BO: 'Bolivia', BQ: 'Bonaire', BR: 'Brazil', BS: 'Bahamas', BT: 'Bhutan', BV: 'Bouvet Island',
     BW: 'Botswana', BY: 'Belarus', BZ: 'Belize', CA: 'Canada', CC: 'Cocos Islands', CD: 'Congo DR',
-    CF: 'Central African Republic', CG: 'Congo', CH: 'Switzerland', CI: "C├┤te d'Ivoire", CK: 'Cook Islands',
+    CF: 'Central African Republic', CG: 'Congo', CH: 'Switzerland', CI: "Côte d'Ivoire", CK: 'Cook Islands',
     CL: 'Chile', CM: 'Cameroon', CN: 'China', CO: 'Colombia', CR: 'Costa Rica', CU: 'Cuba', CV: 'Cape Verde',
-    CW: 'Cura├зao', CX: 'Christmas Island', CY: 'Cyprus', CZ: 'Czech Republic', DE: 'Germany', DJ: 'Djibouti',
+    CW: 'Curaçao', CX: 'Christmas Island', CY: 'Cyprus', CZ: 'Czech Republic', DE: 'Germany', DJ: 'Djibouti',
     DK: 'Denmark', DM: 'Dominica', DO: 'Dominican Republic', DZ: 'Algeria', EC: 'Ecuador', EE: 'Estonia',
     EG: 'Egypt', EH: 'Western Sahara', ER: 'Eritrea', ES: 'Spain', ET: 'Ethiopia', FI: 'Finland', FJ: 'Fiji',
     FK: 'Falkland Islands', FM: 'Micronesia', FO: 'Faroe Islands', FR: 'France', GA: 'Gabon', GB: 'United Kingdom',
@@ -176,11 +176,11 @@ const COUNTRY_DB = {
     NP: 'Nepal', NR: 'Nauru', NU: 'Niue', NZ: 'New Zealand', OM: 'Oman', OS: 'South Ossetia', PA: 'Panama',
     PE: 'Peru', PF: 'French Polynesia', PG: 'Papua New Guinea', PH: 'Philippines', PK: 'Pakistan',
     PL: 'Poland', PM: 'Saint Pierre and Miquelon', PN: 'Pitcairn', PR: 'Puerto Rico',
-    PS: 'Palestine', PT: 'Portugal', PW: 'Palau', PY: 'Paraguay', QA: 'Qatar', RE: 'R├йunion', RO: 'Romania',
+    PS: 'Palestine', PT: 'Portugal', PW: 'Palau', PY: 'Paraguay', QA: 'Qatar', RE: 'Réunion', RO: 'Romania',
     RS: 'Serbia', RU: 'Russia', RW: 'Rwanda', SA: 'Saudi Arabia', SB: 'Solomon Islands', SC: 'Seychelles',
     SD: 'Sudan', SE: 'Sweden', SG: 'Singapore', SH: 'Saint Helena', SI: 'Slovenia', SJ: 'Svalbard',
     SK: 'Slovakia', SL: 'Sierra Leone', SM: 'San Marino', SN: 'Senegal', SO: 'Somalia', SR: 'Suriname',
-    SS: 'South Sudan', ST: 'S├гo Tom├й and Pr├нncipe', SV: 'El Salvador', SX: 'Sint Maarten',
+    SS: 'South Sudan', ST: 'São Tomé and Príncipe', SV: 'El Salvador', SX: 'Sint Maarten',
     SY: 'Syria', SZ: 'Eswatini', TC: 'Turks and Caicos', TD: 'Chad', TF: 'French Southern Territories',
     TG: 'Togo', TH: 'Thailand', TJ: 'Tajikistan', TK: 'Tokelau', TL: 'Timor-Leste', TM: 'Turkmenistan',
     TN: 'Tunisia', TO: 'Tonga', TR: 'Turkey', TT: 'Trinidad and Tobago', TV: 'Tuvalu', TW: 'Taiwan',
@@ -191,7 +191,7 @@ const COUNTRY_DB = {
     ZW: 'Zimbabwe'
 };
 
-// тФАтФАтФАтФА HELPERS тФАтФАтФАтФА
+// ──── HELPERS ────
 function genId() {
     try { return crypto.randomUUID(); }
     catch { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -228,7 +228,7 @@ function getBin(num) { return num.replace(/\s/g, '').slice(0, 6); }
 function maskCard(num) {
     const n = num.replace(/\s/g, '');
     if (n.length < 8) return n;
-    return n.slice(0, 6) + ' тАвтАвтАвтАв ' + n.slice(-4);
+    return n.slice(0, 6) + ' •••• ' + n.slice(-4);
 }
 
 function formatCardInput(val) {
@@ -266,7 +266,7 @@ function save() {
         saveBinCache();
     } catch (e) {
         console.error('Save error:', e);
-        toast('Storage error тАФ data may not persist', 'error');
+        toast('Storage error — data may not persist', 'error');
     }
 }
 
@@ -338,7 +338,7 @@ function ensureDataIntegrity() {
     STATE.docs = STATE.docs.map(fixId);
     STATE.trash = STATE.trash.map(fixId);
 
-    // тФАтФА Migration: link existing cards тЖФ docs тФАтФА
+    // ── Migration: link existing cards ↔ docs ──
     // Ensure every doc has cardIds array
     STATE.docs.forEach(d => { if (!d.cardIds) d.cardIds = []; });
     // Link cards that have name+surname to matching docs
@@ -354,7 +354,7 @@ function ensureDataIntegrity() {
     });
 }
 
-// тФАтФАтФАтФА AUTO DOC CREATION (with cardтЖФdoc linking) тФАтФАтФАтФА
+// ──── AUTO DOC CREATION (with card↔doc linking) ────
 function ensureDoc(card) {
     const fullName = `${card.name} ${card.surname}`.trim().toUpperCase();
     if (!fullName || fullName === 'UNKNOWN') return;
@@ -385,26 +385,26 @@ function ensureDoc(card) {
     }
 }
 
-// тФАтФАтФАтФА FAVORITES LOGIC тФАтФАтФАтФА
+// ──── FAVORITES LOGIC ────
 // Card goes to favorites when both cardAdd AND runAds are true
 function isFavorite(card) { return card.cardAdd && card.runAds; }
 
-// тФАтФАтФАтФА ACTIVE NOW LOGIC тФАтФАтФАтФА
+// ──── ACTIVE NOW LOGIC ────
 // Card is in Active Now when star is toggled on
 function isActiveNow(card) { return !!card.starred; }
 
-// тФАтФАтФАтФА GEO FILTER (My Card / Global Docs) тФАтФАтФАтФА
+// ──── GEO FILTER (My Card / Global Docs) ────
 let _geoFilter = 'all'; // 'all' or country id
 
-// тФАтФАтФАтФА MULTI-SELECT тФАтФАтФАтФА
+// ──── MULTI-SELECT ────
 let _selectedCards = new Set();
 
-// тФАтФАтФАтФА BIN COUNT тФАтФАтФАтФА
+// ──── BIN COUNT ────
 function binCount(bin, countryFilter) {
     return STATE.cards.filter(c => getBin(c.cardNumber) === bin && (!countryFilter || c.country === countryFilter)).length;
 }
 
-// тФАтФАтФАтФА FILTERED CARDS тФАтФАтФАтФА
+// ──── FILTERED CARDS ────
 function sortCards(cards, field, dir) {
     const mult = dir === 'asc' ? 1 : -1;
 
@@ -454,7 +454,7 @@ function sortCards(cards, field, dir) {
                 return mult * (va - vb);
             case 'date':
                 va = a.date || ''; vb = b.date || '';
-                // DD.MM.YY тЖТ sortable
+                // DD.MM.YY → sortable
                 const pa = va.split('.'); const pb = vb.split('.');
                 const da = pa.length === 3 ? `${pa[2]}-${pa[1]}-${pa[0]}` : va;
                 const db = pb.length === 3 ? `${pb[2]}-${pb[1]}-${pb[0]}` : vb;
@@ -485,7 +485,7 @@ function getFilteredCards() {
             cards = STATE.cards.filter(c => c.readyToWork === true);
             break;
         case 'all-cards': {
-            // Group by card number тАФ show aggregate view
+            // Group by card number — show aggregate view
             const cardGroups = {};
             STATE.cards.forEach(c => {
                 const num = c.cardNumber.replace(/\s/g, '');
@@ -603,7 +603,7 @@ function getFilteredDocs() {
     return docs;
 }
 
-// тФАтФАтФАтФА STATS тФАтФАтФАтФА
+// ──── STATS ────
 function getCardStats(cards) {
     return {
         total: cards.length,
@@ -647,9 +647,9 @@ function getDocStats(docs) {
     };
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════════════════════════════════
 //          COUNT COLOR HELPER
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════════════════════════════════
 function getCountColor(count) {
     if (count >= 20) return 'count-red';
     if (count >= 15) return 'count-orange';
@@ -658,9 +658,9 @@ function getCountColor(count) {
     return '';
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════════════════════════════════
 //          RENDERING
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════════════════════════════════
 
 function renderSidebar() { renderTopNav(); }
 
@@ -701,7 +701,7 @@ document.addEventListener('click', () => {
     document.getElementById('tn-settings-dropdown')?.classList.add('hidden');
 });
 
-// тФАтФАтФАтФА TOP BINS тФАтФАтФАтФА
+// ──── TOP BINS ────
 let _topBinsMode = 'count'; // 'count' or 'amount'
 
 function updateTopBinsGeo() {
@@ -749,7 +749,7 @@ function renderTopBins() {
         if (!isNaN(amt)) bins[bin].amount += amt;
     });
 
-    // Sort by mode тАФ TOP 10
+    // Sort by mode — TOP 10
     const sorted = Object.entries(bins)
         .sort((a, b) => b[1][_topBinsMode] - a[1][_topBinsMode])
         .slice(0, 10);
@@ -767,7 +767,7 @@ function renderTopBins() {
         // Look up bank name from BIN_CACHE
         const cached = BIN_CACHE[bin];
         const bankName = cached ? (cached.bank || cached.issuer || 'Unknown Bank') : 'Unknown Bank';
-        const shortBank = bankName.length > 18 ? bankName.slice(0, 18) + 'тАж' : bankName;
+        const shortBank = bankName.length > 18 ? bankName.slice(0, 18) + '…' : bankName;
         return `<div class="top-bins-row">
             <div class="top-bins-bar" style="width:${pct}%"></div>
             <div class="top-bins-info">
@@ -852,9 +852,9 @@ function renderStats() {
 }
 
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
-//  ANALYTICS MODULE тАФ BIN Performance
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ═══════════════════════════════════════════
+//  ANALYTICS MODULE — BIN Performance
+// ═══════════════════════════════════════════
 
 let _anPeriod = 0; // 0 = all, 7/14/30 = days
 
@@ -925,17 +925,17 @@ function renderAnalytics() {
             const rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
 
             // Trend calculation
-            let trendHtml = '<span class="an-trend an-trend-na">тАФтАФ</span>';
+            let trendHtml = '<span class="an-trend an-trend-na">——</span>';
             if (_anPeriod > 0 && prevBinMap[b.bin]) {
                 const prevRate = prevBinMap[b.bin].used > 0
                     ? Math.round((prevBinMap[b.bin].a / prevBinMap[b.bin].used) * 100) : 0;
                 const delta = rate - prevRate;
                 if (delta > 0) {
-                    trendHtml = `<span class="an-trend an-trend-up">тЦ▓ +${delta}%</span>`;
+                    trendHtml = `<span class="an-trend an-trend-up">▲ +${delta}%</span>`;
                 } else if (delta < 0) {
-                    trendHtml = `<span class="an-trend an-trend-down">тЦ╝ ${delta}%</span>`;
+                    trendHtml = `<span class="an-trend an-trend-down">▼ ${delta}%</span>`;
                 } else {
-                    trendHtml = '<span class="an-trend an-trend-na">тФАтФА 0%</span>';
+                    trendHtml = '<span class="an-trend an-trend-na">── 0%</span>';
                 }
             }
 
@@ -964,7 +964,7 @@ function renderAnalytics() {
                     <button class="an-period-btn ${_anPeriod === 14 ? 'active' : ''}" data-days="14">14d</button>
                     <button class="an-period-btn ${_anPeriod === 30 ? 'active' : ''}" data-days="30">30d</button>
                     <button class="an-period-btn ${_anPeriod === 0 ? 'active' : ''}" data-days="0">All</button>
-                    <span class="an-summary">${bins.length} BINs ┬╖ ${cards.length} cards</span>
+                    <span class="an-summary">${bins.length} BINs · ${cards.length} cards</span>
                 </div>
                 <div class="an-grid-wrap">
                     <div class="an-grid-header">
@@ -991,7 +991,7 @@ function renderAnalytics() {
         });
     });
 
-    // Row click тЖТ detail modal
+    // Row click → detail modal
     area.querySelectorAll('.an-row').forEach(row => {
         row.addEventListener('click', () => {
             _anShowDetail(row.dataset.bin, binMap[row.dataset.bin], prevBinMap[row.dataset.bin]);
@@ -1006,13 +1006,13 @@ function _anShowDetail(bin, data, prevData) {
     const rate = data.used > 0 ? Math.round((data.a / data.used) * 100) : 0;
 
     // Trend
-    let trendStr = 'тАФтАФ';
+    let trendStr = '——';
     if (_anPeriod > 0 && prevData) {
         const prevRate = prevData.used > 0 ? Math.round((prevData.a / prevData.used) * 100) : 0;
         const delta = rate - prevRate;
-        if (delta > 0) trendStr = `тЦ▓ +${delta}%`;
-        else if (delta < 0) trendStr = `тЦ╝ ${delta}%`;
-        else trendStr = 'тФАтФА 0%';
+        if (delta > 0) trendStr = `▲ +${delta}%`;
+        else if (delta < 0) trendStr = `▼ ${delta}%`;
+        else trendStr = '── 0%';
     }
 
     // Rate color
@@ -1020,17 +1020,17 @@ function _anShowDetail(bin, data, prevData) {
     if (rate >= 60) rateClass = 'an-rate-good';
     else if (rate >= 30) rateClass = 'an-rate-mid';
 
-    // Mini timeline тАФ last 10 entries by date
+    // Mini timeline — last 10 entries by date
     const sorted = [...data.cards].sort((a, b) => (_anParseDate(b.date) || 0) - (_anParseDate(a.date) || 0)).slice(0, 10);
     let timelineHtml = '';
     sorted.forEach(c => {
-        const d = c.date || 'тАФ';
+        const d = c.date || '—';
         let statusTag = '';
         if (c.cardAdd) statusTag += '<span class="an-tag an-tag-a">A</span>';
         if (c.runAds) statusTag += '<span class="an-tag an-tag-r">R</span>';
         if (c.verified) statusTag += '<span class="an-tag an-tag-v">V</span>';
         if (c.minic) statusTag += '<span class="an-tag an-tag-m">M</span>';
-        if (!c.cardAdd && !c.runAds && !c.verified && !c.minic) statusTag = '<span class="an-tag an-tag-none">тАФ</span>';
+        if (!c.cardAdd && !c.runAds && !c.verified && !c.minic) statusTag = '<span class="an-tag an-tag-none">—</span>';
         timelineHtml += `<div class="an-tl-row"><span class="an-tl-date">${d}</span>${statusTag}</div>`;
     });
 
@@ -1038,14 +1038,14 @@ function _anShowDetail(bin, data, prevData) {
     const binInfo = BIN_CACHE[bin];
     let binMeta = '';
     if (binInfo) {
-        binMeta = `<div class="an-detail-meta">${binInfo.scheme || ''} ┬╖ ${binInfo.type || ''} ┬╖ ${binInfo.bank || ''}</div>`;
+        binMeta = `<div class="an-detail-meta">${binInfo.scheme || ''} · ${binInfo.type || ''} · ${binInfo.bank || ''}</div>`;
     }
 
     modal.innerHTML = `
             <div class="an-detail">
                 <div class="an-detail-header">
                     <span class="an-detail-bin">${bin}</span>
-                    <button class="an-detail-close" id="an-close">тЬХ</button>
+                    <button class="an-detail-close" id="an-close">✕</button>
                 </div>
                 ${binMeta}
                 <div class="an-detail-stats">
@@ -1121,14 +1121,14 @@ function renderMerchants() {
     }
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР MERCHANT LIST VIEW тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════ MERCHANT LIST VIEW ══════════
 function _renderMerchantList(area) {
     const totalBins = STATE.merchantBins.length;
 
     // Build merchant rows
     let merchRowsHtml = '';
     if (STATE.merchants.length === 0) {
-        merchRowsHtml = '<div class="mt-empty">No merchants yet тАФ click "+ Add Merchant" to start</div>';
+        merchRowsHtml = '<div class="mt-empty">No merchants yet — click "+ Add Merchant" to start</div>';
     } else {
         STATE.merchants.forEach(m => {
             const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
@@ -1140,10 +1140,10 @@ function _renderMerchantList(area) {
                     <span class="mt-merch-name" data-id="${m.id}">${m.name}</span>
                     <span class="mt-merch-stat">${uniqueBins} BINs</span>
                     <span class="mt-merch-stat">${totalUses} uses</span>
-                    ${linkCount > 0 ? `<span class="mt-merch-stat mt-merch-links-count">ЁЯФЧ ${linkCount}</span>` : ''}
+                    ${linkCount > 0 ? `<span class="mt-merch-stat mt-merch-links-count">🔗 ${linkCount}</span>` : ''}
                     <div class="mt-merch-actions">
-                        <button class="mt-btn mt-btn-sm mt-btn-edit" data-id="${m.id}" title="Edit">тЬПя╕П</button>
-                        <button class="mt-btn mt-btn-sm mt-btn-del" data-id="${m.id}" title="Delete">ЁЯЧС</button>
+                        <button class="mt-btn mt-btn-sm mt-btn-edit" data-id="${m.id}" title="Edit">✏️</button>
+                        <button class="mt-btn mt-btn-sm mt-btn-del" data-id="${m.id}" title="Delete">🗑</button>
                     </div>
                 </div>`;
         });
@@ -1153,13 +1153,13 @@ function _renderMerchantList(area) {
             <div class="mt-workspace">
                 <div class="mt-toolbar">
                     <button class="mt-btn mt-btn-add" id="mt-add-merch-btn">+ Add Merchant</button>
-                    <span class="mt-info">${STATE.merchants.length} merchants ┬╖ ${totalBins} BINs</span>
+                    <span class="mt-info">${STATE.merchants.length} merchants · ${totalBins} BINs</span>
                 </div>
 
                 <div id="mt-merch-form" class="mt-inline-form hidden">
                     <input type="text" id="mt-merch-name" class="mt-input" placeholder="Merchant name..." autocomplete="off">
                     <button class="mt-btn mt-btn-ok" id="mt-merch-save">OK</button>
-                    <button class="mt-btn mt-btn-x" id="mt-merch-cancel">тЬХ</button>
+                    <button class="mt-btn mt-btn-x" id="mt-merch-cancel">✕</button>
                 </div>
 
                 <!-- MERCHANT LIST -->
@@ -1167,7 +1167,7 @@ function _renderMerchantList(area) {
 
                 <!-- QUICK SEARCH -->
                 <div class="mt-search-section">
-                    <input type="text" id="mt-quick-search" class="mt-input mt-quick-search-input" placeholder="ЁЯФН Quick search тАФ BIN, merchant name, or paste log..." autocomplete="off">
+                    <input type="text" id="mt-quick-search" class="mt-input mt-quick-search-input" placeholder="🔍 Quick search — BIN, merchant name, or paste log..." autocomplete="off">
                 </div>
 
                 <textarea id="mt-textarea" class="mt-textarea" placeholder="Paste card number or log here...\n\nExamples:\n4242424242424242|12|26|874\n5326101234567890\n4500031122334455 12 26 123\nPrice: $53.98"></textarea>
@@ -1177,7 +1177,7 @@ function _renderMerchantList(area) {
                 <div id="mt-results" class="mt-results"></div>
             </div>`;
 
-    // тФАтФА Event listeners тФАтФА
+    // ── Event listeners ──
     // Add merchant
     document.getElementById('mt-add-merch-btn').addEventListener('click', () => {
         document.getElementById('mt-merch-form').classList.toggle('hidden');
@@ -1194,7 +1194,7 @@ function _renderMerchantList(area) {
         if (e.key === 'Escape') document.getElementById('mt-merch-form').classList.add('hidden');
     });
 
-    // Click merchant name тЖТ open detail
+    // Click merchant name → open detail
     document.querySelectorAll('.mt-merch-name').forEach(el => {
         el.addEventListener('click', () => {
             STATE.merchantView = 'detail';
@@ -1225,7 +1225,7 @@ function _renderMerchantList(area) {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
     });
 
-    // Quick search тАФ instant filter
+    // Quick search — instant filter
     const quickSearch = document.getElementById('mt-quick-search');
     quickSearch.addEventListener('input', () => {
         const q = quickSearch.value.trim();
@@ -1240,7 +1240,7 @@ function _renderMerchantList(area) {
     });
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР MERCHANT DETAIL VIEW тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════ MERCHANT DETAIL VIEW ══════════
 function _renderMerchantDetail(area, merch) {
     const bins = STATE.merchantBins.filter(b => b.merchant_id === merch.id);
 
@@ -1263,7 +1263,7 @@ function _renderMerchantDetail(area, merch) {
 
     let binTableHtml = '';
     if (sortedBins.length === 0) {
-        binTableHtml = '<div class="mt-empty">No BINs yet тАФ add below</div>';
+        binTableHtml = '<div class="mt-empty">No BINs yet — add below</div>';
     } else {
         binTableHtml = `
             <div class="mt-bin-table-wrap">
@@ -1273,20 +1273,20 @@ function _renderMerchantDetail(area, merch) {
                 </tr></thead>
                 <tbody>${sortedBins.map(([bin, data]) => {
             const lastEntry = data.entries[data.entries.length - 1];
-            const bankShort = (data.bank || 'тАФ').length > 20 ? data.bank.slice(0, 20) + 'тАж' : (data.bank || 'тАФ');
+            const bankShort = (data.bank || '—').length > 20 ? data.bank.slice(0, 20) + '…' : (data.bank || '—');
             const currency = lastEntry.currency || '';
             // Transaction history rows
             const txRows = data.entries.map(e => {
-                return `<tr class="mt-tx-row" style="display:none" data-parent="${bin}"><td></td><td colspan="2" class="mt-tx-detail">тЖТ ${e.amount || 'тАФ'} ${e.currency || ''}</td><td colspan="2" class="mt-tx-date">${e.date ? new Date(e.date).toLocaleDateString() : ''}</td><td></td></tr>`;
+                return `<tr class="mt-tx-row" style="display:none" data-parent="${bin}"><td></td><td colspan="2" class="mt-tx-detail">→ ${e.amount || '—'} ${e.currency || ''}</td><td colspan="2" class="mt-tx-date">${e.date ? new Date(e.date).toLocaleDateString() : ''}</td><td></td></tr>`;
             }).join('');
             return `<tr class="mt-bin-main-row" data-bin="${bin}" title="Click to expand transactions">
                         <td class="mt-bin-val">${bin}</td>
                         <td class="mt-bin-bank-cell">${bankShort}</td>
                         <td class="mt-bin-count">${data.entries.length}</td>
-                        <td class="mt-bin-amount">${lastEntry.amount ? lastEntry.amount : 'тАФ'}</td>
+                        <td class="mt-bin-amount">${lastEntry.amount ? lastEntry.amount : '—'}</td>
                         <td class="mt-bin-currency">${currency}</td>
                         <td class="mt-bin-actions">
-                            <button class="mt-btn mt-btn-sm mt-btn-del-bin" data-bin="${bin}" title="Delete BIN">ЁЯЧС</button>
+                            <button class="mt-btn mt-btn-sm mt-btn-del-bin" data-bin="${bin}" title="Delete BIN">🗑</button>
                         </td>
                     </tr>${txRows}`;
         }).join('')}</tbody>
@@ -1296,15 +1296,15 @@ function _renderMerchantDetail(area, merch) {
 
     // Links
     const linksHtml = (merch.links || []).map((link, i) => {
-        return `<a href="${link.url}" target="_blank" rel="noopener" class="mt-link-badge">${link.label || link.url} <span class="mt-link-del" data-idx="${i}">тЬХ</span></a>`;
+        return `<a href="${link.url}" target="_blank" rel="noopener" class="mt-link-badge">${link.label || link.url} <span class="mt-link-del" data-idx="${i}">✕</span></a>`;
     }).join('');
 
     area.innerHTML = `
             <div class="mt-workspace">
                 <div class="mt-toolbar">
-                    <button class="mt-btn" id="mt-back-btn">тЖР Back</button>
+                    <button class="mt-btn" id="mt-back-btn">← Back</button>
                     <span class="mt-detail-title">${merch.name}</span>
-                    <span class="mt-info">${sortedBins.length} unique BINs ┬╖ ${bins.length} total uses</span>
+                    <span class="mt-info">${sortedBins.length} unique BINs · ${bins.length} total uses</span>
                 </div>
 
                 <!-- BIN TABLE -->
@@ -1312,7 +1312,7 @@ function _renderMerchantDetail(area, merch) {
 
                 <!-- LINKS -->
                 <div class="mt-links-section">
-                    <div class="mt-links-header">ЁЯФЧ Links</div>
+                    <div class="mt-links-header">🔗 Links</div>
                     <div class="mt-links-list" id="mt-links-list">${linksHtml || '<span class="mt-empty-inline">No links</span>'}</div>
                     <div class="mt-links-form">
                         <input type="text" id="mt-link-label" class="mt-input mt-input-sm" placeholder="Label..." autocomplete="off">
@@ -1342,7 +1342,7 @@ function _renderMerchantDetail(area, merch) {
                 <div id="mt-results" class="mt-results"></div>
             </div>`;
 
-    // тФАтФА Events тФАтФА
+    // ── Events ──
     document.getElementById('mt-back-btn').addEventListener('click', () => {
         STATE.merchantView = 'list';
         STATE.merchantDetailId = null;
@@ -1371,7 +1371,7 @@ function _renderMerchantDetail(area, merch) {
 
         lines.forEach(line => {
             // Format: BIN - AMOUNT CURRENCY  (e.g. 412650 - 1,269.00 EUR)
-            const richMatch = line.match(/^(\d{4,6})\s*[-тАУтАФ]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
+            const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
             if (richMatch) {
                 const bin = richMatch[1].padEnd(6, '0');
                 const amount = _parseAmount(richMatch[2]);
@@ -1406,7 +1406,7 @@ function _renderMerchantDetail(area, merch) {
         const summaryEl = document.getElementById('mt-bulk-summary');
         if (summaryEl) {
             summaryEl.classList.remove('hidden');
-            summaryEl.innerHTML = `тЬЕ Loaded: <strong>${parsed.length}</strong> BINs тАФ <span class="mt-sum-new">${newCount} new</span> ┬╖ <span class="mt-sum-dup">${dupCount} duplicates</span>`;
+            summaryEl.innerHTML = `✅ Loaded: <strong>${parsed.length}</strong> BINs — <span class="mt-sum-new">${newCount} new</span> · <span class="mt-sum-dup">${dupCount} duplicates</span>`;
         }
 
         toast(`${parsed.length} BINs added to ${merch.name}`, 'success');
@@ -1468,7 +1468,7 @@ function _renderMerchantDetail(area, merch) {
     });
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР CRUD HELPERS тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════ CRUD HELPERS ══════════
 
 function _mtSaveMerchant() {
     const inp = document.getElementById('mt-merch-name');
@@ -1537,13 +1537,13 @@ function _addBinToMerchant(bin, amount, merchantId, currency) {
     save();
 }
 
-// тФАтФА Parse amount from various formats тФАтФА
+// ── Parse amount from various formats ──
 // Handles: 1,269.00 | 1.269,00 | 2637,99 | 3,436.99 | 1.898,00
 function _parseAmount(str) {
     if (!str) return 0;
     str = str.trim();
-    // Detect format: if last separator is comma and has 1-2 digits after тЖТ European (comma = decimal)
-    // If last separator is dot and has 1-2 digits after тЖТ US (dot = decimal)
+    // Detect format: if last separator is comma and has 1-2 digits after → European (comma = decimal)
+    // If last separator is dot and has 1-2 digits after → US (dot = decimal)
     const lastComma = str.lastIndexOf(',');
     const lastDot = str.lastIndexOf('.');
 
@@ -1562,7 +1562,7 @@ function _parseAmount(str) {
     }
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР ENHANCED SEARCH тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════ ENHANCED SEARCH ══════════
 
 function _mtSearch() {
     const textarea = document.getElementById('mt-textarea');
@@ -1571,7 +1571,7 @@ function _mtSearch() {
 
     if (!text) { toast('Paste card data first', 'warning'); return; }
 
-    // тФАтФА Smart BIN extraction: prioritize CC field тФАтФА
+    // ── Smart BIN extraction: prioritize CC field ──
     let bins = [];
 
     // 1. Try to find CC/Card field in the text
@@ -1607,7 +1607,7 @@ function _mtSearch() {
     const detectedAmount = amountMatch ? _parseAmount(amountMatch[1]).toString() : '';
 
     if (bins.length === 0) {
-        resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA тАФ no valid card numbers found</div>';
+        resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
         return;
     }
 
@@ -1616,7 +1616,7 @@ function _mtSearch() {
     bins.forEach(bin => {
         const matches = STATE.merchantBins.filter(b => b.bin === bin);
         const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
-        const bankName = bankInfo ? (bankInfo.bank || 'тАФ') : (matches.length > 0 && matches[0].bank ? matches[0].bank : 'тАФ');
+        const bankName = bankInfo ? (bankInfo.bank || '—') : (matches.length > 0 && matches[0].bank ? matches[0].bank : '—');
         const bankCountry = bankInfo ? (bankInfo.country || '') : '';
         const bankType = bankInfo ? (bankInfo.type || '') : '';
 
@@ -1632,7 +1632,7 @@ function _mtSearch() {
 
         html += `<div class="mt-result-block">`;
         html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
-        if (bankName !== 'тАФ') html += ` <span class="mt-result-bank">ЁЯПж ${bankName}</span>`;
+        if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
         if (bankCountry) html += ` <span class="mt-result-geo">${bankCountry}</span>`;
         if (bankType) html += ` <span class="mt-result-type">${bankType}</span>`;
         html += `</div>`;
@@ -1646,8 +1646,8 @@ function _mtSearch() {
                 html += `<div class="mt-result-merchant-block">`;
                 html += `<div class="mt-result-row">`;
                 html += `<span class="mt-col-merchant">${data.name}</span>`;
-                html += ` тАФ Used: <strong>${data.entries.length}</strong> times`;
-                if (lastEntry.amount) html += ` тАФ Last: <span class="mt-col-amount">$${lastEntry.amount}</span>`;
+                html += ` — Used: <strong>${data.entries.length}</strong> times`;
+                if (lastEntry.amount) html += ` — Last: <span class="mt-col-amount">$${lastEntry.amount}</span>`;
                 html += `</div>`;
 
                 // Links
@@ -1661,15 +1661,15 @@ function _mtSearch() {
                 html += `</div>`;
             });
         } else {
-            html += `<div class="mt-no-data">NO DATA тАФ BIN not linked to any merchant</div>`;
+            html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
         }
 
         // Show detected amount
         if (detectedAmount) {
-            html += `<div class="mt-result-amount-detected">ЁЯТ░ Detected amount: $${detectedAmount}</div>`;
+            html += `<div class="mt-result-amount-detected">💰 Detected amount: $${detectedAmount}</div>`;
         }
 
-        // Quick action тАФ add to merchant
+        // Quick action — add to merchant
         if (STATE.merchants.length > 0) {
             let options = STATE.merchants.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
             html += `<div class="mt-result-action">
@@ -1698,7 +1698,7 @@ function _mtSearch() {
     });
 }
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР QUICK SEARCH тХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════ QUICK SEARCH ══════════
 
 function _mtQuickSearch(query) {
     const resultsDiv = document.getElementById('mt-results');
@@ -1724,10 +1724,10 @@ function _mtQuickSearch(query) {
 
             Object.entries(byBin).forEach(([bin, entries]) => {
                 const bankInfo = BIN_CACHE[bin];
-                const bankName = bankInfo ? (bankInfo.bank || 'тАФ') : (entries[0].bank || 'тАФ');
+                const bankName = bankInfo ? (bankInfo.bank || '—') : (entries[0].bank || '—');
                 html += `<div class="mt-result-block">`;
                 html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
-                if (bankName !== 'тАФ') html += ` <span class="mt-result-bank">ЁЯПж ${bankName}</span>`;
+                if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
                 html += `</div>`;
 
                 const byMerch = {};
@@ -1738,8 +1738,8 @@ function _mtQuickSearch(query) {
                 Object.entries(byMerch).forEach(([mId, es]) => {
                     const m = STATE.merchants.find(x => x.id === mId);
                     const last = es[es.length - 1];
-                    html += `<div class="mt-result-row"><span class="mt-col-merchant">${m ? m.name : 'Unknown'}</span> тАФ Used: <strong>${es.length}</strong>`;
-                    if (last.amount) html += ` тАФ Last: <span class="mt-col-amount">$${last.amount}</span>`;
+                    html += `<div class="mt-result-row"><span class="mt-col-merchant">${m ? m.name : 'Unknown'}</span> — Used: <strong>${es.length}</strong>`;
+                    if (last.amount) html += ` — Last: <span class="mt-col-amount">$${last.amount}</span>`;
                     html += `</div>`;
                     if (m && m.links && m.links.length > 0) {
                         html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
@@ -1757,13 +1757,13 @@ function _mtQuickSearch(query) {
             const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
             const uniqueBins = [...new Set(bins.map(b => b.bin))];
             html += `<div class="mt-result-block">`;
-            html += `<div class="mt-result-bin"><span class="mt-col-merchant">${m.name}</span> тАФ ${uniqueBins.length} BINs ┬╖ ${bins.length} uses</div>`;
+            html += `<div class="mt-result-bin"><span class="mt-col-merchant">${m.name}</span> — ${uniqueBins.length} BINs · ${bins.length} uses</div>`;
             uniqueBins.slice(0, 10).forEach(bin => {
                 const count = bins.filter(b => b.bin === bin).length;
                 const last = bins.filter(b => b.bin === bin).pop();
                 const bankInfo = BIN_CACHE[bin];
                 const bankName = bankInfo ? (bankInfo.bank || '') : '';
-                html += `<div class="mt-result-row">BIN: <strong>${bin}</strong>${bankName ? ' ┬╖ ЁЯПж ' + bankName : ''} тАФ ${count}x${last && last.amount ? ' ┬╖ $' + last.amount : ''}</div>`;
+                html += `<div class="mt-result-row">BIN: <strong>${bin}</strong>${bankName ? ' · 🏦 ' + bankName : ''} — ${count}x${last && last.amount ? ' · $' + last.amount : ''}</div>`;
             });
             if (m.links && m.links.length > 0) {
                 html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
@@ -1831,7 +1831,7 @@ function renderContent() {
         return;
     }
 
-    // тХРтХРтХРтХРтХРтХРтХР ALL CARDS тАФ Dedicated Aggregate View тХРтХРтХРтХРтХРтХРтХР
+    // ═══════ ALL CARDS — Dedicated Aggregate View ═══════
     if (STATE.currentView === 'all-cards') {
         renderAllCards();
         return;
@@ -1872,13 +1872,13 @@ function renderContent() {
         // Usage badges
         const isAllCards = STATE.currentView === 'all-cards';
         const cardUsageBadge = (c._cardUsage && c._cardUsage > 1)
-            ? `<span class="usage-badge usage-card" onclick="event.stopPropagation(); _showCardDrawer('${c.cardNumber.replace(/\s/g, '')}', this)" title="Card used ${c._cardUsage} times">ЁЯУЗ${c._cardUsage}</span>`
+            ? `<span class="usage-badge usage-card" onclick="event.stopPropagation(); _showCardDrawer('${c.cardNumber.replace(/\s/g, '')}', this)" title="Card used ${c._cardUsage} times">📇${c._cardUsage}</span>`
             : '';
         const nameUsageBadge = (!isAllCards && c._nameUsage && c._nameUsage > 1)
-            ? `<span class="usage-badge usage-name" onclick="event.stopPropagation(); _showNameDrawer('${(c.name + ' ' + c.surname).toUpperCase().replace(/'/g, "\\'")}', this)" title="Name appears ${c._nameUsage} times">ЁЯСд${c._nameUsage}</span>`
+            ? `<span class="usage-badge usage-name" onclick="event.stopPropagation(); _showNameDrawer('${(c.name + ' ' + c.surname).toUpperCase().replace(/'/g, "\\'")}', this)" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
             : '';
         const allCardsNamesBadge = (isAllCards && c._nameCount && c._nameCount > 1)
-            ? `<span class="usage-badge usage-names" title="${c._nameCount} unique names">ЁЯСд${c._nameCount}</span>`
+            ? `<span class="usage-badge usage-names" title="${c._nameCount} unique names">👤${c._nameCount}</span>`
             : '';
 
         const getMailBadge = (card) => {
@@ -1898,7 +1898,7 @@ function renderContent() {
             <td>
                 <div class="card-cell">
                     <span class="card-name">
-                        ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">тШЕ</button>` : ''}
+                        ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}
                         <span class="flag">${flag}</span>
                         ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${binBadge} ${nameUsageBadge} ${allCardsNamesBadge}
                     </span>
@@ -1908,7 +1908,7 @@ function renderContent() {
             </td>
             <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}', this)">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
             <td class="bin-cell">${bin}</td>
-            <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || 'тАФ'}</span></td>
+            <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
             <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
             <td class="mail-cell">
                 <div class="mail-tags">
@@ -1931,17 +1931,17 @@ function renderContent() {
             <td class="date-cell">${c.date}</td>
             <td>
                 ${isTrash ? `
-                    <button class="more-btn" onclick="permanentDelete('${c.id}')" title="Delete forever">тЬХ</button>
+                    <button class="more-btn" onclick="permanentDelete('${c.id}')" title="Delete forever">✕</button>
                 ` : `
-                    <button class="more-btn" onclick="openContextMenu(event, '${c.id}')">тЛп</button>
+                    <button class="more-btn" onclick="openContextMenu(event, '${c.id}')">⋯</button>
                 `}
             </td>
         </tr>`;
     }).join('');
 
     const sortIcon = (field) => {
-        if (STATE.sortField !== field) return 'тЖХ';
-        return STATE.sortDir === 'asc' ? 'тЖС' : 'тЖУ';
+        if (STATE.sortField !== field) return '↕';
+        return STATE.sortDir === 'asc' ? '↑' : '↓';
     };
 
     area.innerHTML = `
@@ -2006,7 +2006,7 @@ function renderContent() {
     }
 }
 
-// тХРтХРтХРтХРтХРтХРтХР ALL CARDS тАФ Aggregate Render тХРтХРтХРтХРтХРтХРтХР
+// ═══════ ALL CARDS — Aggregate Render ═══════
 function renderAllCards() {
     const area = document.getElementById('content-area');
     const cards = getFilteredCards(); // already grouped by cardNumber
@@ -2044,7 +2044,7 @@ function renderAllCards() {
         const binTxt = formatBinInfoText(info);
         const useCount = c._cardUsage || 1;
         const names = c._nameCount || 1;
-        const lastDate = c._lastDate || c.date || 'тАФ';
+        const lastDate = c._lastDate || c.date || '—';
         const cardNum = c.cardNumber.replace(/\s/g, '');
 
         return `
@@ -2063,8 +2063,8 @@ function renderAllCards() {
     }).join('');
 
     const sortIcon = (field) => {
-        if (STATE.sortField !== field) return 'тЖХ';
-        return STATE.sortDir === 'asc' ? 'тЖС' : 'тЖУ';
+        if (STATE.sortField !== field) return '↕';
+        return STATE.sortDir === 'asc' ? '↑' : '↓';
     };
 
     area.innerHTML = `
@@ -2115,13 +2115,13 @@ window._toggleAllCardsDrawer = function (cardNum, rowEl) {
 
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || 'тАФ';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
             <span class="drawer-status">${statuses}</span>
-            <span class="drawer-date">${c.date || 'тАФ'}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
 
@@ -2131,7 +2131,7 @@ window._toggleAllCardsDrawer = function (cardNum, rowEl) {
     drawerTr.dataset.key = 'ac:' + cardNum;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">ЁЯУЗ ${matches.length} records with this card</div>
+            <div class="drawer-header">📇 ${matches.length} records with this card</div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -2155,13 +2155,13 @@ window._toggleDocDrawer = function (docId, rowEl) {
 
     const rowsHtml = linkedCards.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || 'тАФ';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
             <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
             <span class="drawer-status">${statuses}</span>
-            <span class="drawer-date">${c.date || 'тАФ'}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
 
@@ -2171,7 +2171,7 @@ window._toggleDocDrawer = function (docId, rowEl) {
     drawerTr.dataset.key = 'doc:' + docId;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">ЁЯСд ${linkedCards.length} cards linked to ${doc.fullName}</div>
+            <div class="drawer-header">👤 ${linkedCards.length} cards linked to ${doc.fullName}</div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -2237,13 +2237,13 @@ function renderDocs() {
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
-            <td onclick="event.stopPropagation()"><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">тЛп</button></td>
+            <td onclick="event.stopPropagation()"><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">⋯</button></td>
         </tr>
     `}).join('');
 
     const docSortIcon = (field) => {
-        if (STATE.docSortField !== field) return 'тЖХ';
-        return STATE.docSortDir === 'asc' ? 'тЖС' : 'тЖУ';
+        if (STATE.docSortField !== field) return '↕';
+        return STATE.docSortDir === 'asc' ? '↑' : '↓';
     };
 
     area.innerHTML = `
@@ -2332,7 +2332,7 @@ function renderNotes() {
         const isActive = t.id === STATE.notesActiveTab;
         return `<button class="nt-tab ${isActive ? 'active' : ''}" data-tab="${t.id}">
             <span class="nt-tab-title" data-tab="${t.id}">${t.title}</span>
-            ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">├Ч</span>` : ''}
+            ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
         </button>`;
     }).join('');
     tabsHTML += `<button class="nt-new-tab" id="nt-new-tab">+</button>`;
@@ -2342,7 +2342,7 @@ function renderNotes() {
             <div class="nt-tab-bar">
                 <div class="nt-tabs-scroll">${tabsHTML}</div>
                 <div class="nt-toolbar-right">
-                    <button class="nt-tool-btn nt-highlight-btn" id="notes-highlight-btn" title="Highlight selected text">ЁЯЦН MARK</button>
+                    <button class="nt-tool-btn nt-highlight-btn" id="notes-highlight-btn" title="Highlight selected text">🖍 MARK</button>
                     <button class="nt-tool-btn" id="notes-clear-btn" title="Clear current tab">CLEAR</button>
                     <button class="nt-tool-btn" id="notes-save-btn">SAVE</button>
                 </div>
@@ -2408,7 +2408,7 @@ function renderNotes() {
         });
     });
 
-    // Tab rename тАФ inline edit on click
+    // Tab rename — inline edit on click
     area.querySelectorAll('.nt-tab-title').forEach(span => {
         span.addEventListener('dblclick', (e) => {
             e.stopPropagation();
@@ -2484,12 +2484,12 @@ function renderNotes() {
         const text = ta.value;
         const selected = text.slice(start, end);
         // Toggle: if already wrapped, unwrap
-        if (text.slice(start - 1, start) === '┬л' && text.slice(end, end + 1) === '┬╗') {
+        if (text.slice(start - 1, start) === '«' && text.slice(end, end + 1) === '»') {
             ta.value = text.slice(0, start - 1) + selected + text.slice(end + 1);
             ta.selectionStart = start - 1;
             ta.selectionEnd = end - 1;
         } else {
-            ta.value = text.slice(0, start) + '┬л' + selected + '┬╗' + text.slice(end);
+            ta.value = text.slice(0, start) + '«' + selected + '»' + text.slice(end);
             ta.selectionStart = start;
             ta.selectionEnd = end + 2;
         }
@@ -2523,7 +2523,7 @@ function renderNotes() {
 }
 
 function renderFooter(count, page, totalPages) {
-    document.getElementById('records-count').textContent = `${count} records ┬╖ Page ${page} of ${totalPages}`;
+    document.getElementById('records-count').textContent = `${count} records · Page ${page} of ${totalPages}`;
     document.getElementById('page-info').textContent = `Page ${page} of ${totalPages}`;
     document.getElementById('prev-page').disabled = page <= 1;
     document.getElementById('next-page').disabled = page >= totalPages;
@@ -2532,7 +2532,7 @@ function renderFooter(count, page, totalPages) {
 function renderPageTitle() {
     const flagEl = document.getElementById('page-flag');
     const titleEl = document.getElementById('page-title-text');
-    if (!flagEl || !titleEl) { /* No page title elements тАФ using top nav tabs */
+    if (!flagEl || !titleEl) { /* No page title elements — using top nav tabs */
         const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'docs', 'global-docs'].includes(STATE.currentView);
         const addBtn = document.getElementById('add-card-btn');
         if (addBtn) addBtn.style.display = showAdd ? 'flex' : 'none';
@@ -2545,58 +2545,58 @@ function renderPageTitle() {
     switch (STATE.currentView) {
         case 'cards':
             flagEl.textContent = country?.flag || '';
-            titleEl.textContent = `${country?.name || ''} тАФ Workspace`;
+            titleEl.textContent = `${country?.name || ''} — Workspace`;
             break;
         case 'docs':
             flagEl.textContent = country?.flag || '';
-            titleEl.textContent = `${country?.name || ''} тАФ Documents`;
+            titleEl.textContent = `${country?.name || ''} — Documents`;
             break;
         case 'my-card':
-            flagEl.textContent = 'ЁЯТ│';
+            flagEl.textContent = '💳';
             titleEl.textContent = 'My Card';
             break;
         case 'favorites':
-            flagEl.textContent = 'тЭдя╕П';
+            flagEl.textContent = '❤️';
             titleEl.textContent = 'Favorites';
             break;
         case 'active-now':
-            flagEl.textContent = 'тЪб';
+            flagEl.textContent = '⚡';
             titleEl.textContent = 'Active Now';
             break;
         case 'notes':
-            flagEl.textContent = 'ЁЯУЭ';
+            flagEl.textContent = '📝';
             titleEl.textContent = 'Notes';
             break;
         case 'new-cards':
-            flagEl.textContent = 'ЁЯФН';
+            flagEl.textContent = '🔍';
             titleEl.textContent = 'Parser';
             break;
         case 'generator':
-            flagEl.textContent = 'тЪЩя╕П';
+            flagEl.textContent = '⚙️';
             titleEl.textContent = 'Generator';
             break;
         case 'builder':
-            flagEl.textContent = 'ЁЯПЧя╕П';
+            flagEl.textContent = '🏗️';
             titleEl.textContent = 'Builder';
             break;
         case 'merchants':
-            flagEl.textContent = 'ЁЯПк';
+            flagEl.textContent = '🏪';
             titleEl.textContent = STATE.merchantView === 'detail' ? 'Merchant Detail' : 'Merchants';
             break;
         case 'ready-to-work':
-            flagEl.textContent = 'тЬЕ';
+            flagEl.textContent = '✅';
             titleEl.textContent = 'Ready to Work';
             break;
         case 'all-cards':
-            flagEl.textContent = 'ЁЯУж';
+            flagEl.textContent = '📦';
             titleEl.textContent = 'All Cards';
             break;
         case 'global-docs':
-            flagEl.textContent = 'ЁЯУД';
-            titleEl.textContent = 'Documents тАФ Global';
+            flagEl.textContent = '📄';
+            titleEl.textContent = 'Documents — Global';
             break;
         case 'trash':
-            flagEl.textContent = 'ЁЯЧСя╕П';
+            flagEl.textContent = '🗑️';
             titleEl.textContent = 'Trash';
             break;
     }
@@ -2660,7 +2660,7 @@ function renderAll() {
     renderContent();
 }
 
-// тФАтФАтФАтФА NAVIGATION тФАтФАтФАтФА
+// ──── NAVIGATION ────
 function navigate(view, country) {
     // Auto-save active notes tab before leaving notes view
     if (STATE.currentView === 'notes') {
@@ -2705,7 +2705,7 @@ window.deleteCountry = function (id) {
 
 
 
-// тФАтФАтФАтФА CARD ACTIONS тФАтФАтФАтФА
+// ──── CARD ACTIONS ────
 window.toggleStar = function (id) {
     const card = STATE.cards.find(c => c.id === id);
     if (card) {
@@ -2721,11 +2721,11 @@ window.toggleStar = function (id) {
 
         updateStatsInPlace();
         updateSidebarBadges();
-        toast(card.starred ? 'тнР Added to Active Now' : 'Removed from Active Now', 'success');
+        toast(card.starred ? '⭐ Added to Active Now' : 'Removed from Active Now', 'success');
     }
 };
 
-// тФАтФАтФАтФА MAIL TAG TOGGLE тФАтФАтФАтФА
+// ──── MAIL TAG TOGGLE ────
 window.toggleMailTag = function (id, field) {
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
@@ -2736,10 +2736,10 @@ window.toggleMailTag = function (id, field) {
     save();
     renderContent();
     const label = field === 'mailVerify' ? 'CC' : 'DOC';
-    toast(card[field] ? `тЬЙ ${label}: ON` : `${label}: OFF`, 'success');
+    toast(card[field] ? `✉ ${label}: ON` : `${label}: OFF`, 'success');
 };
 
-// тФАтФАтФАтФА TYPE TOGGLE (PP тЖФ DL) тФАтФАтФАтФА
+// ──── TYPE TOGGLE (PP ↔ DL) ────
 window.cycleCardType = function (id) {
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
@@ -2816,7 +2816,7 @@ window.permanentDelete = function (id) {
     toast('Permanently deleted', 'info');
 };
 
-// тХРтХРтХРтХРтХРтХРтХР EXPAND DRAWERS тХРтХРтХРтХРтХРтХРтХР
+// ═══════ EXPAND DRAWERS ═══════
 
 window._showCardDrawer = function (cardNum, el) {
     // Close existing drawer
@@ -2832,13 +2832,13 @@ window._showCardDrawer = function (cardNum, el) {
 
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || 'тАФ';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
             <span class="drawer-status">${statuses}</span>
-            <span class="drawer-date">${c.date || 'тАФ'}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
 
@@ -2850,7 +2850,7 @@ window._showCardDrawer = function (cardNum, el) {
     drawerTr.dataset.key = 'card:' + cardNum;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">ЁЯУЗ ${matches.length} records with this card</div>
+            <div class="drawer-header">📇 ${matches.length} records with this card</div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -2870,13 +2870,13 @@ window._showNameDrawer = function (fullName, el) {
 
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || 'тАФ';
+        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
             <span class="drawer-status">${statuses}</span>
-            <span class="drawer-date">${c.date || 'тАФ'}</span>
+            <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
 
@@ -2888,14 +2888,14 @@ window._showNameDrawer = function (fullName, el) {
     drawerTr.dataset.key = 'name:' + fullName;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">ЁЯСд ${matches.length} records with this name</div>
+            <div class="drawer-header">👤 ${matches.length} records with this name</div>
             ${rowsHtml}
         </div>
     </td>`;
     tr.after(drawerTr);
 };
 
-// тФАтФАтФАтФА MULTI-SELECT ACTIONS тФАтФАтФАтФА
+// ──── MULTI-SELECT ACTIONS ────
 
 function toggleCardSelect(id, checked) {
     if (checked) _selectedCards.add(id);
@@ -2940,7 +2940,7 @@ function updateBulkBar() {
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                 Delete
             </button>
-            <button class="bulk-btn bulk-clear" onclick="clearSelection()">тЬХ</button>
+            <button class="bulk-btn bulk-clear" onclick="clearSelection()">✕</button>
         `;
         document.body.appendChild(bar);
     }
@@ -2997,7 +2997,7 @@ function clearSelection() {
     updateBulkBar();
 }
 
-// тФАтФАтФАтФА CONTEXT MENU тФАтФАтФАтФА
+// ──── CONTEXT MENU ────
 const CARD_MENU_HTML = `
     <button class="ctx-item" data-action="copy">
         <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
@@ -3141,7 +3141,7 @@ window.openDocMenu = function (e, id) {
 
 // Context menu close is now handled by the dropdown close handler below
 
-// тФАтФАтФАтФА MINI-MODAL UTILITY тФАтФАтФАтФА
+// ──── MINI-MODAL UTILITY ────
 // Replaces all prompt() calls with a themed dark modal
 function showMiniModal(title, label, currentValue, placeholder, callback) {
     const overlay = document.getElementById('mini-modal-overlay');
@@ -3198,7 +3198,7 @@ function showMiniModal(title, label, currentValue, placeholder, callback) {
     overlay.addEventListener('click', onOverlayClick);
 }
 
-// тФАтФАтФАтФА NOTE & AMOUNT EDITING (inline) тФАтФАтФАтФА
+// ──── NOTE & AMOUNT EDITING (inline) ────
 window.openInlineNote = function (cardId, el) {
     const card = STATE.cards.find(c => c.id === cardId);
     if (!card) return;
@@ -3322,7 +3322,7 @@ window.openInlineAmount = function (cardId, el) {
 };
 
 
-// тФАтФАтФАтФА TARGETED UI UPDATES (no re-render) тФАтФАтФАтФА
+// ──── TARGETED UI UPDATES (no re-render) ────
 function updateStatsInPlace() {
     const bar = document.getElementById('stats-bar');
     if (!bar) return;
@@ -3401,7 +3401,7 @@ function updateSidebarBadges() {
     });
 }
 
-// тФАтФАтФАтФА DOC V/S COUNTERS тФАтФАтФАтФА
+// ──── DOC V/S COUNTERS ────
 function updateDocStatsBar() {
     updateStatsInPlace();
 }
@@ -3446,18 +3446,18 @@ window.decrementDocS = function (docId) {
     updateDocStatsBar();
 };
 
-// тФАтФАтФАтФА DOC PREVIEW LIGHTBOX тФАтФАтФАтФА
+// ──── DOC PREVIEW LIGHTBOX ────
 window._docShowPreview = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc || !doc.preview) return;
     const overlay = document.createElement('div');
     overlay.className = 'doc-lightbox';
-    overlay.innerHTML = `<img src="${doc.preview}" class="doc-lightbox-img"><button class="doc-lightbox-close">тЬХ</button>`;
+    overlay.innerHTML = `<img src="${doc.preview}" class="doc-lightbox-img"><button class="doc-lightbox-close">✕</button>`;
     overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.classList.contains('doc-lightbox-close')) overlay.remove(); });
     document.body.appendChild(overlay);
 };
 
-// тФАтФАтФАтФА DOC CLEAR NEW STATUS тФАтФАтФАтФА
+// ──── DOC CLEAR NEW STATUS ────
 window._docClearNew = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
@@ -3467,7 +3467,7 @@ window._docClearNew = function (docId) {
     if (badge) badge.remove();
 };
 
-// тФАтФАтФАтФА DOC TYPE CYCLE тФАтФАтФАтФА
+// ──── DOC TYPE CYCLE ────
 window.cycleDocType = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
@@ -3476,7 +3476,7 @@ window.cycleDocType = function (docId) {
     const idx = types.indexOf(current);
     doc.type = types[(idx + 1) % types.length];
     save();
-    // DOM-only update тАФ no full re-render
+    // DOM-only update — no full re-render
     const el = document.querySelector(`.clickable-type[onclick*="'${docId}'"]`);
     if (el) {
         el.textContent = doc.type && doc.type !== '-' ? doc.type : '-';
@@ -3484,7 +3484,7 @@ window.cycleDocType = function (docId) {
     }
 };
 
-// тФАтФАтФАтФА DOC MODAL тФАтФАтФАтФА
+// ──── DOC MODAL ────
 let _docParseTimer = null;
 
 function openDocModal() {
@@ -3522,7 +3522,7 @@ document.getElementById('add-doc-overlay').addEventListener('click', (e) => {
     if (e.target.id === 'add-doc-overlay') closeDocModal();
 });
 
-// Doc list textarea тАФ live parsing with debounce
+// Doc list textarea — live parsing with debounce
 document.getElementById('doc-list-textarea').addEventListener('input', function () {
     clearTimeout(_docParseTimer);
     _docParseTimer = setTimeout(() => {
@@ -3545,7 +3545,7 @@ document.getElementById('doc-list-textarea').addEventListener('input', function 
     }, 300);
 });
 
-// Doc modal save тАФ bulk import
+// Doc modal save — bulk import
 document.getElementById('doc-modal-save').addEventListener('click', () => {
     const textarea = document.getElementById('doc-list-textarea');
     const lines = textarea.value.split('\n').filter(l => l.trim());
@@ -3615,12 +3615,12 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
     }
 });
 
-// тФАтФАтФАтФА SIDEBAR TOGGLE (Mobile) тФАтФАтФАтФА
+// ──── SIDEBAR TOGGLE (Mobile) ────
 document.getElementById('toggle-sidebar')?.addEventListener('click', () => {
     document.getElementById('sidebar').classList.toggle('open');
 });
 
-// тФАтФАтФАтФА ADD CARD MODAL тФАтФАтФАтФА
+// ──── ADD CARD MODAL ────
 const modalOverlay = document.getElementById('modal-overlay');
 const editOverlay = document.getElementById('edit-modal-overlay');
 
@@ -3688,7 +3688,7 @@ function populateCountrySelects() {
     formSel.innerHTML = opts;
     listSel.innerHTML = opts;
 
-    // Populate doc select тАФ static document types only
+    // Populate doc select — static document types only
     const docSel = document.getElementById('form-doc');
     docSel.innerHTML = '<option value="">Select...</option><option value="PP">PP (Passport)</option><option value="DL">DL (Driver License)</option>';
 }
@@ -3733,7 +3733,7 @@ function showFormBinInfo(info, badgeId) {
     const parts = [];
     if (info.brand) parts.push(info.brand);
     if (info.type) parts.push(info.type);
-    badge.textContent = parts.join(' тАв ');
+    badge.textContent = parts.join(' • ');
     // Show bank name below
     let bankEl = badge.parentElement.querySelector('.bin-info-form');
     if (!bankEl) {
@@ -3744,7 +3744,7 @@ function showFormBinInfo(info, badgeId) {
     const bankParts = [];
     if (info.bank) bankParts.push(info.bank);
     if (info.country) bankParts.push(info.country);
-    bankEl.textContent = bankParts.join(' тАв ');
+    bankEl.textContent = bankParts.join(' • ');
 }
 
 document.getElementById('edit-card')?.addEventListener('input', function () {
@@ -3765,7 +3765,7 @@ document.getElementById('edit-card')?.addEventListener('input', function () {
     }
 });
 
-// тФАтФАтФАтФА SMART LIST PARSER тФАтФАтФАтФА
+// ──── SMART LIST PARSER ────
 let _listParseTimer = null;
 let _listParsedCards = [];
 
@@ -3782,7 +3782,7 @@ function smartParseCards(text) {
         // Normalize pipe/semicolon separators to spaces
         const normalized = line.replace(/[|;]/g, ' ');
 
-        // тФАтФА Step 1: Extract card number тФАтФА
+        // ── Step 1: Extract card number ──
         let cardMatch = normalized.match(/\b(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})\b/);
         if (!cardMatch) {
             cardMatch = normalized.match(/\b(\d{13,19})\b/);
@@ -3797,7 +3797,7 @@ function smartParseCards(text) {
         // Everything after card number
         let rest = normalized.replace(cardMatch[0], ' ').trim();
 
-        // тФАтФА Step 2: Extract expiry + CVV тФАтФА
+        // ── Step 2: Extract expiry + CVV ──
         let mm = '', yy = '', cvv = '';
 
         // Try format: MM/YY CVV  (slash/dot/dash separated)
@@ -3835,9 +3835,9 @@ function smartParseCards(text) {
             }
         }
 
-        // тФАтФА Step 3: Extract names from remaining text тФАтФА
+        // ── Step 3: Extract names from remaining text ──
         let name = '', surname = '';
-        const nameText = rest.replace(/\d+/g, ' ').replace(/[^a-zA-Z╨░-╤П╨Р-╨п╤С╨Б\s]/g, ' ').trim();
+        const nameText = rest.replace(/\d+/g, ' ').replace(/[^a-zA-Zа-яА-ЯёЁ\s]/g, ' ').trim();
         const nameWords = nameText.split(/\s+/).filter(w => w.length >= 2 && !noiseWords.has(w.toLowerCase()));
         if (nameWords.length >= 1) {
             name = nameWords[0].charAt(0).toUpperCase() + nameWords[0].slice(1).toLowerCase();
@@ -3863,15 +3863,15 @@ function renderListPreview(cards) {
     const withName = cards.filter(c => c.name).length;
 
     const preview = cards.slice(0, 8).map(c => {
-        const masked = c.cardNum.replace(/(\d{4})(\d+)(\d{4})/, '$1 тАвтАвтАвтАв $3');
-        const exp = c.mm && c.yy ? `${c.mm}/${c.yy}` : 'тАФтАФ';
-        const cvv = c.cvv || 'тАФтАФтАФ';
+        const masked = c.cardNum.replace(/(\d{4})(\d+)(\d{4})/, '$1 •••• $3');
+        const exp = c.mm && c.yy ? `${c.mm}/${c.yy}` : '——';
+        const cvv = c.cvv || '———';
         const holder = c.name ? `<span class="list-holder">${c.name} ${c.surname || ''}</span>` : '';
         return `<div class="list-preview-row">${masked} <span class="list-sep">|</span> ${exp} <span class="list-sep">|</span> ${cvv} ${holder}</div>`;
     }).join('');
 
     const more = cards.length > 8 ? `<div class="list-preview-more">...and ${cards.length - 8} more</div>` : '';
-    const stats = `<div class="list-stats-badge">тЬФя╕П ${cards.length} cards ┬╖ ${withName} docs ┬╖ ${withName} links</div>`;
+    const stats = `<div class="list-stats-badge">✔️ ${cards.length} cards · ${withName} docs · ${withName} links</div>`;
     el.innerHTML = stats + preview + more;
 }
 
@@ -4003,7 +4003,7 @@ document.getElementById('modal-close').addEventListener('click', () => modalOver
 document.getElementById('modal-cancel').addEventListener('click', () => modalOverlay.classList.add('hidden'));
 modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.classList.add('hidden'); });
 
-// тФАтФАтФАтФА EDIT MODAL тФАтФАтФАтФА
+// ──── EDIT MODAL ────
 
 // Edit Form Mail Exclusivity
 document.getElementById('edit-mail-none').addEventListener('change', (e) => {
@@ -4102,7 +4102,7 @@ document.getElementById('edit-modal-close').addEventListener('click', () => edit
 document.getElementById('edit-cancel').addEventListener('click', () => editOverlay.classList.add('hidden'));
 editOverlay.addEventListener('click', (e) => { if (e.target === editOverlay) editOverlay.classList.add('hidden'); });
 
-// тФАтФАтФАтФА GLOBAL SEARCH тФАтФАтФАтФА
+// ──── GLOBAL SEARCH ────
 const globalSearchResults = document.getElementById('global-search-results');
 let searchTimeout = null;
 
@@ -4155,18 +4155,18 @@ function performGlobalSearch(query) {
 
     // Group cards by country
     if (matchedCards.length > 0) {
-        html += '<div class="search-group-title">ЁЯТ│ Cards (' + matchedCards.length + ')</div>';
+        html += '<div class="search-group-title">💳 Cards (' + matchedCards.length + ')</div>';
         const shown = matchedCards.slice(0, 15);
         shown.forEach(c => {
             const country = STATE.countries.find(co => co.id === c.country);
-            const flag = country?.flag || 'ЁЯП│';
+            const flag = country?.flag || '🏳';
             const countryName = country?.name || c.country;
             html += `
                 <button class="search-result-item" onclick="globalSearchNavigate('cards', '${c.country}', '${s}')">
                     <span class="search-result-flag">${flag}</span>
                     <div class="search-result-info">
                         <span class="search-result-name">${c.name} ${c.surname}</span>
-                        <span class="search-result-detail">${maskCard(c.cardNumber)}${c.notes ? ' ┬╖ ' + c.notes : ''}</span>
+                        <span class="search-result-detail">${maskCard(c.cardNumber)}${c.notes ? ' · ' + c.notes : ''}</span>
                     </div>
                     <span class="search-result-location cards">${countryName}</span>
                 </button>
@@ -4180,20 +4180,20 @@ function performGlobalSearch(query) {
     // Docs
     if (matchedDocs.length > 0) {
         if (matchedCards.length > 0) html += '<div class="search-divider"></div>';
-        html += '<div class="search-group-title">ЁЯУД Documents (' + matchedDocs.length + ')</div>';
+        html += '<div class="search-group-title">📄 Documents (' + matchedDocs.length + ')</div>';
         const shown = matchedDocs.slice(0, 10);
         shown.forEach(d => {
             const country = STATE.countries.find(co => co.id === d.country);
-            const flag = country?.flag || 'ЁЯП│';
+            const flag = country?.flag || '🏳';
             const countryName = country?.name || d.country;
             html += `
                 <button class="search-result-item" onclick="globalSearchNavigate('docs', '${d.country}', '${s}')">
                     <span class="search-result-flag">${flag}</span>
                     <div class="search-result-info">
                         <span class="search-result-name">${d.fullName}</span>
-                        <span class="search-result-detail">${d.type || '-'} ┬╖ V:${d.verified || 0} S:${d.suspended || 0}${d.notes ? ' ┬╖ ' + d.notes : ''}</span>
+                        <span class="search-result-detail">${d.type || '-'} · V:${d.verified || 0} S:${d.suspended || 0}${d.notes ? ' · ' + d.notes : ''}</span>
                     </div>
-                    <span class="search-result-location docs">Docs ┬╖ ${countryName}</span>
+                    <span class="search-result-location docs">Docs · ${countryName}</span>
                 </button>
             `;
         });
@@ -4205,11 +4205,11 @@ function performGlobalSearch(query) {
     // Trash
     if (matchedTrash.length > 0) {
         if (matchedCards.length > 0 || matchedDocs.length > 0) html += '<div class="search-divider"></div>';
-        html += '<div class="search-group-title">ЁЯЧСя╕П Trash (' + matchedTrash.length + ')</div>';
+        html += '<div class="search-group-title">🗑️ Trash (' + matchedTrash.length + ')</div>';
         const shown = matchedTrash.slice(0, 5);
         shown.forEach(c => {
             const country = STATE.countries.find(co => co.id === c.country);
-            const flag = country?.flag || 'ЁЯП│';
+            const flag = country?.flag || '🏳';
             html += `
                 <button class="search-result-item" onclick="globalSearchNavigate('trash', null, '${s}')">
                     <span class="search-result-flag">${flag}</span>
@@ -4263,7 +4263,7 @@ document.getElementById('search-input').addEventListener('input', function () {
     searchTimeout = setTimeout(() => performGlobalSearch(query), 150);
 });
 
-// Enter тЖТ navigate to first search result
+// Enter → navigate to first search result
 document.getElementById('search-input').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -4287,7 +4287,7 @@ document.getElementById('search-input').addEventListener('focus', function () {
     }
 });
 
-// тФАтФАтФАтФА PAGINATION тФАтФАтФАтФА
+// ──── PAGINATION ────
 document.getElementById('prev-page').addEventListener('click', () => {
     if (STATE.page > 1) { STATE.page--; renderContent(); }
 });
@@ -4297,7 +4297,7 @@ document.getElementById('next-page').addEventListener('click', () => {
     if (STATE.page < totalPages) { STATE.page++; renderContent(); }
 });
 
-// тФАтФАтФАтФА NOTES тФАтФАтФАтФА
+// ──── NOTES ────
 window.saveNotes = function () {
     STATE.notes = document.getElementById('notes-textarea')?.value || '';
     save();
@@ -4333,7 +4333,7 @@ window.importNotes = function () {
     input.click();
 };
 
-// тФАтФАтФАтФА IMPORT / EXPORT тФАтФАтФАтФА
+// ──── IMPORT / EXPORT ────
 // Pending backup data for the import modal
 let pendingBackup = null;
 const backupOverlay = document.getElementById('backup-import-overlay');
@@ -4347,7 +4347,7 @@ function mapGeoToCountry(geo) {
 
 function formatDateFromISO(iso) {
     if (!iso) return todayStr();
-    // Already in DD.MM.YY format тАФ preserve as-is
+    // Already in DD.MM.YY format — preserve as-is
     if (/^\d{2}\.\d{2}\.\d{2}$/.test(iso)) return iso;
     try {
         const d = new Date(iso);
@@ -4397,7 +4397,7 @@ function convertOldDoc(d) {
     };
 }
 
-// тФАтФАтФА FULL BACKUP EXPORT тФАтФАтФА
+// ─── FULL BACKUP EXPORT ───
 function exportFullBackup() {
     const backup = {
         version: '2.0',
@@ -4458,7 +4458,7 @@ function showBackupImportModal(data, filename) {
     const trashCount = isV2 ? (data.trash || []).length : cards.filter(c => c.is_deleted).length;
     const hasNotes = !!(data.notes && (data.notes.content || typeof data.notes === 'string'));
     const exportDate = data.exported_at || data.exportedAt || data.backupAt || '';
-    const version = data.version || 'тАФ';
+    const version = data.version || '—';
 
     let dateStr = '';
     if (exportDate) {
@@ -4486,7 +4486,7 @@ function executeBackupImport(mode) {
     const data = pendingBackup;
 
     if (mode === 'replace') {
-        // REPLACE ALL тАФ clear everything, import all
+        // REPLACE ALL — clear everything, import all
         STATE.cards = [];
         STATE.docs = [];
         STATE.trash = [];
@@ -4498,12 +4498,12 @@ function executeBackupImport(mode) {
         return;
     }
 
-    // MERGE mode тАФ pre-scan for duplicates
+    // MERGE mode — pre-scan for duplicates
     const scan = preScanImport(data);
     _importScan = scan;
 
     if (scan.dupCards.length === 0 && scan.dupDocs.length === 0) {
-        // No duplicates тАФ import directly
+        // No duplicates — import directly
         importNewOnly(scan);
         finishImport();
         return;
@@ -4515,14 +4515,14 @@ function executeBackupImport(mode) {
 
     const totalDups = scan.dupCards.length + scan.dupDocs.length;
     document.getElementById('dup-summary').innerHTML = `
-        <div class="dup-icon">тЪая╕П</div>
+        <div class="dup-icon">⚠️</div>
         <div class="dup-text">
             <strong>${totalDups} duplicate${totalDups !== 1 ? 's' : ''} found</strong>
             <span class="dup-detail">
                 ${scan.dupCards.length ? scan.dupCards.length + ' card' + (scan.dupCards.length !== 1 ? 's' : '') : ''}
                 ${scan.dupCards.length && scan.dupDocs.length ? ' + ' : ''}
                 ${scan.dupDocs.length ? scan.dupDocs.length + ' doc' + (scan.dupDocs.length !== 1 ? 's' : '') : ''}
-                already exist тАв ${scan.newCards.length + scan.newDocs.length} new records will be added
+                already exist • ${scan.newCards.length + scan.newDocs.length} new records will be added
             </span>
         </div>
     `;
@@ -4655,7 +4655,7 @@ function importExtras(data) {
             if (!STATE.countries.find(e => e.id === c.id)) STATE.countries.push(c);
         });
     }
-    // Notes тАФ import notesTabs if available, otherwise convert legacy notes string
+    // Notes — import notesTabs if available, otherwise convert legacy notes string
     if (data.notesTabs && Array.isArray(data.notesTabs) && data.notesTabs.length > 0) {
         data.notesTabs.forEach(tab => {
             const newTab = {
@@ -4734,11 +4734,11 @@ function closeBackupModal() {
 // Import button (sidebar)
 document.getElementById('restore-backup-btn').addEventListener('click', openBackupFileDialog);
 
-// Backup import modal buttons тАФ Step 1
+// Backup import modal buttons — Step 1
 document.getElementById('backup-replace').addEventListener('click', () => executeBackupImport('replace'));
 document.getElementById('backup-merge').addEventListener('click', () => executeBackupImport('merge'));
 
-// Step 2 тАФ duplicate resolution
+// Step 2 — duplicate resolution
 document.getElementById('dup-skip').addEventListener('click', () => {
     if (!_importScan) return;
     importNewOnly(_importScan);
@@ -4795,7 +4795,7 @@ document.getElementById('backup-btn').addEventListener('click', () => {
 
 
 
-// тФАтФАтФАтФА ADD COUNTRY (custom modal) тФАтФАтФАтФА
+// ──── ADD COUNTRY (custom modal) ────
 const addCountryOverlay = document.getElementById('add-country-overlay');
 const countryCodeInput = document.getElementById('new-country-code');
 const countryPreview = document.getElementById('country-preview');
@@ -4851,10 +4851,10 @@ countryCodeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('add-country-confirm').click();
 });
 
-// тФАтФАтФАтФА TRASH VIEW тФАтФАтФАтФА
+// ──── TRASH VIEW ────
 
 
-// тФАтФАтФАтФА LOGOUT тФАтФАтФАтФА
+// ──── LOGOUT ────
 document.getElementById('logout-btn').addEventListener('click', () => {
     STATE.user = null;
     localStorage.removeItem('ct_session');
@@ -4864,7 +4864,7 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     document.getElementById('login-pass').value = '';
 });
 
-// тФАтФАтФАтФА LOGIN тФАтФАтФАтФА
+// ──── LOGIN ────
 function doLogin() {
     const user = document.getElementById('login-user').value;
     const pass = document.getElementById('login-pass').value;
@@ -4897,7 +4897,7 @@ document.querySelector('.btn-login').addEventListener('click', (e) => {
     doLogin();
 });
 
-// тФАтФАтФАтФА AUTO-LOGIN (session persistence) тФАтФАтФАтФА
+// ──── AUTO-LOGIN (session persistence) ────
 (function autoLogin() {
     try {
         const session = JSON.parse(localStorage.getItem('ct_session'));
@@ -4911,7 +4911,7 @@ document.querySelector('.btn-login').addEventListener('click', (e) => {
     } catch (e) { /* no valid session */ }
 })();
 
-// тФАтФАтФАтФА KEYBOARD SHORTCUTS тФАтФАтФАтФА
+// ──── KEYBOARD SHORTCUTS ────
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         modalOverlay.classList.add('hidden');
@@ -4927,10 +4927,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// тФАтФАтФАтФА INIT тФАтФАтФАтФА
+// ──── INIT ────
 load();
 
-// тФАтФАтФАтФА NOTES FUNCTIONS тФАтФАтФАтФА
+// ──── NOTES FUNCTIONS ────
 function saveNotesAction() {
     const textarea = document.getElementById('notes-textarea');
     if (textarea) STATE.notes = textarea.value;
@@ -4980,11 +4980,11 @@ function changeNotesFontSize(delta) {
     if (display) display.textContent = STATE.notesFontSize;
 }
 
-// тФАтФАтФАтФА CHECKER тФАтФАтФАтФА
+// ──── CHECKER ────
 // Checker implementation is in the IIFE below (line ~4300+)
 // openChecker is exposed via window.openChecker from that IIFE
 
-// тФАтФАтФАтФА DROPDOWN MENUS тФАтФАтФАтФА
+// ──── DROPDOWN MENUS ────
 function closeAllDropdowns() {
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
 }
@@ -4994,7 +4994,7 @@ document.addEventListener('click', () => {
     document.getElementById('context-menu').classList.add('hidden');
 });
 
-// тФАтФАтФАтФА DELETE PROJECT (custom modal) тФАтФАтФАтФА
+// ──── DELETE PROJECT (custom modal) ────
 const deleteProjectOverlay = document.getElementById('delete-project-overlay');
 const deleteConfirmInput = document.getElementById('delete-confirm-input');
 const deleteConfirmBtn = document.getElementById('delete-project-confirm');
@@ -5030,9 +5030,9 @@ deleteConfirmBtn.addEventListener('click', () => {
     toast('Project deleted', 'info');
 });
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
-// тФАтФАтФАтФА PARSER MODULE тФАтФАтФАтФА
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ══════════════════════════════════════════════════
+// ──── PARSER MODULE ────
+// ══════════════════════════════════════════════════
 
 let PARSER_STATE = {
     rawMessages: [],
@@ -5051,7 +5051,7 @@ let PARSER_STATE = {
     _excludeSet: null
 };
 
-// тФАтФАтФАтФА HELPERS тФАтФАтФАтФА
+// ──── HELPERS ────
 
 function getProjectBinCounts() {
     const counts = {};
@@ -5069,7 +5069,7 @@ function formatCardBin(cc) {
     if (cc.length < 10) return cc;
     const bin6 = cc.slice(0, 6);
     const last4 = cc.slice(-4);
-    return `${bin6} тАвтАвтАвтАв ${last4}`;
+    return `${bin6} •••• ${last4}`;
 }
 
 function detectGeo(billing, country) {
@@ -5091,11 +5091,11 @@ function flattenText(textArray) {
     return textArray.map(item => typeof item === 'string' ? item : (item && item.text ? String(item.text) : '')).join('');
 }
 
-// тФАтФАтФАтФА UNIVERSAL CARD NUMBER EXTRACTOR (for exclude) тФАтФАтФАтФА
+// ──── UNIVERSAL CARD NUMBER EXTRACTOR (for exclude) ────
 // Extracts card numbers from ANY format including:
 // - "4242424242424242 09 26 245" (CC MM YY CVV)
 // - "4242-4242-4242-4242" (dashed)
-// - emoji format "ЁЯТ│ CC: 4242 4242 4242 4242"
+// - emoji format "💳 CC: 4242 4242 4242 4242"
 // - JSON fields: card_number, cardNumber, cc, pan, number, etc.
 function extractAllCardNumbersFromJSON(data) {
     const seen = new Set();
@@ -5133,10 +5133,10 @@ function extractAllCardNumbersFromJSON(data) {
         if (dashed) dashed.forEach(m => addIfCard(m));
 
         // Pattern 3: Card numbers with spaces in emoji format (e.g. "CC: 4242 4242 4242 4242")
-        const emojiMatch = text.match(/ЁЯТ│\s*CC:\s*([\d ]+)/g);
+        const emojiMatch = text.match(/💳\s*CC:\s*([\d ]+)/g);
         if (emojiMatch) {
             emojiMatch.forEach(m => {
-                const num = m.replace(/ЁЯТ│\s*CC:\s*/, '').trim();
+                const num = m.replace(/💳\s*CC:\s*/, '').trim();
                 addIfCard(num);
             });
         }
@@ -5181,11 +5181,11 @@ function extractAllCardNumbersFromJSON(data) {
 }
 
 function extractCardsFromMessages(messages) {
-    const pattern = /ЁЯТ│\s*CC:\s*([\d ]+).*?ЁЯУЕ\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?ЁЯФР\s*CVV:\s*(\d{3,4})/gs;
-    const holderP = /ЁЯС╢\s*Holder:\s*(.+)/i;
-    const bankP = /ЁЯПж\s*Bank:\s*(.+)/i;
-    const typeP = /ЁЯУК\s*Card Type:\s*(.+)/i;
-    const billingP = /ЁЯП╖\s*Billing:\s*(.+)/i;
+    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/gs;
+    const holderP = /👶\s*Holder:\s*(.+)/i;
+    const bankP = /🏦\s*Bank:\s*(.+)/i;
+    const typeP = /📊\s*Card Type:\s*(.+)/i;
+    const billingP = /🏷\s*Billing:\s*(.+)/i;
 
     const cards = [];
     for (const msg of messages) {
@@ -5232,35 +5232,35 @@ function extractCardsFromMessages(messages) {
     return cards;
 }
 
-// тФАтФАтФАтФА RENDER GENERATOR тФАтФАтФАтФА
+// ──── RENDER GENERATOR ────
 
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ═══════════════════════════════════════════
 //        DOCUMENT GENERATOR (ID Forge Clone)
-// тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+// ═══════════════════════════════════════════
 
 const GEN_DOCS = [
-    { id: 'ca-dl', country: 'US', cat: 'DRIVER LICENSE', name: 'California', icon: 'ЁЯЪЧ', active: true },
-    { id: 'us-pp', country: 'US', cat: 'PASSPORT', name: 'US Passport', icon: 'ЁЯУШ', active: false },
-    { id: 'on-dl', country: 'CA', cat: 'DRIVER LICENSE', name: 'Ontario', icon: 'ЁЯЪЧ', active: true },
-    { id: 'bc-dl', country: 'CA', cat: 'DRIVER LICENSE', name: 'British Columbia', icon: 'ЁЯЪЧ', active: true },
-    { id: 'ca-pp', country: 'CA', cat: 'PASSPORT', name: 'Canadian Passport', icon: 'ЁЯУШ', active: true },
-    { id: 'rogers', country: 'CA', cat: 'UTILITY BILLS', name: 'Rogers Bill', icon: 'ЁЯУД', active: true },
-    { id: 'au-nsw', country: 'AU', cat: 'DRIVER LICENSE', name: 'New South Wales', icon: 'ЁЯЪЧ', active: false },
-    { id: 'au-vic', country: 'AU', cat: 'DRIVER LICENSE', name: 'Victoria', icon: 'ЁЯЪЧ', active: false },
-    { id: 'au-pp', country: 'AU', cat: 'PASSPORT', name: 'Australian Passport', icon: 'ЁЯУШ', active: false },
-    { id: 'de-dl', country: 'DE', cat: 'DRIVER LICENSE', name: 'Germany DL', icon: 'ЁЯЪЧ', active: false },
+    { id: 'ca-dl', country: 'US', cat: 'DRIVER LICENSE', name: 'California', icon: '🚗', active: true },
+    { id: 'us-pp', country: 'US', cat: 'PASSPORT', name: 'US Passport', icon: '📘', active: false },
+    { id: 'on-dl', country: 'CA', cat: 'DRIVER LICENSE', name: 'Ontario', icon: '🚗', active: true },
+    { id: 'bc-dl', country: 'CA', cat: 'DRIVER LICENSE', name: 'British Columbia', icon: '🚗', active: true },
+    { id: 'ca-pp', country: 'CA', cat: 'PASSPORT', name: 'Canadian Passport', icon: '📘', active: true },
+    { id: 'rogers', country: 'CA', cat: 'UTILITY BILLS', name: 'Rogers Bill', icon: '📄', active: true },
+    { id: 'au-nsw', country: 'AU', cat: 'DRIVER LICENSE', name: 'New South Wales', icon: '🚗', active: false },
+    { id: 'au-vic', country: 'AU', cat: 'DRIVER LICENSE', name: 'Victoria', icon: '🚗', active: false },
+    { id: 'au-pp', country: 'AU', cat: 'PASSPORT', name: 'Australian Passport', icon: '📘', active: false },
+    { id: 'de-dl', country: 'DE', cat: 'DRIVER LICENSE', name: 'Germany DL', icon: '🚗', active: false },
 ];
 
 const GEN_COUNTRIES = [
-    { code: 'US', name: 'United States', flag: 'ЁЯЗ║ЁЯЗ╕' },
-    { code: 'CA', name: 'Canada', flag: 'ЁЯЗиЁЯЗж' },
-    { code: 'AU', name: 'Australia', flag: 'ЁЯЗжЁЯЗ║' },
-    { code: 'DE', name: 'Germany', flag: 'ЁЯЗйЁЯЗк' },
+    { code: 'US', name: 'United States', flag: '🇺🇸' },
+    { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+    { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+    { code: 'DE', name: 'Germany', flag: '🇩🇪' },
 ];
 
 let _genState = { docId: 'ca-dl', sex: 'M', result: null };
 
-/* тФАтФА Helpers тФАтФА */
+/* ── Helpers ── */
 const _rInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const _rPick = arr => arr[_rInt(0, arr.length - 1)];
 const _pad2 = n => String(n).padStart(2, '0');
@@ -5278,7 +5278,7 @@ const _CA_STREETS = ['MAIN ST', 'OAK AVE', 'ELM ST', 'MAPLE DR', 'CEDAR LN', 'PI
 const _ON_CITIES = [{ c: 'TORONTO', p: 'M' }, { c: 'OTTAWA', p: 'K' }, { c: 'MISSISSAUGA', p: 'L' }, { c: 'BRAMPTON', p: 'L' }, { c: 'HAMILTON', p: 'L' }, { c: 'LONDON', p: 'N' }, { c: 'MARKHAM', p: 'L' }, { c: 'VAUGHAN', p: 'L' }, { c: 'KITCHENER', p: 'N' }, { c: 'WINDSOR', p: 'N' }];
 const _BC_CITIES = [{ c: 'VANCOUVER', p: 'V' }, { c: 'SURREY', p: 'V' }, { c: 'BURNABY', p: 'V' }, { c: 'RICHMOND', p: 'V' }, { c: 'KELOWNA', p: 'V' }, { c: 'VICTORIA', p: 'V' }, { c: 'NANAIMO', p: 'V' }, { c: 'KAMLOOPS', p: 'V' }];
 const _MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const _MONTHS_FR = ['JANVIER', 'F├ЙVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AO├ЫT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'D├ЙCEMBRE'];
+const _MONTHS_FR = ['JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
 const _MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function _genDOB(sex) {
@@ -5305,7 +5305,7 @@ function _parseTemplate(text) {
     return t;
 }
 
-/* тХРтХРтХР CALIFORNIA DL тХРтХРтХР */
+/* ═══ CALIFORNIA DL ═══ */
 function generateCaliforniaDL(sex, tpl) {
     const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
@@ -5351,7 +5351,7 @@ function generateCaliforniaDL(sex, tpl) {
     };
 }
 
-/* тХРтХРтХР ONTARIO DL тХРтХРтХР */
+/* ═══ ONTARIO DL ═══ */
 function generateOntarioDL(sex, tpl) {
     const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
@@ -5379,10 +5379,10 @@ function generateOntarioDL(sex, tpl) {
                 { label: 'POSTAL CODE', value: postal },
             ]
         }, {
-            name: 'DOCUMENT / NUM├ЙRO',
+            name: 'DOCUMENT / NUMÉRO',
             fields: [
                 { label: '4D. DL NUMBER', value: dlNum },
-                { label: '4A. ISS / D├ЙL', value: issDate },
+                { label: '4A. ISS / DÉL', value: issDate },
                 { label: '4B. EXP', value: expDate },
                 { label: '5. DD / REF', value: `DB${_rDigits(7)}` },
                 { label: '12. REST / COND', value: `*${_rDigits(7)}*` },
@@ -5399,7 +5399,7 @@ function generateOntarioDL(sex, tpl) {
     };
 }
 
-/* тХРтХРтХР BC DL тХРтХРтХР */
+/* ═══ BC DL ═══ */
 function generateBCDL(sex, tpl) {
     const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
@@ -5437,7 +5437,7 @@ function generateBCDL(sex, tpl) {
     };
 }
 
-/* тХРтХРтХР CANADIAN PASSPORT тХРтХРтХР */
+/* ═══ CANADIAN PASSPORT ═══ */
 function generateCanadianPassport(sex, tpl) {
     const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
@@ -5488,7 +5488,7 @@ function generateCanadianPassport(sex, tpl) {
     };
 }
 
-/* тХРтХРтХР ROGERS BILL тХРтХРтХР */
+/* ═══ ROGERS BILL ═══ */
 function generateRogersBill(sex, tpl) {
     const holder = tpl.holder || `${_rPick(_MALE_FIRST)} ${_rPick(_LAST_NAMES)}`;
     const billing = tpl.billing || 'CA, ON, Toronto, 5 Bay Street';
@@ -5534,7 +5534,7 @@ function generateRogersBill(sex, tpl) {
     };
 }
 
-/* тХРтХРтХР DISPATCH тХРтХРтХР */
+/* ═══ DISPATCH ═══ */
 function generateDocument(docId, sex, templateText) {
     const tpl = _parseTemplate(templateText);
     switch (docId) {
@@ -5547,7 +5547,7 @@ function generateDocument(docId, sex, templateText) {
     }
 }
 
-/* тХРтХРтХР RENDER тХРтХРтХР */
+/* ═══ RENDER ═══ */
 function renderGenerator() {
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
@@ -5561,11 +5561,11 @@ function renderGenerator() {
         const cats = [...new Set(docs.map(d => d.cat))];
         let childrenHTML = '';
         cats.forEach(cat => {
-            const catIcon = cat === 'DRIVER LICENSE' ? 'ЁЯЪЧ' : cat === 'PASSPORT' ? 'ЁЯУШ' : 'тЪб';
+            const catIcon = cat === 'DRIVER LICENSE' ? '🚗' : cat === 'PASSPORT' ? '📘' : '⚡';
             childrenHTML += `<div class="gen-cat">${catIcon} ${cat}</div>`;
             docs.filter(d => d.cat === cat).forEach(d => {
                 const active = d.id === _genState.docId;
-                const badge = d.active ? '<span class="gen-badge-active">тЬУ</span>' : '<span class="gen-badge-locked">ЁЯФТ</span>';
+                const badge = d.active ? '<span class="gen-badge-active">✓</span>' : '<span class="gen-badge-locked">🔒</span>';
                 childrenHTML += `<button class="gen-doc-item ${active ? 'active' : ''} ${d.active ? '' : 'locked'}" data-doc="${d.id}" ${d.active ? '' : 'disabled'}>${d.name} ${badge}</button>`;
             });
         });
@@ -5587,8 +5587,8 @@ function renderGenerator() {
         configHTML += `
             <div class="gen-sex-row">
                 <span class="gen-label">Sex:</span>
-                <button class="gen-sex-btn ${_genState.sex === 'M' ? 'active' : ''}" data-sex="M">ЁЯСд Male (30-50)</button>
-                <button class="gen-sex-btn ${_genState.sex === 'F' ? 'active' : ''}" data-sex="F">ЁЯСд Female (30-50)</button>
+                <button class="gen-sex-btn ${_genState.sex === 'M' ? 'active' : ''}" data-sex="M">👤 Male (30-50)</button>
+                <button class="gen-sex-btn ${_genState.sex === 'F' ? 'active' : ''}" data-sex="F">👤 Female (30-50)</button>
             </div>`;
     }
 
@@ -5596,22 +5596,22 @@ function renderGenerator() {
         configHTML += `
             <div class="gen-template-box">
                 <div class="gen-template-header">
-                    <span>тЧО TEMPLATE (OPTIONAL):</span>
+                    <span>◎ TEMPLATE (OPTIONAL):</span>
                 </div>
-                <textarea class="gen-template-input" id="gen-template" placeholder="ЁЯС╢ Holder: John Doe\nЁЯП╖ Billing: US, CA, Los Angeles, 123 Main St\nЁЯУж ZIP: 90001"></textarea>
+                <textarea class="gen-template-input" id="gen-template" placeholder="👶 Holder: John Doe\n🏷 Billing: US, CA, Los Angeles, 123 Main St\n📦 ZIP: 90001"></textarea>
             </div>`;
     } else {
         configHTML += `
             <div class="gen-template-box">
                 <div class="gen-template-header">
-                    <span>ЁЯСд HOLDER + ADDRESS (OPTIONAL):</span>
-                    <button class="gen-copy-tpl-btn" id="gen-copy-tpl">ЁЯУЛ Copy Template</button>
+                    <span>👤 HOLDER + ADDRESS (OPTIONAL):</span>
+                    <button class="gen-copy-tpl-btn" id="gen-copy-tpl">📋 Copy Template</button>
                 </div>
-                <textarea class="gen-template-input" id="gen-template" placeholder="ЁЯС╢ Holder: Nicole Ellen Ross\nЁЯП╖ Billing: CA, ON, Toronto, 5 Bay Street\nЁЯУж ZIP: M2K 6C2"></textarea>
+                <textarea class="gen-template-input" id="gen-template" placeholder="👶 Holder: Nicole Ellen Ross\n🏷 Billing: CA, ON, Toronto, 5 Bay Street\n📦 ZIP: M2K 6C2"></textarea>
             </div>`;
     }
 
-    configHTML += `<button class="gen-generate-btn" id="gen-generate-btn">ЁЯФД Generate</button>`;
+    configHTML += `<button class="gen-generate-btn" id="gen-generate-btn">🔄 Generate</button>`;
 
     // Output
     let outputHTML = '';
@@ -5628,14 +5628,14 @@ function renderGenerator() {
                         <span class="gen-field-label">${f.label}</span>
                         <span class="gen-field-value">${f.value}</span>
                         <div class="gen-field-actions">
-                            <button class="gen-regen-btn" data-si="${si}" data-fi="${fi}" title="Regenerate">ЁЯФД</button>
-                            <button class="gen-copy-btn" data-val="${f.value.replace(/"/g, '&quot;')}" title="Copy">ЁЯУЛ</button>
+                            <button class="gen-regen-btn" data-si="${si}" data-fi="${fi}" title="Regenerate">🔄</button>
+                            <button class="gen-copy-btn" data-val="${f.value.replace(/"/g, '&quot;')}" title="Copy">📋</button>
                         </div>
                     </div>`;
             });
             outputHTML += '</div>';
         });
-        outputHTML += `<button class="gen-copy-all-btn" id="gen-copy-all">ЁЯУЛ Copy All</button>`;
+        outputHTML += `<button class="gen-copy-all-btn" id="gen-copy-all">📋 Copy All</button>`;
     }
 
     area.innerHTML = `
@@ -5647,7 +5647,7 @@ function renderGenerator() {
             </div>
         </div>`;
 
-    // тФАтФА Event bindings тФАтФА
+    // ── Event bindings ──
     area.querySelectorAll('.gen-doc-item').forEach(btn => {
         btn.addEventListener('click', () => {
             _genState.docId = btn.dataset.doc;
@@ -5667,7 +5667,7 @@ function renderGenerator() {
         renderGenerator();
     });
     document.getElementById('gen-copy-tpl')?.addEventListener('click', () => {
-        const tpl = `ЁЯС╢ Holder: John Doe\nЁЯП╖ Billing: CA, ON, Toronto, 5 Bay Street\nЁЯУж ZIP: M2K 6C2`;
+        const tpl = `👶 Holder: John Doe\n🏷 Billing: CA, ON, Toronto, 5 Bay Street\n📦 ZIP: M2K 6C2`;
         navigator.clipboard?.writeText(tpl);
         toast('Template copied', 'success');
     });
@@ -5690,7 +5690,7 @@ function renderGenerator() {
     });
     document.getElementById('gen-copy-all')?.addEventListener('click', () => {
         if (_genState.result) {
-            const text = _genState.result.sections.map(s => `тФАтФА ${s.name} тФАтФА\n` + s.fields.map(f => `${f.label}: ${f.value}`).join('\n')).join('\n\n');
+            const text = _genState.result.sections.map(s => `── ${s.name} ──\n` + s.fields.map(f => `${f.label}: ${f.value}`).join('\n')).join('\n\n');
             navigator.clipboard?.writeText(text);
             toast('All copied', 'success');
         }
@@ -5704,7 +5704,7 @@ function renderGenerator() {
     });
 }
 
-// тФАтФАтФАтФА RENDER BUILDER тФАтФАтФАтФА
+// ──── RENDER BUILDER ────
 
 function renderBuilder() {
     const area = document.getElementById('content-area');
@@ -5713,9 +5713,9 @@ function renderBuilder() {
 
     area.innerHTML = `
     <div class="tool-stub-container">
-        <div class="tool-stub-icon">ЁЯПЧя╕П</div>
+        <div class="tool-stub-icon">🏗️</div>
         <h2 class="tool-stub-title">Builder</h2>
-        <p class="tool-stub-desc">Tag combination builder тАФ Agoda + BIN + Amount + Comment</p>
+        <p class="tool-stub-desc">Tag combination builder — Agoda + BIN + Amount + Comment</p>
         <div class="tool-stub-features">
             <div class="tool-stub-feature">
                 <span class="tool-stub-dot" style="background:#818CF8"></span>
@@ -5733,7 +5733,7 @@ function renderBuilder() {
     </div>`;
 }
 
-// тФАтФАтФАтФА RENDER PARSER тФАтФАтФАтФА
+// ──── RENDER PARSER ────
 
 function renderParser() {
     const area = document.getElementById('content-area');
@@ -5746,12 +5746,12 @@ function renderParser() {
 
     // Build file chips HTML for loaded bases
     const baseChipsHtml = PARSER_STATE.mainFiles.map((f, i) => 
-        `<span class="pz-file-chip">ЁЯУБ ${f.name} <span class="pz-chip-count">${f.messages.length}</span><button class="pz-chip-remove" data-base-idx="${i}" title="Remove">├Ч</button></span>`
+        `<span class="pz-file-chip">📁 ${f.name} <span class="pz-chip-count">${f.messages.length}</span><button class="pz-chip-remove" data-base-idx="${i}" title="Remove">×</button></span>`
     ).join('');
 
     // Exclude file chip
     const excludeChipHtml = PARSER_STATE.excludeFile 
-        ? `<span class="pz-file-chip pz-file-chip-exclude">ЁЯЪл ${PARSER_STATE.excludeFile.name} <span class="pz-chip-count">${PARSER_STATE.excludeFile.cardCount || 0}</span><button class="pz-chip-remove" id="pz-exclude-remove" title="Remove">├Ч</button></span>`
+        ? `<span class="pz-file-chip pz-file-chip-exclude">🚫 ${PARSER_STATE.excludeFile.name} <span class="pz-chip-count">${PARSER_STATE.excludeFile.cardCount || 0}</span><button class="pz-chip-remove" id="pz-exclude-remove" title="Remove">×</button></span>`
         : '';
 
     area.innerHTML = `
@@ -5766,7 +5766,7 @@ function renderParser() {
                 <div class="pz-drop-zone" id="pz-base-drop">
                     <input type="file" id="pz-base-input" accept=".json" hidden>
                     <span class="pz-drop-text">${PARSER_STATE.mainFiles.length === 0 ? 'Drop result.json or click' : 'Drop another file or click +'}</span>
-                    <span class="pz-drop-hint">Telegram JSON ┬╖ 100% local</span>
+                    <span class="pz-drop-hint">Telegram JSON · 100% local</span>
                 </div>
                 <div class="pz-chips" id="pz-base-chips">${baseChipsHtml}</div>
                 ${totalMessages > 0 ? `<div class="pz-msg-count">${totalMessages.toLocaleString()} messages total</div>` : ''}
@@ -5842,7 +5842,7 @@ function renderParser() {
             <span class="ps-item">Dupes: <strong id="ps-dupes">0</strong></span>
             <span class="ps-item">Trash: <strong id="ps-trash">0</strong></span>
             <span class="ps-item">Excluded: <strong id="ps-excluded">0</strong></span>
-            <span class="ps-item ps-net">тЖТ Import: <strong id="ps-net">0</strong></span>
+            <span class="ps-item ps-net">→ Import: <strong id="ps-net">0</strong></span>
         </div>
 
         <!-- EXCLUDE BIN / BANK -->
@@ -5856,7 +5856,7 @@ function renderParser() {
                     <label>Exclude BANK <span class="parser-filter-hint">(comma separated)</span></label>
                     <input type="text" id="parser-exclude-banks" placeholder="CHASE, TD BANK..." value="${PARSER_STATE.excludedBanks.join(', ')}">
                 </div>
-                <button class="btn-outline parser-exclude-apply-btn" id="parser-exclude-apply-btn">ЁЯЪл EXCLUDE</button>
+                <button class="btn-outline parser-exclude-apply-btn" id="parser-exclude-apply-btn">🚫 EXCLUDE</button>
             </div>
         </div>
 
@@ -5864,7 +5864,7 @@ function renderParser() {
         <div class="parser-results" id="parser-results"></div>
     </div>`;
 
-    // тФАтФА BASE FILE UPLOAD тФАтФА
+    // ── BASE FILE UPLOAD ──
     const baseDrop = document.getElementById('pz-base-drop');
     const baseInput = document.getElementById('pz-base-input');
     const addBaseBtn = document.getElementById('pz-add-base');
@@ -5888,7 +5888,7 @@ function renderParser() {
         });
     });
 
-    // тФАтФА EXCLUDE FILE UPLOAD тФАтФА
+    // ── EXCLUDE FILE UPLOAD ──
     const excludeDrop = document.getElementById('pz-exclude-drop');
     const excludeInput = document.getElementById('pz-exclude-input');
 
@@ -5907,7 +5907,7 @@ function renderParser() {
         toast('Exclude base removed', 'info');
     });
 
-    // тФАтФА PARSE / COLLECT / CLEAR / TO NOTES тФАтФА
+    // ── PARSE / COLLECT / CLEAR / TO NOTES ──
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
     document.getElementById('parser-clear-btn').addEventListener('click', () => {
@@ -5959,11 +5959,11 @@ function renderParser() {
     if (PARSER_STATE.collected.length > 0) renderParserResults();
 }
 
-// тФАтФАтФАтФА LOAD BASE FILE (supports multiple) тФАтФАтФАтФА
+// ──── LOAD BASE FILE (supports multiple) ────
 function _loadBaseFile(file) {
     if (!file) return;
     const status = document.getElementById('parser-status');
-    if (status) status.textContent = 'тП│ Reading...';
+    if (status) status.textContent = '⏳ Reading...';
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -5982,11 +5982,11 @@ function _loadBaseFile(file) {
             toast(`Base loaded: ${file.name} (${messages.length.toLocaleString()} messages)`, 'success');
             renderParser();
         } catch (err) {
-            if (status) status.textContent = 'тЭМ Invalid JSON';
+            if (status) status.textContent = '❌ Invalid JSON';
             toast('Error: invalid JSON file', 'error');
         }
     };
-    reader.onerror = () => { if (status) status.textContent = 'тЭМ Read error'; };
+    reader.onerror = () => { if (status) status.textContent = '❌ Read error'; };
     reader.readAsText(file);
 }
 
@@ -5998,7 +5998,7 @@ function _mergeBaseMessages() {
     });
 }
 
-// тФАтФАтФАтФА LOAD EXCLUDE FILE тФАтФАтФАтФА
+// ──── LOAD EXCLUDE FILE ────
 function _loadExcludeFile(file) {
     if (!file) return;
     const reader = new FileReader();
@@ -6072,7 +6072,7 @@ function _loadExcludeFile(file) {
     reader.readAsText(file);
 }
 
-// тФАтФАтФАтФА TRASH CARD MODAL тФАтФАтФАтФА
+// ──── TRASH CARD MODAL ────
 function _initTrashCardModal() {
     const overlay = document.getElementById('trash-cards-overlay');
     const textarea = document.getElementById('trash-cards-textarea');
@@ -6094,7 +6094,7 @@ function _initTrashCardModal() {
         detectedEl.textContent = `${nums.length} cards detected`;
     });
 
-    // Save тАФ APPEND to existing, keep unique
+    // Save — APPEND to existing, keep unique
     saveBtn?.addEventListener('click', () => {
         const nums = _extractCardNumbers(textarea.value);
         if (nums.length === 0) { toast('No card numbers detected', 'warning'); return; }
@@ -6138,7 +6138,7 @@ function _retagParserCards() {
     });
 }
 
-// тФАтФАтФАтФА EXCLUDE BIN / BANK тФАтФАтФАтФА
+// ──── EXCLUDE BIN / BANK ────
 function _applyBinBankExclusion() {
     const binInput = document.getElementById('parser-exclude-bins');
     const bankInput = document.getElementById('parser-exclude-banks');
@@ -6166,12 +6166,12 @@ function loadParserFile(file) {
     _loadBaseFile(file);
 }
 
-// тФАтФАтФАтФА PARSE (with filters) тФАтФАтФАтФА
+// ──── PARSE (with filters) ────
 
 function runParse() {
     if (!PARSER_STATE.rawMessages.length) return;
     const status = document.getElementById('parser-status');
-    status.textContent = 'тП│ Parsing...';
+    status.textContent = '⏳ Parsing...';
 
     const dedup = document.getElementById('parser-dedup').checked;
 
@@ -6220,16 +6220,16 @@ function runParse() {
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
 
-    // тФАтФА STEP-BY-STEP PIPELINE тФАтФА
+    // ── STEP-BY-STEP PIPELINE ──
     _processPipeline(allCards, dedup, status);
 }
 
-// тФАтФАтФАтФА COLLECT ALL (no filters) тФАтФАтФАтФА
+// ──── COLLECT ALL (no filters) ────
 
 function collectAll() {
     if (!PARSER_STATE.rawMessages.length) return;
     const status = document.getElementById('parser-status');
-    status.textContent = 'тП│ Collecting...';
+    status.textContent = '⏳ Collecting...';
 
     const dedup = document.getElementById('parser-dedup').checked;
 
@@ -6239,11 +6239,11 @@ function collectAll() {
 
     PARSER_STATE.binFilter = null;
 
-    // тФАтФА STEP-BY-STEP PIPELINE тФАтФА
+    // ── STEP-BY-STEP PIPELINE ──
     _processPipeline(allCards, dedup, status);
 }
 
-// тФАтФАтФАтФА TRANSPARENT PROCESSING PIPELINE тФАтФАтФАтФА
+// ──── TRANSPARENT PROCESSING PIPELINE ────
 // Step 1: Start with merged raw cards
 // Step 2: Remove TRASH
 // Step 3: Remove DUPLICATES (internal dedup)
@@ -6254,7 +6254,7 @@ function collectAll() {
 function _processPipeline(allCards, dedup, status) {
     const totalRaw = allCards.length;
 
-    // тФАтФА Step 1: Remove TRASH тФАтФА
+    // ── Step 1: Remove TRASH ──
     const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
     let trashRemoved = 0;
     if (trashSet.size > 0) {
@@ -6267,7 +6267,7 @@ function _processPipeline(allCards, dedup, status) {
         trashRemoved = beforeTrash - allCards.length;
     }
 
-    // тФАтФА Step 2: Remove DUPLICATES (internal dedup within parsed data) тФАтФА
+    // ── Step 2: Remove DUPLICATES (internal dedup within parsed data) ──
     let dupRemoved = 0;
     if (dedup) {
         const seen = new Set();
@@ -6281,7 +6281,7 @@ function _processPipeline(allCards, dedup, status) {
         dupRemoved = beforeDedup - allCards.length;
     }
 
-    // тФАтФА Step 3: Apply EXCLUDE BASE (if _excludeSet is pre-loaded) тФАтФА
+    // ── Step 3: Apply EXCLUDE BASE (if _excludeSet is pre-loaded) ──
     let excludeRemoved = 0;
     if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
         const beforeExclude = allCards.length;
@@ -6292,7 +6292,7 @@ function _processPipeline(allCards, dedup, status) {
         excludeRemoved = beforeExclude - allCards.length;
     }
 
-    // тФАтФА Step 4: Show stats bar тФАтФА
+    // ── Step 4: Show stats bar ──
     const statsBar = document.getElementById('parser-stats-bar');
     if (statsBar) {
         statsBar.style.display = 'flex';
@@ -6304,7 +6304,7 @@ function _processPipeline(allCards, dedup, status) {
         document.getElementById('ps-net').textContent = allCards.length;
     }
 
-    // тФАтФА Step 5: Finish with tagging тФАтФА
+    // ── Step 5: Finish with tagging ──
     finishParsing(allCards, status);
 }
 
@@ -6337,12 +6337,12 @@ function finishParsing(allCards, status) {
         }));
     } catch (e) { console.warn('Parser base save error:', e); }
 
-    status.textContent = `тЬЕ ${allCards.length} cards ready ┬╖ ${binGroups.length} BINs (${newCount} new, ${dupInProject} already in project)`;
-    toast(`Ready: ${allCards.length} cards тАФ ${newCount} NEW, ${dupInProject} already in project`, 'success');
+    status.textContent = `✅ ${allCards.length} cards ready · ${binGroups.length} BINs (${newCount} new, ${dupInProject} already in project)`;
+    toast(`Ready: ${allCards.length} cards — ${newCount} NEW, ${dupInProject} already in project`, 'success');
     renderParserResults();
 }
 
-// тФАтФАтФАтФА RENDER RESULTS тФАтФАтФАтФА
+// ──── RENDER RESULTS ────
 
 function renderParserResults(geoFilter) {
     const el = document.getElementById('parser-results');
@@ -6358,7 +6358,7 @@ function renderParserResults(geoFilter) {
         return;
     }
 
-    // тФАтФАтФАтФА Counts тФАтФАтФАтФА
+    // ──── Counts ────
     let totalCount = list.length;
     let newCount = 0, dupCount = 0, trashCount = 0, excludedCount = PARSER_STATE.excludedIndices.size;
     list.forEach((c, i) => {
@@ -6367,7 +6367,7 @@ function renderParserResults(geoFilter) {
         else if (c._tag === 'TRASH') trashCount++;
     });
 
-    // тФАтФАтФАтФА GEO data тФАтФАтФАтФА
+    // ──── GEO data ────
     const geoMap = {};
     list.forEach(c => {
         const geo = (c.detectedGeo || c.country || '').toUpperCase();
@@ -6376,11 +6376,11 @@ function renderParserResults(geoFilter) {
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
 
     const countryFlags = {
-        US: 'ЁЯЗ║ЁЯЗ╕', CA: 'ЁЯЗиЁЯЗж', GB: 'ЁЯЗмЁЯЗз', DE: 'ЁЯЗйЁЯЗк', FR: 'ЁЯЗлЁЯЗ╖', AE: 'ЁЯЗжЁЯЗк', AU: 'ЁЯЗжЁЯЗ║', IT: 'ЁЯЗоЁЯЗ╣', ES: 'ЁЯЗкЁЯЗ╕',
-        NL: 'ЁЯЗ│ЁЯЗ▒', BR: 'ЁЯЗзЁЯЗ╖', MX: 'ЁЯЗ▓ЁЯЗ╜', JP: 'ЁЯЗпЁЯЗ╡', KR: 'ЁЯЗ░ЁЯЗ╖', IN: 'ЁЯЗоЁЯЗ│', RU: 'ЁЯЗ╖ЁЯЗ║', UA: 'ЁЯЗ║ЁЯЗж', PL: 'ЁЯЗ╡ЁЯЗ▒',
-        SE: 'ЁЯЗ╕ЁЯЗк', NO: 'ЁЯЗ│ЁЯЗ┤', DK: 'ЁЯЗйЁЯЗ░', FI: 'ЁЯЗлЁЯЗо', CH: 'ЁЯЗиЁЯЗн', AT: 'ЁЯЗжЁЯЗ╣', BE: 'ЁЯЗзЁЯЗк', IE: 'ЁЯЗоЁЯЗк', PT: 'ЁЯЗ╡ЁЯЗ╣',
-        CZ: 'ЁЯЗиЁЯЗ┐', IL: 'ЁЯЗоЁЯЗ▒', SG: 'ЁЯЗ╕ЁЯЗм', HK: 'ЁЯЗнЁЯЗ░', NZ: 'ЁЯЗ│ЁЯЗ┐', SA: 'ЁЯЗ╕ЁЯЗж', ZA: 'ЁЯЗ┐ЁЯЗж', TR: 'ЁЯЗ╣ЁЯЗ╖', TH: 'ЁЯЗ╣ЁЯЗн',
-        PH: 'ЁЯЗ╡ЁЯЗн', MY: 'ЁЯЗ▓ЁЯЗ╛', ID: 'ЁЯЗоЁЯЗй', VN: 'ЁЯЗ╗ЁЯЗ│', AR: 'ЁЯЗжЁЯЗ╖', CL: 'ЁЯЗиЁЯЗ▒', CO: 'ЁЯЗиЁЯЗ┤', PE: 'ЁЯЗ╡ЁЯЗк', EG: 'ЁЯЗкЁЯЗм'
+        US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸',
+        NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', RU: '🇷🇺', UA: '🇺🇦', PL: '🇵🇱',
+        SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹',
+        CZ: '🇨🇿', IL: '🇮🇱', SG: '🇸🇬', HK: '🇭🇰', NZ: '🇳🇿', SA: '🇸🇦', ZA: '🇿🇦', TR: '🇹🇷', TH: '🇹🇭',
+        PH: '🇵🇭', MY: '🇲🇾', ID: '🇮🇩', VN: '🇻🇳', AR: '🇦🇷', CL: '🇨🇱', CO: '🇨🇴', PE: '🇵🇪', EG: '🇪🇬'
     };
     const countryNames = {
         US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE',
@@ -6406,7 +6406,7 @@ function renderParserResults(geoFilter) {
     else if (sf === 'DUPLICATE') displayList = displayList.filter(c => c._tag === 'DUPLICATE');
     else if (sf === 'TRASH') displayList = displayList.filter(c => c._tag === 'TRASH');
 
-    // тФАтФАтФАтФА SUMMARY тФАтФАтФАтФА
+    // ──── SUMMARY ────
     const summaryHtml = `
         <div class="parser-summary">
             <span class="ps-item">Total: <strong>${totalCount}</strong></span>
@@ -6416,7 +6416,7 @@ function renderParserResults(geoFilter) {
             <span class="ps-item ps-excluded">Excluded: <strong>${excludedCount}</strong></span>
         </div>`;
 
-    // тФАтФАтФАтФА STATUS TABS тФАтФАтФАтФА
+    // ──── STATUS TABS ────
     const statusTabsHtml = `
         <div class="parser-status-tabs">
             <button class="pst-tab ${sf === 'ALL' ? 'active' : ''}" data-filter="ALL">ALL (${totalCount})</button>
@@ -6425,30 +6425,30 @@ function renderParserResults(geoFilter) {
             <button class="pst-tab pst-trash ${sf === 'TRASH' ? 'active' : ''}" data-filter="TRASH">TRASH (${trashCount})</button>
         </div>`;
 
-    // тФАтФАтФАтФА ACTION BUTTONS тФАтФАтФАтФА
+    // ──── ACTION BUTTONS ────
     const actionsHtml = `
         <div class="parser-action-bar">
-            <button class="parser-action-btn pa-exclude-dup" id="parser-btn-exclude-dup">ЁЯЪл EXCLUDE DUPLICATES</button>
-            <button class="parser-action-btn pa-exclude-trash" id="parser-btn-exclude-trash">ЁЯЪл EXCLUDE TRASH</button>
-            <button class="parser-action-btn pa-add-new" id="parser-btn-add-new">тЬЕ ADD ONLY NEW</button>
-            <button class="parser-notes-btn" id="parser-add-notes-btn">ЁЯУЭ ADD TO NOTES (${PARSER_STATE.selected.size})</button>
+            <button class="parser-action-btn pa-exclude-dup" id="parser-btn-exclude-dup">🚫 EXCLUDE DUPLICATES</button>
+            <button class="parser-action-btn pa-exclude-trash" id="parser-btn-exclude-trash">🚫 EXCLUDE TRASH</button>
+            <button class="parser-action-btn pa-add-new" id="parser-btn-add-new">✅ ADD ONLY NEW</button>
+            <button class="parser-notes-btn" id="parser-add-notes-btn">📝 ADD TO NOTES (${PARSER_STATE.selected.size})</button>
         </div>`;
 
-    // тФАтФАтФАтФА GEO dropdown тФАтФАтФАтФА
+    // ──── GEO dropdown ────
     const geoDropdownHtml = `
         <div class="parser-geo-filter">
             <label>GEO</label>
             <select id="parser-geo-select">
                 <option value="">ALL (${list.length})</option>
                 ${geoList.map(([code, cnt]) => {
-        const fl = countryFlags[code] || 'ЁЯП│я╕П';
+        const fl = countryFlags[code] || '🏳️';
         const nm = countryNames[code] || code;
         return `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${fl} ${nm} (${cnt})</option>`;
     }).join('')}
             </select>
         </div>`;
 
-    // тФАтФАтФАтФА BIN Analytics тФАтФАтФАтФА
+    // ──── BIN Analytics ────
     const binAnalytics = {};
     displayList.forEach(c => {
         if (!binAnalytics[c.bin]) binAnalytics[c.bin] = { count: 0, bank: c.bank || '' };
@@ -6463,7 +6463,7 @@ function renderParserResults(geoFilter) {
     const excludedBankSet = new Set(PARSER_STATE.excludedBanks.map(b => b.toUpperCase()));
 
     const binAnalyticsHtml = sortedBins.slice(0, 50).map(b => {
-        const bankShort = b.bank.length > 20 ? b.bank.slice(0, 20) + 'тАж' : (b.bank || 'тАФ');
+        const bankShort = b.bank.length > 20 ? b.bank.slice(0, 20) + '…' : (b.bank || '—');
         const isBinExcluded = PARSER_STATE.excludedBins.some(eb => b.bin.startsWith(eb));
         const isBankExcluded = PARSER_STATE.excludedBanks.some(eb => (b.bank || '').toUpperCase().includes(eb));
         const isExcluded = isBinExcluded || isBankExcluded;
@@ -6474,7 +6474,7 @@ function renderParserResults(geoFilter) {
         </div>`;
     }).join('');
 
-    // тФАтФАтФАтФА TABLE ROWS тФАтФАтФАтФА
+    // ──── TABLE ROWS ────
     const parserBinCounts = {};
     displayList.forEach(c => { parserBinCounts[c.bin] = (parserBinCounts[c.bin] || 0) + 1; });
 
@@ -6519,7 +6519,7 @@ function renderParserResults(geoFilter) {
         </tr>`;
     }).join('');
 
-    const binSortIcon = sortBy === 'bin-desc' ? 'тЖУ' : sortBy === 'bin-asc' ? 'тЖС' : 'тЖХ';
+    const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
 
     el.innerHTML = `
         ${summaryHtml}
@@ -6535,7 +6535,7 @@ function renderParserResults(geoFilter) {
         <!-- BIN ANALYTICS -->
         <div class="parser-bin-analytics">
             <div class="parser-bin-analytics-header">
-                <span>ЁЯУК BIN Analytics (${sortedBins.length} unique)</span>
+                <span>📊 BIN Analytics (${sortedBins.length} unique)</span>
             </div>
             <div class="parser-bin-analytics-grid">
                 <div class="parser-bin-row parser-bin-header-row">
@@ -6564,7 +6564,7 @@ function renderParserResults(geoFilter) {
         </table>
         </div>`;
 
-    // тФАтФАтФАтФА Events тФАтФАтФАтФА
+    // ──── Events ────
     el.querySelectorAll('.parser-check').forEach(cb => {
         cb.addEventListener('change', () => {
             const idx = parseInt(cb.dataset.idx);
@@ -6663,7 +6663,7 @@ function renderParserResults(geoFilter) {
 
 function updateParserButtons() {
     const notesBtn = document.getElementById('parser-add-notes-btn');
-    if (notesBtn) notesBtn.textContent = `ЁЯУЭ ADD TO NOTES (${PARSER_STATE.selected.size})`;
+    if (notesBtn) notesBtn.textContent = `📝 ADD TO NOTES (${PARSER_STATE.selected.size})`;
 }
 
 function addCollectedToNotes() {
@@ -6675,20 +6675,20 @@ function addCollectedToNotes() {
     modal.className = 'modal-overlay';
     modal.innerHTML = `
         <div class="modal-content" style="max-width:420px">
-            <h3 style="margin:0 0 12px;font-size:15px;color:var(--c-text-primary)">ЁЯУЭ Choose Export Format</h3>
+            <h3 style="margin:0 0 12px;font-size:15px;color:var(--c-text-primary)">📝 Choose Export Format</h3>
             <div class="format-options">
                 <button class="format-option-btn" data-format="full">
-                    <span class="format-icon">ЁЯУЛ</span>
+                    <span class="format-icon">📋</span>
                     <span class="format-label">Full Info</span>
-                    <span class="format-desc">ЁЯТ│ CC, ЁЯУЕ Validity, ЁЯФР CVV, ЁЯС╢ Holder, ЁЯПж Bank, ЁЯУК Type</span>
+                    <span class="format-desc">💳 CC, 📅 Validity, 🔐 CVV, 👶 Holder, 🏦 Bank, 📊 Type</span>
                 </button>
                 <button class="format-option-btn" data-format="checker">
-                    <span class="format-icon">ЁЯФН</span>
+                    <span class="format-icon">🔍</span>
                     <span class="format-label">Checker Format</span>
                     <span class="format-desc">4242424242424242 03 27 111</span>
                 </button>
                 <button class="format-option-btn" data-format="raw">
-                    <span class="format-icon">ЁЯУД</span>
+                    <span class="format-icon">📄</span>
                     <span class="format-label">Raw Data</span>
                     <span class="format-desc">Name | CC | Exp | BIN | Bank | GEO</span>
                 </button>
@@ -6723,12 +6723,12 @@ function executeAddToNotes(format) {
         const cvv = c.cvv || '000';
 
         if (format === 'full') {
-            lines.push(`ЁЯТ│ CC: ${ccClean}`);
-            lines.push(`ЁЯУЕ Validity: ${c.validity}`);
-            lines.push(`ЁЯФР CVV: ${cvv}`);
-            lines.push(`ЁЯС╢ Holder: ${c.name} ${c.surname}`);
-            lines.push(`ЁЯПж Bank: ${c.bank || '-'}`);
-            lines.push(`ЁЯУК Card Type: ${c.cardType || c.detectedGeo || '-'}`);
+            lines.push(`💳 CC: ${ccClean}`);
+            lines.push(`📅 Validity: ${c.validity}`);
+            lines.push(`🔐 CVV: ${cvv}`);
+            lines.push(`👶 Holder: ${c.name} ${c.surname}`);
+            lines.push(`🏦 Bank: ${c.bank || '-'}`);
+            lines.push(`📊 Card Type: ${c.cardType || c.detectedGeo || '-'}`);
             lines.push('');
         } else if (format === 'checker') {
             lines.push(`${ccClean} ${mm} ${yy} ${cvv}`);
@@ -6749,7 +6749,7 @@ function executeAddToNotes(format) {
         STATE.notes = (STATE.notes || '') + block + '\n';
         STATE.notesLastSaved = Date.now();
         save();
-        toast(`${lines.length} cards added to Notes тЖТ "${activeTab?.title || 'Main'}" (${formatLabel})`, 'success');
+        toast(`${lines.length} cards added to Notes → "${activeTab?.title || 'Main'}" (${formatLabel})`, 'success');
     }
 }
 
@@ -6793,7 +6793,7 @@ function getExpFromDropdowns(prefix) {
     return parseInt(y) * 100 + parseInt(m || '01');
 }
 
-// тФАтФАтФАтФА ADD TO READY TO WORK тФАтФАтФАтФА
+// ──── ADD TO READY TO WORK ────
 
 function addCollectedToCards() {
     const targetCountry = document.getElementById('parser-target-country')?.value || STATE.currentCountry;
@@ -6869,7 +6869,7 @@ function addCollectedToCards() {
 
         save();
         renderSidebar();
-        let msg = `тЬЕ ${added} cards тЖТ Ready to Work`;
+        let msg = `✅ ${added} cards → Ready to Work`;
         if (replaced > 0) msg += `, ${replaced} updated`;
         toast(msg, 'success');
         renderParserResults();
@@ -6877,7 +6877,7 @@ function addCollectedToCards() {
         toast('No new cards to add (all duplicates)', 'info');
     }
 }
-// тФАтФАтФАтФА VIEW DENSITY SYSTEM тФАтФАтФАтФА
+// ──── VIEW DENSITY SYSTEM ────
 (function initDensity() {
     const app = document.querySelector('.app');
     const saved = localStorage.getItem('ct_density') || 'default';
@@ -6901,9 +6901,9 @@ function addCollectedToCards() {
         });
     }
 
-    /* тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+    /* ═══════════════════════════════════════════
        NOTES HELPER FUNCTIONS
-       тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР */
+       ═══════════════════════════════════════════ */
     function saveNotesAction() {
         const textarea = document.getElementById('notes-textarea');
         if (!textarea) return;
@@ -6961,9 +6961,9 @@ function addCollectedToCards() {
         toast('Notes exported', 'success');
     }
 
-    /* тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+    /* ═══════════════════════════════════════════
        FORMAT SELECTION (ADD TO NOTES from Parser)
-       тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР */
+       ═══════════════════════════════════════════ */
     function addCollectedToNotes(cards) {
         if (!cards || !cards.length) {
             toast('No cards to add', 'error');
@@ -6992,12 +6992,12 @@ function addCollectedToCards() {
                     const type = c.type || c.cardType || '';
 
                     if (format === 'full') {
-                        lines.push(`ЁЯТ│ CC: ${num}`);
-                        lines.push(`ЁЯУЕ Validity: ${expM}/${expY}`);
-                        lines.push(`ЁЯФР CVV: ${cvv}`);
-                        lines.push(`ЁЯС╢ Holder: ${holder}`);
-                        lines.push(`ЁЯПж Bank: ${bank}`);
-                        lines.push(`ЁЯУК Card Type: ${type}`);
+                        lines.push(`💳 CC: ${num}`);
+                        lines.push(`📅 Validity: ${expM}/${expY}`);
+                        lines.push(`🔐 CVV: ${cvv}`);
+                        lines.push(`👶 Holder: ${holder}`);
+                        lines.push(`🏦 Bank: ${bank}`);
+                        lines.push(`📊 Card Type: ${type}`);
                         lines.push('');
                     } else if (format === 'checker') {
                         lines.push(`${num} ${expM} ${expY} ${cvv}`);
@@ -7020,9 +7020,9 @@ function addCollectedToCards() {
         });
     }
 
-    /* тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+    /* ═══════════════════════════════════════════
        VIPER CHECKER API INTEGRATION
-       тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР */
+       ═══════════════════════════════════════════ */
     const PROXY_BASE = 'http://localhost:3777';
 
     async function viperRequest(path, method = 'GET', body = null) {
@@ -7057,7 +7057,7 @@ function addCollectedToCards() {
         if (ccn.length < 13 || ccn.length > 19) return null;
         const mm = m[2].padStart(2, '0');
         let yy = m[3];
-        if (yy.length === 4) yy = yy.slice(2); // 2029 тЖТ 29
+        if (yy.length === 4) yy = yy.slice(2); // 2029 → 29
         const cvv = m[4];
         return `${ccn}|${mm}|${yy}|${cvv}`;
     }
@@ -7123,10 +7123,10 @@ function addCollectedToCards() {
             display.textContent = '...';
             display.style.color = '#A1A1AA';
             const data = await viperRequest('/profile/balance', 'POST');
-            display.textContent = 'ЁЯТ░ ' + data.balance + ' checks';
+            display.textContent = '💰 ' + data.balance + ' checks';
             display.style.color = '#22C55E';
         } catch (e) {
-            display.textContent = 'тЭМ ' + e.message;
+            display.textContent = '❌ ' + e.message;
             display.style.color = '#EF4444';
         }
     }
@@ -7139,7 +7139,7 @@ function addCollectedToCards() {
             (data.result || []).forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m.code;
-                opt.textContent = m.code + ' тАФ ' + m.description;
+                opt.textContent = m.code + ' — ' + m.description;
                 select.appendChild(opt);
             });
             toast('Loaded ' + (data.result || []).length + ' methods', 'success');
@@ -7182,7 +7182,7 @@ function addCollectedToCards() {
         checkBtn.disabled = true;
         output.textContent = `Sending ${normalized.length} cards to Viper API...`;
         if (invalid.length) {
-            output.textContent += `\nтЪая╕П ${invalid.length} line(s) skipped (invalid format)`;
+            output.textContent += `\n⚠️ ${invalid.length} line(s) skipped (invalid format)`;
         }
 
         try {
@@ -7198,13 +7198,13 @@ function addCollectedToCards() {
             let results = [];
             if (checkData.invalid_items && checkData.invalid_items.length) {
                 results = [...checkData.invalid_items];
-                output.textContent = formatCheckerResults(results) + '\n\nтП│ Polling for remaining results...';
+                output.textContent = formatCheckerResults(results) + '\n\n⏳ Polling for remaining results...';
             } else if (purchaseId) {
-                output.textContent = 'тП│ Waiting for results (purchase: ' + purchaseId + ')...';
+                output.textContent = '⏳ Waiting for results (purchase: ' + purchaseId + ')...';
             }
 
             if (!purchaseId) {
-                // No purchase ID тАФ results should be immediate (v1 fallback or error)
+                // No purchase ID — results should be immediate (v1 fallback or error)
                 status.textContent = 'DONE';
                 status.className = 'checker-status-badge done';
                 checkBtn.disabled = false;
@@ -7222,7 +7222,7 @@ function addCollectedToCards() {
                 try {
                     const pollData = await viperRequest('/check/poll/' + purchaseId, 'GET');
 
-                    // Replace results (not accumulate) тАФ poll returns full result set
+                    // Replace results (not accumulate) — poll returns full result set
                     if (pollData.result && pollData.result.length) {
                         results = [...(checkData.invalid_items || []), ...pollData.result];
                     }
@@ -7234,19 +7234,19 @@ function addCollectedToCards() {
                         checkBtn.disabled = false;
                         output.textContent = formatCheckerResults(results);
                         if (attempts >= maxAttempts && pollData.status !== 'confirmed') {
-                            output.textContent += '\n\nтЪая╕П Timed out waiting for some results';
+                            output.textContent += '\n\n⚠️ Timed out waiting for some results';
                         }
                         return;
                     }
 
                     // Still pending
-                    output.textContent = formatCheckerResults(results) + '\n\nтП│ Polling... (' + attempts + '/' + maxAttempts + ')';
+                    output.textContent = formatCheckerResults(results) + '\n\n⏳ Polling... (' + attempts + '/' + maxAttempts + ')';
                     setTimeout(poll, pollInterval);
                 } catch (e) {
                     status.textContent = 'ERROR';
                     status.className = 'checker-status-badge error';
                     checkBtn.disabled = false;
-                    output.textContent += '\n\nтЭМ Poll error: ' + e.message;
+                    output.textContent += '\n\n❌ Poll error: ' + e.message;
                 }
             };
 
@@ -7256,7 +7256,7 @@ function addCollectedToCards() {
             status.textContent = 'ERROR';
             status.className = 'checker-status-badge error';
             checkBtn.disabled = false;
-            output.textContent = 'тЭМ Error: ' + e.message;
+            output.textContent = '❌ Error: ' + e.message;
         }
     }
 
@@ -7267,17 +7267,17 @@ function addCollectedToCards() {
         const dead = results.filter(r => (r.status || '').toUpperCase() === 'DEAD').length;
         const other = results.length - alive - dead;
 
-        let header = `тХРтХРтХР Results: ${results.length} total | тЬЕ ${alive} ALIVE | ЁЯТА ${dead} DEAD`;
-        if (other) header += ` | тЪая╕П ${other} other`;
-        header += ' тХРтХРтХР\n\n';
+        let header = `═══ Results: ${results.length} total | ✅ ${alive} ALIVE | 💀 ${dead} DEAD`;
+        if (other) header += ` | ⚠️ ${other} other`;
+        header += ' ═══\n\n';
 
         return header + results.map(r => {
             const isAlive = (r.status || '').toUpperCase() === 'ALIVE';
             const isDead = (r.status || '').toUpperCase() === 'DEAD';
-            const icon = isAlive ? 'тЬЕ' : isDead ? 'ЁЯТА' : 'тЪая╕П';
+            const icon = isAlive ? '✅' : isDead ? '💀' : '⚠️';
             const statusText = (r.status || 'UNKNOWN').toUpperCase();
 
-            let line = `${icon} ${r.card} тАФ ${statusText}`;
+            let line = `${icon} ${r.card} — ${statusText}`;
             const details = [];
             if (r.details) details.push(r.details);
             if (r.brand) details.push(r.brand);
@@ -7286,7 +7286,7 @@ function addCollectedToCards() {
             if (r.country) details.push(r.country);
 
             if (details.length) {
-                line += ' [' + details.join(' тАв ') + ']';
+                line += ' [' + details.join(' • ') + ']';
             }
             return line;
         }).join('\n');
@@ -7315,7 +7315,7 @@ function addCollectedToCards() {
 
 })();
 
-// тХРтХРтХРтХРтХРтХРтХР COLUMN RESIZE UTILITY тХРтХРтХРтХРтХРтХРтХР
+// ═══════ COLUMN RESIZE UTILITY ═══════
 function initColumnResize(table, storageKey) {
     if (!table) return;
     const ths = table.querySelectorAll('thead th');
