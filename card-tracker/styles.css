@@ -6381,11 +6381,180 @@ tr.row-selected td {
     background: rgba(251,191,36,.1) !important;
 }
 
-/* Notes tab inline edit */
 .nt-tab-title[contenteditable="true"] {
     outline: none;
     background: rgba(255,255,255,.08);
     border-radius: 3px;
     padding: 0 4px;
     min-width: 30px;
+}
+
+/* ── COMPACT PARSER ZONES ── */
+.pz-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.pz-col { display: flex; flex-direction: column; gap: 6px; }
+.pz-header {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+.pz-count { font-weight: 400; color: var(--text-muted); }
+.pz-drop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px dashed rgba(255,255,255,.15);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    min-height: 40px;
+}
+.pz-drop:hover, .pz-drop.drag-over {
+    border-color: var(--accent);
+    background: rgba(99,102,241,.06);
+}
+.pz-drop-ex {
+    border-color: rgba(239,68,68,.25);
+}
+.pz-drop-ex:hover, .pz-drop-ex.drag-over {
+    border-color: #ef4444;
+    background: rgba(239,68,68,.06);
+}
+.pz-drop-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pz-add-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.2);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all .2s;
+}
+.pz-add-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(99,102,241,.1);
+}
+.pz-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.pz-file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,.04);
+    border-radius: 4px;
+    font-size: 12px;
+}
+.pz-fname {
+    color: var(--text-primary);
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pz-fmeta {
+    color: var(--text-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.pz-fremove {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(239, 68, 68, .15);
+    color: #ef4444;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .2s;
+}
+.pz-fremove:hover {
+    background: rgba(239, 68, 68, .35);
+}
+
+/* Compact parser buttons */
+.pz-btn {
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.pz-btn:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.pz-btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+.pz-btn-primary:disabled {
+    background: rgba(99,102,241,.2);
+    border-color: rgba(99,102,241,.3);
+    color: rgba(255,255,255,.5);
+    opacity: 1;
+}
+.pz-btn-primary:hover:not(:disabled) {
+    background: #4f46e5;
+}
+.pz-btn-outline:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+.pz-btn-accent {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+.pz-btn-accent:hover:not(:disabled) {
+    background: rgba(239,68,68,.1);
+}
+.pz-link-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 6px;
+    text-decoration: underline;
+    transition: color .15s;
+}
+.pz-link-btn:hover {
+    color: var(--text-primary);
 }

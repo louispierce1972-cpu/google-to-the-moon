@@ -5036,6 +5036,8 @@ deleteConfirmBtn.addEventListener('click', () => {
 
 let PARSER_STATE = {
     rawMessages: [],
+    mainFiles: [],    // [{name, size, messages}]
+    excludeFile: null, // {name, size, messages}
     file: null,
     collected: [],
     binGroups: [],
@@ -5652,15 +5654,35 @@ function renderParser() {
     const hasBase = PARSER_STATE.collected.length > 0 || PARSER_STATE.rawMessages.length > 0;
     const trashCount = (STATE.trashCards || []).length;
 
+    // Build compact main file list
+    const mainFiles = PARSER_STATE.mainFiles.filter(Boolean);
+    const mainListHTML = mainFiles.length > 0
+        ? mainFiles.map((f, i) => `<div class="pz-file" data-idx="${i}"><span class="pz-fname">${f.name}</span><span class="pz-fmeta">${(f.size/1024/1024).toFixed(1)}MB · ${f.messages.length.toLocaleString()} msg</span>${i > 0 ? '<button class="pz-fremove" data-idx="'+i+'">×</button>' : ''}</div>`).join('')
+        : '';
+
+    const exFile = PARSER_STATE.excludeFile;
+    const totalMsg = PARSER_STATE.rawMessages.length;
+
     area.innerHTML = `
     <div class="parser-container">
-        <!-- UPLOAD ZONE -->
-        <div class="parser-upload-zone" id="parser-drop-zone">
-            <input type="file" id="parser-file-input" accept=".json" hidden>
-            <div class="parser-upload-content">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 16V4m0 0L8 8m4-4l4 4"/><path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
-                <span class="parser-upload-title">${PARSER_STATE.file ? PARSER_STATE.file : 'Drop result.json or click to upload'}</span>
-                <span class="parser-upload-hint">Telegram JSON export · 100% local · no internet${hasBase ? ' · Base saved (' + PARSER_STATE.collected.length + ' cards)' : ''}</span>
+        <!-- UPLOAD ROW -->
+        <div class="pz-row">
+            <div class="pz-col pz-col-main">
+                <div class="pz-header">BASE FILES ${mainFiles.length > 0 ? '<span class="pz-count">(' + mainFiles.length + ' file' + (mainFiles.length>1?'s':'') + ' · ' + totalMsg.toLocaleString() + ' msg)</span>' : ''}</div>
+                <div class="pz-drop" id="pz-main-drop">
+                    <input type="file" id="pz-main-input" accept=".json" hidden>
+                    <span class="pz-drop-text">${mainFiles.length === 0 ? 'Drop result.json or click' : 'Drop another file or click'}</span>
+                    <button class="pz-add-btn" id="pz-add-btn" title="Add base">+</button>
+                </div>
+                ${mainListHTML ? '<div class="pz-file-list">' + mainListHTML + '</div>' : ''}
+            </div>
+            <div class="pz-col pz-col-exclude">
+                <div class="pz-header">EXCLUDE BASE</div>
+                <div class="pz-drop pz-drop-ex" id="pz-ex-drop">
+                    <input type="file" id="pz-ex-input" accept=".json" hidden>
+                    <span class="pz-drop-text">${exFile ? exFile.name + ' (' + (exFile.size/1024/1024).toFixed(1) + 'MB)' : 'Drop exclude .json'}</span>
+                    ${exFile ? '<button class="pz-fremove" id="pz-ex-clear">×</button>' : ''}
+                </div>
             </div>
         </div>
 
@@ -5704,25 +5726,25 @@ function renderParser() {
         <!-- OPTIONS -->
         <div class="parser-options">
             <label class="parser-checkbox"><input type="checkbox" id="parser-dedup" checked> Remove duplicates</label>
+            <button class="pz-link-btn" id="parser-trash-add-btn">Trash list (${trashCount})</button>
         </div>
 
         <!-- ACTIONS -->
         <div class="parser-actions">
-            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>PARSE</button>
-            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>COLLECT ALL</button>
-            <button class="btn-outline parser-clear-btn" id="parser-clear-btn">CLEAR</button>
-            <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">CLEAR BASE</button>
-            <button class="btn-outline parser-trash-add-btn" id="parser-trash-add-btn">ADD TRASH (${trashCount})</button>
-            <button class="btn-outline" id="parser-exclude-json-btn" title="Load second JSON and remove matching cards">EXCLUDE BASE</button>
-            <button class="btn-outline" id="parser-import-notes-btn" title="Import results to Notes tab">TO NOTES</button>
-            <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? 'Base saved: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
+            <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>PARSE</button>
+            <button class="pz-btn pz-btn-primary" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>COLLECT ALL</button>
+            <button class="pz-btn pz-btn-outline" id="parser-clear-btn">CLEAR</button>
+            <button class="pz-btn pz-btn-accent" id="parser-exclude-json-btn" ${exFile && PARSER_STATE.collected.length > 0 ? '' : 'disabled'}>EXCLUDE</button>
+            <button class="pz-btn pz-btn-outline" id="parser-import-notes-btn">TO NOTES</button>
+            <span class="parser-status" id="parser-status"></span>
         </div>
 
-        <!-- POST-FILTER STATS -->
+        <!-- STATS BAR -->
         <div class="parser-stats-bar" id="parser-stats-bar" style="display:none;">
             <span class="ps-item">Total: <strong id="ps-total">0</strong></span>
             <span class="ps-item">Duplicates: <strong id="ps-dupes">0</strong></span>
             <span class="ps-item">Trash: <strong id="ps-trash">0</strong></span>
+            <span class="ps-item">Excluded: <strong id="ps-excluded">0</strong></span>
             <span class="ps-item ps-net">→ Import: <strong id="ps-net">0</strong></span>
         </div>
 
@@ -5737,7 +5759,7 @@ function renderParser() {
                     <label>Exclude BANK <span class="parser-filter-hint">(comma separated)</span></label>
                     <input type="text" id="parser-exclude-banks" placeholder="CHASE, TD BANK..." value="${PARSER_STATE.excludedBanks.join(', ')}">
                 </div>
-                <button class="btn-outline parser-exclude-apply-btn" id="parser-exclude-apply-btn">🚫 EXCLUDE SELECTED</button>
+                <button class="pz-btn pz-btn-outline" id="parser-exclude-apply-btn">EXCLUDE SELECTED</button>
             </div>
         </div>
 
@@ -5745,23 +5767,94 @@ function renderParser() {
         <div class="parser-results" id="parser-results"></div>
     </div>`;
 
-    // Upload handlers
-    const dropZone = document.getElementById('parser-drop-zone');
-    const fileInput = document.getElementById('parser-file-input');
+    // ── HANDLERS ──
 
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); loadParserFile(e.dataTransfer.files[0]); });
-    fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadParserFile(fileInput.files[0]); });
+    // Main drop zone — click & drag
+    const mainDrop = document.getElementById('pz-main-drop');
+    const mainInput = document.getElementById('pz-main-input');
+    mainDrop.addEventListener('click', (e) => { if (!e.target.closest('.pz-add-btn')) mainInput.click(); });
+    mainDrop.addEventListener('dragover', (e) => { e.preventDefault(); mainDrop.classList.add('drag-over'); });
+    mainDrop.addEventListener('dragleave', () => mainDrop.classList.remove('drag-over'));
+    mainDrop.addEventListener('drop', (e) => { e.preventDefault(); mainDrop.classList.remove('drag-over'); _loadMainFile(e.dataTransfer.files[0]); });
+    mainInput.addEventListener('change', () => { if (mainInput.files[0]) _loadMainFile(mainInput.files[0]); });
 
+    // '+' button
+    document.getElementById('pz-add-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mainInput.click();
+    });
+
+    // Remove file buttons
+    document.querySelectorAll('.pz-file .pz-fremove').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.idx);
+            PARSER_STATE.mainFiles.splice(idx, 1);
+            _rebuildRawMessages();
+            renderParser();
+        });
+    });
+
+    function _loadMainFile(file) {
+        if (!file) return;
+        const status = document.getElementById('parser-status');
+        status.textContent = 'Reading...';
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                const messages = Array.isArray(data) ? data : (data.messages || []);
+                PARSER_STATE.mainFiles.push({ name: file.name, size: file.size, messages });
+                _rebuildRawMessages();
+                PARSER_STATE.file = PARSER_STATE.mainFiles.map(f => f.name).join(' + ');
+                toast(`Loaded: ${file.name} (${messages.length.toLocaleString()} msg)`, 'success');
+                renderParser();
+            } catch { toast('Invalid JSON', 'error'); }
+        };
+        reader.readAsText(file);
+    }
+
+    function _rebuildRawMessages() {
+        PARSER_STATE.rawMessages = [];
+        PARSER_STATE.mainFiles.filter(Boolean).forEach(f => PARSER_STATE.rawMessages.push(...f.messages));
+    }
+
+    // Exclude drop zone
+    const exDrop = document.getElementById('pz-ex-drop');
+    const exInput = document.getElementById('pz-ex-input');
+    exDrop.addEventListener('click', (e) => { if (!e.target.closest('.pz-fremove')) exInput.click(); });
+    exDrop.addEventListener('dragover', (e) => { e.preventDefault(); exDrop.classList.add('drag-over'); });
+    exDrop.addEventListener('dragleave', () => exDrop.classList.remove('drag-over'));
+    exDrop.addEventListener('drop', (e) => { e.preventDefault(); exDrop.classList.remove('drag-over'); _loadExcludeFile(e.dataTransfer.files[0]); });
+    exInput.addEventListener('change', () => { if (exInput.files[0]) _loadExcludeFile(exInput.files[0]); });
+    document.getElementById('pz-ex-clear')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        PARSER_STATE.excludeFile = null;
+        PARSER_STATE._excludeSet = null;
+        renderParser();
+    });
+
+    function _loadExcludeFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                const messages = Array.isArray(data) ? data : (data.messages || []);
+                PARSER_STATE.excludeFile = { name: file.name, size: file.size, messages };
+                toast(`Exclude loaded: ${file.name} (${messages.length.toLocaleString()} msg)`, 'success');
+                renderParser();
+            } catch { toast('Invalid exclude JSON', 'error'); }
+        };
+        reader.readAsText(file);
+    }
+
+    // Action buttons
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
-    document.getElementById('parser-clear-btn').addEventListener('click', clearParser);
-
-    // CLEAR BASE button
-    document.getElementById('parser-clear-base-btn').addEventListener('click', () => {
+    document.getElementById('parser-clear-btn').addEventListener('click', () => {
         PARSER_STATE.rawMessages = [];
+        PARSER_STATE.mainFiles = [];
+        PARSER_STATE.excludeFile = null;
         PARSER_STATE.collected = [];
         PARSER_STATE.binGroups = [];
         PARSER_STATE.selected = new Set();
@@ -5772,12 +5865,13 @@ function renderParser() {
         PARSER_STATE.excludedIndices = new Set();
         PARSER_STATE.excludedBins = [];
         PARSER_STATE.excludedBanks = [];
+        PARSER_STATE._excludeSet = null;
         localStorage.removeItem('ct_parser_base');
         renderParser();
-        toast('Parser base cleared', 'info');
+        toast('Parser cleared', 'info');
     });
 
-    // ADD TRASH CARDS button → open modal
+    // ADD TRASH CARDS
     document.getElementById('parser-trash-add-btn').addEventListener('click', () => {
         const overlay = document.getElementById('trash-cards-overlay');
         overlay.classList.remove('hidden');
@@ -5787,104 +5881,59 @@ function renderParser() {
         textarea.focus();
     });
 
-    // Trash modal handlers
     _initTrashCardModal();
 
-    // EXCLUDE SELECTED button
     document.getElementById('parser-exclude-apply-btn')?.addEventListener('click', _applyBinBankExclusion);
 
     // Card type toggle buttons
     document.querySelectorAll('.parser-type-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            btn.classList.toggle('active');
-        });
+        btn.addEventListener('click', () => btn.classList.toggle('active'));
     });
 
-    // EXCLUDE BASE — load second JSON, parse it, immediately remove matches from collected
+    // EXCLUDE BASE — use pre-loaded exclude file
     document.getElementById('parser-exclude-json-btn')?.addEventListener('click', () => {
-        if (PARSER_STATE.collected.length === 0) {
-            toast('Load and parse main base first', 'warning');
-            return;
-        }
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-                try {
-                    const data = JSON.parse(reader.result);
-                    const msgs = data.messages || data;
-                    if (!Array.isArray(msgs) || msgs.length === 0) {
-                        toast('No messages found in file', 'error');
-                        return;
-                    }
+        if (PARSER_STATE.collected.length === 0) { toast('Parse main base first', 'warning'); return; }
+        if (!PARSER_STATE.excludeFile) { toast('Load exclude file first', 'warning'); return; }
 
-                    // Extract cards using the SAME parser as main base
-                    const excludeCards = extractCardsFromMessages(msgs);
+        const excludeCards = extractCardsFromMessages(PARSER_STATE.excludeFile.messages);
+        if (excludeCards.length === 0) { toast('No cards in exclude file', 'warning'); return; }
 
-                    // Build exclude sets: full CC number, BIN+last4
-                    const excludeFullCC = new Set();
-                    const excludeBinLast4 = new Set();
-                    excludeCards.forEach(c => {
-                        const cc = (c.cc || '').replace(/[\s\-]/g, '');
-                        if (cc.length >= 6) {
-                            excludeFullCC.add(cc);
-                            excludeBinLast4.add(cc.slice(0, 6) + '_' + cc.slice(-4));
-                        }
-                    });
-
-                    // Also store for future PARSE operations
-                    PARSER_STATE._excludeSet = excludeFullCC;
-
-                    // Filter collected immediately
-                    const before = PARSER_STATE.collected.length;
-                    PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
-                        const cc = (c.cc || '').replace(/[\s\-]/g, '');
-                        // Match by full CC or by BIN+last4
-                        if (excludeFullCC.has(cc)) return false;
-                        if (cc.length >= 6 && excludeBinLast4.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
-                        return true;
-                    });
-                    const removed = before - PARSER_STATE.collected.length;
-
-                    // Rebuild binGroups from filtered collected
-                    const binMap = {};
-                    PARSER_STATE.collected.forEach(c => {
-                        if (!binMap[c.bin]) binMap[c.bin] = [];
-                        binMap[c.bin].push(c);
-                    });
-                    PARSER_STATE.binGroups = Object.entries(binMap)
-                        .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
-                        .sort((a, b) => b.count - a.count);
-
-                    // Update button
-                    const btn2 = document.getElementById('parser-exclude-json-btn');
-                    if (btn2) btn2.textContent = `EXCLUDE BASE (${excludeCards.length})`;
-
-                    // Update stats bar
-                    const statsBar = document.getElementById('parser-stats-bar');
-                    if (statsBar) {
-                        statsBar.style.display = 'flex';
-                        document.getElementById('ps-total').textContent = before;
-                        document.getElementById('ps-dupes').textContent = removed;
-                        document.getElementById('ps-trash').textContent = '0';
-                        document.getElementById('ps-net').textContent = PARSER_STATE.collected.length;
-                    }
-
-                    toast(`Excluded ${removed} matching cards (${PARSER_STATE.collected.length} remaining)`, 'success');
-
-                    // Re-render
-                    renderParserResults();
-                } catch (err) {
-                    toast('Invalid JSON file: ' + err.message, 'error');
-                }
-            };
-            reader.readAsText(file);
+        const excludeFullCC = new Set();
+        const excludeBinLast4 = new Set();
+        excludeCards.forEach(c => {
+            const cc = (c.cc || '').replace(/[\s\-]/g, '');
+            if (cc.length >= 6) {
+                excludeFullCC.add(cc);
+                excludeBinLast4.add(cc.slice(0, 6) + '_' + cc.slice(-4));
+            }
         });
-        input.click();
+        PARSER_STATE._excludeSet = excludeFullCC;
+
+        const before = PARSER_STATE.collected.length;
+        PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
+            const cc = (c.cc || '').replace(/[\s\-]/g, '');
+            if (excludeFullCC.has(cc)) return false;
+            if (cc.length >= 6 && excludeBinLast4.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
+            return true;
+        });
+        const removed = before - PARSER_STATE.collected.length;
+
+        // Rebuild binGroups
+        const binMap = {};
+        PARSER_STATE.collected.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
+        PARSER_STATE.binGroups = Object.entries(binMap).map(([bin, cards]) => ({ bin, count: cards.length, cards })).sort((a, b) => b.count - a.count);
+
+        // Update stats
+        const sb = document.getElementById('parser-stats-bar');
+        if (sb) {
+            sb.style.display = 'flex';
+            const exEl = document.getElementById('ps-excluded');
+            if (exEl) exEl.textContent = removed;
+            document.getElementById('ps-net').textContent = PARSER_STATE.collected.length;
+        }
+
+        toast(`Excluded ${removed} cards (${PARSER_STATE.collected.length} remaining)`, 'success');
+        renderParserResults();
     });
 
     // IMPORT TO NOTES
