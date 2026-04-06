@@ -5092,7 +5092,11 @@ function flattenText(textArray) {
 }
 
 // ──── UNIVERSAL CARD NUMBER EXTRACTOR (for exclude) ────
-// Extracts card numbers from ANY JSON structure/format
+// Extracts card numbers from ANY format including:
+// - "4242424242424242 09 26 245" (CC MM YY CVV)
+// - "4242-4242-4242-4242" (dashed)
+// - emoji format "💳 CC: 4242 4242 4242 4242"
+// - JSON fields: card_number, cardNumber, cc, pan, number, etc.
 function extractAllCardNumbersFromJSON(data) {
     const seen = new Set();
 
@@ -5115,6 +5119,29 @@ function extractAllCardNumbersFromJSON(data) {
         }
     }
 
+    // Extract card numbers from a text string
+    function extractFromText(text) {
+        if (!text || typeof text !== 'string') return;
+
+        // Pattern 1: Standalone 13-19 digit card numbers (most common: "4242424242424242 09 26 245")
+        // This catches the card number WITHOUT the trailing MM YY CVV
+        const standalone = text.match(/(?<!\d)\d{13,19}(?!\d)/g);
+        if (standalone) standalone.forEach(m => addIfCard(m));
+
+        // Pattern 2: Card numbers with dashes (e.g. "4242-4242-4242-4242")
+        const dashed = text.match(/\d{4}[\-]\d{4}[\-]\d{4}[\-]\d{3,4}/g);
+        if (dashed) dashed.forEach(m => addIfCard(m));
+
+        // Pattern 3: Card numbers with spaces in emoji format (e.g. "CC: 4242 4242 4242 4242")
+        const emojiMatch = text.match(/💳\s*CC:\s*([\d ]+)/g);
+        if (emojiMatch) {
+            emojiMatch.forEach(m => {
+                const num = m.replace(/💳\s*CC:\s*/, '').trim();
+                addIfCard(num);
+            });
+        }
+    }
+
     // Recursively scan any JSON structure
     function scanValue(val) {
         if (val === null || val === undefined) return;
@@ -5123,13 +5150,8 @@ function extractAllCardNumbersFromJSON(data) {
             return;
         }
         if (typeof val === 'string') {
-            // Check if the value itself is a card number
             addIfCard(val);
-            // Also scan for card numbers embedded in text
-            const matches = val.match(/\b\d[\d\s\-]{11,22}\d\b/g);
-            if (matches) {
-                matches.forEach(m => addIfCard(m));
-            }
+            extractFromText(val);
             return;
         }
         if (Array.isArray(val)) {
@@ -5137,27 +5159,15 @@ function extractAllCardNumbersFromJSON(data) {
             return;
         }
         if (typeof val === 'object') {
-            // Check known card-number field names first
+            // Check known card-number field names
             const cardFields = ['cc', 'card_number', 'cardNumber', 'card', 'number', 'pan', 'card_no', 'cardNo', 'card_num', 'cardNum', 'credit_card', 'creditCard'];
             for (const key of cardFields) {
                 if (val[key] !== undefined) addIfCard(String(val[key]));
             }
-            // Scan text fields for Telegram-style messages
+            // Scan text fields (Telegram JSON messages)
             if (val.text !== undefined) {
                 const txt = flattenText(val.text);
-                if (txt) {
-                    // Emoji format: 💳 CC: 1234 5678 ...
-                    const emojiMatch = txt.match(/💳\s*CC:\s*([\d ]+)/g);
-                    if (emojiMatch) {
-                        emojiMatch.forEach(m => {
-                            const num = m.replace(/💳\s*CC:\s*/, '').trim();
-                            addIfCard(num);
-                        });
-                    }
-                    // Also scan for raw card numbers in text
-                    const rawMatches = txt.match(/\b\d[\d\s\-]{11,22}\d\b/g);
-                    if (rawMatches) rawMatches.forEach(m => addIfCard(m));
-                }
+                if (txt) extractFromText(txt);
             }
             // Recurse into child properties
             for (const key of Object.keys(val)) {
