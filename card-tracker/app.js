@@ -198,11 +198,28 @@ function genId() {
 }
 
 function getCardType(num) {
-    const n = num.replace(/\s/g, '');
-    if (/^4/.test(n)) return 'VISA';
-    if (/^5[1-5]/.test(n) || /^2[2-7]/.test(n)) return 'MASTERCARD';
+    const n = num.replace(/[\s\-]/g, '');
+    if (!n) return '';
+    // AMEX: 34, 37
     if (/^3[47]/.test(n)) return 'AMEX';
-    if (/^6/.test(n)) return 'DISCOVER';
+    // VISA Electron: 4026, 417500, 4508, 4844, 4913, 4917
+    if (/^(4026|417500|4508|4844|4913|4917)/.test(n)) return 'ELECTRON';
+    // VISA: starts with 4
+    if (/^4/.test(n)) return 'VISA';
+    // MASTERCARD: 51-55, 2221-2720
+    if (/^5[1-5]/.test(n) || /^(222[1-9]|22[3-9]\d|2[3-6]\d{2}|27[01]\d|2720)/.test(n)) return 'MASTERCARD';
+    // MAESTRO: 5018, 5020, 5038, 5612, 5893, 6304, 6759, 6761, 6762, 6763
+    if (/^(5018|5020|5038|5612|5893|6304|6759|676[1-3])/.test(n)) return 'MAESTRO';
+    // DISCOVER: 6011, 622126-622925, 644-649, 65
+    if (/^(6011|64[4-9]|65|622)/.test(n)) return 'DISCOVER';
+    // JCB: 3528-3589
+    if (/^35(2[89]|[3-8]\d)/.test(n)) return 'JCB';
+    // DINERS: 300-305, 36, 38
+    if (/^(30[0-5]|36|38)/.test(n)) return 'DINERS';
+    // UNIONPAY: 62
+    if (/^62/.test(n)) return 'UNIONPAY';
+    // MIR: 2200-2204
+    if (/^220[0-4]/.test(n)) return 'MIR';
     return '';
 }
 
@@ -2325,7 +2342,8 @@ function renderNotes() {
             <div class="nt-tab-bar">
                 <div class="nt-tabs-scroll">${tabsHTML}</div>
                 <div class="nt-toolbar-right">
-                    <button class="nt-tool-btn" id="notes-checker-btn">CHECKER</button>
+                    <button class="nt-tool-btn nt-highlight-btn" id="notes-highlight-btn" title="Highlight selected text">🖍 MARK</button>
+                    <button class="nt-tool-btn" id="notes-clear-btn" title="Clear current tab">CLEAR</button>
                     <button class="nt-tool-btn" id="notes-save-btn">SAVE</button>
                 </div>
             </div>
@@ -2390,19 +2408,36 @@ function renderNotes() {
         });
     });
 
-    // Tab rename (double-click)
+    // Tab rename — inline edit on click
     area.querySelectorAll('.nt-tab-title').forEach(span => {
         span.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             const tabId = span.dataset.tab;
             const tab = STATE.notesTabs.find(t => t.id === tabId);
             if (!tab) return;
-            const newName = prompt('Tab name:', tab.title);
-            if (newName && newName.trim()) {
-                tab.title = newName.trim();
-                save();
-                renderNotes();
-            }
+            span.contentEditable = 'true';
+            span.focus();
+            // Select all text
+            const range = document.createRange();
+            range.selectNodeContents(span);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const finish = () => {
+                span.contentEditable = 'false';
+                const newName = span.textContent.trim();
+                if (newName && newName !== tab.title) {
+                    tab.title = newName;
+                    save();
+                }
+                span.textContent = tab.title; // reset if empty
+            };
+            span.addEventListener('blur', finish, { once: true });
+            span.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); span.blur(); }
+                if (ev.key === 'Escape') { span.textContent = tab.title; span.blur(); }
+            });
         });
     });
 
@@ -2426,7 +2461,65 @@ function renderNotes() {
 
     // Toolbar
     document.getElementById('notes-save-btn')?.addEventListener('click', _saveAllTabs);
-    document.getElementById('notes-checker-btn')?.addEventListener('click', openChecker);
+
+    // Clear current tab
+    document.getElementById('notes-clear-btn')?.addEventListener('click', () => {
+        const tab = _getActiveNoteTab();
+        if (!tab) return;
+        if (tab.content && tab.content.trim() && !confirm(`Clear "${tab.title}"?`)) return;
+        tab.content = '';
+        STATE.notes = '';
+        save();
+        renderNotes();
+        toast('Tab cleared', 'info');
+    });
+
+    // Highlight selected text
+    document.getElementById('notes-highlight-btn')?.addEventListener('click', () => {
+        const ta = document.getElementById('notes-textarea');
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        if (start === end) { toast('Select text first', 'warning'); return; }
+        const text = ta.value;
+        const selected = text.slice(start, end);
+        // Toggle: if already wrapped, unwrap
+        if (text.slice(start - 1, start) === '«' && text.slice(end, end + 1) === '»') {
+            ta.value = text.slice(0, start - 1) + selected + text.slice(end + 1);
+            ta.selectionStart = start - 1;
+            ta.selectionEnd = end - 1;
+        } else {
+            ta.value = text.slice(0, start) + '«' + selected + '»' + text.slice(end);
+            ta.selectionStart = start;
+            ta.selectionEnd = end + 2;
+        }
+        ta.dispatchEvent(new Event('input'));
+        ta.focus();
+    });
+
+    // Paste image from clipboard
+    document.getElementById('notes-textarea')?.addEventListener('paste', (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const ta = document.getElementById('notes-textarea');
+                    const pos = ta.selectionStart;
+                    const marker = `\n[IMG:${reader.result}]\n`;
+                    ta.value = ta.value.slice(0, pos) + marker + ta.value.slice(pos);
+                    ta.selectionStart = ta.selectionEnd = pos + marker.length;
+                    ta.dispatchEvent(new Event('input'));
+                    toast('Image pasted', 'success');
+                };
+                reader.readAsDataURL(blob);
+                break;
+            }
+        }
+    });
 }
 
 function renderFooter(count, page, totalPages) {
@@ -4304,6 +4397,35 @@ function convertOldDoc(d) {
     };
 }
 
+// ─── FULL BACKUP EXPORT ───
+function exportFullBackup() {
+    const backup = {
+        version: '2.0',
+        exported_at: new Date().toISOString(),
+        cards: STATE.cards,
+        docs: STATE.docs,
+        trash: STATE.trash || [],
+        trashCards: STATE.trashCards || [],
+        notes: STATE.notes || '',
+        notesTabs: STATE.notesTabs || [],
+        notesActiveTab: STATE.notesActiveTab || '',
+        notesFontSize: STATE.notesFontSize || 13,
+        merchants: JSON.parse(localStorage.getItem('ct_merchants') || '[]'),
+        merchantBins: JSON.parse(localStorage.getItem('ct_merchant_bins') || '[]'),
+        countries: STATE.countries,
+        density: STATE.density || 'default',
+        perPage: STATE.perPage || 50
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `card-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Full backup exported', 'success');
+}
+
 function openBackupFileDialog() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -4570,6 +4692,23 @@ function importExtras(data) {
     if (data.binCache && typeof data.binCache === 'object') {
         Object.assign(BIN_CACHE, data.binCache);
     }
+    // TrashCards
+    if (data.trashCards && Array.isArray(data.trashCards)) {
+        const existing = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+        data.trashCards.forEach(n => {
+            if (!existing.has(n.replace(/\s/g, ''))) {
+                STATE.trashCards.push(n);
+                existing.add(n.replace(/\s/g, ''));
+            }
+        });
+    }
+    // Merchants
+    if (data.merchants && Array.isArray(data.merchants)) {
+        localStorage.setItem('ct_merchants', JSON.stringify(data.merchants));
+    }
+    if (data.merchantBins && Array.isArray(data.merchantBins)) {
+        localStorage.setItem('ct_merchant_bins', JSON.stringify(data.merchantBins));
+    }
 }
 
 function finishImport() {
@@ -4632,9 +4771,14 @@ document.getElementById('backup-btn').addEventListener('click', () => {
         cards: STATE.cards,
         docs: STATE.docs,
         trash: STATE.trash,
+        trashCards: STATE.trashCards || [],
         notesTabs: STATE.notesTabs,
+        notesActiveTab: STATE.notesActiveTab || '',
+        notesFontSize: STATE.notesFontSize || 13,
         notes: { id: 'main', content: STATE.notesTabs[0]?.content || STATE.notes },
         countries: STATE.countries,
+        merchants: JSON.parse(localStorage.getItem('ct_merchants') || '[]'),
+        merchantBins: JSON.parse(localStorage.getItem('ct_merchant_bins') || '[]'),
         settings: STATE.settings || {},
         binCache: BIN_CACHE,
     };
@@ -4645,7 +4789,7 @@ document.getElementById('backup-btn').addEventListener('click', () => {
     a.download = `card-tracker-backup-${todayStr()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(`Backup created: ${STATE.cards.length} cards, ${STATE.docs.length} docs`, 'success');
+    toast(`Full backup: ${STATE.cards.length} cards, ${STATE.docs.length} docs, ${(STATE.trashCards||[]).length} trash`, 'success');
 });
 
 
@@ -4901,7 +5045,8 @@ let PARSER_STATE = {
     statusFilter: 'ALL',
     excludedIndices: new Set(),
     excludedBins: [],
-    excludedBanks: []
+    excludedBanks: [],
+    _excludeSet: null
 };
 
 // ──── HELPERS ────
@@ -5534,14 +5679,24 @@ function renderParser() {
                     <label>Bank</label>
                     <input type="text" id="parser-bank" placeholder="Bank name...">
                 </div>
-                <div class="parser-filter-group">
+                <div class="parser-filter-group" style="grid-column: 1 / -1;">
                     <label>Card Type</label>
-                    <select id="parser-type-filter" class="form-select">
-                        <option value="">All Types</option>
-                        <option value="credit">Credit</option>
-                        <option value="debit">Debit</option>
-                        <option value="prepaid">Prepaid</option>
-                    </select>
+                    <div class="parser-type-btns" id="parser-type-btns">
+                        <div class="parser-type-row">
+                            <button class="parser-type-btn" data-type="credit">Credit</button>
+                            <button class="parser-type-btn" data-type="debit">Debit</button>
+                            <button class="parser-type-btn" data-type="prepaid">Prepaid</button>
+                        </div>
+                        <div class="parser-type-row">
+                            <button class="parser-type-btn" data-network="VISA">Visa</button>
+                            <button class="parser-type-btn" data-network="MASTERCARD">MC</button>
+                            <button class="parser-type-btn" data-network="AMEX">Amex</button>
+                            <button class="parser-type-btn" data-network="DISCOVER">Disc</button>
+                            <button class="parser-type-btn" data-network="ELECTRON">Elec</button>
+                            <button class="parser-type-btn" data-network="MAESTRO">Maes</button>
+                            <button class="parser-type-btn" data-network="JCB">JCB</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5558,7 +5713,17 @@ function renderParser() {
             <button class="btn-outline parser-clear-btn" id="parser-clear-btn">🗑 CLEAR</button>
             <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">🧹 CLEAR BASE</button>
             <button class="btn-outline parser-trash-add-btn" id="parser-trash-add-btn">🗑 ADD TRASH CARDS (${trashCount})</button>
+            <button class="btn-outline" id="parser-exclude-json-btn" title="Load second JSON to exclude duplicates">📄 EXCLUDE BASE</button>
+            <button class="btn-outline" id="parser-import-notes-btn" title="Import results to Notes tab">📋 TO NOTES</button>
             <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? '📦 Saved base: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
+        </div>
+
+        <!-- POST-FILTER STATS -->
+        <div class="parser-stats-bar" id="parser-stats-bar" style="display:none;">
+            <span class="ps-item">Total: <strong id="ps-total">0</strong></span>
+            <span class="ps-item">Duplicates: <strong id="ps-dupes">0</strong></span>
+            <span class="ps-item">Trash: <strong id="ps-trash">0</strong></span>
+            <span class="ps-item ps-net">→ Import: <strong id="ps-net">0</strong></span>
         </div>
 
         <!-- EXCLUDE BIN / BANK -->
@@ -5627,6 +5792,87 @@ function renderParser() {
 
     // EXCLUDE SELECTED button
     document.getElementById('parser-exclude-apply-btn')?.addEventListener('click', _applyBinBankExclusion);
+
+    // Card type toggle buttons
+    document.querySelectorAll('.parser-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.classList.toggle('active');
+        });
+    });
+
+    // EXCLUDE BASE — load second JSON to exclude duplicates
+    document.getElementById('parser-exclude-json-btn')?.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const data = JSON.parse(reader.result);
+                    const msgs = data.messages || data;
+                    const excludeNums = new Set();
+                    const cardRe = /\b(\d{13,19})\b/g;
+                    const ccFieldRe = /(?:CC|Card|Number)[:\s]+(\d[\d\s\-]{10,18}\d)/gi;
+                    (Array.isArray(msgs) ? msgs : []).forEach(m => {
+                        const text = typeof m === 'string' ? m : (m.text || (Array.isArray(m.text) ? m.text.map(p => typeof p === 'string' ? p : (p.text || '')).join('') : ''));
+                        // Try CC field first
+                        let match;
+                        while ((match = ccFieldRe.exec(text)) !== null) {
+                            excludeNums.add(match[1].replace(/[\s\-]/g, ''));
+                        }
+                        // Fallback to any 13-19 digit sequences
+                        while ((match = cardRe.exec(text)) !== null) {
+                            excludeNums.add(match[1]);
+                        }
+                    });
+                    PARSER_STATE._excludeSet = excludeNums;
+                    toast(`Loaded ${excludeNums.size} cards to exclude`, 'success');
+                    const btn2 = document.getElementById('parser-exclude-json-btn');
+                    if (btn2) btn2.textContent = `📄 EXCLUDE BASE (${excludeNums.size})`;
+                } catch (err) {
+                    toast('Invalid JSON file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        });
+        input.click();
+    });
+
+    // IMPORT TO NOTES
+    document.getElementById('parser-import-notes-btn')?.addEventListener('click', () => {
+        if (PARSER_STATE.collected.length === 0) { toast('No parsed results', 'warning'); return; }
+        const choice = confirm('Import to NEW tab?\n\nOK = New Tab\nCancel = Current Tab');
+        const text = PARSER_STATE.collected.map((c, i) => {
+            return `#${i + 1} ${c.holderName || '-'} | ${c.cc || '-'} | ${c.exp || '-'} | BIN:${c.bin || '-'} | ${c.detectedGeo || '-'}`;
+        }).join('\n');
+
+        if (choice) {
+            // New tab
+            const newTab = {
+                id: 'tab-' + Date.now(),
+                title: 'Parser Import',
+                content: text,
+                pinned: false,
+                tag: null,
+                created: Date.now(),
+                scrollPos: 0
+            };
+            STATE.notesTabs.push(newTab);
+            STATE.notesActiveTab = newTab.id;
+        } else {
+            // Current tab
+            const tab = STATE.notesTabs.find(t => t.id === STATE.notesActiveTab) || STATE.notesTabs[0];
+            if (tab) {
+                tab.content = (tab.content ? tab.content + '\n\n' : '') + text;
+            }
+        }
+        STATE.notes = text;
+        save();
+        toast(`Imported ${PARSER_STATE.collected.length} cards to Notes`, 'success');
+    });
 
     if (PARSER_STATE.collected.length > 0) renderParserResults();
 }
@@ -5786,20 +6032,58 @@ function runParse() {
         allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
     }
 
-    // Type filter (credit/debit/prepaid)
-    const typeFilter = document.getElementById('parser-type-filter')?.value || '';
-    if (typeFilter) {
+    // Type filter (toggle buttons)
+    const activeTypes = Array.from(document.querySelectorAll('.parser-type-btn.active[data-type]')).map(b => b.dataset.type);
+    const activeNetworks = Array.from(document.querySelectorAll('.parser-type-btn.active[data-network]')).map(b => b.dataset.network);
+    if (activeTypes.length > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             const cardType = (info?.type || c.type || '').toLowerCase();
-            return cardType.includes(typeFilter);
+            return activeTypes.some(t => cardType.includes(t));
+        });
+    }
+    if (activeNetworks.length > 0) {
+        allCards = allCards.filter(c => {
+            const network = getCardType(c.cc || c.cardNumber || c.bin || '');
+            return activeNetworks.includes(network);
         });
     }
 
+    // Exclude JSON base
+    if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
+            return !PARSER_STATE._excludeSet.has(cc);
+        });
+    }
+
+    const totalBeforeDedup = allCards.length;
+    let dupCount = 0;
 
     if (dedup) {
         const seen = new Set();
+        const before = allCards.length;
         allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
+        dupCount = before - allCards.length;
+    }
+
+    // Trash filter count
+    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+    let trashCount2 = 0;
+    allCards = allCards.filter(c => {
+        const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
+        if (trashSet.has(cc)) { trashCount2++; return false; }
+        return true;
+    });
+
+    // Show post-filter stats
+    const statsBar = document.getElementById('parser-stats-bar');
+    if (statsBar) {
+        statsBar.style.display = 'flex';
+        document.getElementById('ps-total').textContent = totalBeforeDedup;
+        document.getElementById('ps-dupes').textContent = dupCount;
+        document.getElementById('ps-trash').textContent = trashCount2;
+        document.getElementById('ps-net').textContent = allCards.length;
     }
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;

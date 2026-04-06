@@ -17,9 +17,9 @@
     --border-focus: #3A3D42;
 
     --text-primary: #FFFFFF;
-    --text-secondary: #A1A1AA;
-    --text-muted: #6B7280;
-    --text-dim: #3F4451;
+    --text-secondary: #D4D4D8;
+    --text-muted: #9CA3AF;
+    --text-dim: #71717A;
 
     --accent: #FFFFFF;
     --accent-hover: #FFFFFF;
@@ -6316,3 +6316,76 @@ tr.row-selected td {
 .drawer-card { width: 160px; color: var(--text-dim); }
 .drawer-status { width: 60px; color: #38BDF8; font-weight: 600; }
 .drawer-date { color: var(--text-dim); }
+
+/* ═══════ PARSER TYPE TOGGLE BUTTONS ═══════ */
+.parser-type-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.parser-type-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.parser-type-btn {
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 120ms;
+}
+.parser-type-btn:hover {
+    background: rgba(255,255,255,.08);
+    color: var(--text-primary);
+}
+.parser-type-btn.active {
+    background: rgba(34,197,94,.15);
+    border-color: rgba(34,197,94,.4);
+    color: #22C55E;
+}
+
+/* ═══════ POST-FILTER STATS BAR ═══════ */
+.parser-stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.ps-item strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+.ps-net strong {
+    color: #22C55E;
+    font-size: 14px;
+}
+
+/* ═══════ NOTES HIGHLIGHT BUTTON ═══════ */
+.nt-highlight-btn {
+    color: #FBBF24 !important;
+}
+.nt-highlight-btn:hover {
+    background: rgba(251,191,36,.1) !important;
+}
+
+/* Notes tab inline edit */
+.nt-tab-title[contenteditable="true"] {
+    outline: none;
+    background: rgba(255,255,255,.08);
+    border-radius: 3px;
+    padding: 0 4px;
+    min-width: 30px;
+}
