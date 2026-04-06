@@ -5659,8 +5659,8 @@ function renderParser() {
             <input type="file" id="parser-file-input" accept=".json" hidden>
             <div class="parser-upload-content">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 16V4m0 0L8 8m4-4l4 4"/><path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
-                <span class="parser-upload-title">${PARSER_STATE.file ? '📁 ' + PARSER_STATE.file : 'Drop result.json or click to upload'}</span>
-                <span class="parser-upload-hint">Telegram JSON export · 100% local · no internet${hasBase ? ' · 📦 Base saved (' + PARSER_STATE.collected.length + ' cards)' : ''}</span>
+                <span class="parser-upload-title">${PARSER_STATE.file ? PARSER_STATE.file : 'Drop result.json or click to upload'}</span>
+                <span class="parser-upload-hint">Telegram JSON export · 100% local · no internet${hasBase ? ' · Base saved (' + PARSER_STATE.collected.length + ' cards)' : ''}</span>
             </div>
         </div>
 
@@ -5708,14 +5708,14 @@ function renderParser() {
 
         <!-- ACTIONS -->
         <div class="parser-actions">
-            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>🔍 PARSE</button>
-            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>📦 COLLECT ALL</button>
-            <button class="btn-outline parser-clear-btn" id="parser-clear-btn">🗑 CLEAR</button>
-            <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">🧹 CLEAR BASE</button>
-            <button class="btn-outline parser-trash-add-btn" id="parser-trash-add-btn">🗑 ADD TRASH CARDS (${trashCount})</button>
-            <button class="btn-outline" id="parser-exclude-json-btn" title="Load second JSON to exclude duplicates">📄 EXCLUDE BASE</button>
-            <button class="btn-outline" id="parser-import-notes-btn" title="Import results to Notes tab">📋 TO NOTES</button>
-            <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? '📦 Saved base: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
+            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>PARSE</button>
+            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>COLLECT ALL</button>
+            <button class="btn-outline parser-clear-btn" id="parser-clear-btn">CLEAR</button>
+            <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">CLEAR BASE</button>
+            <button class="btn-outline parser-trash-add-btn" id="parser-trash-add-btn">ADD TRASH (${trashCount})</button>
+            <button class="btn-outline" id="parser-exclude-json-btn" title="Load second JSON and remove matching cards">EXCLUDE BASE</button>
+            <button class="btn-outline" id="parser-import-notes-btn" title="Import results to Notes tab">TO NOTES</button>
+            <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? 'Base saved: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
         </div>
 
         <!-- POST-FILTER STATS -->
@@ -5800,8 +5800,12 @@ function renderParser() {
         });
     });
 
-    // EXCLUDE BASE — load second JSON to exclude duplicates
+    // EXCLUDE BASE — load second JSON, parse it, immediately remove matches from collected
     document.getElementById('parser-exclude-json-btn')?.addEventListener('click', () => {
+        if (PARSER_STATE.collected.length === 0) {
+            toast('Load and parse main base first', 'warning');
+            return;
+        }
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
@@ -5813,27 +5817,69 @@ function renderParser() {
                 try {
                     const data = JSON.parse(reader.result);
                     const msgs = data.messages || data;
-                    const excludeNums = new Set();
-                    const cardRe = /\b(\d{13,19})\b/g;
-                    const ccFieldRe = /(?:CC|Card|Number)[:\s]+(\d[\d\s\-]{10,18}\d)/gi;
-                    (Array.isArray(msgs) ? msgs : []).forEach(m => {
-                        const text = typeof m === 'string' ? m : (m.text || (Array.isArray(m.text) ? m.text.map(p => typeof p === 'string' ? p : (p.text || '')).join('') : ''));
-                        // Try CC field first
-                        let match;
-                        while ((match = ccFieldRe.exec(text)) !== null) {
-                            excludeNums.add(match[1].replace(/[\s\-]/g, ''));
-                        }
-                        // Fallback to any 13-19 digit sequences
-                        while ((match = cardRe.exec(text)) !== null) {
-                            excludeNums.add(match[1]);
+                    if (!Array.isArray(msgs) || msgs.length === 0) {
+                        toast('No messages found in file', 'error');
+                        return;
+                    }
+
+                    // Extract cards using the SAME parser as main base
+                    const excludeCards = extractCardsFromMessages(msgs);
+
+                    // Build exclude sets: full CC number, BIN+last4
+                    const excludeFullCC = new Set();
+                    const excludeBinLast4 = new Set();
+                    excludeCards.forEach(c => {
+                        const cc = (c.cc || '').replace(/[\s\-]/g, '');
+                        if (cc.length >= 6) {
+                            excludeFullCC.add(cc);
+                            excludeBinLast4.add(cc.slice(0, 6) + '_' + cc.slice(-4));
                         }
                     });
-                    PARSER_STATE._excludeSet = excludeNums;
-                    toast(`Loaded ${excludeNums.size} cards to exclude`, 'success');
+
+                    // Also store for future PARSE operations
+                    PARSER_STATE._excludeSet = excludeFullCC;
+
+                    // Filter collected immediately
+                    const before = PARSER_STATE.collected.length;
+                    PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
+                        const cc = (c.cc || '').replace(/[\s\-]/g, '');
+                        // Match by full CC or by BIN+last4
+                        if (excludeFullCC.has(cc)) return false;
+                        if (cc.length >= 6 && excludeBinLast4.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
+                        return true;
+                    });
+                    const removed = before - PARSER_STATE.collected.length;
+
+                    // Rebuild binGroups from filtered collected
+                    const binMap = {};
+                    PARSER_STATE.collected.forEach(c => {
+                        if (!binMap[c.bin]) binMap[c.bin] = [];
+                        binMap[c.bin].push(c);
+                    });
+                    PARSER_STATE.binGroups = Object.entries(binMap)
+                        .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
+                        .sort((a, b) => b.count - a.count);
+
+                    // Update button
                     const btn2 = document.getElementById('parser-exclude-json-btn');
-                    if (btn2) btn2.textContent = `📄 EXCLUDE BASE (${excludeNums.size})`;
+                    if (btn2) btn2.textContent = `EXCLUDE BASE (${excludeCards.length})`;
+
+                    // Update stats bar
+                    const statsBar = document.getElementById('parser-stats-bar');
+                    if (statsBar) {
+                        statsBar.style.display = 'flex';
+                        document.getElementById('ps-total').textContent = before;
+                        document.getElementById('ps-dupes').textContent = removed;
+                        document.getElementById('ps-trash').textContent = '0';
+                        document.getElementById('ps-net').textContent = PARSER_STATE.collected.length;
+                    }
+
+                    toast(`Excluded ${removed} matching cards (${PARSER_STATE.collected.length} remaining)`, 'success');
+
+                    // Re-render
+                    renderParserResults();
                 } catch (err) {
-                    toast('Invalid JSON file', 'error');
+                    toast('Invalid JSON file: ' + err.message, 'error');
                 }
             };
             reader.readAsText(file);
@@ -5920,7 +5966,7 @@ function _initTrashCardModal() {
 
         // Update button counter
         const btn = document.getElementById('parser-trash-add-btn');
-        if (btn) btn.textContent = `🗑 ADD TRASH CARDS (${STATE.trashCards.length})`;
+        if (btn) btn.textContent = `ADD TRASH (${STATE.trashCards.length})`;
 
         // Re-tag if parser has results
         if (PARSER_STATE.collected.length > 0) {
