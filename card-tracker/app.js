@@ -64,9 +64,9 @@ async function lookupBin(bin) {
     const key = bin.slice(0, 6);
     // Return from cache
     if (BIN_CACHE[key]) return BIN_CACHE[key];
-    
+
     const apiUrl = `https://rustbin.site/api/?bin=${key}`;
-    
+
     // Strategy 1: Direct fetch (works when served from http server)
     try {
         const resp = await fetch(apiUrl);
@@ -80,7 +80,7 @@ async function lookupBin(bin) {
             return _cacheBinData(key, data);
         }
     } catch { /* CORS blocked — try proxies */ }
-    
+
     // Strategy 2: allorigins.win proxy (wraps response)
     try {
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
@@ -93,7 +93,7 @@ async function lookupBin(bin) {
             }
         }
     } catch { /* try next */ }
-    
+
     // Strategy 3: corsproxy.io
     try {
         const resp = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
@@ -111,7 +111,7 @@ async function lookupBin(bin) {
             return _cacheBinData(key, data);
         }
     } catch { /* all proxies failed */ }
-    
+
     return null;
 }
 
@@ -145,50 +145,50 @@ function isoToFlag(code) {
 }
 
 const COUNTRY_DB = {
-    AB:'Abkhazia',AD:'Andorra',AE:'United Arab Emirates',AF:'Afghanistan',AG:'Antigua and Barbuda',
-    AI:'Anguilla',AL:'Albania',AM:'Armenia',AO:'Angola',AQ:'Antarctica',AR:'Argentina',
-    AS:'American Samoa',AT:'Austria',AU:'Australia',AW:'Aruba',AX:'Åland Islands',AZ:'Azerbaijan',
-    BA:'Bosnia and Herzegovina',BB:'Barbados',BD:'Bangladesh',BE:'Belgium',BF:'Burkina Faso',
-    BG:'Bulgaria',BH:'Bahrain',BI:'Burundi',BJ:'Benin',BL:'Saint Barthélemy',BM:'Bermuda',
-    BN:'Brunei',BO:'Bolivia',BQ:'Bonaire',BR:'Brazil',BS:'Bahamas',BT:'Bhutan',BV:'Bouvet Island',
-    BW:'Botswana',BY:'Belarus',BZ:'Belize',CA:'Canada',CC:'Cocos Islands',CD:'Congo DR',
-    CF:'Central African Republic',CG:'Congo',CH:'Switzerland',CI:"Côte d'Ivoire",CK:'Cook Islands',
-    CL:'Chile',CM:'Cameroon',CN:'China',CO:'Colombia',CR:'Costa Rica',CU:'Cuba',CV:'Cape Verde',
-    CW:'Curaçao',CX:'Christmas Island',CY:'Cyprus',CZ:'Czech Republic',DE:'Germany',DJ:'Djibouti',
-    DK:'Denmark',DM:'Dominica',DO:'Dominican Republic',DZ:'Algeria',EC:'Ecuador',EE:'Estonia',
-    EG:'Egypt',EH:'Western Sahara',ER:'Eritrea',ES:'Spain',ET:'Ethiopia',FI:'Finland',FJ:'Fiji',
-    FK:'Falkland Islands',FM:'Micronesia',FO:'Faroe Islands',FR:'France',GA:'Gabon',GB:'United Kingdom',
-    GD:'Grenada',GE:'Georgia',GF:'French Guiana',GG:'Guernsey',GH:'Ghana',GI:'Gibraltar',
-    GL:'Greenland',GM:'Gambia',GN:'Guinea',GP:'Guadeloupe',GQ:'Equatorial Guinea',GR:'Greece',
-    GS:'South Georgia',GT:'Guatemala',GU:'Guam',GW:'Guinea-Bissau',GY:'Guyana',HK:'Hong Kong',
-    HM:'Heard Island',HN:'Honduras',HR:'Croatia',HT:'Haiti',HU:'Hungary',ID:'Indonesia',
-    IE:'Ireland',IL:'Israel',IM:'Isle of Man',IN:'India',IO:'British Indian Ocean Territory',
-    IQ:'Iraq',IR:'Iran',IS:'Iceland',IT:'Italy',JE:'Jersey',JM:'Jamaica',JO:'Jordan',JP:'Japan',
-    KE:'Kenya',KG:'Kyrgyzstan',KH:'Cambodia',KI:'Kiribati',KM:'Comoros',KN:'Saint Kitts and Nevis',
-    KP:'North Korea',KR:'South Korea',KW:'Kuwait',KY:'Cayman Islands',KZ:'Kazakhstan',
-    LA:'Laos',LB:'Lebanon',LC:'Saint Lucia',LI:'Liechtenstein',LK:'Sri Lanka',LR:'Liberia',
-    LS:'Lesotho',LT:'Lithuania',LU:'Luxembourg',LV:'Latvia',LY:'Libya',MA:'Morocco',MC:'Monaco',
-    MD:'Moldova',ME:'Montenegro',MF:'Saint Martin',MG:'Madagascar',MH:'Marshall Islands',
-    MK:'North Macedonia',ML:'Mali',MM:'Myanmar',MN:'Mongolia',MO:'Macao',MP:'Northern Mariana Islands',
-    MQ:'Martinique',MR:'Mauritania',MS:'Montserrat',MT:'Malta',MU:'Mauritius',MV:'Maldives',
-    MW:'Malawi',MX:'Mexico',MY:'Malaysia',MZ:'Mozambique',NA:'Namibia',NC:'New Caledonia',
-    NE:'Niger',NF:'Norfolk Island',NG:'Nigeria',NI:'Nicaragua',NL:'Netherlands',NO:'Norway',
-    NP:'Nepal',NR:'Nauru',NU:'Niue',NZ:'New Zealand',OM:'Oman',OS:'South Ossetia',PA:'Panama',
-    PE:'Peru',PF:'French Polynesia',PG:'Papua New Guinea',PH:'Philippines',PK:'Pakistan',
-    PL:'Poland',PM:'Saint Pierre and Miquelon',PN:'Pitcairn',PR:'Puerto Rico',
-    PS:'Palestine',PT:'Portugal',PW:'Palau',PY:'Paraguay',QA:'Qatar',RE:'Réunion',RO:'Romania',
-    RS:'Serbia',RU:'Russia',RW:'Rwanda',SA:'Saudi Arabia',SB:'Solomon Islands',SC:'Seychelles',
-    SD:'Sudan',SE:'Sweden',SG:'Singapore',SH:'Saint Helena',SI:'Slovenia',SJ:'Svalbard',
-    SK:'Slovakia',SL:'Sierra Leone',SM:'San Marino',SN:'Senegal',SO:'Somalia',SR:'Suriname',
-    SS:'South Sudan',ST:'São Tomé and Príncipe',SV:'El Salvador',SX:'Sint Maarten',
-    SY:'Syria',SZ:'Eswatini',TC:'Turks and Caicos',TD:'Chad',TF:'French Southern Territories',
-    TG:'Togo',TH:'Thailand',TJ:'Tajikistan',TK:'Tokelau',TL:'Timor-Leste',TM:'Turkmenistan',
-    TN:'Tunisia',TO:'Tonga',TR:'Turkey',TT:'Trinidad and Tobago',TV:'Tuvalu',TW:'Taiwan',
-    TZ:'Tanzania',UA:'Ukraine',UG:'Uganda',UM:'US Minor Outlying Islands',US:'United States',
-    UY:'Uruguay',UZ:'Uzbekistan',VA:'Vatican City',VC:'Saint Vincent and the Grenadines',
-    VE:'Venezuela',VG:'British Virgin Islands',VI:'US Virgin Islands',VN:'Vietnam',VU:'Vanuatu',
-    WF:'Wallis and Futuna',WS:'Samoa',YE:'Yemen',YT:'Mayotte',ZA:'South Africa',ZM:'Zambia',
-    ZW:'Zimbabwe'
+    AB: 'Abkhazia', AD: 'Andorra', AE: 'United Arab Emirates', AF: 'Afghanistan', AG: 'Antigua and Barbuda',
+    AI: 'Anguilla', AL: 'Albania', AM: 'Armenia', AO: 'Angola', AQ: 'Antarctica', AR: 'Argentina',
+    AS: 'American Samoa', AT: 'Austria', AU: 'Australia', AW: 'Aruba', AX: 'Åland Islands', AZ: 'Azerbaijan',
+    BA: 'Bosnia and Herzegovina', BB: 'Barbados', BD: 'Bangladesh', BE: 'Belgium', BF: 'Burkina Faso',
+    BG: 'Bulgaria', BH: 'Bahrain', BI: 'Burundi', BJ: 'Benin', BL: 'Saint Barthélemy', BM: 'Bermuda',
+    BN: 'Brunei', BO: 'Bolivia', BQ: 'Bonaire', BR: 'Brazil', BS: 'Bahamas', BT: 'Bhutan', BV: 'Bouvet Island',
+    BW: 'Botswana', BY: 'Belarus', BZ: 'Belize', CA: 'Canada', CC: 'Cocos Islands', CD: 'Congo DR',
+    CF: 'Central African Republic', CG: 'Congo', CH: 'Switzerland', CI: "Côte d'Ivoire", CK: 'Cook Islands',
+    CL: 'Chile', CM: 'Cameroon', CN: 'China', CO: 'Colombia', CR: 'Costa Rica', CU: 'Cuba', CV: 'Cape Verde',
+    CW: 'Curaçao', CX: 'Christmas Island', CY: 'Cyprus', CZ: 'Czech Republic', DE: 'Germany', DJ: 'Djibouti',
+    DK: 'Denmark', DM: 'Dominica', DO: 'Dominican Republic', DZ: 'Algeria', EC: 'Ecuador', EE: 'Estonia',
+    EG: 'Egypt', EH: 'Western Sahara', ER: 'Eritrea', ES: 'Spain', ET: 'Ethiopia', FI: 'Finland', FJ: 'Fiji',
+    FK: 'Falkland Islands', FM: 'Micronesia', FO: 'Faroe Islands', FR: 'France', GA: 'Gabon', GB: 'United Kingdom',
+    GD: 'Grenada', GE: 'Georgia', GF: 'French Guiana', GG: 'Guernsey', GH: 'Ghana', GI: 'Gibraltar',
+    GL: 'Greenland', GM: 'Gambia', GN: 'Guinea', GP: 'Guadeloupe', GQ: 'Equatorial Guinea', GR: 'Greece',
+    GS: 'South Georgia', GT: 'Guatemala', GU: 'Guam', GW: 'Guinea-Bissau', GY: 'Guyana', HK: 'Hong Kong',
+    HM: 'Heard Island', HN: 'Honduras', HR: 'Croatia', HT: 'Haiti', HU: 'Hungary', ID: 'Indonesia',
+    IE: 'Ireland', IL: 'Israel', IM: 'Isle of Man', IN: 'India', IO: 'British Indian Ocean Territory',
+    IQ: 'Iraq', IR: 'Iran', IS: 'Iceland', IT: 'Italy', JE: 'Jersey', JM: 'Jamaica', JO: 'Jordan', JP: 'Japan',
+    KE: 'Kenya', KG: 'Kyrgyzstan', KH: 'Cambodia', KI: 'Kiribati', KM: 'Comoros', KN: 'Saint Kitts and Nevis',
+    KP: 'North Korea', KR: 'South Korea', KW: 'Kuwait', KY: 'Cayman Islands', KZ: 'Kazakhstan',
+    LA: 'Laos', LB: 'Lebanon', LC: 'Saint Lucia', LI: 'Liechtenstein', LK: 'Sri Lanka', LR: 'Liberia',
+    LS: 'Lesotho', LT: 'Lithuania', LU: 'Luxembourg', LV: 'Latvia', LY: 'Libya', MA: 'Morocco', MC: 'Monaco',
+    MD: 'Moldova', ME: 'Montenegro', MF: 'Saint Martin', MG: 'Madagascar', MH: 'Marshall Islands',
+    MK: 'North Macedonia', ML: 'Mali', MM: 'Myanmar', MN: 'Mongolia', MO: 'Macao', MP: 'Northern Mariana Islands',
+    MQ: 'Martinique', MR: 'Mauritania', MS: 'Montserrat', MT: 'Malta', MU: 'Mauritius', MV: 'Maldives',
+    MW: 'Malawi', MX: 'Mexico', MY: 'Malaysia', MZ: 'Mozambique', NA: 'Namibia', NC: 'New Caledonia',
+    NE: 'Niger', NF: 'Norfolk Island', NG: 'Nigeria', NI: 'Nicaragua', NL: 'Netherlands', NO: 'Norway',
+    NP: 'Nepal', NR: 'Nauru', NU: 'Niue', NZ: 'New Zealand', OM: 'Oman', OS: 'South Ossetia', PA: 'Panama',
+    PE: 'Peru', PF: 'French Polynesia', PG: 'Papua New Guinea', PH: 'Philippines', PK: 'Pakistan',
+    PL: 'Poland', PM: 'Saint Pierre and Miquelon', PN: 'Pitcairn', PR: 'Puerto Rico',
+    PS: 'Palestine', PT: 'Portugal', PW: 'Palau', PY: 'Paraguay', QA: 'Qatar', RE: 'Réunion', RO: 'Romania',
+    RS: 'Serbia', RU: 'Russia', RW: 'Rwanda', SA: 'Saudi Arabia', SB: 'Solomon Islands', SC: 'Seychelles',
+    SD: 'Sudan', SE: 'Sweden', SG: 'Singapore', SH: 'Saint Helena', SI: 'Slovenia', SJ: 'Svalbard',
+    SK: 'Slovakia', SL: 'Sierra Leone', SM: 'San Marino', SN: 'Senegal', SO: 'Somalia', SR: 'Suriname',
+    SS: 'South Sudan', ST: 'São Tomé and Príncipe', SV: 'El Salvador', SX: 'Sint Maarten',
+    SY: 'Syria', SZ: 'Eswatini', TC: 'Turks and Caicos', TD: 'Chad', TF: 'French Southern Territories',
+    TG: 'Togo', TH: 'Thailand', TJ: 'Tajikistan', TK: 'Tokelau', TL: 'Timor-Leste', TM: 'Turkmenistan',
+    TN: 'Tunisia', TO: 'Tonga', TR: 'Turkey', TT: 'Trinidad and Tobago', TV: 'Tuvalu', TW: 'Taiwan',
+    TZ: 'Tanzania', UA: 'Ukraine', UG: 'Uganda', UM: 'US Minor Outlying Islands', US: 'United States',
+    UY: 'Uruguay', UZ: 'Uzbekistan', VA: 'Vatican City', VC: 'Saint Vincent and the Grenadines',
+    VE: 'Venezuela', VG: 'British Virgin Islands', VI: 'US Virgin Islands', VN: 'Vietnam', VU: 'Vanuatu',
+    WF: 'Wallis and Futuna', WS: 'Samoa', YE: 'Yemen', YT: 'Mayotte', ZA: 'South Africa', ZM: 'Zambia',
+    ZW: 'Zimbabwe'
 };
 
 // ──── HELPERS ────
@@ -294,7 +294,7 @@ function load() {
                 const pb = JSON.parse(parserBaseRaw);
                 PARSER_STATE.collected = pb.collected || [];
                 PARSER_STATE.file = pb.file || '';
-            } catch(e) {}
+            } catch (e) { }
         }
         // Load notesTabs
         const tabsRaw = localStorage.getItem('ct_notes_tabs');
@@ -794,7 +794,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes','generator','builder','merchants','analytics'].includes(STATE.currentView)) {
+    if (['notes', 'generator', 'builder', 'merchants', 'analytics'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -852,99 +852,99 @@ function renderStats() {
 }
 
 
-    // ═══════════════════════════════════════════
-    //  ANALYTICS MODULE — BIN Performance
-    // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  ANALYTICS MODULE — BIN Performance
+// ═══════════════════════════════════════════
 
-    let _anPeriod = 0; // 0 = all, 7/14/30 = days
+let _anPeriod = 0; // 0 = all, 7/14/30 = days
 
-    // Parse DD.MM.YY string to timestamp
-    function _anParseDate(dateStr) {
-        if (!dateStr) return 0;
-        if (typeof dateStr === 'number') return dateStr;
-        const parts = dateStr.split('.');
-        if (parts.length !== 3) return 0;
-        const day = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1;
-        const year = 2000 + parseInt(parts[2]);
-        return new Date(year, month, day).getTime();
-    }
+// Parse DD.MM.YY string to timestamp
+function _anParseDate(dateStr) {
+    if (!dateStr) return 0;
+    if (typeof dateStr === 'number') return dateStr;
+    const parts = dateStr.split('.');
+    if (parts.length !== 3) return 0;
+    const day = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1;
+    const year = 2000 + parseInt(parts[2]);
+    return new Date(year, month, day).getTime();
+}
 
-    function renderAnalytics() {
-        const area = document.getElementById('content-area');
-        const now = Date.now();
-        const DAY = 86400000;
+function renderAnalytics() {
+    const area = document.getElementById('content-area');
+    const now = Date.now();
+    const DAY = 86400000;
 
-        // Get all cards (current country)
-        const allCards = STATE.cards.filter(c => c.country === STATE.currentCountry);
+    // Get all cards (current country)
+    const allCards = STATE.cards.filter(c => c.country === STATE.currentCountry);
 
-        // Period filter
-        const periodMs = _anPeriod > 0 ? _anPeriod * DAY : 0;
-        const cards = periodMs > 0
-            ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) <= periodMs; })
-            : allCards;
+    // Period filter
+    const periodMs = _anPeriod > 0 ? _anPeriod * DAY : 0;
+    const cards = periodMs > 0
+        ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) <= periodMs; })
+        : allCards;
 
-        // Previous period cards for trend comparison
-        const prevCards = periodMs > 0
-            ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) > periodMs && (now - t) <= periodMs * 2; })
-            : [];
+    // Previous period cards for trend comparison
+    const prevCards = periodMs > 0
+        ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) > periodMs && (now - t) <= periodMs * 2; })
+        : [];
 
-        // Build BIN stats
-        const binMap = {};
-        cards.forEach(c => {
-            const bin = getBin(c.cardNumber);
-            if (!bin || bin.length < 6) return;
-            if (!binMap[bin]) binMap[bin] = { bin, used: 0, a: 0, r: 0, v: 0, m: 0, cards: [] };
-            binMap[bin].used++;
-            if (c.cardAdd) binMap[bin].a++;
-            if (c.runAds) binMap[bin].r++;
-            if (c.verified) binMap[bin].v++;
-            if (c.minic) binMap[bin].m++;
-            binMap[bin].cards.push(c);
-        });
+    // Build BIN stats
+    const binMap = {};
+    cards.forEach(c => {
+        const bin = getBin(c.cardNumber);
+        if (!bin || bin.length < 6) return;
+        if (!binMap[bin]) binMap[bin] = { bin, used: 0, a: 0, r: 0, v: 0, m: 0, cards: [] };
+        binMap[bin].used++;
+        if (c.cardAdd) binMap[bin].a++;
+        if (c.runAds) binMap[bin].r++;
+        if (c.verified) binMap[bin].v++;
+        if (c.minic) binMap[bin].m++;
+        binMap[bin].cards.push(c);
+    });
 
-        // Previous period BIN stats for trend
-        const prevBinMap = {};
-        prevCards.forEach(c => {
-            const bin = getBin(c.cardNumber);
-            if (!bin || bin.length < 6) return;
-            if (!prevBinMap[bin]) prevBinMap[bin] = { used: 0, a: 0 };
-            prevBinMap[bin].used++;
-            if (c.cardAdd) prevBinMap[bin].a++;
-        });
+    // Previous period BIN stats for trend
+    const prevBinMap = {};
+    prevCards.forEach(c => {
+        const bin = getBin(c.cardNumber);
+        if (!bin || bin.length < 6) return;
+        if (!prevBinMap[bin]) prevBinMap[bin] = { used: 0, a: 0 };
+        prevBinMap[bin].used++;
+        if (c.cardAdd) prevBinMap[bin].a++;
+    });
 
-        // Sort by USED desc
-        const bins = Object.values(binMap).sort((a, b) => b.used - a.used);
+    // Sort by USED desc
+    const bins = Object.values(binMap).sort((a, b) => b.used - a.used);
 
-        // Build grid rows
-        let rowsHtml = '';
-        if (bins.length === 0) {
-            rowsHtml = '<div class="an-empty">No data for this period</div>';
-        } else {
-            bins.forEach(b => {
-                const rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
+    // Build grid rows
+    let rowsHtml = '';
+    if (bins.length === 0) {
+        rowsHtml = '<div class="an-empty">No data for this period</div>';
+    } else {
+        bins.forEach(b => {
+            const rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
 
-                // Trend calculation
-                let trendHtml = '<span class="an-trend an-trend-na">——</span>';
-                if (_anPeriod > 0 && prevBinMap[b.bin]) {
-                    const prevRate = prevBinMap[b.bin].used > 0
-                        ? Math.round((prevBinMap[b.bin].a / prevBinMap[b.bin].used) * 100) : 0;
-                    const delta = rate - prevRate;
-                    if (delta > 0) {
-                        trendHtml = `<span class="an-trend an-trend-up">▲ +${delta}%</span>`;
-                    } else if (delta < 0) {
-                        trendHtml = `<span class="an-trend an-trend-down">▼ ${delta}%</span>`;
-                    } else {
-                        trendHtml = '<span class="an-trend an-trend-na">── 0%</span>';
-                    }
+            // Trend calculation
+            let trendHtml = '<span class="an-trend an-trend-na">——</span>';
+            if (_anPeriod > 0 && prevBinMap[b.bin]) {
+                const prevRate = prevBinMap[b.bin].used > 0
+                    ? Math.round((prevBinMap[b.bin].a / prevBinMap[b.bin].used) * 100) : 0;
+                const delta = rate - prevRate;
+                if (delta > 0) {
+                    trendHtml = `<span class="an-trend an-trend-up">▲ +${delta}%</span>`;
+                } else if (delta < 0) {
+                    trendHtml = `<span class="an-trend an-trend-down">▼ ${delta}%</span>`;
+                } else {
+                    trendHtml = '<span class="an-trend an-trend-na">── 0%</span>';
                 }
+            }
 
-                // Rate color class
-                let rateClass = 'an-rate-bad';
-                if (rate >= 60) rateClass = 'an-rate-good';
-                else if (rate >= 30) rateClass = 'an-rate-mid';
+            // Rate color class
+            let rateClass = 'an-rate-bad';
+            if (rate >= 60) rateClass = 'an-rate-good';
+            else if (rate >= 30) rateClass = 'an-rate-mid';
 
-                rowsHtml += `<div class="an-row" data-bin="${b.bin}">
+            rowsHtml += `<div class="an-row" data-bin="${b.bin}">
                     <span class="an-cell an-cell-bin">${b.bin}</span>
                     <span class="an-cell an-cell-num">${b.used}</span>
                     <span class="an-cell an-cell-a">${b.a}</span>
@@ -954,10 +954,10 @@ function renderStats() {
                     <span class="an-cell ${rateClass}">${rate}%</span>
                     <span class="an-cell">${trendHtml}</span>
                 </div>`;
-            });
-        }
+        });
+    }
 
-        area.innerHTML = `
+    area.innerHTML = `
             <div class="an-workspace">
                 <div class="an-period-bar">
                     <button class="an-period-btn ${_anPeriod === 7 ? 'active' : ''}" data-days="7">7d</button>
@@ -983,65 +983,65 @@ function renderStats() {
             <div id="an-modal" class="an-modal hidden"></div>
         `;
 
-        // Period button listeners
-        area.querySelectorAll('.an-period-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                _anPeriod = parseInt(btn.dataset.days);
-                renderAnalytics();
-            });
+    // Period button listeners
+    area.querySelectorAll('.an-period-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _anPeriod = parseInt(btn.dataset.days);
+            renderAnalytics();
         });
+    });
 
-        // Row click → detail modal
-        area.querySelectorAll('.an-row').forEach(row => {
-            row.addEventListener('click', () => {
-                _anShowDetail(row.dataset.bin, binMap[row.dataset.bin], prevBinMap[row.dataset.bin]);
-            });
+    // Row click → detail modal
+    area.querySelectorAll('.an-row').forEach(row => {
+        row.addEventListener('click', () => {
+            _anShowDetail(row.dataset.bin, binMap[row.dataset.bin], prevBinMap[row.dataset.bin]);
         });
+    });
+}
+
+function _anShowDetail(bin, data, prevData) {
+    const modal = document.getElementById('an-modal');
+    if (!modal || !data) return;
+
+    const rate = data.used > 0 ? Math.round((data.a / data.used) * 100) : 0;
+
+    // Trend
+    let trendStr = '——';
+    if (_anPeriod > 0 && prevData) {
+        const prevRate = prevData.used > 0 ? Math.round((prevData.a / prevData.used) * 100) : 0;
+        const delta = rate - prevRate;
+        if (delta > 0) trendStr = `▲ +${delta}%`;
+        else if (delta < 0) trendStr = `▼ ${delta}%`;
+        else trendStr = '── 0%';
     }
 
-    function _anShowDetail(bin, data, prevData) {
-        const modal = document.getElementById('an-modal');
-        if (!modal || !data) return;
+    // Rate color
+    let rateClass = 'an-rate-bad';
+    if (rate >= 60) rateClass = 'an-rate-good';
+    else if (rate >= 30) rateClass = 'an-rate-mid';
 
-        const rate = data.used > 0 ? Math.round((data.a / data.used) * 100) : 0;
+    // Mini timeline — last 10 entries by date
+    const sorted = [...data.cards].sort((a, b) => (_anParseDate(b.date) || 0) - (_anParseDate(a.date) || 0)).slice(0, 10);
+    let timelineHtml = '';
+    sorted.forEach(c => {
+        const d = c.date || '—';
+        let statusTag = '';
+        if (c.cardAdd) statusTag += '<span class="an-tag an-tag-a">A</span>';
+        if (c.runAds) statusTag += '<span class="an-tag an-tag-r">R</span>';
+        if (c.verified) statusTag += '<span class="an-tag an-tag-v">V</span>';
+        if (c.minic) statusTag += '<span class="an-tag an-tag-m">M</span>';
+        if (!c.cardAdd && !c.runAds && !c.verified && !c.minic) statusTag = '<span class="an-tag an-tag-none">—</span>';
+        timelineHtml += `<div class="an-tl-row"><span class="an-tl-date">${d}</span>${statusTag}</div>`;
+    });
 
-        // Trend
-        let trendStr = '——';
-        if (_anPeriod > 0 && prevData) {
-            const prevRate = prevData.used > 0 ? Math.round((prevData.a / prevData.used) * 100) : 0;
-            const delta = rate - prevRate;
-            if (delta > 0) trendStr = `▲ +${delta}%`;
-            else if (delta < 0) trendStr = `▼ ${delta}%`;
-            else trendStr = '── 0%';
-        }
+    // BIN info from cache
+    const binInfo = BIN_CACHE[bin];
+    let binMeta = '';
+    if (binInfo) {
+        binMeta = `<div class="an-detail-meta">${binInfo.scheme || ''} · ${binInfo.type || ''} · ${binInfo.bank || ''}</div>`;
+    }
 
-        // Rate color
-        let rateClass = 'an-rate-bad';
-        if (rate >= 60) rateClass = 'an-rate-good';
-        else if (rate >= 30) rateClass = 'an-rate-mid';
-
-        // Mini timeline — last 10 entries by date
-        const sorted = [...data.cards].sort((a, b) => (_anParseDate(b.date) || 0) - (_anParseDate(a.date) || 0)).slice(0, 10);
-        let timelineHtml = '';
-        sorted.forEach(c => {
-            const d = c.date || '—';
-            let statusTag = '';
-            if (c.cardAdd) statusTag += '<span class="an-tag an-tag-a">A</span>';
-            if (c.runAds) statusTag += '<span class="an-tag an-tag-r">R</span>';
-            if (c.verified) statusTag += '<span class="an-tag an-tag-v">V</span>';
-            if (c.minic) statusTag += '<span class="an-tag an-tag-m">M</span>';
-            if (!c.cardAdd && !c.runAds && !c.verified && !c.minic) statusTag = '<span class="an-tag an-tag-none">—</span>';
-            timelineHtml += `<div class="an-tl-row"><span class="an-tl-date">${d}</span>${statusTag}</div>`;
-        });
-
-        // BIN info from cache
-        const binInfo = BIN_CACHE[bin];
-        let binMeta = '';
-        if (binInfo) {
-            binMeta = `<div class="an-detail-meta">${binInfo.scheme || ''} · ${binInfo.type || ''} · ${binInfo.bank || ''}</div>`;
-        }
-
-        modal.innerHTML = `
+    modal.innerHTML = `
             <div class="an-detail">
                 <div class="an-detail-header">
                     <span class="an-detail-bin">${bin}</span>
@@ -1079,63 +1079,63 @@ function renderStats() {
             </div>
         `;
 
-        modal.classList.remove('hidden');
+    modal.classList.remove('hidden');
 
-        document.getElementById('an-close').addEventListener('click', () => {
+    document.getElementById('an-close').addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+
+    // Escape to close
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
             modal.classList.add('hidden');
-        });
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.add('hidden');
-        });
-
-        // Escape to close
-        const escHandler = (e) => {
-            if (e.key === 'Escape') {
-                modal.classList.add('hidden');
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
-    }
-
-
-
-    window.renderMerchants = renderMerchants;
-
-    function renderMerchants() {
-        const area = document.getElementById('content-area');
-        const bar = document.getElementById('stats-bar');
-        if (bar) bar.innerHTML = '';
-
-        // Ensure all merchants have links array
-        STATE.merchants.forEach(m => { if (!m.links) m.links = []; });
-
-        const isDetail = STATE.merchantView === 'detail' && STATE.merchantDetailId;
-        const detailMerch = isDetail ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
-
-        if (isDetail && detailMerch) {
-            _renderMerchantDetail(area, detailMerch);
-        } else {
-            STATE.merchantView = 'list';
-            _renderMerchantList(area);
+            document.removeEventListener('keydown', escHandler);
         }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+
+
+window.renderMerchants = renderMerchants;
+
+function renderMerchants() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    if (bar) bar.innerHTML = '';
+
+    // Ensure all merchants have links array
+    STATE.merchants.forEach(m => { if (!m.links) m.links = []; });
+
+    const isDetail = STATE.merchantView === 'detail' && STATE.merchantDetailId;
+    const detailMerch = isDetail ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
+
+    if (isDetail && detailMerch) {
+        _renderMerchantDetail(area, detailMerch);
+    } else {
+        STATE.merchantView = 'list';
+        _renderMerchantList(area);
     }
+}
 
-    // ══════════ MERCHANT LIST VIEW ══════════
-    function _renderMerchantList(area) {
-        const totalBins = STATE.merchantBins.length;
+// ══════════ MERCHANT LIST VIEW ══════════
+function _renderMerchantList(area) {
+    const totalBins = STATE.merchantBins.length;
 
-        // Build merchant rows
-        let merchRowsHtml = '';
-        if (STATE.merchants.length === 0) {
-            merchRowsHtml = '<div class="mt-empty">No merchants yet — click "+ Add Merchant" to start</div>';
-        } else {
-            STATE.merchants.forEach(m => {
-                const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
-                const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
-                const totalUses = bins.length;
-                const linkCount = (m.links || []).length;
-                merchRowsHtml += `
+    // Build merchant rows
+    let merchRowsHtml = '';
+    if (STATE.merchants.length === 0) {
+        merchRowsHtml = '<div class="mt-empty">No merchants yet — click "+ Add Merchant" to start</div>';
+    } else {
+        STATE.merchants.forEach(m => {
+            const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
+            const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
+            const totalUses = bins.length;
+            const linkCount = (m.links || []).length;
+            merchRowsHtml += `
                 <div class="mt-merch-row" data-id="${m.id}">
                     <span class="mt-merch-name" data-id="${m.id}">${m.name}</span>
                     <span class="mt-merch-stat">${uniqueBins} BINs</span>
@@ -1146,10 +1146,10 @@ function renderStats() {
                         <button class="mt-btn mt-btn-sm mt-btn-del" data-id="${m.id}" title="Delete">🗑</button>
                     </div>
                 </div>`;
-            });
-        }
+        });
+    }
 
-        area.innerHTML = `
+    area.innerHTML = `
             <div class="mt-workspace">
                 <div class="mt-toolbar">
                     <button class="mt-btn mt-btn-add" id="mt-add-merch-btn">+ Add Merchant</button>
@@ -1177,109 +1177,109 @@ function renderStats() {
                 <div id="mt-results" class="mt-results"></div>
             </div>`;
 
-        // ── Event listeners ──
-        // Add merchant
-        document.getElementById('mt-add-merch-btn').addEventListener('click', () => {
-            document.getElementById('mt-merch-form').classList.toggle('hidden');
-            const inp = document.getElementById('mt-merch-name');
-            inp.value = '';
-            inp.focus();
-        });
-        document.getElementById('mt-merch-save').addEventListener('click', _mtSaveMerchant);
-        document.getElementById('mt-merch-cancel').addEventListener('click', () => {
-            document.getElementById('mt-merch-form').classList.add('hidden');
-        });
-        document.getElementById('mt-merch-name').addEventListener('keydown', e => {
-            if (e.key === 'Enter') _mtSaveMerchant();
-            if (e.key === 'Escape') document.getElementById('mt-merch-form').classList.add('hidden');
-        });
+    // ── Event listeners ──
+    // Add merchant
+    document.getElementById('mt-add-merch-btn').addEventListener('click', () => {
+        document.getElementById('mt-merch-form').classList.toggle('hidden');
+        const inp = document.getElementById('mt-merch-name');
+        inp.value = '';
+        inp.focus();
+    });
+    document.getElementById('mt-merch-save').addEventListener('click', _mtSaveMerchant);
+    document.getElementById('mt-merch-cancel').addEventListener('click', () => {
+        document.getElementById('mt-merch-form').classList.add('hidden');
+    });
+    document.getElementById('mt-merch-name').addEventListener('keydown', e => {
+        if (e.key === 'Enter') _mtSaveMerchant();
+        if (e.key === 'Escape') document.getElementById('mt-merch-form').classList.add('hidden');
+    });
 
-        // Click merchant name → open detail
-        document.querySelectorAll('.mt-merch-name').forEach(el => {
-            el.addEventListener('click', () => {
-                STATE.merchantView = 'detail';
-                STATE.merchantDetailId = el.dataset.id;
-                renderMerchants();
-            });
+    // Click merchant name → open detail
+    document.querySelectorAll('.mt-merch-name').forEach(el => {
+        el.addEventListener('click', () => {
+            STATE.merchantView = 'detail';
+            STATE.merchantDetailId = el.dataset.id;
+            renderMerchants();
         });
+    });
 
-        // Edit merchant
-        document.querySelectorAll('.mt-btn-edit').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                _mtEditMerchant(btn.dataset.id);
-            });
+    // Edit merchant
+    document.querySelectorAll('.mt-btn-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _mtEditMerchant(btn.dataset.id);
         });
+    });
 
-        // Delete merchant
-        document.querySelectorAll('.mt-btn-del').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                _mtDeleteMerchant(btn.dataset.id);
-            });
+    // Delete merchant
+    document.querySelectorAll('.mt-btn-del').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _mtDeleteMerchant(btn.dataset.id);
         });
+    });
 
-        // Search
-        document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
-        document.getElementById('mt-textarea').addEventListener('keydown', e => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
-        });
+    // Search
+    document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
+    document.getElementById('mt-textarea').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
+    });
 
-        // Quick search — instant filter
-        const quickSearch = document.getElementById('mt-quick-search');
-        quickSearch.addEventListener('input', () => {
+    // Quick search — instant filter
+    const quickSearch = document.getElementById('mt-quick-search');
+    quickSearch.addEventListener('input', () => {
+        const q = quickSearch.value.trim();
+        if (q.length >= 2) _mtQuickSearch(q);
+        else document.getElementById('mt-results').innerHTML = '';
+    });
+    quickSearch.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
             const q = quickSearch.value.trim();
-            if (q.length >= 2) _mtQuickSearch(q);
-            else document.getElementById('mt-results').innerHTML = '';
-        });
-        quickSearch.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                const q = quickSearch.value.trim();
-                if (q) _mtQuickSearch(q);
-            }
-        });
-    }
+            if (q) _mtQuickSearch(q);
+        }
+    });
+}
 
-    // ══════════ MERCHANT DETAIL VIEW ══════════
-    function _renderMerchantDetail(area, merch) {
-        const bins = STATE.merchantBins.filter(b => b.merchant_id === merch.id);
+// ══════════ MERCHANT DETAIL VIEW ══════════
+function _renderMerchantDetail(area, merch) {
+    const bins = STATE.merchantBins.filter(b => b.merchant_id === merch.id);
 
-        // Group by BIN
-        const binGroups = {};
-        bins.forEach(b => {
-            if (!binGroups[b.bin]) binGroups[b.bin] = { entries: [], bank: '' };
-            binGroups[b.bin].entries.push(b);
-            if (!binGroups[b.bin].bank && b.bank) binGroups[b.bin].bank = b.bank;
-        });
+    // Group by BIN
+    const binGroups = {};
+    bins.forEach(b => {
+        if (!binGroups[b.bin]) binGroups[b.bin] = { entries: [], bank: '' };
+        binGroups[b.bin].entries.push(b);
+        if (!binGroups[b.bin].bank && b.bank) binGroups[b.bin].bank = b.bank;
+    });
 
-        // Enrich with BIN_CACHE
-        Object.keys(binGroups).forEach(bin => {
-            if (!binGroups[bin].bank && BIN_CACHE[bin]) {
-                binGroups[bin].bank = BIN_CACHE[bin].bank || '';
-            }
-        });
+    // Enrich with BIN_CACHE
+    Object.keys(binGroups).forEach(bin => {
+        if (!binGroups[bin].bank && BIN_CACHE[bin]) {
+            binGroups[bin].bank = BIN_CACHE[bin].bank || '';
+        }
+    });
 
-        const sortedBins = Object.entries(binGroups).sort((a, b) => b[1].entries.length - a[1].entries.length);
+    const sortedBins = Object.entries(binGroups).sort((a, b) => b[1].entries.length - a[1].entries.length);
 
-        let binTableHtml = '';
-        if (sortedBins.length === 0) {
-            binTableHtml = '<div class="mt-empty">No BINs yet — add below</div>';
-        } else {
-            binTableHtml = `
+    let binTableHtml = '';
+    if (sortedBins.length === 0) {
+        binTableHtml = '<div class="mt-empty">No BINs yet — add below</div>';
+    } else {
+        binTableHtml = `
             <div class="mt-bin-table-wrap">
             <table class="mt-bin-table">
                 <thead><tr>
                     <th>BIN</th><th>Bank</th><th>Use</th><th>Last Amount</th><th>Currency</th><th>Actions</th>
                 </tr></thead>
                 <tbody>${sortedBins.map(([bin, data]) => {
-                    const lastEntry = data.entries[data.entries.length - 1];
-                    const bankShort = (data.bank || '—').length > 20 ? data.bank.slice(0, 20) + '…' : (data.bank || '—');
-                    const currency = lastEntry.currency || '';
-                    // Transaction history rows
-                    const txRows = data.entries.map(e => {
-                        return `<tr class="mt-tx-row" style="display:none" data-parent="${bin}"><td></td><td colspan="2" class="mt-tx-detail">→ ${e.amount || '—'} ${e.currency || ''}</td><td colspan="2" class="mt-tx-date">${e.date ? new Date(e.date).toLocaleDateString() : ''}</td><td></td></tr>`;
-                    }).join('');
-                    return `<tr class="mt-bin-main-row" data-bin="${bin}" title="Click to expand transactions">
+            const lastEntry = data.entries[data.entries.length - 1];
+            const bankShort = (data.bank || '—').length > 20 ? data.bank.slice(0, 20) + '…' : (data.bank || '—');
+            const currency = lastEntry.currency || '';
+            // Transaction history rows
+            const txRows = data.entries.map(e => {
+                return `<tr class="mt-tx-row" style="display:none" data-parent="${bin}"><td></td><td colspan="2" class="mt-tx-detail">→ ${e.amount || '—'} ${e.currency || ''}</td><td colspan="2" class="mt-tx-date">${e.date ? new Date(e.date).toLocaleDateString() : ''}</td><td></td></tr>`;
+            }).join('');
+            return `<tr class="mt-bin-main-row" data-bin="${bin}" title="Click to expand transactions">
                         <td class="mt-bin-val">${bin}</td>
                         <td class="mt-bin-bank-cell">${bankShort}</td>
                         <td class="mt-bin-count">${data.entries.length}</td>
@@ -1289,17 +1289,17 @@ function renderStats() {
                             <button class="mt-btn mt-btn-sm mt-btn-del-bin" data-bin="${bin}" title="Delete BIN">🗑</button>
                         </td>
                     </tr>${txRows}`;
-                }).join('')}</tbody>
+        }).join('')}</tbody>
             </table>
             </div>`;
-        }
+    }
 
-        // Links
-        const linksHtml = (merch.links || []).map((link, i) => {
-            return `<a href="${link.url}" target="_blank" rel="noopener" class="mt-link-badge">${link.label || link.url} <span class="mt-link-del" data-idx="${i}">✕</span></a>`;
-        }).join('');
+    // Links
+    const linksHtml = (merch.links || []).map((link, i) => {
+        return `<a href="${link.url}" target="_blank" rel="noopener" class="mt-link-badge">${link.label || link.url} <span class="mt-link-del" data-idx="${i}">✕</span></a>`;
+    }).join('');
 
-        area.innerHTML = `
+    area.innerHTML = `
             <div class="mt-workspace">
                 <div class="mt-toolbar">
                     <button class="mt-btn" id="mt-back-btn">← Back</button>
@@ -1342,450 +1342,450 @@ function renderStats() {
                 <div id="mt-results" class="mt-results"></div>
             </div>`;
 
-        // ── Events ──
-        document.getElementById('mt-back-btn').addEventListener('click', () => {
-            STATE.merchantView = 'list';
-            STATE.merchantDetailId = null;
-            renderMerchants();
-        });
-
-        // Add single BIN
-        document.getElementById('mt-bin-add-single').addEventListener('click', () => {
-            const bin = document.getElementById('mt-bin-single').value.replace(/\D/g, '').slice(0, 6);
-            const amount = document.getElementById('mt-bin-amount').value.trim();
-            if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
-            const padded = bin.padEnd(6, '0');
-            _addBinToMerchant(padded, amount, merch.id);
-            document.getElementById('mt-bin-single').value = '';
-            document.getElementById('mt-bin-amount').value = '';
-            renderMerchants();
-        });
-
-        // Bulk BIN add (supports: BIN - AMOUNT CURRENCY, plain BINs, mixed)
-        document.getElementById('mt-bin-add-bulk').addEventListener('click', () => {
-            const raw = document.getElementById('mt-bin-bulk').value.trim();
-            if (!raw) { toast('Paste BIN data', 'warning'); return; }
-
-            const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
-            const parsed = [];
-
-            lines.forEach(line => {
-                // Format: BIN - AMOUNT CURRENCY  (e.g. 412650 - 1,269.00 EUR)
-                const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
-                if (richMatch) {
-                    const bin = richMatch[1].padEnd(6, '0');
-                    const amount = _parseAmount(richMatch[2]);
-                    const currency = richMatch[3] || '';
-                    parsed.push({ bin, amount: amount.toString(), currency });
-                    return;
-                }
-                // Fallback: extract 6+ digit sequences as BINs
-                const digits = line.match(/\d{4,}/g);
-                if (digits) {
-                    digits.forEach(d => {
-                        parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' });
-                    });
-                }
-            });
-
-            if (parsed.length === 0) { toast('No valid BINs found', 'warning'); return; }
-
-            // Track new vs duplicate
-            const existingBins = new Set(STATE.merchantBins.filter(b => b.merchant_id === merch.id).map(b => b.bin));
-            let newCount = 0, dupCount = 0;
-
-            parsed.forEach(p => {
-                if (existingBins.has(p.bin)) dupCount++;
-                else { newCount++; existingBins.add(p.bin); }
-                _addBinToMerchant(p.bin, p.amount, merch.id, p.currency);
-            });
-
-            save();
-
-            // Show summary
-            const summaryEl = document.getElementById('mt-bulk-summary');
-            if (summaryEl) {
-                summaryEl.classList.remove('hidden');
-                summaryEl.innerHTML = `✅ Loaded: <strong>${parsed.length}</strong> BINs — <span class="mt-sum-new">${newCount} new</span> · <span class="mt-sum-dup">${dupCount} duplicates</span>`;
-            }
-
-            toast(`${parsed.length} BINs added to ${merch.name}`, 'success');
-            // Re-render after short delay so user sees summary
-            setTimeout(() => renderMerchants(), 1200);
-        });
-
-        // Expand/collapse transaction rows
-        document.querySelectorAll('.mt-bin-main-row').forEach(row => {
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('.mt-btn-del-bin')) return; // don't expand on delete click
-                const bin = row.dataset.bin;
-                const txRows = document.querySelectorAll(`.mt-tx-row[data-parent="${bin}"]`);
-                const isVisible = txRows[0] && txRows[0].style.display !== 'none';
-                txRows.forEach(tr => tr.style.display = isVisible ? 'none' : 'table-row');
-                row.classList.toggle('mt-bin-expanded', !isVisible);
-            });
-        });
-
-        // Delete BIN
-        document.querySelectorAll('.mt-btn-del-bin').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const bin = btn.dataset.bin;
-                STATE.merchantBins = STATE.merchantBins.filter(b => !(b.bin === bin && b.merchant_id === merch.id));
-                save();
-                toast(`BIN ${bin} removed`, 'info');
-                renderMerchants();
-            });
-        });
-
-        // Add link
-        document.getElementById('mt-link-add').addEventListener('click', () => {
-            const label = document.getElementById('mt-link-label').value.trim();
-            const url = document.getElementById('mt-link-url').value.trim();
-            if (!url) { toast('Enter URL', 'warning'); return; }
-            merch.links = merch.links || [];
-            merch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
-            save();
-            toast('Link added', 'success');
-            renderMerchants();
-        });
-
-        // Delete link
-        document.querySelectorAll('.mt-link-del').forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const idx = parseInt(el.dataset.idx);
-                merch.links.splice(idx, 1);
-                save();
-                renderMerchants();
-            });
-        });
-
-        // Search
-        document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
-        document.getElementById('mt-textarea').addEventListener('keydown', e => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
-        });
-    }
-
-    // ══════════ CRUD HELPERS ══════════
-
-    function _mtSaveMerchant() {
-        const inp = document.getElementById('mt-merch-name');
-        const name = inp.value.trim();
-        if (!name) { toast('Enter merchant name', 'warning'); return; }
-        STATE.merchants.push({ id: 'merch-' + Date.now(), name: name, links: [] });
-        save();
-        toast(`Merchant "${name}" added`, 'success');
+    // ── Events ──
+    document.getElementById('mt-back-btn').addEventListener('click', () => {
+        STATE.merchantView = 'list';
+        STATE.merchantDetailId = null;
         renderMerchants();
-    }
+    });
 
-    function _mtEditMerchant(id) {
-        const m = STATE.merchants.find(x => x.id === id);
-        if (!m) return;
-        const row = document.querySelector(`.mt-merch-row[data-id="${id}"]`);
-        if (!row) return;
-        const nameEl = row.querySelector('.mt-merch-name');
-        const oldName = m.name;
-        nameEl.innerHTML = `<input type="text" class="mt-input mt-inline-edit" value="${oldName}" data-id="${id}">`;
-        const input = nameEl.querySelector('input');
-        input.focus();
-        input.select();
-
-        const finish = (save_it) => {
-            if (save_it) {
-                const newName = input.value.trim();
-                if (newName && newName !== oldName) {
-                    m.name = newName;
-                    save();
-                    toast(`Renamed to "${newName}"`, 'success');
-                }
-            }
-            renderMerchants();
-        };
-
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') finish(true);
-            if (e.key === 'Escape') finish(false);
-        });
-        input.addEventListener('blur', () => finish(true));
-    }
-
-    function _mtDeleteMerchant(id) {
-        const m = STATE.merchants.find(x => x.id === id);
-        if (!m) return;
-        const binCount = STATE.merchantBins.filter(b => b.merchant_id === id).length;
-        if (!confirm(`Delete "${m.name}" and its ${binCount} BINs?`)) return;
-        STATE.merchants = STATE.merchants.filter(x => x.id !== id);
-        STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
-        save();
-        toast(`Merchant "${m.name}" deleted`, 'info');
+    // Add single BIN
+    document.getElementById('mt-bin-add-single').addEventListener('click', () => {
+        const bin = document.getElementById('mt-bin-single').value.replace(/\D/g, '').slice(0, 6);
+        const amount = document.getElementById('mt-bin-amount').value.trim();
+        if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
+        const padded = bin.padEnd(6, '0');
+        _addBinToMerchant(padded, amount, merch.id);
+        document.getElementById('mt-bin-single').value = '';
+        document.getElementById('mt-bin-amount').value = '';
         renderMerchants();
-    }
+    });
 
-    function _addBinToMerchant(bin, amount, merchantId, currency) {
-        const bank = BIN_CACHE[bin] ? (BIN_CACHE[bin].bank || '') : '';
-        STATE.merchantBins.push({
-            id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-            bin: bin,
-            amount: amount || '',
-            currency: currency || '',
-            merchant_id: merchantId,
-            bank: bank,
-            date: Date.now()
-        });
-        save();
-    }
+    // Bulk BIN add (supports: BIN - AMOUNT CURRENCY, plain BINs, mixed)
+    document.getElementById('mt-bin-add-bulk').addEventListener('click', () => {
+        const raw = document.getElementById('mt-bin-bulk').value.trim();
+        if (!raw) { toast('Paste BIN data', 'warning'); return; }
 
-    // ── Parse amount from various formats ──
-    // Handles: 1,269.00 | 1.269,00 | 2637,99 | 3,436.99 | 1.898,00
-    function _parseAmount(str) {
-        if (!str) return 0;
-        str = str.trim();
-        // Detect format: if last separator is comma and has 1-2 digits after → European (comma = decimal)
-        // If last separator is dot and has 1-2 digits after → US (dot = decimal)
-        const lastComma = str.lastIndexOf(',');
-        const lastDot = str.lastIndexOf('.');
+        const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
+        const parsed = [];
 
-        if (lastComma > lastDot) {
-            // Comma is the decimal separator (European): 1.269,00
-            const clean = str.replace(/\./g, '').replace(',', '.');
-            return parseFloat(clean) || 0;
-        } else if (lastDot > lastComma) {
-            // Dot is the decimal separator (US): 1,269.00
-            const clean = str.replace(/,/g, '');
-            return parseFloat(clean) || 0;
-        } else {
-            // No separator or same position
-            const clean = str.replace(/[^\d.]/g, '');
-            return parseFloat(clean) || 0;
-        }
-    }
-
-    // ══════════ ENHANCED SEARCH ══════════
-
-    function _mtSearch() {
-        const textarea = document.getElementById('mt-textarea');
-        const text = textarea.value.trim();
-        const resultsDiv = document.getElementById('mt-results');
-
-        if (!text) { toast('Paste card data first', 'warning'); return; }
-
-        // ── Smart BIN extraction: prioritize CC field ──
-        let bins = [];
-
-        // 1. Try to find CC/Card field in the text
-        // Matches: CC: 4165 4903 8860 5285, Card: 4242424242424242, CC Number: ..., etc.
-        const ccPatterns = [
-            /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN)[:\s]+([0-9\s\-]{13,25})/gi,
-            /(?:CC|Card)[:\s]*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})/gi,
-        ];
-
-        for (const pat of ccPatterns) {
-            let match;
-            while ((match = pat.exec(text)) !== null) {
-                const cardNum = match[1].replace(/[\s\-]/g, '');
-                if (cardNum.length >= 13 && cardNum.length <= 19 && /^\d+$/.test(cardNum)) {
-                    bins.push(cardNum.slice(0, 6));
-                }
+        lines.forEach(line => {
+            // Format: BIN - AMOUNT CURRENCY  (e.g. 412650 - 1,269.00 EUR)
+            const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
+            if (richMatch) {
+                const bin = richMatch[1].padEnd(6, '0');
+                const amount = _parseAmount(richMatch[2]);
+                const currency = richMatch[3] || '';
+                parsed.push({ bin, amount: amount.toString(), currency });
+                return;
             }
-        }
-
-        // 2. Fallback: if no CC field found, look for standalone card numbers (13-19 consecutive digits)
-        //    but ONLY sequences that look like card numbers, not random IDs or phones
-        if (bins.length === 0) {
-            const cardMatches = text.match(/\b\d{13,19}\b/g) || [];
-            cardMatches.forEach(c => bins.push(c.slice(0, 6)));
-        }
-
-        // Deduplicate
-        bins = [...new Set(bins)];
-
-        // Extract amounts separately (does NOT affect BIN search)
-        const amountMatch = text.match(/(?:Price|Amount|Total|Sum)[:\s]*\$?\s*([\d.,]+)/i)
-            || text.match(/\$([\d.,]+)/);
-        const detectedAmount = amountMatch ? _parseAmount(amountMatch[1]).toString() : '';
-
-        if (bins.length === 0) {
-            resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
-            return;
-        }
-
-        let html = '';
-
-        bins.forEach(bin => {
-            const matches = STATE.merchantBins.filter(b => b.bin === bin);
-            const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
-            const bankName = bankInfo ? (bankInfo.bank || '—') : (matches.length > 0 && matches[0].bank ? matches[0].bank : '—');
-            const bankCountry = bankInfo ? (bankInfo.country || '') : '';
-            const bankType = bankInfo ? (bankInfo.type || '') : '';
-
-            // Group by merchant
-            const byMerchant = {};
-            matches.forEach(b => {
-                const mId = b.merchant_id;
-                if (!byMerchant[mId]) byMerchant[mId] = { entries: [], name: '' };
-                byMerchant[mId].entries.push(b);
-                const m = STATE.merchants.find(x => x.id === mId);
-                if (m) byMerchant[mId].name = m.name;
-            });
-
-            html += `<div class="mt-result-block">`;
-            html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
-            if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
-            if (bankCountry) html += ` <span class="mt-result-geo">${bankCountry}</span>`;
-            if (bankType) html += ` <span class="mt-result-type">${bankType}</span>`;
-            html += `</div>`;
-
-            if (Object.keys(byMerchant).length > 0) {
-                Object.entries(byMerchant).forEach(([mId, data]) => {
-                    const lastEntry = data.entries[data.entries.length - 1];
-                    const m = STATE.merchants.find(x => x.id === mId);
-                    const links = m && m.links ? m.links : [];
-
-                    html += `<div class="mt-result-merchant-block">`;
-                    html += `<div class="mt-result-row">`;
-                    html += `<span class="mt-col-merchant">${data.name}</span>`;
-                    html += ` — Used: <strong>${data.entries.length}</strong> times`;
-                    if (lastEntry.amount) html += ` — Last: <span class="mt-col-amount">$${lastEntry.amount}</span>`;
-                    html += `</div>`;
-
-                    // Links
-                    if (links.length > 0) {
-                        html += `<div class="mt-result-links">`;
-                        links.forEach(l => {
-                            html += `<a href="${l.url}" target="_blank" rel="noopener" class="mt-link-badge-sm">[${l.label}]</a>`;
-                        });
-                        html += `</div>`;
-                    }
-                    html += `</div>`;
+            // Fallback: extract 6+ digit sequences as BINs
+            const digits = line.match(/\d{4,}/g);
+            if (digits) {
+                digits.forEach(d => {
+                    parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' });
                 });
-            } else {
-                html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
             }
+        });
 
-            // Show detected amount
-            if (detectedAmount) {
-                html += `<div class="mt-result-amount-detected">💰 Detected amount: $${detectedAmount}</div>`;
+        if (parsed.length === 0) { toast('No valid BINs found', 'warning'); return; }
+
+        // Track new vs duplicate
+        const existingBins = new Set(STATE.merchantBins.filter(b => b.merchant_id === merch.id).map(b => b.bin));
+        let newCount = 0, dupCount = 0;
+
+        parsed.forEach(p => {
+            if (existingBins.has(p.bin)) dupCount++;
+            else { newCount++; existingBins.add(p.bin); }
+            _addBinToMerchant(p.bin, p.amount, merch.id, p.currency);
+        });
+
+        save();
+
+        // Show summary
+        const summaryEl = document.getElementById('mt-bulk-summary');
+        if (summaryEl) {
+            summaryEl.classList.remove('hidden');
+            summaryEl.innerHTML = `✅ Loaded: <strong>${parsed.length}</strong> BINs — <span class="mt-sum-new">${newCount} new</span> · <span class="mt-sum-dup">${dupCount} duplicates</span>`;
+        }
+
+        toast(`${parsed.length} BINs added to ${merch.name}`, 'success');
+        // Re-render after short delay so user sees summary
+        setTimeout(() => renderMerchants(), 1200);
+    });
+
+    // Expand/collapse transaction rows
+    document.querySelectorAll('.mt-bin-main-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+            if (e.target.closest('.mt-btn-del-bin')) return; // don't expand on delete click
+            const bin = row.dataset.bin;
+            const txRows = document.querySelectorAll(`.mt-tx-row[data-parent="${bin}"]`);
+            const isVisible = txRows[0] && txRows[0].style.display !== 'none';
+            txRows.forEach(tr => tr.style.display = isVisible ? 'none' : 'table-row');
+            row.classList.toggle('mt-bin-expanded', !isVisible);
+        });
+    });
+
+    // Delete BIN
+    document.querySelectorAll('.mt-btn-del-bin').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bin = btn.dataset.bin;
+            STATE.merchantBins = STATE.merchantBins.filter(b => !(b.bin === bin && b.merchant_id === merch.id));
+            save();
+            toast(`BIN ${bin} removed`, 'info');
+            renderMerchants();
+        });
+    });
+
+    // Add link
+    document.getElementById('mt-link-add').addEventListener('click', () => {
+        const label = document.getElementById('mt-link-label').value.trim();
+        const url = document.getElementById('mt-link-url').value.trim();
+        if (!url) { toast('Enter URL', 'warning'); return; }
+        merch.links = merch.links || [];
+        merch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
+        save();
+        toast('Link added', 'success');
+        renderMerchants();
+    });
+
+    // Delete link
+    document.querySelectorAll('.mt-link-del').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(el.dataset.idx);
+            merch.links.splice(idx, 1);
+            save();
+            renderMerchants();
+        });
+    });
+
+    // Search
+    document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
+    document.getElementById('mt-textarea').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
+    });
+}
+
+// ══════════ CRUD HELPERS ══════════
+
+function _mtSaveMerchant() {
+    const inp = document.getElementById('mt-merch-name');
+    const name = inp.value.trim();
+    if (!name) { toast('Enter merchant name', 'warning'); return; }
+    STATE.merchants.push({ id: 'merch-' + Date.now(), name: name, links: [] });
+    save();
+    toast(`Merchant "${name}" added`, 'success');
+    renderMerchants();
+}
+
+function _mtEditMerchant(id) {
+    const m = STATE.merchants.find(x => x.id === id);
+    if (!m) return;
+    const row = document.querySelector(`.mt-merch-row[data-id="${id}"]`);
+    if (!row) return;
+    const nameEl = row.querySelector('.mt-merch-name');
+    const oldName = m.name;
+    nameEl.innerHTML = `<input type="text" class="mt-input mt-inline-edit" value="${oldName}" data-id="${id}">`;
+    const input = nameEl.querySelector('input');
+    input.focus();
+    input.select();
+
+    const finish = (save_it) => {
+        if (save_it) {
+            const newName = input.value.trim();
+            if (newName && newName !== oldName) {
+                m.name = newName;
+                save();
+                toast(`Renamed to "${newName}"`, 'success');
             }
+        }
+        renderMerchants();
+    };
 
-            // Quick action — add to merchant
-            if (STATE.merchants.length > 0) {
-                let options = STATE.merchants.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-                html += `<div class="mt-result-action">
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') finish(true);
+        if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+}
+
+function _mtDeleteMerchant(id) {
+    const m = STATE.merchants.find(x => x.id === id);
+    if (!m) return;
+    const binCount = STATE.merchantBins.filter(b => b.merchant_id === id).length;
+    if (!confirm(`Delete "${m.name}" and its ${binCount} BINs?`)) return;
+    STATE.merchants = STATE.merchants.filter(x => x.id !== id);
+    STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
+    save();
+    toast(`Merchant "${m.name}" deleted`, 'info');
+    renderMerchants();
+}
+
+function _addBinToMerchant(bin, amount, merchantId, currency) {
+    const bank = BIN_CACHE[bin] ? (BIN_CACHE[bin].bank || '') : '';
+    STATE.merchantBins.push({
+        id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        bin: bin,
+        amount: amount || '',
+        currency: currency || '',
+        merchant_id: merchantId,
+        bank: bank,
+        date: Date.now()
+    });
+    save();
+}
+
+// ── Parse amount from various formats ──
+// Handles: 1,269.00 | 1.269,00 | 2637,99 | 3,436.99 | 1.898,00
+function _parseAmount(str) {
+    if (!str) return 0;
+    str = str.trim();
+    // Detect format: if last separator is comma and has 1-2 digits after → European (comma = decimal)
+    // If last separator is dot and has 1-2 digits after → US (dot = decimal)
+    const lastComma = str.lastIndexOf(',');
+    const lastDot = str.lastIndexOf('.');
+
+    if (lastComma > lastDot) {
+        // Comma is the decimal separator (European): 1.269,00
+        const clean = str.replace(/\./g, '').replace(',', '.');
+        return parseFloat(clean) || 0;
+    } else if (lastDot > lastComma) {
+        // Dot is the decimal separator (US): 1,269.00
+        const clean = str.replace(/,/g, '');
+        return parseFloat(clean) || 0;
+    } else {
+        // No separator or same position
+        const clean = str.replace(/[^\d.]/g, '');
+        return parseFloat(clean) || 0;
+    }
+}
+
+// ══════════ ENHANCED SEARCH ══════════
+
+function _mtSearch() {
+    const textarea = document.getElementById('mt-textarea');
+    const text = textarea.value.trim();
+    const resultsDiv = document.getElementById('mt-results');
+
+    if (!text) { toast('Paste card data first', 'warning'); return; }
+
+    // ── Smart BIN extraction: prioritize CC field ──
+    let bins = [];
+
+    // 1. Try to find CC/Card field in the text
+    // Matches: CC: 4165 4903 8860 5285, Card: 4242424242424242, CC Number: ..., etc.
+    const ccPatterns = [
+        /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN)[:\s]+([0-9\s\-]{13,25})/gi,
+        /(?:CC|Card)[:\s]*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})/gi,
+    ];
+
+    for (const pat of ccPatterns) {
+        let match;
+        while ((match = pat.exec(text)) !== null) {
+            const cardNum = match[1].replace(/[\s\-]/g, '');
+            if (cardNum.length >= 13 && cardNum.length <= 19 && /^\d+$/.test(cardNum)) {
+                bins.push(cardNum.slice(0, 6));
+            }
+        }
+    }
+
+    // 2. Fallback: if no CC field found, look for standalone card numbers (13-19 consecutive digits)
+    //    but ONLY sequences that look like card numbers, not random IDs or phones
+    if (bins.length === 0) {
+        const cardMatches = text.match(/\b\d{13,19}\b/g) || [];
+        cardMatches.forEach(c => bins.push(c.slice(0, 6)));
+    }
+
+    // Deduplicate
+    bins = [...new Set(bins)];
+
+    // Extract amounts separately (does NOT affect BIN search)
+    const amountMatch = text.match(/(?:Price|Amount|Total|Sum)[:\s]*\$?\s*([\d.,]+)/i)
+        || text.match(/\$([\d.,]+)/);
+    const detectedAmount = amountMatch ? _parseAmount(amountMatch[1]).toString() : '';
+
+    if (bins.length === 0) {
+        resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
+        return;
+    }
+
+    let html = '';
+
+    bins.forEach(bin => {
+        const matches = STATE.merchantBins.filter(b => b.bin === bin);
+        const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
+        const bankName = bankInfo ? (bankInfo.bank || '—') : (matches.length > 0 && matches[0].bank ? matches[0].bank : '—');
+        const bankCountry = bankInfo ? (bankInfo.country || '') : '';
+        const bankType = bankInfo ? (bankInfo.type || '') : '';
+
+        // Group by merchant
+        const byMerchant = {};
+        matches.forEach(b => {
+            const mId = b.merchant_id;
+            if (!byMerchant[mId]) byMerchant[mId] = { entries: [], name: '' };
+            byMerchant[mId].entries.push(b);
+            const m = STATE.merchants.find(x => x.id === mId);
+            if (m) byMerchant[mId].name = m.name;
+        });
+
+        html += `<div class="mt-result-block">`;
+        html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
+        if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
+        if (bankCountry) html += ` <span class="mt-result-geo">${bankCountry}</span>`;
+        if (bankType) html += ` <span class="mt-result-type">${bankType}</span>`;
+        html += `</div>`;
+
+        if (Object.keys(byMerchant).length > 0) {
+            Object.entries(byMerchant).forEach(([mId, data]) => {
+                const lastEntry = data.entries[data.entries.length - 1];
+                const m = STATE.merchants.find(x => x.id === mId);
+                const links = m && m.links ? m.links : [];
+
+                html += `<div class="mt-result-merchant-block">`;
+                html += `<div class="mt-result-row">`;
+                html += `<span class="mt-col-merchant">${data.name}</span>`;
+                html += ` — Used: <strong>${data.entries.length}</strong> times`;
+                if (lastEntry.amount) html += ` — Last: <span class="mt-col-amount">$${lastEntry.amount}</span>`;
+                html += `</div>`;
+
+                // Links
+                if (links.length > 0) {
+                    html += `<div class="mt-result-links">`;
+                    links.forEach(l => {
+                        html += `<a href="${l.url}" target="_blank" rel="noopener" class="mt-link-badge-sm">[${l.label}]</a>`;
+                    });
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            });
+        } else {
+            html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
+        }
+
+        // Show detected amount
+        if (detectedAmount) {
+            html += `<div class="mt-result-amount-detected">💰 Detected amount: $${detectedAmount}</div>`;
+        }
+
+        // Quick action — add to merchant
+        if (STATE.merchants.length > 0) {
+            let options = STATE.merchants.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+            html += `<div class="mt-result-action">
                     <select class="mt-select mt-result-merch-select" data-bin="${bin}" data-amount="${detectedAmount}">${options}</select>
                     <button class="mt-btn mt-btn-ok mt-result-add-btn" data-bin="${bin}">+ Link</button>
                 </div>`;
-            }
+        }
 
-            html += `</div>`;
+        html += `</div>`;
+    });
+
+    resultsDiv.innerHTML = html;
+
+    // Wire up "Link" buttons
+    resultsDiv.querySelectorAll('.mt-result-add-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bin = btn.dataset.bin;
+            const select = resultsDiv.querySelector(`.mt-result-merch-select[data-bin="${bin}"]`);
+            const merchantId = select.value;
+            const amount = select.dataset.amount || '';
+            _addBinToMerchant(bin, amount, merchantId);
+            const mName = STATE.merchants.find(m => m.id === merchantId)?.name || '';
+            toast(`BIN ${bin} linked to ${mName}`, 'success');
+            _mtSearch(); // Refresh results
         });
+    });
+}
 
-        resultsDiv.innerHTML = html;
+// ══════════ QUICK SEARCH ══════════
 
-        // Wire up "Link" buttons
-        resultsDiv.querySelectorAll('.mt-result-add-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const bin = btn.dataset.bin;
-                const select = resultsDiv.querySelector(`.mt-result-merch-select[data-bin="${bin}"]`);
-                const merchantId = select.value;
-                const amount = select.dataset.amount || '';
-                _addBinToMerchant(bin, amount, merchantId);
-                const mName = STATE.merchants.find(m => m.id === merchantId)?.name || '';
-                toast(`BIN ${bin} linked to ${mName}`, 'success');
-                _mtSearch(); // Refresh results
+function _mtQuickSearch(query) {
+    const resultsDiv = document.getElementById('mt-results');
+    if (!resultsDiv) return;
+    const q = query.toUpperCase();
+    const qDigits = query.replace(/\D/g, '');
+
+    let html = '';
+    let found = false;
+
+    // Search by BIN
+    if (qDigits.length >= 4) {
+        const binPrefix = qDigits.slice(0, 6);
+        const matches = STATE.merchantBins.filter(b => b.bin.startsWith(binPrefix));
+
+        if (matches.length > 0) {
+            found = true;
+            const byBin = {};
+            matches.forEach(b => {
+                if (!byBin[b.bin]) byBin[b.bin] = [];
+                byBin[b.bin].push(b);
             });
-        });
-    }
 
-    // ══════════ QUICK SEARCH ══════════
-
-    function _mtQuickSearch(query) {
-        const resultsDiv = document.getElementById('mt-results');
-        if (!resultsDiv) return;
-        const q = query.toUpperCase();
-        const qDigits = query.replace(/\D/g, '');
-
-        let html = '';
-        let found = false;
-
-        // Search by BIN
-        if (qDigits.length >= 4) {
-            const binPrefix = qDigits.slice(0, 6);
-            const matches = STATE.merchantBins.filter(b => b.bin.startsWith(binPrefix));
-
-            if (matches.length > 0) {
-                found = true;
-                const byBin = {};
-                matches.forEach(b => {
-                    if (!byBin[b.bin]) byBin[b.bin] = [];
-                    byBin[b.bin].push(b);
-                });
-
-                Object.entries(byBin).forEach(([bin, entries]) => {
-                    const bankInfo = BIN_CACHE[bin];
-                    const bankName = bankInfo ? (bankInfo.bank || '—') : (entries[0].bank || '—');
-                    html += `<div class="mt-result-block">`;
-                    html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
-                    if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
-                    html += `</div>`;
-
-                    const byMerch = {};
-                    entries.forEach(e => {
-                        if (!byMerch[e.merchant_id]) byMerch[e.merchant_id] = [];
-                        byMerch[e.merchant_id].push(e);
-                    });
-                    Object.entries(byMerch).forEach(([mId, es]) => {
-                        const m = STATE.merchants.find(x => x.id === mId);
-                        const last = es[es.length - 1];
-                        html += `<div class="mt-result-row"><span class="mt-col-merchant">${m ? m.name : 'Unknown'}</span> — Used: <strong>${es.length}</strong>`;
-                        if (last.amount) html += ` — Last: <span class="mt-col-amount">$${last.amount}</span>`;
-                        html += `</div>`;
-                        if (m && m.links && m.links.length > 0) {
-                            html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
-                        }
-                    });
-                    html += `</div>`;
-                });
-            }
-        }
-
-        // Search by merchant name
-        STATE.merchants.forEach(m => {
-            if (m.name.toUpperCase().includes(q)) {
-                found = true;
-                const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
-                const uniqueBins = [...new Set(bins.map(b => b.bin))];
+            Object.entries(byBin).forEach(([bin, entries]) => {
+                const bankInfo = BIN_CACHE[bin];
+                const bankName = bankInfo ? (bankInfo.bank || '—') : (entries[0].bank || '—');
                 html += `<div class="mt-result-block">`;
-                html += `<div class="mt-result-bin"><span class="mt-col-merchant">${m.name}</span> — ${uniqueBins.length} BINs · ${bins.length} uses</div>`;
-                uniqueBins.slice(0, 10).forEach(bin => {
-                    const count = bins.filter(b => b.bin === bin).length;
-                    const last = bins.filter(b => b.bin === bin).pop();
-                    const bankInfo = BIN_CACHE[bin];
-                    const bankName = bankInfo ? (bankInfo.bank || '') : '';
-                    html += `<div class="mt-result-row">BIN: <strong>${bin}</strong>${bankName ? ' · 🏦 ' + bankName : ''} — ${count}x${last && last.amount ? ' · $' + last.amount : ''}</div>`;
-                });
-                if (m.links && m.links.length > 0) {
-                    html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
-                }
+                html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
+                if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
                 html += `</div>`;
-            }
-        });
 
-        if (!found) {
-            html = `<div class="mt-no-data">No results for "${query}"</div>`;
+                const byMerch = {};
+                entries.forEach(e => {
+                    if (!byMerch[e.merchant_id]) byMerch[e.merchant_id] = [];
+                    byMerch[e.merchant_id].push(e);
+                });
+                Object.entries(byMerch).forEach(([mId, es]) => {
+                    const m = STATE.merchants.find(x => x.id === mId);
+                    const last = es[es.length - 1];
+                    html += `<div class="mt-result-row"><span class="mt-col-merchant">${m ? m.name : 'Unknown'}</span> — Used: <strong>${es.length}</strong>`;
+                    if (last.amount) html += ` — Last: <span class="mt-col-amount">$${last.amount}</span>`;
+                    html += `</div>`;
+                    if (m && m.links && m.links.length > 0) {
+                        html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
+                    }
+                });
+                html += `</div>`;
+            });
         }
-
-        resultsDiv.innerHTML = html;
     }
 
-    // Legacy compat
-    window.openMerchant = function () {};
-    window.deleteMerchant = function (id) { _mtDeleteMerchant(id); };
-    window.deleteMerchBin = function (id) {
-        STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== id);
-        save();
-    };
+    // Search by merchant name
+    STATE.merchants.forEach(m => {
+        if (m.name.toUpperCase().includes(q)) {
+            found = true;
+            const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
+            const uniqueBins = [...new Set(bins.map(b => b.bin))];
+            html += `<div class="mt-result-block">`;
+            html += `<div class="mt-result-bin"><span class="mt-col-merchant">${m.name}</span> — ${uniqueBins.length} BINs · ${bins.length} uses</div>`;
+            uniqueBins.slice(0, 10).forEach(bin => {
+                const count = bins.filter(b => b.bin === bin).length;
+                const last = bins.filter(b => b.bin === bin).pop();
+                const bankInfo = BIN_CACHE[bin];
+                const bankName = bankInfo ? (bankInfo.bank || '') : '';
+                html += `<div class="mt-result-row">BIN: <strong>${bin}</strong>${bankName ? ' · 🏦 ' + bankName : ''} — ${count}x${last && last.amount ? ' · $' + last.amount : ''}</div>`;
+            });
+            if (m.links && m.links.length > 0) {
+                html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
+            }
+            html += `</div>`;
+        }
+    });
+
+    if (!found) {
+        html = `<div class="mt-no-data">No results for "${query}"</div>`;
+    }
+
+    resultsDiv.innerHTML = html;
+}
+
+// Legacy compat
+window.openMerchant = function () { };
+window.deleteMerchant = function (id) { _mtDeleteMerchant(id); };
+window.deleteMerchBin = function (id) {
+    STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== id);
+    save();
+};
 
 function renderContent() {
     const area = document.getElementById('content-area');
@@ -2102,7 +2102,7 @@ function renderAllCards() {
 }
 
 // All Cards detail drawer toggle
-window._toggleAllCardsDrawer = function(cardNum, rowEl) {
+window._toggleAllCardsDrawer = function (cardNum, rowEl) {
     const existing = document.querySelector('.expand-drawer');
     if (existing) {
         const wasForSame = existing.dataset.key === 'ac:' + cardNum;
@@ -2139,7 +2139,7 @@ window._toggleAllCardsDrawer = function(cardNum, rowEl) {
 };
 
 // Documents detail drawer toggle
-window._toggleDocDrawer = function(docId, rowEl) {
+window._toggleDocDrawer = function (docId, rowEl) {
     const existing = document.querySelector('.expand-drawer');
     if (existing) {
         const wasForSame = existing.dataset.key === 'doc:' + docId;
@@ -2330,7 +2330,7 @@ function renderNotes() {
 
     let tabsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
-        return `<button class="nt-tab ${isActive?'active':''}" data-tab="${t.id}">
+        return `<button class="nt-tab ${isActive ? 'active' : ''}" data-tab="${t.id}">
             <span class="nt-tab-title" data-tab="${t.id}">${t.title}</span>
             ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
         </button>`;
@@ -2647,7 +2647,7 @@ function renderGeoFilterBar() {
     bar.innerHTML = html;
 }
 
-window.setGeoFilter = function(geo) {
+window.setGeoFilter = function (geo) {
     _geoFilter = geo;
     STATE.page = 1;
     renderAll();
@@ -3203,21 +3203,21 @@ window.openInlineNote = function (cardId, el) {
     const card = STATE.cards.find(c => c.id === cardId);
     if (!card) return;
     if (el.querySelector('input')) return;
-    
+
     const originalHTML = el.innerHTML;
-    
+
     // Create input
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'inline-edit-input';
     input.value = card.notes || '';
     input.placeholder = 'Add note...';
-    
+
     // Replace content
     el.innerHTML = '';
     el.appendChild(input);
     input.focus();
-    
+
     let saved = false;
     const saveNote = () => {
         if (saved) return;
@@ -3227,13 +3227,13 @@ window.openInlineNote = function (cardId, el) {
         // Targeted DOM restore without re-render
         el.innerHTML = card.notes || '<span class="note-placeholder">+ note</span>';
     };
-    
+
     const cancelNote = () => {
         if (saved) return;
         saved = true;
         el.innerHTML = originalHTML;
     };
-    
+
     input.addEventListener('blur', saveNote);
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); saveNote(); input.blur(); }
@@ -3245,19 +3245,19 @@ window.openDocNote = function (docId, el) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
     if (el.querySelector('input')) return;
-    
+
     const originalHTML = el.innerHTML;
-    
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'inline-edit-input';
     input.value = doc.notes || '';
     input.placeholder = 'Add note...';
-    
+
     el.innerHTML = '';
     el.appendChild(input);
     input.focus();
-    
+
     let saved = false;
     const saveNote = () => {
         if (saved) return;
@@ -3266,13 +3266,13 @@ window.openDocNote = function (docId, el) {
         save();
         el.innerHTML = doc.notes || '<span class="note-placeholder">+ note</span>';
     };
-    
+
     const cancelNote = () => {
         if (saved) return;
         saved = true;
         el.innerHTML = originalHTML;
     };
-    
+
     input.addEventListener('blur', saveNote);
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); saveNote(); input.blur(); }
@@ -3280,7 +3280,7 @@ window.openDocNote = function (docId, el) {
     });
 };
 
-window.openInlineAmount = function(cardId, el) {
+window.openInlineAmount = function (cardId, el) {
     const card = STATE.cards.find(c => c.id === cardId);
     if (!card) return;
     if (el.querySelector('input')) return;
@@ -3447,7 +3447,7 @@ window.decrementDocS = function (docId) {
 };
 
 // ──── DOC PREVIEW LIGHTBOX ────
-window._docShowPreview = function(docId) {
+window._docShowPreview = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc || !doc.preview) return;
     const overlay = document.createElement('div');
@@ -3458,7 +3458,7 @@ window._docShowPreview = function(docId) {
 };
 
 // ──── DOC CLEAR NEW STATUS ────
-window._docClearNew = function(docId) {
+window._docClearNew = function (docId) {
     const doc = STATE.docs.find(d => d.id === docId);
     if (!doc) return;
     doc.docStatus = '';
@@ -3773,7 +3773,7 @@ function smartParseCards(text) {
     const lines = text.split('\n');
     const cards = [];
     const seen = new Set();
-    const noiseWords = new Set(['cvv','exp','cc','card','visa','mastercard','amex','discover','jcb','bin','the','and','or','of']);
+    const noiseWords = new Set(['cvv', 'exp', 'cc', 'card', 'visa', 'mastercard', 'amex', 'discover', 'jcb', 'bin', 'the', 'and', 'or', 'of']);
 
     for (const rawLine of lines) {
         let line = rawLine.trim();
@@ -4420,7 +4420,7 @@ function exportFullBackup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `card-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `card-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast('Full backup exported', 'success');
@@ -4789,7 +4789,7 @@ document.getElementById('backup-btn').addEventListener('click', () => {
     a.download = `card-tracker-backup-${todayStr()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(`Full backup: ${STATE.cards.length} cards, ${STATE.docs.length} docs, ${(STATE.trashCards||[]).length} trash`, 'success');
+    toast(`Full backup: ${STATE.cards.length} cards, ${STATE.docs.length} docs, ${(STATE.trashCards || []).length} trash`, 'success');
 });
 
 
@@ -4908,7 +4908,7 @@ document.querySelector('.btn-login').addEventListener('click', (e) => {
             load();
             navigate('cards', 'canada');
         }
-    } catch(e) { /* no valid session */ }
+    } catch (e) { /* no valid session */ }
 })();
 
 // ──── KEYBOARD SHORTCUTS ────
@@ -5077,7 +5077,7 @@ function detectGeo(billing, country) {
     if (!billing) return '';
     const parts = billing.split(',').map(p => p.trim());
     // Look for 2-letter country codes
-    const knownCodes = ['CA','US','AU','AE','UK','GB','IL','DE','FR','NL','SE','NO','DK','FI','NZ','SG','JP','KR','IN','BR','MX','ZA','IE','IT','ES','CH','AT','BE','PT'];
+    const knownCodes = ['CA', 'US', 'AU', 'AE', 'UK', 'GB', 'IL', 'DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'NZ', 'SG', 'JP', 'KR', 'IN', 'BR', 'MX', 'ZA', 'IE', 'IT', 'ES', 'CH', 'AT', 'BE', 'PT'];
     for (const p of parts) {
         const upper = p.toUpperCase().trim();
         if (knownCodes.includes(upper)) return upper;
@@ -5089,6 +5089,95 @@ function flattenText(textArray) {
     if (typeof textArray === 'string') return textArray;
     if (!Array.isArray(textArray)) return '';
     return textArray.map(item => typeof item === 'string' ? item : (item && item.text ? String(item.text) : '')).join('');
+}
+
+// ──── UNIVERSAL CARD NUMBER EXTRACTOR (for exclude) ────
+// Extracts card numbers from ANY format including:
+// - "4242424242424242 09 26 245" (CC MM YY CVV)
+// - "4242-4242-4242-4242" (dashed)
+// - emoji format "💳 CC: 4242 4242 4242 4242"
+// - JSON fields: card_number, cardNumber, cc, pan, number, etc.
+function extractAllCardNumbersFromJSON(data) {
+    const seen = new Set();
+
+    function isLuhnValid(num) {
+        let sum = 0, alt = false;
+        for (let i = num.length - 1; i >= 0; i--) {
+            let n = parseInt(num[i], 10);
+            if (alt) { n *= 2; if (n > 9) n -= 9; }
+            sum += n;
+            alt = !alt;
+        }
+        return sum % 10 === 0;
+    }
+
+    function addIfCard(str) {
+        if (!str) return;
+        const cleaned = String(str).replace(/[\s\-\.]/g, '');
+        if (/^\d{13,19}$/.test(cleaned) && isLuhnValid(cleaned)) {
+            seen.add(cleaned);
+        }
+    }
+
+    // Extract card numbers from a text string
+    function extractFromText(text) {
+        if (!text || typeof text !== 'string') return;
+
+        // Pattern 1: Standalone 13-19 digit card numbers (most common: "4242424242424242 09 26 245")
+        // This catches the card number WITHOUT the trailing MM YY CVV
+        const standalone = text.match(/(?<!\d)\d{13,19}(?!\d)/g);
+        if (standalone) standalone.forEach(m => addIfCard(m));
+
+        // Pattern 2: Card numbers with dashes (e.g. "4242-4242-4242-4242")
+        const dashed = text.match(/\d{4}[\-]\d{4}[\-]\d{4}[\-]\d{3,4}/g);
+        if (dashed) dashed.forEach(m => addIfCard(m));
+
+        // Pattern 3: Card numbers with spaces in emoji format (e.g. "CC: 4242 4242 4242 4242")
+        const emojiMatch = text.match(/💳\s*CC:\s*([\d ]+)/g);
+        if (emojiMatch) {
+            emojiMatch.forEach(m => {
+                const num = m.replace(/💳\s*CC:\s*/, '').trim();
+                addIfCard(num);
+            });
+        }
+    }
+
+    // Recursively scan any JSON structure
+    function scanValue(val) {
+        if (val === null || val === undefined) return;
+        if (typeof val === 'number') {
+            addIfCard(String(val));
+            return;
+        }
+        if (typeof val === 'string') {
+            addIfCard(val);
+            extractFromText(val);
+            return;
+        }
+        if (Array.isArray(val)) {
+            val.forEach(item => scanValue(item));
+            return;
+        }
+        if (typeof val === 'object') {
+            // Check known card-number field names
+            const cardFields = ['cc', 'card_number', 'cardNumber', 'card', 'number', 'pan', 'card_no', 'cardNo', 'card_num', 'cardNum', 'credit_card', 'creditCard'];
+            for (const key of cardFields) {
+                if (val[key] !== undefined) addIfCard(String(val[key]));
+            }
+            // Scan text fields (Telegram JSON messages)
+            if (val.text !== undefined) {
+                const txt = flattenText(val.text);
+                if (txt) extractFromText(txt);
+            }
+            // Recurse into child properties
+            for (const key of Object.keys(val)) {
+                if (typeof val[key] === 'object' && val[key] !== null) scanValue(val[key]);
+            }
+        }
+    }
+
+    scanValue(data);
+    return seen;
 }
 
 function extractCardsFromMessages(messages) {
@@ -5150,56 +5239,56 @@ function extractCardsFromMessages(messages) {
 // ═══════════════════════════════════════════
 
 const GEN_DOCS = [
-    { id:'ca-dl', country:'US', cat:'DRIVER LICENSE', name:'California', icon:'🚗', active:true },
-    { id:'us-pp', country:'US', cat:'PASSPORT', name:'US Passport', icon:'📘', active:false },
-    { id:'on-dl', country:'CA', cat:'DRIVER LICENSE', name:'Ontario', icon:'🚗', active:true },
-    { id:'bc-dl', country:'CA', cat:'DRIVER LICENSE', name:'British Columbia', icon:'🚗', active:true },
-    { id:'ca-pp', country:'CA', cat:'PASSPORT', name:'Canadian Passport', icon:'📘', active:true },
-    { id:'rogers', country:'CA', cat:'UTILITY BILLS', name:'Rogers Bill', icon:'📄', active:true },
-    { id:'au-nsw', country:'AU', cat:'DRIVER LICENSE', name:'New South Wales', icon:'🚗', active:false },
-    { id:'au-vic', country:'AU', cat:'DRIVER LICENSE', name:'Victoria', icon:'🚗', active:false },
-    { id:'au-pp', country:'AU', cat:'PASSPORT', name:'Australian Passport', icon:'📘', active:false },
-    { id:'de-dl', country:'DE', cat:'DRIVER LICENSE', name:'Germany DL', icon:'🚗', active:false },
+    { id: 'ca-dl', country: 'US', cat: 'DRIVER LICENSE', name: 'California', icon: '🚗', active: true },
+    { id: 'us-pp', country: 'US', cat: 'PASSPORT', name: 'US Passport', icon: '📘', active: false },
+    { id: 'on-dl', country: 'CA', cat: 'DRIVER LICENSE', name: 'Ontario', icon: '🚗', active: true },
+    { id: 'bc-dl', country: 'CA', cat: 'DRIVER LICENSE', name: 'British Columbia', icon: '🚗', active: true },
+    { id: 'ca-pp', country: 'CA', cat: 'PASSPORT', name: 'Canadian Passport', icon: '📘', active: true },
+    { id: 'rogers', country: 'CA', cat: 'UTILITY BILLS', name: 'Rogers Bill', icon: '📄', active: true },
+    { id: 'au-nsw', country: 'AU', cat: 'DRIVER LICENSE', name: 'New South Wales', icon: '🚗', active: false },
+    { id: 'au-vic', country: 'AU', cat: 'DRIVER LICENSE', name: 'Victoria', icon: '🚗', active: false },
+    { id: 'au-pp', country: 'AU', cat: 'PASSPORT', name: 'Australian Passport', icon: '📘', active: false },
+    { id: 'de-dl', country: 'DE', cat: 'DRIVER LICENSE', name: 'Germany DL', icon: '🚗', active: false },
 ];
 
 const GEN_COUNTRIES = [
-    { code:'US', name:'United States', flag:'🇺🇸' },
-    { code:'CA', name:'Canada', flag:'🇨🇦' },
-    { code:'AU', name:'Australia', flag:'🇦🇺' },
-    { code:'DE', name:'Germany', flag:'🇩🇪' },
+    { code: 'US', name: 'United States', flag: '🇺🇸' },
+    { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+    { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+    { code: 'DE', name: 'Germany', flag: '🇩🇪' },
 ];
 
 let _genState = { docId: 'ca-dl', sex: 'M', result: null };
 
 /* ── Helpers ── */
-const _rInt = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
-const _rPick = arr => arr[_rInt(0,arr.length-1)];
-const _pad2 = n => String(n).padStart(2,'0');
-const _rDigits = n => Array.from({length:n},()=>_rInt(0,9)).join('');
-const _rLetter = () => String.fromCharCode(65+_rInt(0,25));
-const _rLetters = n => Array.from({length:n},()=>_rLetter()).join('');
+const _rInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const _rPick = arr => arr[_rInt(0, arr.length - 1)];
+const _pad2 = n => String(n).padStart(2, '0');
+const _rDigits = n => Array.from({ length: n }, () => _rInt(0, 9)).join('');
+const _rLetter = () => String.fromCharCode(65 + _rInt(0, 25));
+const _rLetters = n => Array.from({ length: n }, () => _rLetter()).join('');
 
-const _MALE_FIRST = ['JAMES','JOHN','ROBERT','MICHAEL','WILLIAM','DAVID','RICHARD','JOSEPH','THOMAS','CHARLES','DANIEL','MATTHEW','ANTHONY','MARK','STEVEN','PAUL','ANDREW','JOSHUA','KENNETH','KEVIN'];
-const _FEMALE_FIRST = ['MARY','PATRICIA','JENNIFER','LINDA','BARBARA','ELIZABETH','SUSAN','JESSICA','SARAH','KAREN','LISA','NANCY','BETTY','MARGARET','SANDRA','ASHLEY','DOROTHY','KIMBERLY','EMILY','DONNA'];
-const _LAST_NAMES = ['SMITH','JOHNSON','WILLIAMS','BROWN','JONES','GARCIA','MILLER','DAVIS','RODRIGUEZ','MARTINEZ','HERNANDEZ','LOPEZ','GONZALEZ','WILSON','ANDERSON','THOMAS','TAYLOR','MOORE','JACKSON','MARTIN','LEE','PEREZ','THOMPSON','WHITE','HARRIS','SANCHEZ','CLARK','RAMIREZ','LEWIS','ROBINSON'];
-const _HAIR = ['BRN','BLK','BLN','RED','GRY','WHT','SDY','AUB'];
-const _EYES = ['BRN','BLU','GRN','HZL','GRY','BLK'];
-const _CA_CITIES = [{c:'LOS ANGELES',z:'900'},{c:'SAN FRANCISCO',z:'941'},{c:'SAN DIEGO',z:'921'},{c:'SAN JOSE',z:'951'},{c:'SACRAMENTO',z:'958'},{c:'FRESNO',z:'937'},{c:'LONG BEACH',z:'908'},{c:'OAKLAND',z:'946'},{c:'BAKERSFIELD',z:'933'},{c:'ANAHEIM',z:'928'}];
-const _CA_STREETS = ['MAIN ST','OAK AVE','ELM ST','MAPLE DR','CEDAR LN','PINE RD','WALNUT ST','BROADWAY','SUNSET BLVD','PACIFIC AVE','MISSION ST','MARKET ST','VALENCIA ST','FOLSOM ST','GEARY BLVD'];
-const _ON_CITIES = [{c:'TORONTO',p:'M'},{c:'OTTAWA',p:'K'},{c:'MISSISSAUGA',p:'L'},{c:'BRAMPTON',p:'L'},{c:'HAMILTON',p:'L'},{c:'LONDON',p:'N'},{c:'MARKHAM',p:'L'},{c:'VAUGHAN',p:'L'},{c:'KITCHENER',p:'N'},{c:'WINDSOR',p:'N'}];
-const _BC_CITIES = [{c:'VANCOUVER',p:'V'},{c:'SURREY',p:'V'},{c:'BURNABY',p:'V'},{c:'RICHMOND',p:'V'},{c:'KELOWNA',p:'V'},{c:'VICTORIA',p:'V'},{c:'NANAIMO',p:'V'},{c:'KAMLOOPS',p:'V'}];
-const _MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const _MONTHS_FR = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
-const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const _MALE_FIRST = ['JAMES', 'JOHN', 'ROBERT', 'MICHAEL', 'WILLIAM', 'DAVID', 'RICHARD', 'JOSEPH', 'THOMAS', 'CHARLES', 'DANIEL', 'MATTHEW', 'ANTHONY', 'MARK', 'STEVEN', 'PAUL', 'ANDREW', 'JOSHUA', 'KENNETH', 'KEVIN'];
+const _FEMALE_FIRST = ['MARY', 'PATRICIA', 'JENNIFER', 'LINDA', 'BARBARA', 'ELIZABETH', 'SUSAN', 'JESSICA', 'SARAH', 'KAREN', 'LISA', 'NANCY', 'BETTY', 'MARGARET', 'SANDRA', 'ASHLEY', 'DOROTHY', 'KIMBERLY', 'EMILY', 'DONNA'];
+const _LAST_NAMES = ['SMITH', 'JOHNSON', 'WILLIAMS', 'BROWN', 'JONES', 'GARCIA', 'MILLER', 'DAVIS', 'RODRIGUEZ', 'MARTINEZ', 'HERNANDEZ', 'LOPEZ', 'GONZALEZ', 'WILSON', 'ANDERSON', 'THOMAS', 'TAYLOR', 'MOORE', 'JACKSON', 'MARTIN', 'LEE', 'PEREZ', 'THOMPSON', 'WHITE', 'HARRIS', 'SANCHEZ', 'CLARK', 'RAMIREZ', 'LEWIS', 'ROBINSON'];
+const _HAIR = ['BRN', 'BLK', 'BLN', 'RED', 'GRY', 'WHT', 'SDY', 'AUB'];
+const _EYES = ['BRN', 'BLU', 'GRN', 'HZL', 'GRY', 'BLK'];
+const _CA_CITIES = [{ c: 'LOS ANGELES', z: '900' }, { c: 'SAN FRANCISCO', z: '941' }, { c: 'SAN DIEGO', z: '921' }, { c: 'SAN JOSE', z: '951' }, { c: 'SACRAMENTO', z: '958' }, { c: 'FRESNO', z: '937' }, { c: 'LONG BEACH', z: '908' }, { c: 'OAKLAND', z: '946' }, { c: 'BAKERSFIELD', z: '933' }, { c: 'ANAHEIM', z: '928' }];
+const _CA_STREETS = ['MAIN ST', 'OAK AVE', 'ELM ST', 'MAPLE DR', 'CEDAR LN', 'PINE RD', 'WALNUT ST', 'BROADWAY', 'SUNSET BLVD', 'PACIFIC AVE', 'MISSION ST', 'MARKET ST', 'VALENCIA ST', 'FOLSOM ST', 'GEARY BLVD'];
+const _ON_CITIES = [{ c: 'TORONTO', p: 'M' }, { c: 'OTTAWA', p: 'K' }, { c: 'MISSISSAUGA', p: 'L' }, { c: 'BRAMPTON', p: 'L' }, { c: 'HAMILTON', p: 'L' }, { c: 'LONDON', p: 'N' }, { c: 'MARKHAM', p: 'L' }, { c: 'VAUGHAN', p: 'L' }, { c: 'KITCHENER', p: 'N' }, { c: 'WINDSOR', p: 'N' }];
+const _BC_CITIES = [{ c: 'VANCOUVER', p: 'V' }, { c: 'SURREY', p: 'V' }, { c: 'BURNABY', p: 'V' }, { c: 'RICHMOND', p: 'V' }, { c: 'KELOWNA', p: 'V' }, { c: 'VICTORIA', p: 'V' }, { c: 'NANAIMO', p: 'V' }, { c: 'KAMLOOPS', p: 'V' }];
+const _MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const _MONTHS_FR = ['JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE'];
+const _MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function _genDOB(sex) {
-    const age = _rInt(30,50);
+    const age = _rInt(30, 50);
     const y = new Date().getFullYear() - age;
-    const m = _rInt(1,12), d = _rInt(1,28);
+    const m = _rInt(1, 12), d = _rInt(1, 28);
     return { y, m, d };
 }
 function _genName(sex) {
-    const fn = sex==='F' ? _rPick(_FEMALE_FIRST) : _rPick(_MALE_FIRST);
+    const fn = sex === 'F' ? _rPick(_FEMALE_FIRST) : _rPick(_MALE_FIRST);
     const ln = _rPick(_LAST_NAMES);
     return { fn, ln };
 }
@@ -5209,24 +5298,24 @@ function _parseTemplate(text) {
     const lines = text.split('\n');
     for (const line of lines) {
         const l = line.replace(/^[^\w]*/, '').trim();
-        if (/^holder:/i.test(l)) t.holder = l.replace(/^holder:\s*/i,'').trim();
-        if (/^billing:/i.test(l)) t.billing = l.replace(/^billing:\s*/i,'').trim();
-        if (/^zip:/i.test(l)) t.zip = l.replace(/^zip:\s*/i,'').trim();
+        if (/^holder:/i.test(l)) t.holder = l.replace(/^holder:\s*/i, '').trim();
+        if (/^billing:/i.test(l)) t.billing = l.replace(/^billing:\s*/i, '').trim();
+        if (/^zip:/i.test(l)) t.zip = l.replace(/^zip:\s*/i, '').trim();
     }
     return t;
 }
 
 /* ═══ CALIFORNIA DL ═══ */
 function generateCaliforniaDL(sex, tpl) {
-    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
-    const expY = new Date().getFullYear() + _rInt(2,5);
-    const issY = new Date().getFullYear() - _rInt(0,3);
+    const expY = new Date().getFullYear() + _rInt(2, 5);
+    const issY = new Date().getFullYear() - _rInt(0, 3);
     const dlNum = _rLetter() + _rDigits(7);
     const city = _rPick(_CA_CITIES);
-    const addr = `${_rInt(100,9999)} ${_rPick(_CA_STREETS)}`;
-    const hgt = sex==='F' ? `${_rPick(['5'])}' - ${_pad2(_rInt(0,8))}"` : `${_rPick(['5','6'])}' - ${_pad2(_rInt(0,11))}"`;
-    const wgt = sex==='F' ? `${_rInt(110,160)} lb` : `${_rInt(150,220)} lb`;
+    const addr = `${_rInt(100, 9999)} ${_rPick(_CA_STREETS)}`;
+    const hgt = sex === 'F' ? `${_rPick(['5'])}' - ${_pad2(_rInt(0, 8))}"` : `${_rPick(['5', '6'])}' - ${_pad2(_rInt(0, 11))}"`;
+    const wgt = sex === 'F' ? `${_rInt(110, 160)} lb` : `${_rInt(150, 220)} lb`;
     const serial = `${_pad2(dob.m)}${_pad2(dob.d)}${String(dob.y).slice(2)}`;
 
     return {
@@ -5234,29 +5323,29 @@ function generateCaliforniaDL(sex, tpl) {
         sections: [{
             name: 'FRONT', copyLabel: 'Copy Front',
             fields: [
-                { label:'DL', value: dlNum },
-                { label:'EXP', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${expY}` },
-                { label:'LN', value: ln },
-                { label:'FN', value: fn },
-                { label:'CLASS', value: 'C' },
-                { label:'DOB', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${dob.y}` },
-                { label:'DOB (NO SLASH)', value: `${_pad2(dob.m)}${_pad2(dob.d)}${dob.y}` },
-                { label:'SERIAL (VERT)', value: serial },
-                { label:'SEX', value: sex },
-                { label:'HAIR', value: _rPick(_HAIR) },
-                { label:'EYES', value: _rPick(_EYES) },
-                { label:'HGT', value: hgt },
-                { label:'WGT', value: wgt },
-                { label:'ADDRESS', value: `${addr}, ${city.c}, CA ${city.z}${_rDigits(2)}` },
-                { label:'ISS', value: `${_pad2(_rInt(1,12))}/${_pad2(_rInt(1,28))}/${issY}` },
-                { label:'DD', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${dob.y}${_rDigits(4)}${_rLetters(2)}/${_rLetters(2)}/${_rDigits(4)}` },
+                { label: 'DL', value: dlNum },
+                { label: 'EXP', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${expY}` },
+                { label: 'LN', value: ln },
+                { label: 'FN', value: fn },
+                { label: 'CLASS', value: 'C' },
+                { label: 'DOB', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${dob.y}` },
+                { label: 'DOB (NO SLASH)', value: `${_pad2(dob.m)}${_pad2(dob.d)}${dob.y}` },
+                { label: 'SERIAL (VERT)', value: serial },
+                { label: 'SEX', value: sex },
+                { label: 'HAIR', value: _rPick(_HAIR) },
+                { label: 'EYES', value: _rPick(_EYES) },
+                { label: 'HGT', value: hgt },
+                { label: 'WGT', value: wgt },
+                { label: 'ADDRESS', value: `${addr}, ${city.c}, CA ${city.z}${_rDigits(2)}` },
+                { label: 'ISS', value: `${_pad2(_rInt(1, 12))}/${_pad2(_rInt(1, 28))}/${issY}` },
+                { label: 'DD', value: `${_pad2(dob.m)}/${_pad2(dob.d)}/${dob.y}${_rDigits(4)}${_rLetters(2)}/${_rLetters(2)}/${_rDigits(4)}` },
             ]
-        },{
+        }, {
             name: 'BACK', copyLabel: 'Copy Back',
             fields: [
-                { label:'SERIAL', value: serial },
-                { label:'REV', value: `Rev ${_pad2(_rInt(1,12))}/${_pad2(_rInt(1,28))}/${new Date().getFullYear()-_rInt(1,3)}` },
-                { label:'INVENTORY', value: `${_rDigits(5)}${_rLetters(2)}${dlNum}${_rDigits(5)}` },
+                { label: 'SERIAL', value: serial },
+                { label: 'REV', value: `Rev ${_pad2(_rInt(1, 12))}/${_pad2(_rInt(1, 28))}/${new Date().getFullYear() - _rInt(1, 3)}` },
+                { label: 'INVENTORY', value: `${_rDigits(5)}${_rLetters(2)}${dlNum}${_rDigits(5)}` },
             ]
         }]
     };
@@ -5264,47 +5353,47 @@ function generateCaliforniaDL(sex, tpl) {
 
 /* ═══ ONTARIO DL ═══ */
 function generateOntarioDL(sex, tpl) {
-    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
     const city = _rPick(_ON_CITIES);
     const dlNum = `${ln[0]}${_rDigits(4)}-${_rDigits(5)}-${_rDigits(5)}`;
-    const issDate = `${new Date().getFullYear()-_rInt(0,2)}/${_pad2(_rInt(1,12))}/${_pad2(_rInt(1,28))}`;
-    const expDate = `${new Date().getFullYear()+_rInt(2,5)}/${_pad2(dob.m)}/${_pad2(dob.d)}`;
-    const postal = `${city.p}${_rInt(1,9)}${_rLetter()} ${_rInt(1,9)}${_rLetter()}${_rInt(1,9)}`;
+    const issDate = `${new Date().getFullYear() - _rInt(0, 2)}/${_pad2(_rInt(1, 12))}/${_pad2(_rInt(1, 28))}`;
+    const expDate = `${new Date().getFullYear() + _rInt(2, 5)}/${_pad2(dob.m)}/${_pad2(dob.d)}`;
+    const postal = `${city.p}${_rInt(1, 9)}${_rLetter()} ${_rInt(1, 9)}${_rLetter()}${_rInt(1, 9)}`;
 
     return {
         title: 'Ontario Driver\'s Licence',
         sections: [{
             name: 'NAME / NOM', copyLabel: 'Copy All',
             fields: [
-                { label:'1. FIRST NAME', value: fn },
-                { label:'2. LAST NAME', value: ln },
-                { label:'MIDDLE NAME', value: _rPick(_MALE_FIRST.concat(_FEMALE_FIRST)).slice(0,1) + '.' },
+                { label: '1. FIRST NAME', value: fn },
+                { label: '2. LAST NAME', value: ln },
+                { label: 'MIDDLE NAME', value: _rPick(_MALE_FIRST.concat(_FEMALE_FIRST)).slice(0, 1) + '.' },
             ]
-        },{
+        }, {
             name: 'ADDRESS / ADRESSE',
             fields: [
-                { label:'ADDRESS', value: `${_rInt(100,9999)} ${_rPick(_CA_STREETS)}` },
-                { label:'CITY', value: city.c },
-                { label:'PROVINCE', value: 'ON' },
-                { label:'POSTAL CODE', value: postal },
+                { label: 'ADDRESS', value: `${_rInt(100, 9999)} ${_rPick(_CA_STREETS)}` },
+                { label: 'CITY', value: city.c },
+                { label: 'PROVINCE', value: 'ON' },
+                { label: 'POSTAL CODE', value: postal },
             ]
-        },{
+        }, {
             name: 'DOCUMENT / NUMÉRO',
             fields: [
-                { label:'4D. DL NUMBER', value: dlNum },
-                { label:'4A. ISS / DÉL', value: issDate },
-                { label:'4B. EXP', value: expDate },
-                { label:'5. DD / REF', value: `DB${_rDigits(7)}` },
-                { label:'12. REST / COND', value: `*${_rDigits(7)}*` },
+                { label: '4D. DL NUMBER', value: dlNum },
+                { label: '4A. ISS / DÉL', value: issDate },
+                { label: '4B. EXP', value: expDate },
+                { label: '5. DD / REF', value: `DB${_rDigits(7)}` },
+                { label: '12. REST / COND', value: `*${_rDigits(7)}*` },
             ]
-        },{
+        }, {
             name: 'PERSONAL',
             fields: [
-                { label:'15. SEX', value: sex },
-                { label:'9. CLASS', value: 'G' },
-                { label:'16. HEIGHT', value: `${_rInt(155,195)} cm` },
-                { label:'3. DOB', value: `${dob.y}/${_pad2(dob.m)}/${_pad2(dob.d)}` },
+                { label: '15. SEX', value: sex },
+                { label: '9. CLASS', value: 'G' },
+                { label: '16. HEIGHT', value: `${_rInt(155, 195)} cm` },
+                { label: '3. DOB', value: `${dob.y}/${_pad2(dob.m)}/${_pad2(dob.d)}` },
             ]
         }]
     };
@@ -5312,37 +5401,37 @@ function generateOntarioDL(sex, tpl) {
 
 /* ═══ BC DL ═══ */
 function generateBCDL(sex, tpl) {
-    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
     const city = _rPick(_BC_CITIES);
     const dlNum = _rDigits(7);
-    const postal = `${city.p}${_rInt(1,9)}${_rLetter()} ${_rInt(1,9)}${_rLetter()}${_rInt(1,9)}`;
+    const postal = `${city.p}${_rInt(1, 9)}${_rLetter()} ${_rInt(1, 9)}${_rLetter()}${_rInt(1, 9)}`;
 
     return {
         title: 'British Columbia Driver\'s Licence',
         sections: [{
             name: 'FRONT',
             fields: [
-                { label:'FULL NAME', value: `${ln}, ${fn}` },
-                { label:'ADDRESS', value: `${_rInt(100,9999)} ${_rPick(_CA_STREETS)}` },
-                { label:'CITY', value: `${city.c}, BC` },
-                { label:'POSTAL CODE', value: postal },
-                { label:'DL NUMBER', value: dlNum },
-                { label:'ISS', value: `${new Date().getFullYear()-_rInt(0,3)}-${_rPick(_MONTHS_SHORT)}-${_pad2(_rInt(1,28))}` },
-                { label:'EXP', value: `${new Date().getFullYear()+_rInt(2,5)}-${_rPick(_MONTHS_SHORT)}-${_pad2(dob.d)}` },
-                { label:'DOB', value: `${dob.y}-${_rPick(_MONTHS_SHORT)}-${_pad2(dob.d)}` },
-                { label:'SEX', value: sex },
-                { label:'HAIR', value: _rPick(_HAIR) },
-                { label:'EYES', value: _rPick(_EYES) },
-                { label:'HEIGHT', value: `${_rInt(155,195)} cm` },
-                { label:'WEIGHT', value: `${(_rInt(550,950)/10).toFixed(1)} kg` },
+                { label: 'FULL NAME', value: `${ln}, ${fn}` },
+                { label: 'ADDRESS', value: `${_rInt(100, 9999)} ${_rPick(_CA_STREETS)}` },
+                { label: 'CITY', value: `${city.c}, BC` },
+                { label: 'POSTAL CODE', value: postal },
+                { label: 'DL NUMBER', value: dlNum },
+                { label: 'ISS', value: `${new Date().getFullYear() - _rInt(0, 3)}-${_rPick(_MONTHS_SHORT)}-${_pad2(_rInt(1, 28))}` },
+                { label: 'EXP', value: `${new Date().getFullYear() + _rInt(2, 5)}-${_rPick(_MONTHS_SHORT)}-${_pad2(dob.d)}` },
+                { label: 'DOB', value: `${dob.y}-${_rPick(_MONTHS_SHORT)}-${_pad2(dob.d)}` },
+                { label: 'SEX', value: sex },
+                { label: 'HAIR', value: _rPick(_HAIR) },
+                { label: 'EYES', value: _rPick(_EYES) },
+                { label: 'HEIGHT', value: `${_rInt(155, 195)} cm` },
+                { label: 'WEIGHT', value: `${(_rInt(550, 950) / 10).toFixed(1)} kg` },
             ]
-        },{
+        }, {
             name: 'BACK SIDE',
             fields: [
-                { label:'RESTRICTIONS', value: sex==='F' ? 'MUST DISPLAY "N" SIGN' : '47 0 BAC; MUST DISPLAY "N" SIGN' },
-                { label:'HEALTH NUMBER', value: `${_rDigits(4)} ${_rDigits(3)} ${_rDigits(3)}` },
-                { label:'BARCODE', value: `${_rLetter()}${_rDigits(7)}` },
+                { label: 'RESTRICTIONS', value: sex === 'F' ? 'MUST DISPLAY "N" SIGN' : '47 0 BAC; MUST DISPLAY "N" SIGN' },
+                { label: 'HEALTH NUMBER', value: `${_rDigits(4)} ${_rDigits(3)} ${_rDigits(3)}` },
+                { label: 'BARCODE', value: `${_rLetter()}${_rDigits(7)}` },
             ]
         }]
     };
@@ -5350,50 +5439,50 @@ function generateBCDL(sex, tpl) {
 
 /* ═══ CANADIAN PASSPORT ═══ */
 function generateCanadianPassport(sex, tpl) {
-    const {fn, ln} = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return {fn:p[0]?.toUpperCase()||'JOHN', ln:p.slice(1).join(' ').toUpperCase()||'DOE'}; })() : _genName(sex);
+    const { fn, ln } = tpl.holder ? (() => { const p = tpl.holder.split(/\s+/); return { fn: p[0]?.toUpperCase() || 'JOHN', ln: p.slice(1).join(' ').toUpperCase() || 'DOE' }; })() : _genName(sex);
     const dob = _genDOB(sex);
     const ppNum = _rLetters(2) + _rDigits(6);
-    const expY = new Date().getFullYear() + _rInt(5,10);
+    const expY = new Date().getFullYear() + _rInt(5, 10);
     const issY = expY - 10;
-    const mrzSurname = ln.replace(/[^A-Z]/g,'');
-    const mrzGiven = fn.replace(/[^A-Z]/g,'');
-    const line1 = `P<CAN${mrzSurname}<<${mrzGiven}${'<'.repeat(Math.max(0, 44 - 5 - mrzSurname.length - 2 - mrzGiven.length))}`.slice(0,44);
+    const mrzSurname = ln.replace(/[^A-Z]/g, '');
+    const mrzGiven = fn.replace(/[^A-Z]/g, '');
+    const line1 = `P<CAN${mrzSurname}<<${mrzGiven}${'<'.repeat(Math.max(0, 44 - 5 - mrzSurname.length - 2 - mrzGiven.length))}`.slice(0, 44);
     const dobStr = `${String(dob.y).slice(2)}${_pad2(dob.m)}${_pad2(dob.d)}`;
     const expStr = `${String(expY).slice(2)}${_pad2(dob.m)}${_pad2(dob.d)}`;
     const cd = n => String(n % 10);
-    const line2 = `${ppNum}<${cd(_rInt(0,9))}CAN${dobStr}${cd(_rInt(0,9))}${sex}${expStr}${cd(_rInt(0,9))}${'<'.repeat(14)}${cd(_rInt(0,9))}`.slice(0,44);
+    const line2 = `${ppNum}<${cd(_rInt(0, 9))}CAN${dobStr}${cd(_rInt(0, 9))}${sex}${expStr}${cd(_rInt(0, 9))}${'<'.repeat(14)}${cd(_rInt(0, 9))}`.slice(0, 44);
 
-    const provinces = ['ONTARIO','BRITISH COLUMBIA','QUEBEC','ALBERTA','NOVA SCOTIA'];
+    const provinces = ['ONTARIO', 'BRITISH COLUMBIA', 'QUEBEC', 'ALBERTA', 'NOVA SCOTIA'];
 
     return {
         title: 'Canadian Passport',
         sections: [{
             name: 'DOCUMENT INFO',
             fields: [
-                { label:'TYPE', value: 'P' },
-                { label:'COUNTRY', value: 'CAN' },
-                { label:'PASSPORT NO.', value: ppNum },
-                { label:'SURNAME', value: ln },
-                { label:'GIVEN NAMES', value: fn },
-                { label:'NATIONALITY', value: 'CANADIAN / CANADIENNE' },
-                { label:'DOB', value: `${_pad2(dob.d)} ${_MONTHS_EN[dob.m-1].toUpperCase()} /${_MONTHS_FR[dob.m-1]} ${String(dob.y).slice(2)}` },
-                { label:'SEX', value: sex },
-                { label:'PLACE OF BIRTH', value: _rPick(provinces) },
-                { label:'DATE OF ISSUE', value: `${_pad2(_rInt(1,28))} ${_MONTHS_EN[_rInt(0,11)].toUpperCase()} ${String(issY).slice(2)}` },
-                { label:'DATE OF EXPIRY', value: `${_pad2(_rInt(1,28))} ${_MONTHS_EN[_rInt(0,11)].toUpperCase()} ${String(expY).slice(2)}` },
-                { label:'AUTHORITY', value: _rPick(provinces) },
+                { label: 'TYPE', value: 'P' },
+                { label: 'COUNTRY', value: 'CAN' },
+                { label: 'PASSPORT NO.', value: ppNum },
+                { label: 'SURNAME', value: ln },
+                { label: 'GIVEN NAMES', value: fn },
+                { label: 'NATIONALITY', value: 'CANADIAN / CANADIENNE' },
+                { label: 'DOB', value: `${_pad2(dob.d)} ${_MONTHS_EN[dob.m - 1].toUpperCase()} /${_MONTHS_FR[dob.m - 1]} ${String(dob.y).slice(2)}` },
+                { label: 'SEX', value: sex },
+                { label: 'PLACE OF BIRTH', value: _rPick(provinces) },
+                { label: 'DATE OF ISSUE', value: `${_pad2(_rInt(1, 28))} ${_MONTHS_EN[_rInt(0, 11)].toUpperCase()} ${String(issY).slice(2)}` },
+                { label: 'DATE OF EXPIRY', value: `${_pad2(_rInt(1, 28))} ${_MONTHS_EN[_rInt(0, 11)].toUpperCase()} ${String(expY).slice(2)}` },
+                { label: 'AUTHORITY', value: _rPick(provinces) },
             ]
-        },{
+        }, {
             name: 'PERFO / SERIAL',
             fields: [
-                { label:'SERIAL 1', value: ppNum },
-                { label:'SERIAL 2', value: `${_rLetters(3)}${_rDigits(5)}` },
+                { label: 'SERIAL 1', value: ppNum },
+                { label: 'SERIAL 2', value: `${_rLetters(3)}${_rDigits(5)}` },
             ]
-        },{
+        }, {
             name: 'MRZ (MACHINE READABLE ZONE)',
             fields: [
-                { label:'LINE 1', value: line1 },
-                { label:'LINE 2', value: line2 },
+                { label: 'LINE 1', value: line1 },
+                { label: 'LINE 2', value: line2 },
             ]
         }]
     };
@@ -5403,43 +5492,43 @@ function generateCanadianPassport(sex, tpl) {
 function generateRogersBill(sex, tpl) {
     const holder = tpl.holder || `${_rPick(_MALE_FIRST)} ${_rPick(_LAST_NAMES)}`;
     const billing = tpl.billing || 'CA, ON, Toronto, 5 Bay Street';
-    const zip = tpl.zip || `M${_rInt(1,9)}${_rLetter()} ${_rInt(1,9)}${_rLetter()}${_rInt(1,9)}`;
-    const total = (_rInt(8000,25000)/100).toFixed(2);
-    const pastDue = (_rInt(0,3000)/100).toFixed(2);
-    const saved = (_rInt(200,1500)/100).toFixed(2);
-    const payDate = new Date(Date.now() + _rInt(10,30)*86400000);
-    const billDate = new Date(Date.now() - _rInt(1,5)*86400000);
+    const zip = tpl.zip || `M${_rInt(1, 9)}${_rLetter()} ${_rInt(1, 9)}${_rLetter()}${_rInt(1, 9)}`;
+    const total = (_rInt(8000, 25000) / 100).toFixed(2);
+    const pastDue = (_rInt(0, 3000) / 100).toFixed(2);
+    const saved = (_rInt(200, 1500) / 100).toFixed(2);
+    const payDate = new Date(Date.now() + _rInt(10, 30) * 86400000);
+    const billDate = new Date(Date.now() - _rInt(1, 5) * 86400000);
 
     return {
         title: 'Rogers Bill',
         sections: [{
             name: 'GREETING',
             fields: [
-                { label:'HELLO', value: holder },
+                { label: 'HELLO', value: holder },
             ]
-        },{
+        }, {
             name: 'TOTAL DUE',
             fields: [
-                { label:'$ TOTAL DUE', value: `$${total}` },
-                { label:'PAST DUE BALANCE', value: `$${pastDue}` },
-                { label:'PAY $ BY DATE', value: `$${total}` },
-                { label:'REQUIRED PAYMENT DATE', value: `${_pad2(payDate.getDate())} ${_MONTHS_EN[payDate.getMonth()]}, ${payDate.getFullYear()}` },
-                { label:'YOU SAVED $', value: `$${saved}` },
+                { label: '$ TOTAL DUE', value: `$${total}` },
+                { label: 'PAST DUE BALANCE', value: `$${pastDue}` },
+                { label: 'PAY $ BY DATE', value: `$${total}` },
+                { label: 'REQUIRED PAYMENT DATE', value: `${_pad2(payDate.getDate())} ${_MONTHS_EN[payDate.getMonth()]}, ${payDate.getFullYear()}` },
+                { label: 'YOU SAVED $', value: `$${saved}` },
             ]
-        },{
+        }, {
             name: 'SUMMARY',
             fields: [
-                { label:'BALANCE FORWARD', value: `$${pastDue}` },
-                { label:'BUNDLED SERVICES', value: `$${(_rInt(5000,15000)/100).toFixed(2)}` },
-                { label:'TOTAL (INCL HST)', value: `$${total}` },
+                { label: 'BALANCE FORWARD', value: `$${pastDue}` },
+                { label: 'BUNDLED SERVICES', value: `$${(_rInt(5000, 15000) / 100).toFixed(2)}` },
+                { label: 'TOTAL (INCL HST)', value: `$${total}` },
             ]
-        },{
+        }, {
             name: 'BOTTOM SECTION',
             fields: [
-                { label:'POSTAL LINE', value: `##POSTAL${zip.replace(/\s/g,'')} ${_rDigits(23)};C;QCC;${_rDigits(9)};${_rDigits(3)}` },
-                { label:'ACCOUNT NUMBER', value: _rDigits(9) },
-                { label:'BILL DATE', value: `${_MONTHS_EN[billDate.getMonth()].toUpperCase()} ${_pad2(billDate.getDate())}, ${billDate.getFullYear()}` },
-                { label:'BARCODE', value: _rDigits(30) },
+                { label: 'POSTAL LINE', value: `##POSTAL${zip.replace(/\s/g, '')} ${_rDigits(23)};C;QCC;${_rDigits(9)};${_rDigits(3)}` },
+                { label: 'ACCOUNT NUMBER', value: _rDigits(9) },
+                { label: 'BILL DATE', value: `${_MONTHS_EN[billDate.getMonth()].toUpperCase()} ${_pad2(billDate.getDate())}, ${billDate.getFullYear()}` },
+                { label: 'BARCODE', value: _rDigits(30) },
             ]
         }]
     };
@@ -5448,7 +5537,7 @@ function generateRogersBill(sex, tpl) {
 /* ═══ DISPATCH ═══ */
 function generateDocument(docId, sex, templateText) {
     const tpl = _parseTemplate(templateText);
-    switch(docId) {
+    switch (docId) {
         case 'ca-dl': return generateCaliforniaDL(sex, tpl);
         case 'on-dl': return generateOntarioDL(sex, tpl);
         case 'bc-dl': return generateBCDL(sex, tpl);
@@ -5472,12 +5561,12 @@ function renderGenerator() {
         const cats = [...new Set(docs.map(d => d.cat))];
         let childrenHTML = '';
         cats.forEach(cat => {
-            const catIcon = cat==='DRIVER LICENSE' ? '🚗' : cat==='PASSPORT' ? '📘' : '⚡';
+            const catIcon = cat === 'DRIVER LICENSE' ? '🚗' : cat === 'PASSPORT' ? '📘' : '⚡';
             childrenHTML += `<div class="gen-cat">${catIcon} ${cat}</div>`;
-            docs.filter(d => d.cat===cat).forEach(d => {
+            docs.filter(d => d.cat === cat).forEach(d => {
                 const active = d.id === _genState.docId;
                 const badge = d.active ? '<span class="gen-badge-active">✓</span>' : '<span class="gen-badge-locked">🔒</span>';
-                childrenHTML += `<button class="gen-doc-item ${active?'active':''} ${d.active?'':'locked'}" data-doc="${d.id}" ${d.active?'':'disabled'}>${d.name} ${badge}</button>`;
+                childrenHTML += `<button class="gen-doc-item ${active ? 'active' : ''} ${d.active ? '' : 'locked'}" data-doc="${d.id}" ${d.active ? '' : 'disabled'}>${d.name} ${badge}</button>`;
             });
         });
         sidebarHTML += `
@@ -5492,14 +5581,14 @@ function renderGenerator() {
     const showTemplate = doc?.cat !== 'UTILITY BILLS';
 
     // Config panel
-    let configHTML = `<h2 class="gen-title">${doc?.icon||''} ${doc?.name || 'Select'} ${doc?.active ? '<span class="gen-active-badge">Active</span>' : ''}</h2><hr class="gen-hr">`;
+    let configHTML = `<h2 class="gen-title">${doc?.icon || ''} ${doc?.name || 'Select'} ${doc?.active ? '<span class="gen-active-badge">Active</span>' : ''}</h2><hr class="gen-hr">`;
 
     if (showSexToggle) {
         configHTML += `
             <div class="gen-sex-row">
                 <span class="gen-label">Sex:</span>
-                <button class="gen-sex-btn ${_genState.sex==='M'?'active':''}" data-sex="M">👤 Male (30-50)</button>
-                <button class="gen-sex-btn ${_genState.sex==='F'?'active':''}" data-sex="F">👤 Female (30-50)</button>
+                <button class="gen-sex-btn ${_genState.sex === 'M' ? 'active' : ''}" data-sex="M">👤 Male (30-50)</button>
+                <button class="gen-sex-btn ${_genState.sex === 'F' ? 'active' : ''}" data-sex="F">👤 Female (30-50)</button>
             </div>`;
     }
 
@@ -5540,7 +5629,7 @@ function renderGenerator() {
                         <span class="gen-field-value">${f.value}</span>
                         <div class="gen-field-actions">
                             <button class="gen-regen-btn" data-si="${si}" data-fi="${fi}" title="Regenerate">🔄</button>
-                            <button class="gen-copy-btn" data-val="${f.value.replace(/"/g,'&quot;')}" title="Copy">📋</button>
+                            <button class="gen-copy-btn" data-val="${f.value.replace(/"/g, '&quot;')}" title="Copy">📋</button>
                         </div>
                     </div>`;
             });
@@ -5654,35 +5743,15 @@ function renderParser() {
     const hasBase = PARSER_STATE.collected.length > 0 || PARSER_STATE.rawMessages.length > 0;
     const trashCount = (STATE.trashCards || []).length;
 
-    // Build compact main file list
-    const mainFiles = PARSER_STATE.mainFiles.filter(Boolean);
-    const mainListHTML = mainFiles.length > 0
-        ? mainFiles.map((f, i) => `<div class="pz-file" data-idx="${i}"><span class="pz-fname">${f.name}</span><span class="pz-fmeta">${(f.size/1024/1024).toFixed(1)}MB · ${f.messages.length.toLocaleString()} msg</span>${i > 0 ? '<button class="pz-fremove" data-idx="'+i+'">×</button>' : ''}</div>`).join('')
-        : '';
-
-    const exFile = PARSER_STATE.excludeFile;
-    const totalMsg = PARSER_STATE.rawMessages.length;
-
     area.innerHTML = `
     <div class="parser-container">
-        <!-- UPLOAD ROW -->
-        <div class="pz-row">
-            <div class="pz-col pz-col-main">
-                <div class="pz-header">BASE FILES ${mainFiles.length > 0 ? '<span class="pz-count">(' + mainFiles.length + ' file' + (mainFiles.length>1?'s':'') + ' · ' + totalMsg.toLocaleString() + ' msg)</span>' : ''}</div>
-                <div class="pz-drop" id="pz-main-drop">
-                    <input type="file" id="pz-main-input" accept=".json" hidden>
-                    <span class="pz-drop-text">${mainFiles.length === 0 ? 'Drop result.json or click' : 'Drop another file or click'}</span>
-                    <button class="pz-add-btn" id="pz-add-btn" title="Add base">+</button>
-                </div>
-                ${mainListHTML ? '<div class="pz-file-list">' + mainListHTML + '</div>' : ''}
-            </div>
-            <div class="pz-col pz-col-exclude">
-                <div class="pz-header">EXCLUDE BASE</div>
-                <div class="pz-drop pz-drop-ex" id="pz-ex-drop">
-                    <input type="file" id="pz-ex-input" accept=".json" hidden>
-                    <span class="pz-drop-text">${exFile ? exFile.name + ' (' + (exFile.size/1024/1024).toFixed(1) + 'MB)' : 'Drop exclude .json'}</span>
-                    ${exFile ? '<button class="pz-fremove" id="pz-ex-clear">×</button>' : ''}
-                </div>
+        <!-- UPLOAD ZONE -->
+        <div class="parser-upload-zone" id="parser-drop-zone">
+            <input type="file" id="parser-file-input" accept=".json" hidden>
+            <div class="parser-upload-content">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 16V4m0 0L8 8m4-4l4 4"/><path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
+                <span class="parser-upload-title">${PARSER_STATE.file ? PARSER_STATE.file : 'Drop result.json or click to upload'}</span>
+                <span class="parser-upload-hint">Telegram JSON export · 100% local · no internet${hasBase ? ' · Base saved (' + PARSER_STATE.collected.length + ' cards)' : ''}</span>
             </div>
         </div>
 
@@ -5731,12 +5800,14 @@ function renderParser() {
 
         <!-- ACTIONS -->
         <div class="parser-actions">
-            <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>PARSE</button>
-            <button class="pz-btn pz-btn-primary" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>COLLECT ALL</button>
-            <button class="pz-btn pz-btn-outline" id="parser-clear-btn">CLEAR</button>
-            <button class="pz-btn pz-btn-accent" id="parser-exclude-json-btn" ${exFile && PARSER_STATE.collected.length > 0 ? '' : 'disabled'}>EXCLUDE</button>
-            <button class="pz-btn pz-btn-outline" id="parser-import-notes-btn">TO NOTES</button>
-            <span class="parser-status" id="parser-status"></span>
+            <button class="btn-primary parser-parse-btn" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>PARSE</button>
+            <button class="btn-primary parser-collect-btn" id="parser-collect-btn" ${hasBase ? '' : 'disabled'}>COLLECT ALL</button>
+            <button class="btn-outline parser-clear-btn" id="parser-clear-btn">CLEAR</button>
+            <button class="btn-outline parser-clear-base-btn" id="parser-clear-base-btn">CLEAR BASE</button>
+            <button class="btn-outline parser-trash-add-btn" id="parser-trash-add-btn">ADD TRASH (${trashCount})</button>
+            <button class="btn-outline" id="parser-exclude-json-btn" title="Load second JSON and remove matching cards">EXCLUDE BASE</button>
+            <button class="btn-outline" id="parser-import-notes-btn" title="Import results to Notes tab">TO NOTES</button>
+            <span class="parser-status" id="parser-status">${hasBase && !PARSER_STATE.rawMessages.length ? 'Base saved: ' + PARSER_STATE.collected.length + ' cards' : ''}</span>
         </div>
 
         <!-- STATS BAR -->
@@ -5744,7 +5815,6 @@ function renderParser() {
             <span class="ps-item">Total: <strong id="ps-total">0</strong></span>
             <span class="ps-item">Duplicates: <strong id="ps-dupes">0</strong></span>
             <span class="ps-item">Trash: <strong id="ps-trash">0</strong></span>
-            <span class="ps-item">Excluded: <strong id="ps-excluded">0</strong></span>
             <span class="ps-item ps-net">→ Import: <strong id="ps-net">0</strong></span>
         </div>
 
@@ -5759,7 +5829,7 @@ function renderParser() {
                     <label>Exclude BANK <span class="parser-filter-hint">(comma separated)</span></label>
                     <input type="text" id="parser-exclude-banks" placeholder="CHASE, TD BANK..." value="${PARSER_STATE.excludedBanks.join(', ')}">
                 </div>
-                <button class="pz-btn pz-btn-outline" id="parser-exclude-apply-btn">EXCLUDE SELECTED</button>
+                <button class="btn-outline parser-exclude-apply-btn" id="parser-exclude-apply-btn">🚫 EXCLUDE SELECTED</button>
             </div>
         </div>
 
@@ -5767,88 +5837,16 @@ function renderParser() {
         <div class="parser-results" id="parser-results"></div>
     </div>`;
 
-    // ── HANDLERS ──
+    // Upload handlers
+    const dropZone = document.getElementById('parser-drop-zone');
+    const fileInput = document.getElementById('parser-file-input');
 
-    // Main drop zone — click & drag
-    const mainDrop = document.getElementById('pz-main-drop');
-    const mainInput = document.getElementById('pz-main-input');
-    mainDrop.addEventListener('click', (e) => { if (!e.target.closest('.pz-add-btn')) mainInput.click(); });
-    mainDrop.addEventListener('dragover', (e) => { e.preventDefault(); mainDrop.classList.add('drag-over'); });
-    mainDrop.addEventListener('dragleave', () => mainDrop.classList.remove('drag-over'));
-    mainDrop.addEventListener('drop', (e) => { e.preventDefault(); mainDrop.classList.remove('drag-over'); _loadMainFile(e.dataTransfer.files[0]); });
-    mainInput.addEventListener('change', () => { if (mainInput.files[0]) _loadMainFile(mainInput.files[0]); });
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); loadParserFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadParserFile(fileInput.files[0]); });
 
-    // '+' button
-    document.getElementById('pz-add-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        mainInput.click();
-    });
-
-    // Remove file buttons
-    document.querySelectorAll('.pz-file .pz-fremove').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.idx);
-            PARSER_STATE.mainFiles.splice(idx, 1);
-            _rebuildRawMessages();
-            renderParser();
-        });
-    });
-
-    function _loadMainFile(file) {
-        if (!file) return;
-        const status = document.getElementById('parser-status');
-        status.textContent = 'Reading...';
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const data = JSON.parse(ev.target.result);
-                const messages = Array.isArray(data) ? data : (data.messages || []);
-                PARSER_STATE.mainFiles.push({ name: file.name, size: file.size, messages });
-                _rebuildRawMessages();
-                PARSER_STATE.file = PARSER_STATE.mainFiles.map(f => f.name).join(' + ');
-                toast(`Loaded: ${file.name} (${messages.length.toLocaleString()} msg)`, 'success');
-                renderParser();
-            } catch { toast('Invalid JSON', 'error'); }
-        };
-        reader.readAsText(file);
-    }
-
-    function _rebuildRawMessages() {
-        PARSER_STATE.rawMessages = [];
-        PARSER_STATE.mainFiles.filter(Boolean).forEach(f => PARSER_STATE.rawMessages.push(...f.messages));
-    }
-
-    // Exclude drop zone
-    const exDrop = document.getElementById('pz-ex-drop');
-    const exInput = document.getElementById('pz-ex-input');
-    exDrop.addEventListener('click', (e) => { if (!e.target.closest('.pz-fremove')) exInput.click(); });
-    exDrop.addEventListener('dragover', (e) => { e.preventDefault(); exDrop.classList.add('drag-over'); });
-    exDrop.addEventListener('dragleave', () => exDrop.classList.remove('drag-over'));
-    exDrop.addEventListener('drop', (e) => { e.preventDefault(); exDrop.classList.remove('drag-over'); _loadExcludeFile(e.dataTransfer.files[0]); });
-    exInput.addEventListener('change', () => { if (exInput.files[0]) _loadExcludeFile(exInput.files[0]); });
-    document.getElementById('pz-ex-clear')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        PARSER_STATE.excludeFile = null;
-        PARSER_STATE._excludeSet = null;
-        renderParser();
-    });
-
-    function _loadExcludeFile(file) {
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const data = JSON.parse(ev.target.result);
-                const messages = Array.isArray(data) ? data : (data.messages || []);
-                PARSER_STATE.excludeFile = { name: file.name, size: file.size, messages };
-                toast(`Exclude loaded: ${file.name} (${messages.length.toLocaleString()} msg)`, 'success');
-                renderParser();
-            } catch { toast('Invalid exclude JSON', 'error'); }
-        };
-        reader.readAsText(file);
-    }
-
-    // Action buttons
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
     document.getElementById('parser-collect-btn').addEventListener('click', collectAll);
     document.getElementById('parser-clear-btn').addEventListener('click', () => {
@@ -5890,50 +5888,91 @@ function renderParser() {
         btn.addEventListener('click', () => btn.classList.toggle('active'));
     });
 
-    // EXCLUDE BASE — use pre-loaded exclude file
+    // EXCLUDE BASE — load second JSON, parse it, immediately remove matches from collected
     document.getElementById('parser-exclude-json-btn')?.addEventListener('click', () => {
-        if (PARSER_STATE.collected.length === 0) { toast('Parse main base first', 'warning'); return; }
-        if (!PARSER_STATE.excludeFile) { toast('Load exclude file first', 'warning'); return; }
-
-        const excludeCards = extractCardsFromMessages(PARSER_STATE.excludeFile.messages);
-        if (excludeCards.length === 0) { toast('No cards in exclude file', 'warning'); return; }
-
-        const excludeFullCC = new Set();
-        const excludeBinLast4 = new Set();
-        excludeCards.forEach(c => {
-            const cc = (c.cc || '').replace(/[\s\-]/g, '');
-            if (cc.length >= 6) {
-                excludeFullCC.add(cc);
-                excludeBinLast4.add(cc.slice(0, 6) + '_' + cc.slice(-4));
-            }
-        });
-        PARSER_STATE._excludeSet = excludeFullCC;
-
-        const before = PARSER_STATE.collected.length;
-        PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
-            const cc = (c.cc || '').replace(/[\s\-]/g, '');
-            if (excludeFullCC.has(cc)) return false;
-            if (cc.length >= 6 && excludeBinLast4.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
-            return true;
-        });
-        const removed = before - PARSER_STATE.collected.length;
-
-        // Rebuild binGroups
-        const binMap = {};
-        PARSER_STATE.collected.forEach(c => { if (!binMap[c.bin]) binMap[c.bin] = []; binMap[c.bin].push(c); });
-        PARSER_STATE.binGroups = Object.entries(binMap).map(([bin, cards]) => ({ bin, count: cards.length, cards })).sort((a, b) => b.count - a.count);
-
-        // Update stats
-        const sb = document.getElementById('parser-stats-bar');
-        if (sb) {
-            sb.style.display = 'flex';
-            const exEl = document.getElementById('ps-excluded');
-            if (exEl) exEl.textContent = removed;
-            document.getElementById('ps-net').textContent = PARSER_STATE.collected.length;
+        if (PARSER_STATE.collected.length === 0) {
+            toast('Load and parse main base first', 'warning');
+            return;
         }
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const data = JSON.parse(reader.result);
+                    const msgs = data.messages || data;
+                    if (!Array.isArray(msgs) || msgs.length === 0) {
+                        toast('No messages found in file', 'error');
+                        return;
+                    }
 
-        toast(`Excluded ${removed} cards (${PARSER_STATE.collected.length} remaining)`, 'success');
-        renderParserResults();
+                    // Extract cards using the SAME parser as main base
+                    const excludeCards = extractCardsFromMessages(msgs);
+
+                    // Build exclude sets: full CC number, BIN+last4
+                    const excludeFullCC = new Set();
+                    const excludeBinLast4 = new Set();
+                    excludeCards.forEach(c => {
+                        const cc = (c.cc || '').replace(/[\s\-]/g, '');
+                        if (cc.length >= 6) {
+                            excludeFullCC.add(cc);
+                            excludeBinLast4.add(cc.slice(0, 6) + '_' + cc.slice(-4));
+                        }
+                    });
+
+                    // Also store for future PARSE operations
+                    PARSER_STATE._excludeSet = excludeFullCC;
+
+                    // Filter collected immediately
+                    const before = PARSER_STATE.collected.length;
+                    PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
+                        const cc = (c.cc || '').replace(/[\s\-]/g, '');
+                        // Match by full CC or by BIN+last4
+                        if (excludeFullCC.has(cc)) return false;
+                        if (cc.length >= 6 && excludeBinLast4.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
+                        return true;
+                    });
+                    const removed = before - PARSER_STATE.collected.length;
+
+                    // Rebuild binGroups from filtered collected
+                    const binMap = {};
+                    PARSER_STATE.collected.forEach(c => {
+                        if (!binMap[c.bin]) binMap[c.bin] = [];
+                        binMap[c.bin].push(c);
+                    });
+                    PARSER_STATE.binGroups = Object.entries(binMap)
+                        .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
+                        .sort((a, b) => b.count - a.count);
+
+                    // Update button
+                    const btn2 = document.getElementById('parser-exclude-json-btn');
+                    if (btn2) btn2.textContent = `EXCLUDE BASE (${excludeCards.length})`;
+
+                    // Update stats bar
+                    const statsBar = document.getElementById('parser-stats-bar');
+                    if (statsBar) {
+                        statsBar.style.display = 'flex';
+                        document.getElementById('ps-total').textContent = before;
+                        document.getElementById('ps-dupes').textContent = removed;
+                        document.getElementById('ps-trash').textContent = '0';
+                        document.getElementById('ps-net').textContent = PARSER_STATE.collected.length;
+                    }
+
+                    toast(`Excluded ${removed} matching cards (${PARSER_STATE.collected.length} remaining)`, 'success');
+
+                    // Re-render
+                    renderParserResults();
+                } catch (err) {
+                    toast('Invalid JSON file: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        });
+        input.click();
     });
 
     // IMPORT TO NOTES
@@ -6144,45 +6183,10 @@ function runParse() {
         });
     }
 
-    // Exclude JSON base
-    if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
-        allCards = allCards.filter(c => {
-            const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
-            return !PARSER_STATE._excludeSet.has(cc);
-        });
-    }
-
-    const totalBeforeDedup = allCards.length;
-    let dupCount = 0;
-
-    if (dedup) {
-        const seen = new Set();
-        const before = allCards.length;
-        allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
-        dupCount = before - allCards.length;
-    }
-
-    // Trash filter count
-    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
-    let trashCount2 = 0;
-    allCards = allCards.filter(c => {
-        const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
-        if (trashSet.has(cc)) { trashCount2++; return false; }
-        return true;
-    });
-
-    // Show post-filter stats
-    const statsBar = document.getElementById('parser-stats-bar');
-    if (statsBar) {
-        statsBar.style.display = 'flex';
-        document.getElementById('ps-total').textContent = totalBeforeDedup;
-        document.getElementById('ps-dupes').textContent = dupCount;
-        document.getElementById('ps-trash').textContent = trashCount2;
-        document.getElementById('ps-net').textContent = allCards.length;
-    }
-
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
-    finishParsing(allCards, status);
+
+    // ── STEP-BY-STEP PIPELINE ──
+    _processPipeline(allCards, dedup, status);
 }
 
 // ──── COLLECT ALL (no filters) ────
@@ -6197,24 +6201,85 @@ function collectAll() {
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     // Always detect GEO
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
-    if (dedup) {
-        const seen = new Set();
-        allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
-    }
 
     PARSER_STATE.binFilter = null;
+
+    // ── STEP-BY-STEP PIPELINE ──
+    _processPipeline(allCards, dedup, status);
+}
+
+// ──── TRANSPARENT PROCESSING PIPELINE ────
+// Step 1: Start with merged raw cards
+// Step 2: Remove TRASH
+// Step 3: Remove DUPLICATES (internal dedup)
+// Step 4: Apply EXCLUDE BASE (if loaded and _excludeSet exists)
+// Step 5: Tag remaining cards (NEW / DUPLICATE in project / TRASH)
+// After each step: real counts tracked and shown
+
+function _processPipeline(allCards, dedup, status) {
+    const totalRaw = allCards.length;
+
+    // ── Step 1: Remove TRASH ──
+    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+    let trashRemoved = 0;
+    if (trashSet.size > 0) {
+        const beforeTrash = allCards.length;
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
+            if (trashSet.has(cc)) { return false; }
+            return true;
+        });
+        trashRemoved = beforeTrash - allCards.length;
+    }
+
+    // ── Step 2: Remove DUPLICATES (internal dedup within parsed data) ──
+    let dupRemoved = 0;
+    if (dedup) {
+        const seen = new Set();
+        const beforeDedup = allCards.length;
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || '').replace(/\s/g, '');
+            if (seen.has(cc)) return false;
+            seen.add(cc);
+            return true;
+        });
+        dupRemoved = beforeDedup - allCards.length;
+    }
+
+    // ── Step 3: Apply EXCLUDE BASE (if _excludeSet is pre-loaded) ──
+    let excludeRemoved = 0;
+    if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
+        const beforeExclude = allCards.length;
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || '').replace(/[\s\-]/g, '');
+            return !PARSER_STATE._excludeSet.has(cc);
+        });
+        excludeRemoved = beforeExclude - allCards.length;
+    }
+
+    // ── Step 4: Show stats bar ──
+    const statsBar = document.getElementById('parser-stats-bar');
+    if (statsBar) {
+        statsBar.style.display = 'flex';
+        document.getElementById('ps-total').textContent = totalRaw;
+        document.getElementById('ps-dupes').textContent = dupRemoved;
+        document.getElementById('ps-trash').textContent = trashRemoved;
+        const psExcl = document.getElementById('ps-excluded');
+        if (psExcl) psExcl.textContent = excludeRemoved;
+        document.getElementById('ps-net').textContent = allCards.length;
+    }
+
+    // ── Step 5: Finish with tagging ──
     finishParsing(allCards, status);
 }
 
 function finishParsing(allCards, status) {
-    // Auto-tag: DUPLICATE / TRASH / NEW
+    // Auto-tag remaining cards: DUPLICATE (already in project) / NEW
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
-    let dupCount = 0, trashCount = 0, newCount = 0;
+    let dupInProject = 0, newCount = 0;
     allCards.forEach(c => {
-        const num = c.cc.replace(/\s/g, '');
-        if (existingNumbers.has(num)) { c._tag = 'DUPLICATE'; dupCount++; }
-        else if (trashSet.has(num)) { c._tag = 'TRASH'; trashCount++; }
+        const num = (c.cc || '').replace(/\s/g, '');
+        if (existingNumbers.has(num)) { c._tag = 'DUPLICATE'; dupInProject++; }
         else { c._tag = 'NEW'; newCount++; }
     });
 
@@ -6235,10 +6300,10 @@ function finishParsing(allCards, status) {
             collected: allCards,
             file: PARSER_STATE.file
         }));
-    } catch(e) { console.warn('Parser base save error:', e); }
+    } catch (e) { console.warn('Parser base save error:', e); }
 
-    status.textContent = `✅ ${allCards.length} cards · ${binGroups.length} BINs (${newCount} new, ${dupCount} dup, ${trashCount} trash)`;
-    toast(`Found: ${allCards.length} cards — ${newCount} NEW, ${dupCount} DUP, ${trashCount} TRASH`, 'success');
+    status.textContent = `✅ ${allCards.length} cards ready · ${binGroups.length} BINs (${newCount} new, ${dupInProject} already in project)`;
+    toast(`Ready: ${allCards.length} cards — ${newCount} NEW, ${dupInProject} already in project`, 'success');
     renderParserResults();
 }
 
@@ -6276,21 +6341,21 @@ function renderParserResults(geoFilter) {
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
 
     const countryFlags = {
-        US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',AE:'🇦🇪',AU:'🇦🇺',IT:'🇮🇹',ES:'🇪🇸',
-        NL:'🇳🇱',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',RU:'🇷🇺',UA:'🇺🇦',PL:'🇵🇱',
-        SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',IE:'🇮🇪',PT:'🇵🇹',
-        CZ:'🇨🇿',IL:'🇮🇱',SG:'🇸🇬',HK:'🇭🇰',NZ:'🇳🇿',SA:'🇸🇦',ZA:'🇿🇦',TR:'🇹🇷',TH:'🇹🇭',
-        PH:'🇵🇭',MY:'🇲🇾',ID:'🇮🇩',VN:'🇻🇳',AR:'🇦🇷',CL:'🇨🇱',CO:'🇨🇴',PE:'🇵🇪',EG:'🇪🇬'
+        US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸',
+        NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', RU: '🇷🇺', UA: '🇺🇦', PL: '🇵🇱',
+        SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹',
+        CZ: '🇨🇿', IL: '🇮🇱', SG: '🇸🇬', HK: '🇭🇰', NZ: '🇳🇿', SA: '🇸🇦', ZA: '🇿🇦', TR: '🇹🇷', TH: '🇹🇭',
+        PH: '🇵🇭', MY: '🇲🇾', ID: '🇮🇩', VN: '🇻🇳', AR: '🇦🇷', CL: '🇨🇱', CO: '🇨🇴', PE: '🇵🇪', EG: '🇪🇬'
     };
     const countryNames = {
-        US:'United States',CA:'Canada',GB:'United Kingdom',DE:'Germany',FR:'France',AE:'UAE',
-        AU:'Australia',IT:'Italy',ES:'Spain',NL:'Netherlands',BR:'Brazil',MX:'Mexico',
-        JP:'Japan',KR:'South Korea',IN:'India',RU:'Russia',UA:'Ukraine',PL:'Poland',
-        SE:'Sweden',NO:'Norway',DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',
-        BE:'Belgium',IE:'Ireland',PT:'Portugal',CZ:'Czech Republic',IL:'Israel',SG:'Singapore',
-        HK:'Hong Kong',NZ:'New Zealand',SA:'Saudi Arabia',ZA:'South Africa',TR:'Turkey',
-        TH:'Thailand',PH:'Philippines',MY:'Malaysia',ID:'Indonesia',VN:'Vietnam',
-        AR:'Argentina',CL:'Chile',CO:'Colombia',PE:'Peru',EG:'Egypt'
+        US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE',
+        AU: 'Australia', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', BR: 'Brazil', MX: 'Mexico',
+        JP: 'Japan', KR: 'South Korea', IN: 'India', RU: 'Russia', UA: 'Ukraine', PL: 'Poland',
+        SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria',
+        BE: 'Belgium', IE: 'Ireland', PT: 'Portugal', CZ: 'Czech Republic', IL: 'Israel', SG: 'Singapore',
+        HK: 'Hong Kong', NZ: 'New Zealand', SA: 'Saudi Arabia', ZA: 'South Africa', TR: 'Turkey',
+        TH: 'Thailand', PH: 'Philippines', MY: 'Malaysia', ID: 'Indonesia', VN: 'Vietnam',
+        AR: 'Argentina', CL: 'Chile', CO: 'Colombia', PE: 'Peru', EG: 'Egypt'
     };
 
     // Apply GEO filter
@@ -6341,10 +6406,10 @@ function renderParserResults(geoFilter) {
             <select id="parser-geo-select">
                 <option value="">ALL (${list.length})</option>
                 ${geoList.map(([code, cnt]) => {
-                    const fl = countryFlags[code] || '🏳️';
-                    const nm = countryNames[code] || code;
-                    return `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${fl} ${nm} (${cnt})</option>`;
-                }).join('')}
+        const fl = countryFlags[code] || '🏳️';
+        const nm = countryNames[code] || code;
+        return `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${fl} ${nm} (${cnt})</option>`;
+    }).join('')}
             </select>
         </div>`;
 
@@ -6681,7 +6746,7 @@ function populateDateDropdowns() {
             ySel.innerHTML += `<option value="${y}">${y}</option>`;
         }
         for (let m = 1; m <= 12; m++) {
-            mSel.innerHTML += `<option value="${String(m).padStart(2,'0')}">${String(m).padStart(2,'0')}</option>`;
+            mSel.innerHTML += `<option value="${String(m).padStart(2, '0')}">${String(m).padStart(2, '0')}</option>`;
         }
     });
 }
@@ -6724,7 +6789,7 @@ function addCollectedToCards() {
         }
 
         const today = new Date();
-        const dateStr = `${String(today.getDate()).padStart(2,'0')}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getFullYear()).slice(2)}`;
+        const dateStr = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getFullYear()).slice(2)}`;
         const geo = detectGeoFlag ? (c.detectedGeo || targetCountry) : targetCountry;
 
         STATE.cards.push({
@@ -7231,7 +7296,7 @@ function initColumnResize(table, storageKey) {
                 if (saved[i]) th.style.width = saved[i] + 'px';
             });
         }
-    } catch {}
+    } catch { }
 
     // Add resize handles
     ths.forEach((th, i) => {
