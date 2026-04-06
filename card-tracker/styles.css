@@ -2853,7 +2853,7 @@ button, .btn {
     transition: none;
 }
 button:hover, .btn:hover {
-    /* no hover effect */
+    transform: none;
 }
 
 /* Compact modals */
@@ -6492,6 +6492,12 @@ tr.row-selected td {
 .ps-item strong {
     color: var(--text-primary);
     font-weight: 700;
+}
+.ps-trash-item strong {
+    color: #EAB308;
+}
+.ps-excl-item strong {
+    color: #EF4444;
 }
 .ps-net strong {
     color: #22C55E;

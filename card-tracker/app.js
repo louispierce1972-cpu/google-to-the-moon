@@ -5839,8 +5839,9 @@ function renderParser() {
         <!-- POST-FILTER STATS -->
         <div class="parser-stats-bar" id="parser-stats-bar" style="display:none;">
             <span class="ps-item">Total: <strong id="ps-total">0</strong></span>
-            <span class="ps-item">Duplicates: <strong id="ps-dupes">0</strong></span>
-            <span class="ps-item">Trash: <strong id="ps-trash">0</strong></span>
+            <span class="ps-item ps-trash-item">Trash: <strong id="ps-trash">0</strong></span>
+            <span class="ps-item">Dupes: <strong id="ps-dupes">0</strong></span>
+            <span class="ps-item ps-excl-item">Excluded: <strong id="ps-excluded">0</strong></span>
             <span class="ps-item ps-net">→ Import: <strong id="ps-net">0</strong></span>
         </div>
 
@@ -6021,7 +6022,7 @@ function renderParser() {
     // EXCLUDE BASE — use the pre-loaded exclude file to remove matches from collected
     document.getElementById('parser-exclude-json-btn')?.addEventListener('click', () => {
         if (PARSER_STATE.collected.length === 0) {
-            toast('Parse main base first', 'warning');
+            toast('Parse or collect main base first', 'warning');
             return;
         }
         if (!PARSER_STATE.excludeFile) {
@@ -6029,14 +6030,11 @@ function renderParser() {
             return;
         }
 
-        // ── Universal extraction: works with ANY JSON format ──
-        // Try multiple approaches to find card numbers in the exclude file
-
-        // 1) Use the raw JSON data from the exclude file (handles any structure)
+        // ── Build exclude set from the exclude file ──
         const rawData = PARSER_STATE.excludeFile._rawData || PARSER_STATE.excludeFile.messages;
         const excludeFullCC = extractAllCardNumbersFromJSON(rawData);
 
-        // 2) Also try extracting via the telegram-emoji parser for backwards compat
+        // Also try emoji parser for backward compat
         if (PARSER_STATE.excludeFile.messages) {
             const emojiCards = extractCardsFromMessages(PARSER_STATE.excludeFile.messages);
             emojiCards.forEach(c => {
@@ -6046,33 +6044,22 @@ function renderParser() {
         }
 
         if (excludeFullCC.size === 0) {
-            toast('No card numbers found in exclude file (tried all formats)', 'warning');
+            toast('No card numbers found in exclude file', 'warning');
             return;
         }
 
-        // Build BIN+last4 index for fuzzy matching
-        const excludeBinLast4 = new Set();
-        excludeFullCC.forEach(cc => {
-            if (cc.length >= 10) {
-                excludeBinLast4.add(cc.slice(0, 6) + '_' + cc.slice(-4));
-            }
-        });
-
-        // Store for future PARSE operations
+        // Store for future PARSE/COLLECT operations
         PARSER_STATE._excludeSet = excludeFullCC;
 
-        // Filter collected immediately
+        // ── Filter collected (already cleaned from trash & dupes) ──
         const before = PARSER_STATE.collected.length;
         PARSER_STATE.collected = PARSER_STATE.collected.filter(c => {
             const cc = (c.cc || '').replace(/[\s\-]/g, '');
-            // Match by full CC or by BIN+last4
-            if (excludeFullCC.has(cc)) return false;
-            if (cc.length >= 10 && excludeBinLast4.has(cc.slice(0, 6) + '_' + cc.slice(-4))) return false;
-            return true;
+            return !excludeFullCC.has(cc);
         });
         const removed = before - PARSER_STATE.collected.length;
 
-        // Rebuild binGroups from filtered collected
+        // Rebuild binGroups
         const binMap = {};
         PARSER_STATE.collected.forEach(c => {
             if (!binMap[c.bin]) binMap[c.bin] = [];
@@ -6082,19 +6069,20 @@ function renderParser() {
             .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
             .sort((a, b) => b.count - a.count);
 
-        // Update stats bar
-        const statsBar = document.getElementById('parser-stats-bar');
-        if (statsBar) {
-            statsBar.style.display = 'flex';
-            document.getElementById('ps-total').textContent = before;
-            document.getElementById('ps-dupes').textContent = removed;
-            document.getElementById('ps-trash').textContent = '0';
-            document.getElementById('ps-net').textContent = PARSER_STATE.collected.length;
+        // ── Update stats bar — only Excluded and Import change ──
+        const psExcl = document.getElementById('ps-excluded');
+        const psNet = document.getElementById('ps-net');
+        if (psExcl) {
+            const prevExcl = parseInt(psExcl.textContent) || 0;
+            psExcl.textContent = prevExcl + removed;
         }
+        if (psNet) psNet.textContent = PARSER_STATE.collected.length;
 
-        toast(`Excluded ${removed} cards (${excludeFullCC.size} in exclude base, ${PARSER_STATE.collected.length} remaining)`, 'success');
+        // Retag remaining cards
+        _retagParserCards();
 
-        // Re-render results
+        toast(`✅ Excluded ${removed} cards (from ${excludeFullCC.size} in exclude base). Remaining: ${PARSER_STATE.collected.length}`, removed > 0 ? 'success' : 'info');
+
         renderParserResults();
     });
 
@@ -6306,45 +6294,10 @@ function runParse() {
         });
     }
 
-    // Exclude JSON base
-    if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
-        allCards = allCards.filter(c => {
-            const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
-            return !PARSER_STATE._excludeSet.has(cc);
-        });
-    }
-
-    const totalBeforeDedup = allCards.length;
-    let dupCount = 0;
-
-    if (dedup) {
-        const seen = new Set();
-        const before = allCards.length;
-        allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
-        dupCount = before - allCards.length;
-    }
-
-    // Trash filter count
-    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
-    let trashCount2 = 0;
-    allCards = allCards.filter(c => {
-        const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
-        if (trashSet.has(cc)) { trashCount2++; return false; }
-        return true;
-    });
-
-    // Show post-filter stats
-    const statsBar = document.getElementById('parser-stats-bar');
-    if (statsBar) {
-        statsBar.style.display = 'flex';
-        document.getElementById('ps-total').textContent = totalBeforeDedup;
-        document.getElementById('ps-dupes').textContent = dupCount;
-        document.getElementById('ps-trash').textContent = trashCount2;
-        document.getElementById('ps-net').textContent = allCards.length;
-    }
-
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
-    finishParsing(allCards, status);
+
+    // ── STEP-BY-STEP PIPELINE ──
+    _processPipeline(allCards, dedup, status);
 }
 
 // ──── COLLECT ALL (no filters) ────
@@ -6359,24 +6312,85 @@ function collectAll() {
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     // Always detect GEO
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
-    if (dedup) {
-        const seen = new Set();
-        allCards = allCards.filter(c => { if (seen.has(c.cc)) return false; seen.add(c.cc); return true; });
-    }
 
     PARSER_STATE.binFilter = null;
+
+    // ── STEP-BY-STEP PIPELINE ──
+    _processPipeline(allCards, dedup, status);
+}
+
+// ──── TRANSPARENT PROCESSING PIPELINE ────
+// Step 1: Start with merged raw cards
+// Step 2: Remove TRASH
+// Step 3: Remove DUPLICATES (internal dedup)
+// Step 4: Apply EXCLUDE BASE (if loaded and _excludeSet exists)
+// Step 5: Tag remaining cards (NEW / DUPLICATE in project / TRASH)
+// After each step: real counts tracked and shown
+
+function _processPipeline(allCards, dedup, status) {
+    const totalRaw = allCards.length;
+
+    // ── Step 1: Remove TRASH ──
+    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+    let trashRemoved = 0;
+    if (trashSet.size > 0) {
+        const beforeTrash = allCards.length;
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || c.cardNumber || '').replace(/\s/g, '');
+            if (trashSet.has(cc)) { return false; }
+            return true;
+        });
+        trashRemoved = beforeTrash - allCards.length;
+    }
+
+    // ── Step 2: Remove DUPLICATES (internal dedup within parsed data) ──
+    let dupRemoved = 0;
+    if (dedup) {
+        const seen = new Set();
+        const beforeDedup = allCards.length;
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || '').replace(/\s/g, '');
+            if (seen.has(cc)) return false;
+            seen.add(cc);
+            return true;
+        });
+        dupRemoved = beforeDedup - allCards.length;
+    }
+
+    // ── Step 3: Apply EXCLUDE BASE (if _excludeSet is pre-loaded) ──
+    let excludeRemoved = 0;
+    if (PARSER_STATE._excludeSet && PARSER_STATE._excludeSet.size > 0) {
+        const beforeExclude = allCards.length;
+        allCards = allCards.filter(c => {
+            const cc = (c.cc || '').replace(/[\s\-]/g, '');
+            return !PARSER_STATE._excludeSet.has(cc);
+        });
+        excludeRemoved = beforeExclude - allCards.length;
+    }
+
+    // ── Step 4: Show stats bar ──
+    const statsBar = document.getElementById('parser-stats-bar');
+    if (statsBar) {
+        statsBar.style.display = 'flex';
+        document.getElementById('ps-total').textContent = totalRaw;
+        document.getElementById('ps-dupes').textContent = dupRemoved;
+        document.getElementById('ps-trash').textContent = trashRemoved;
+        const psExcl = document.getElementById('ps-excluded');
+        if (psExcl) psExcl.textContent = excludeRemoved;
+        document.getElementById('ps-net').textContent = allCards.length;
+    }
+
+    // ── Step 5: Finish with tagging ──
     finishParsing(allCards, status);
 }
 
 function finishParsing(allCards, status) {
-    // Auto-tag: DUPLICATE / TRASH / NEW
+    // Auto-tag remaining cards: DUPLICATE (already in project) / NEW
     const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
-    let dupCount = 0, trashCount = 0, newCount = 0;
+    let dupInProject = 0, newCount = 0;
     allCards.forEach(c => {
-        const num = c.cc.replace(/\s/g, '');
-        if (existingNumbers.has(num)) { c._tag = 'DUPLICATE'; dupCount++; }
-        else if (trashSet.has(num)) { c._tag = 'TRASH'; trashCount++; }
+        const num = (c.cc || '').replace(/\s/g, '');
+        if (existingNumbers.has(num)) { c._tag = 'DUPLICATE'; dupInProject++; }
         else { c._tag = 'NEW'; newCount++; }
     });
 
@@ -6399,8 +6413,8 @@ function finishParsing(allCards, status) {
         }));
     } catch(e) { console.warn('Parser base save error:', e); }
 
-    status.textContent = `✅ ${allCards.length} cards · ${binGroups.length} BINs (${newCount} new, ${dupCount} dup, ${trashCount} trash)`;
-    toast(`Found: ${allCards.length} cards — ${newCount} NEW, ${dupCount} DUP, ${trashCount} TRASH`, 'success');
+    status.textContent = `✅ ${allCards.length} cards ready · ${binGroups.length} BINs (${newCount} new, ${dupInProject} already in project)`;
+    toast(`Ready: ${allCards.length} cards — ${newCount} NEW, ${dupInProject} already in project`, 'success');
     renderParserResults();
 }
 
