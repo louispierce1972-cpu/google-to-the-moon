@@ -1111,7 +1111,7 @@ function renderMerchants() {
 
     const activeMerch = STATE.merchantDetailId ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
 
-    // ═══ COL 1: Merchant list ═══
+    // ═══ COL 1: Merchant list (compact, no filter) ═══
     let listHtml = '';
     STATE.merchants.forEach(m => {
         const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
@@ -1126,11 +1126,9 @@ function renderMerchants() {
             </div>
         </div>`;
     });
-    if (STATE.merchants.length === 0) {
-        listHtml = '<div class="mf-empty">No merchants yet</div>';
-    }
+    if (!STATE.merchants.length) listHtml = '<div class="mf-empty">No merchants</div>';
 
-    // ═══ COL 2: Merchant detail ═══
+    // ═══ COL 2: Merchant detail (DATA ONLY — no forms) ═══
     let detailHtml = '<div class="mf-placeholder">← Select a merchant</div>';
     if (activeMerch) {
         const bins = STATE.merchantBins.filter(b => b.merchant_id === activeMerch.id);
@@ -1166,33 +1164,31 @@ function renderMerchants() {
             <div class="mf-detail-header">
                 <h2 class="mf-detail-name">${activeMerch.name}</h2>
                 <span class="mf-detail-stats">${sortedBins.length} BINs · ${bins.length} uses</span>
+                <div class="mf-detail-actions">
+                    <button class="mf-btn-action" id="mf-open-add-bin">+ Add BIN</button>
+                    <button class="mf-btn-action" id="mf-open-add-link">+ Link</button>
+                </div>
             </div>
+            ${linksHtml ? `<div class="mf-links-strip">${linksHtml}</div>` : ''}
             <div class="mf-bin-table-wrap">
                 ${sortedBins.length > 0 ? `<table class="mf-bin-table">
                     <thead><tr><th>BIN</th><th>Bank</th><th>Uses</th><th>Amount</th><th>Cur</th><th></th></tr></thead>
                     <tbody>${binRows}</tbody>
-                </table>` : '<div class="mf-empty">No BINs yet</div>'}
-            </div>
-            <div class="mf-links-row">
-                <span class="mf-section-label">🔗 Links</span>
-                <div class="mf-links-list">${linksHtml || '<span class="mf-dim">none</span>'}</div>
-                <div class="mf-links-add">
-                    <input type="text" id="mt-link-label" class="mf-input mf-input-sm" placeholder="Label" autocomplete="off">
-                    <input type="text" id="mt-link-url" class="mf-input" placeholder="https://..." autocomplete="off">
-                    <button class="mf-btn-ok" id="mt-link-add">+</button>
-                </div>
-            </div>
-            <div class="mf-add-bin-row">
-                <span class="mf-section-label">Add BIN</span>
-                <div class="mf-add-bin-inline">
-                    <input type="text" id="mt-bin-single" class="mf-input mf-input-sm" placeholder="BIN" maxlength="6" autocomplete="off">
-                    <input type="text" id="mt-bin-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
-                    <button class="mf-btn-ok" id="mt-bin-add-single">+</button>
-                </div>
-                <textarea id="mt-bin-bulk" class="mf-textarea-sm" rows="3" placeholder="Bulk: 412650 - 1,269.00 EUR&#10;or just BINs: 450553, 424242"></textarea>
-                <button class="mf-btn-ok mf-btn-bulk" id="mt-bin-add-bulk">+ Add All</button>
+                </table>` : '<div class="mf-empty">No BINs — click "+ Add BIN"</div>'}
             </div>`;
     }
+
+    // ═══ POPUP MODAL ═══
+    const popupHtml = `
+    <div class="mf-modal-overlay hidden" id="mf-modal">
+        <div class="mf-modal">
+            <div class="mf-modal-head">
+                <span class="mf-modal-title" id="mf-modal-title">Add</span>
+                <button class="mf-icon-btn mf-modal-close" id="mf-modal-close">✕</button>
+            </div>
+            <div class="mf-modal-body" id="mf-modal-body"></div>
+        </div>
+    </div>`;
 
     // ═══ RENDER ═══
     area.innerHTML = `
@@ -1203,10 +1199,9 @@ function renderMerchants() {
                 <button class="mf-btn-add" id="mf-add-btn">+</button>
             </div>
             <div id="mf-add-form" class="mf-add-form hidden">
-                <input type="text" id="mt-merch-name" class="mf-input" placeholder="New merchant..." autocomplete="off">
+                <input type="text" id="mt-merch-name" class="mf-input" placeholder="Name..." autocomplete="off">
                 <button class="mf-btn-ok" id="mt-merch-save">OK</button>
             </div>
-            <input type="text" id="mf-search" class="mf-input mf-search-input" placeholder="🔍 Filter..." autocomplete="off">
             <div class="mf-list-scroll" id="mf-list">${listHtml}</div>
             <div class="mf-list-footer">${STATE.merchants.length} merchants · ${STATE.merchantBins.length} BINs</div>
         </div>
@@ -1217,7 +1212,8 @@ function renderMerchants() {
             <button class="mf-btn-search" id="mt-search-btn">SEARCH</button>
             <div id="mt-results" class="mf-results"></div>
         </div>
-    </div>`;
+    </div>
+    ${popupHtml}`;
 
     // ═══ EVENTS ═══
 
@@ -1251,51 +1247,8 @@ function renderMerchants() {
         btn.addEventListener('click', (e) => { e.stopPropagation(); _mtDeleteMerchant(btn.dataset.id); });
     });
 
-    // Filter merchants
-    const filterInput = document.getElementById('mf-search');
-    if (filterInput) {
-        filterInput.addEventListener('input', () => {
-            const q = filterInput.value.trim().toLowerCase();
-            document.querySelectorAll('.mf-item').forEach(item => {
-                const name = item.querySelector('.mf-item-name')?.textContent.toLowerCase() || '';
-                item.style.display = (!q || name.includes(q)) ? '' : 'none';
-            });
-        });
-    }
-
-    // Detail events (only if merchant selected)
+    // Detail events
     if (activeMerch) {
-        // Add single BIN
-        document.getElementById('mt-bin-add-single')?.addEventListener('click', () => {
-            const bin = document.getElementById('mt-bin-single').value.replace(/\D/g, '').slice(0, 6);
-            const amount = document.getElementById('mt-bin-amount').value.trim();
-            if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
-            _addBinToMerchant(bin.padEnd(6, '0'), amount, activeMerch.id);
-            renderMerchants();
-        });
-
-        // Bulk BIN add
-        document.getElementById('mt-bin-add-bulk')?.addEventListener('click', () => {
-            const raw = document.getElementById('mt-bin-bulk').value.trim();
-            if (!raw) { toast('Paste BIN data', 'warning'); return; }
-            const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
-            const parsed = [];
-            lines.forEach(line => {
-                const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
-                if (richMatch) {
-                    parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' });
-                    return;
-                }
-                const digits = line.match(/\d{4,}/g);
-                if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
-            });
-            if (parsed.length === 0) { toast('No valid BINs found', 'warning'); return; }
-            parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, activeMerch.id, p.currency));
-            save();
-            toast(`${parsed.length} BINs added to ${activeMerch.name}`, 'success');
-            renderMerchants();
-        });
-
         // Delete BIN
         document.querySelectorAll('.mf-btn-del-bin').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1308,21 +1261,75 @@ function renderMerchants() {
             });
         });
 
-        // Add link
-        document.getElementById('mt-link-add')?.addEventListener('click', () => {
-            const label = document.getElementById('mt-link-label').value.trim();
-            const url = document.getElementById('mt-link-url').value.trim();
-            if (!url) { toast('Enter URL', 'warning'); return; }
-            activeMerch.links = activeMerch.links || [];
-            activeMerch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
-            save();
-            toast('Link added', 'success');
-            renderMerchants();
-        });
-
         // Delete link
         document.querySelectorAll('.mf-link-del').forEach(el => {
             el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const idx = parseInt(el.dataset.idx); activeMerch.links.splice(idx, 1); save(); renderMerchants(); });
+        });
+
+        // ── POPUP: Add BIN ──
+        document.getElementById('mf-open-add-bin')?.addEventListener('click', () => {
+            _mfOpenModal('Add BIN to ' + activeMerch.name, `
+                <div class="mf-modal-row">
+                    <input type="text" id="mf-p-bin" class="mf-input mf-input-sm" placeholder="BIN (6 digits)" maxlength="6" autocomplete="off">
+                    <input type="text" id="mf-p-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
+                    <button class="mf-btn-ok" id="mf-p-bin-add">+ Add</button>
+                </div>
+                <div class="mf-modal-divider">or bulk paste:</div>
+                <textarea id="mf-p-bulk" class="mf-modal-textarea" rows="4" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
+                <button class="mf-btn-ok mf-btn-wide" id="mf-p-bulk-add">+ Add All</button>
+            `);
+            // Single add
+            document.getElementById('mf-p-bin-add').addEventListener('click', () => {
+                const bin = document.getElementById('mf-p-bin').value.replace(/\D/g, '').slice(0, 6);
+                const amount = document.getElementById('mf-p-amount').value.trim();
+                if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
+                _addBinToMerchant(bin.padEnd(6, '0'), amount, activeMerch.id);
+                _mfCloseModal();
+                renderMerchants();
+            });
+            // Bulk add
+            document.getElementById('mf-p-bulk-add').addEventListener('click', () => {
+                const raw = document.getElementById('mf-p-bulk').value.trim();
+                if (!raw) { toast('Paste BIN data', 'warning'); return; }
+                const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
+                const parsed = [];
+                lines.forEach(line => {
+                    const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
+                    if (richMatch) { parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' }); return; }
+                    const digits = line.match(/\d{4,}/g);
+                    if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
+                });
+                if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
+                parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, activeMerch.id, p.currency));
+                save();
+                toast(`${parsed.length} BINs added`, 'success');
+                _mfCloseModal();
+                renderMerchants();
+            });
+            document.getElementById('mf-p-bin').focus();
+        });
+
+        // ── POPUP: Add Link ──
+        document.getElementById('mf-open-add-link')?.addEventListener('click', () => {
+            _mfOpenModal('Add Link to ' + activeMerch.name, `
+                <div class="mf-modal-row">
+                    <input type="text" id="mf-p-link-label" class="mf-input mf-input-sm" placeholder="Label" autocomplete="off">
+                    <input type="text" id="mf-p-link-url" class="mf-input" placeholder="https://..." autocomplete="off">
+                    <button class="mf-btn-ok" id="mf-p-link-add">+ Add</button>
+                </div>
+            `);
+            document.getElementById('mf-p-link-add').addEventListener('click', () => {
+                const label = document.getElementById('mf-p-link-label').value.trim();
+                const url = document.getElementById('mf-p-link-url').value.trim();
+                if (!url) { toast('Enter URL', 'warning'); return; }
+                activeMerch.links = activeMerch.links || [];
+                activeMerch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
+                save();
+                toast('Link added', 'success');
+                _mfCloseModal();
+                renderMerchants();
+            });
+            document.getElementById('mf-p-link-url').focus();
         });
     }
 
@@ -1331,6 +1338,23 @@ function renderMerchants() {
     document.getElementById('mt-textarea').addEventListener('keydown', e => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
     });
+
+    // Modal close
+    document.getElementById('mf-modal-close')?.addEventListener('click', _mfCloseModal);
+    document.getElementById('mf-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'mf-modal') _mfCloseModal();
+    });
+}
+
+// ── Modal helpers ──
+function _mfOpenModal(title, bodyHtml) {
+    const modal = document.getElementById('mf-modal');
+    document.getElementById('mf-modal-title').textContent = title;
+    document.getElementById('mf-modal-body').innerHTML = bodyHtml;
+    modal.classList.remove('hidden');
+}
+function _mfCloseModal() {
+    document.getElementById('mf-modal')?.classList.add('hidden');
 }
 
 // ══════════ CRUD HELPERS ══════════
