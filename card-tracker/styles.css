@@ -8463,6 +8463,89 @@ tr.row-selected td {
 .fc-item-btn:hover { background: rgba(255,255,255,.1); }
 .fc-item-del:hover { background: rgba(239,68,68,.2); }
 
+/* ── Col 3: Merchant Detail Card ── */
+.fc-card-section {
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    padding-bottom: 8px;
+}
+.fc-card-section:last-child { border-bottom: none; }
+.fc-card-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    margin-bottom: 4px;
+}
+.fc-card-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    color: #cbd5e1;
+}
+.fc-card-add-btn {
+    background: rgba(34,197,94,.12);
+    border: 1px solid rgba(34,197,94,.25);
+    color: #22c55e;
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+}
+.fc-card-add-btn:hover { background: rgba(34,197,94,.25); }
+
+.fc-inline-form {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 0;
+    flex-wrap: wrap;
+}
+.fc-btn-sm {
+    padding: 3px 10px !important;
+    font-size: 10px !important;
+}
+.fc-input-sm { max-width: 120px; }
+.fc-textarea-sm { width: 100%; font-size: 11px; min-height: 50px; padding: 6px; }
+
+.fc-muted { color: var(--text-dim, #64748b); font-size: 10px; }
+
+/* Tags */
+.fc-tags-list { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
+.fc-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(99,102,241,.12);
+    border: 1px solid rgba(99,102,241,.25);
+    color: #818cf8;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+}
+.fc-tag-x {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 9px;
+    padding: 0;
+    opacity: .5;
+    transition: opacity .1s;
+}
+.fc-tag-x:hover { opacity: 1; color: #ef4444; }
+
+.fc-ctx-edit, .fc-ctx-del {
+    padding: 2px 6px !important;
+    font-size: 11px !important;
+    min-width: 0 !important;
+}
+.fc-ctx-del { background: rgba(239,68,68,.1) !important; border-color: rgba(239,68,68,.25) !important; color: #ef4444 !important; }
+.fc-ctx-del:hover { background: rgba(239,68,68,.2) !important; }
+
 /* ── Col 3: Sections (LINKS, BINs) ── */
 .fc-section {
     margin-bottom: 12px;
