@@ -1102,122 +1102,64 @@ function _anShowDetail(bin, data, prevData) {
 
 window.renderMerchants = renderMerchants;
 
+// ── Log results storage (persistent across re-renders) ──
+if (!STATE._logResults) STATE._logResults = [];
+
 function renderMerchants() {
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     if (bar) bar.innerHTML = '';
 
     STATE.merchants.forEach(m => { if (!m.links) m.links = []; if (!m.tags) m.tags = []; });
-    const activeMerch = STATE.merchantDetailId ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
 
     // ═══ COL 1: Merchant list ═══
     let listHtml = '';
     STATE.merchants.forEach(m => {
         const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
         const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
-        const isActive = activeMerch && activeMerch.id === m.id;
-        listHtml += `<div class="fc-item ${isActive ? 'fc-item-active' : ''}" data-id="${m.id}">
+        listHtml += `<div class="fc-item" data-id="${m.id}">
             <span class="fc-item-name">${m.name}</span>
             <span class="fc-item-meta">${uniqueBins}·${bins.length}</span>
         </div>`;
     });
     if (!STATE.merchants.length) listHtml = '<div class="fc-empty">No merchants</div>';
 
-    // ═══ COL 3: Merchant detail card ═══
-    let col3Head = '<span class="fc-col-title">MERCHANT DETAIL</span>';
-    let col3Content = '<div class="fc-empty">Double-click a merchant to open</div>';
-
-    if (activeMerch) {
-        const mBins = STATE.merchantBins.filter(b => b.merchant_id === activeMerch.id);
-        const uBins = [...new Set(mBins.map(b => b.bin))].length;
-        col3Head = `<span class="fc-col-title">${activeMerch.name}</span>
-            <div class="fc-ctx-actions">
-                <button class="fc-ctx-btn fc-ctx-edit" id="fc-merch-edit-btn" title="Edit name">✏️</button>
-                <button class="fc-ctx-btn fc-ctx-del" id="fc-merch-del-btn" title="Delete merchant">🗑️</button>
-            </div>`;
-
-        // ── Build detail card ──
-        col3Content = '';
-
-        // TAGS Section
-        const tagsHtml = (activeMerch.tags || []).map((t, i) =>
-            `<span class="fc-tag">${t} <button class="fc-tag-x" data-idx="${i}">✕</button></span>`
-        ).join('');
-        col3Content += `<div class="fc-card-section">
-            <div class="fc-card-section-head">
-                <span class="fc-card-section-title">🏷️ TAGS</span>
-                <button class="fc-card-add-btn" id="fc-add-tag-btn">+ Tag</button>
-            </div>
-            <div id="fc-tag-form" class="fc-inline-form hidden">
-                <input type="text" id="fc-tag-input" class="fc-input fc-input-sm" placeholder="Tag name..." autocomplete="off">
-                <button class="fc-btn-ok fc-btn-sm" id="fc-tag-save">OK</button>
-            </div>
-            <div class="fc-tags-list">${tagsHtml || '<span class="fc-muted">No tags</span>'}</div>
-        </div>`;
-
-        // LINKS Section
-        let linksBody = '';
-        activeMerch.links.forEach((l, i) => {
-            linksBody += `<div class="fc-data-row">
-                <a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>
-                <div class="fc-row-actions">
-                    <button class="fc-row-btn fc-link-edit-btn" data-idx="${i}" title="Edit">✏️</button>
-                    <button class="fc-row-btn fc-link-del-btn" data-idx="${i}" title="Delete">✕</button>
+    // ═══ COL 3: BIN RESULTS (persistent from searches) ═══
+    let col3Head = '<span class="fc-col-title">BIN RESULTS</span>';
+    if (STATE._logResults.length > 0) {
+        col3Head += `<button class="fc-ctx-btn fc-ctx-del" id="fc-clear-results" title="Clear all results" style="margin-left:auto">Clear All</button>`;
+    }
+    let col3Content = '';
+    if (STATE._logResults.length > 0) {
+        STATE._logResults.forEach((res, idx) => {
+            col3Content += `<div class="fc-log-result-block" data-idx="${idx}">
+                <div class="fc-log-result-head">
+                    <span class="fc-log-result-label">Log #${idx + 1} — BIN: ${res.bins.join(', ')}</span>
+                    <button class="fc-log-result-del" data-idx="${idx}" title="Remove this result">✕</button>
                 </div>
+                ${res.binHtml}
             </div>`;
         });
-        col3Content += `<div class="fc-card-section">
-            <div class="fc-card-section-head">
-                <span class="fc-card-section-title">🔗 LINKS</span>
-                <button class="fc-card-add-btn" id="fc-add-link-btn">+ Link</button>
-            </div>
-            <div id="fc-link-form" class="fc-inline-form hidden">
-                <input type="text" id="fc-link-label" class="fc-input fc-input-sm" placeholder="Label" autocomplete="off">
-                <input type="text" id="fc-link-url" class="fc-input" placeholder="https://..." autocomplete="off">
-                <button class="fc-btn-ok fc-btn-sm" id="fc-link-save">OK</button>
-            </div>
-            <div class="fc-links-list">${linksBody || '<span class="fc-muted">No links</span>'}</div>
-        </div>`;
-
-        // BINs Section
-        let binsBody = '';
-        if (mBins.length > 0) {
-            const byBin = {};
-            mBins.forEach(b => { if (!byBin[b.bin]) byBin[b.bin] = []; byBin[b.bin].push(b); });
-            Object.entries(byBin).forEach(([bin, entries]) => {
-                binsBody += `<div class="fc-bin-group">`;
-                binsBody += `<div class="fc-bin-head"><span class="fc-bin-code">${bin}</span><span class="fc-bin-count">${entries.length} tx</span></div>`;
-                entries.forEach(entry => {
-                    const amt = entry.amount ? '$' + entry.amount : '—';
-                    const cur = entry.currency || '';
-                    binsBody += `<div class="fc-data-row">
-                        <span class="fc-tx-amt-sm">${amt}</span>
-                        ${cur ? `<span class="fc-tx-cur">${cur}</span>` : ''}
-                        <div class="fc-row-actions">
-                            <button class="fc-row-btn fc-bin-del-btn" data-bin-id="${entry.id}" title="Delete">✕</button>
-                        </div>
-                    </div>`;
-                });
-                binsBody += `</div>`;
-            });
-        }
-        col3Content += `<div class="fc-card-section">
-            <div class="fc-card-section-head">
-                <span class="fc-card-section-title">💳 BINs <span class="fc-muted">(${uBins} unique · ${mBins.length} total)</span></span>
-                <button class="fc-card-add-btn" id="fc-add-bin-btn">+ BIN</button>
-            </div>
-            <div id="fc-bin-form" class="fc-inline-form hidden">
-                <input type="text" id="fc-bin-input" class="fc-input fc-input-sm" placeholder="BIN (6)" maxlength="6" autocomplete="off">
-                <input type="text" id="fc-bin-amount" class="fc-input fc-input-sm" placeholder="Amount" autocomplete="off">
-                <button class="fc-btn-ok fc-btn-sm" id="fc-bin-save">OK</button>
-            </div>
-            <div id="fc-bin-bulk-form" class="fc-inline-form hidden">
-                <textarea id="fc-bin-bulk" class="fc-textarea fc-textarea-sm" rows="3" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
-                <button class="fc-btn-ok fc-btn-sm" id="fc-bin-bulk-save">+ Add All</button>
-            </div>
-            <div class="fc-bins-list">${binsBody || '<span class="fc-muted">No BINs</span>'}</div>
-        </div>`;
+    } else {
+        col3Content = '<div class="fc-empty">Search results will appear here</div>';
     }
+
+    // ═══ COL 4: PARSED DATA (persistent from searches) ═══
+    let col4Content = '';
+    if (STATE._logResults.length > 0) {
+        STATE._logResults.forEach((res, idx) => {
+            if (res.parsedHtml) {
+                col4Content += `<div class="fc-log-parsed-block" data-idx="${idx}">
+                    <div class="fc-log-result-head">
+                        <span class="fc-log-result-label">Log #${idx + 1}</span>
+                        <button class="fc-log-parsed-del" data-idx="${idx}" title="Remove">✕</button>
+                    </div>
+                    ${res.parsedHtml}
+                </div>`;
+            }
+        });
+    }
+    if (!col4Content) col4Content = '<div class="fc-empty">Parsed data will appear here</div>';
 
     // ═══ POPUP MODAL ═══
     const popupHtml = `
@@ -1258,7 +1200,7 @@ function renderMerchants() {
         </div>
         <div class="fc-col fc-col-parsed" id="fc-col-parsed">
             <div class="fc-col-head"><span class="fc-col-title">📋 PARSED DATA</span></div>
-            <div class="fc-scroll" id="fc-parsed"></div>
+            <div class="fc-scroll" id="fc-parsed">${col4Content}</div>
         </div>
     </div>
     ${popupHtml}`;
@@ -1277,173 +1219,68 @@ function renderMerchants() {
         if (e.key === 'Escape') document.getElementById('fc-add-form').classList.add('hidden');
     });
 
-    // Select / Open merchant — double click opens detail card
+    // Single click = highlight, Double click = open merchant popup form
     document.querySelectorAll('.fc-item').forEach(el => {
-        el.addEventListener('dblclick', () => {
-            STATE.merchantDetailId = el.dataset.id;
-            renderMerchants();
-        });
         el.addEventListener('click', () => {
-            // Highlight only (visual feedback), don't open detail
             document.querySelectorAll('.fc-item').forEach(x => x.classList.remove('fc-item-active'));
             el.classList.add('fc-item-active');
         });
+        el.addEventListener('dblclick', () => {
+            _openMerchantPopup(el.dataset.id);
+        });
     });
 
-    // ── Merchant detail card events ──
-    if (activeMerch) {
-        // Edit merchant name
-        document.getElementById('fc-merch-edit-btn')?.addEventListener('click', () => {
-            _mfOpenModal('Edit Merchant', `
-                <div class="mf-modal-row">
-                    <input type="text" id="mf-p-merch-name" class="mf-input" value="${activeMerch.name}" autocomplete="off">
-                    <button class="mf-btn-ok" id="mf-p-merch-save">Save</button>
-                </div>
-            `);
-            const inp = document.getElementById('mf-p-merch-name');
-            inp.focus(); inp.select();
-            document.getElementById('mf-p-merch-save').addEventListener('click', () => {
-                const newName = inp.value.trim();
-                if (!newName) { toast('Enter name', 'warning'); return; }
-                activeMerch.name = newName; save();
-                toast(`Renamed to "${newName}"`, 'success');
-                _mfCloseModal(); renderMerchants();
-            });
-            inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') document.getElementById('mf-p-merch-save').click(); });
-        });
-
-        // Delete merchant
-        document.getElementById('fc-merch-del-btn')?.addEventListener('click', () => {
-            _mtDeleteMerchant(activeMerch.id);
-        });
-
-        // ── TAG: toggle form + save ──
-        document.getElementById('fc-add-tag-btn')?.addEventListener('click', () => {
-            const form = document.getElementById('fc-tag-form');
-            form.classList.toggle('hidden');
-            if (!form.classList.contains('hidden')) { document.getElementById('fc-tag-input').value = ''; document.getElementById('fc-tag-input').focus(); }
-        });
-        document.getElementById('fc-tag-save')?.addEventListener('click', () => {
-            const tag = document.getElementById('fc-tag-input').value.trim();
-            if (!tag) return;
-            activeMerch.tags = activeMerch.tags || [];
-            if (!activeMerch.tags.includes(tag)) { activeMerch.tags.push(tag); save(); toast(`Tag "${tag}" added`, 'success'); }
+    // ── Log results: delete individual ──
+    document.querySelectorAll('.fc-log-result-del, .fc-log-parsed-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.idx);
+            STATE._logResults.splice(idx, 1);
             renderMerchants();
         });
-        document.getElementById('fc-tag-input')?.addEventListener('keydown', e => {
-            if (e.key === 'Enter') document.getElementById('fc-tag-save').click();
-        });
-        // Tag delete
-        document.querySelectorAll('.fc-tag-x').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const idx = parseInt(btn.dataset.idx);
-                activeMerch.tags.splice(idx, 1);
-                save(); renderMerchants();
-            });
-        });
+    });
 
-        // ── LINK: toggle form + save ──
-        document.getElementById('fc-add-link-btn')?.addEventListener('click', () => {
-            const form = document.getElementById('fc-link-form');
-            form.classList.toggle('hidden');
-            if (!form.classList.contains('hidden')) {
-                document.getElementById('fc-link-label').value = '';
-                document.getElementById('fc-link-url').value = '';
-                document.getElementById('fc-link-label').focus();
-            }
-        });
-        document.getElementById('fc-link-save')?.addEventListener('click', () => {
-            const label = document.getElementById('fc-link-label').value.trim();
-            const url = document.getElementById('fc-link-url').value.trim();
-            if (!url) { toast('Enter URL', 'warning'); return; }
-            activeMerch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
-            save(); toast('Link added', 'success'); renderMerchants();
-        });
-        document.getElementById('fc-link-url')?.addEventListener('keydown', e => {
-            if (e.key === 'Enter') document.getElementById('fc-link-save').click();
-        });
+    // ── Clear All results ──
+    document.getElementById('fc-clear-results')?.addEventListener('click', () => {
+        STATE._logResults = [];
+        renderMerchants();
+        toast('Results cleared', 'info');
+    });
 
-        // Link delete
-        document.querySelectorAll('.fc-link-del-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                activeMerch.links.splice(parseInt(btn.dataset.idx), 1);
-                save(); toast('Link removed', 'info'); renderMerchants();
+    // ── Wire up copy-on-click in Col 4 ──
+    document.querySelectorAll('.mf-copy-field').forEach(el => {
+        el.addEventListener('click', () => {
+            const val = el.dataset.copy;
+            if (!val) return;
+            navigator.clipboard.writeText(val).then(() => {
+                toast('Copied: ' + val, 'success');
+                el.classList.add('mf-copied');
+                setTimeout(() => el.classList.remove('mf-copied'), 800);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = val; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                toast('Copied: ' + val, 'success');
             });
         });
-        // Link edit (popup)
-        document.querySelectorAll('.fc-link-edit-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const idx = parseInt(btn.dataset.idx);
-                const link = activeMerch.links[idx];
-                if (!link) return;
-                _mfOpenModal('Edit Link', `
-                    <div class="mf-modal-row">
-                        <input type="text" id="mf-p-el-label" class="mf-input mf-input-sm" value="${link.label || ''}" placeholder="Label" autocomplete="off">
-                        <input type="text" id="mf-p-el-url" class="mf-input" value="${link.url || ''}" placeholder="https://..." autocomplete="off">
-                        <button class="mf-btn-ok" id="mf-p-el-save">Save</button>
-                    </div>
-                `);
-                document.getElementById('mf-p-el-label').focus();
-                document.getElementById('mf-p-el-save').addEventListener('click', () => {
-                    const label = document.getElementById('mf-p-el-label').value.trim();
-                    const url = document.getElementById('mf-p-el-url').value.trim();
-                    if (!url) { toast('Enter URL', 'warning'); return; }
-                    activeMerch.links[idx] = { label: label || url, url: url.startsWith('http') ? url : 'https://' + url };
-                    save(); toast('Link updated', 'success');
-                    _mfCloseModal(); renderMerchants();
-                });
-            });
-        });
+    });
 
-        // ── BIN: toggle form + save ──
-        document.getElementById('fc-add-bin-btn')?.addEventListener('click', () => {
-            const form = document.getElementById('fc-bin-form');
-            const bulkForm = document.getElementById('fc-bin-bulk-form');
-            const isOpen = !form.classList.contains('hidden');
-            form.classList.toggle('hidden');
-            bulkForm.classList.toggle('hidden');
-            if (!isOpen) {
-                document.getElementById('fc-bin-input').value = '';
-                document.getElementById('fc-bin-amount').value = '';
-                document.getElementById('fc-bin-bulk').value = '';
-                document.getElementById('fc-bin-input').focus();
-            }
-        });
-        document.getElementById('fc-bin-save')?.addEventListener('click', () => {
-            const bin = document.getElementById('fc-bin-input').value.replace(/\D/g, '').slice(0, 6);
-            const amount = document.getElementById('fc-bin-amount').value.trim();
-            if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
-            _addBinToMerchant(bin.padEnd(6, '0'), amount, activeMerch.id);
-            toast('BIN added', 'success'); renderMerchants();
-        });
-        document.getElementById('fc-bin-input')?.addEventListener('keydown', e => {
-            if (e.key === 'Enter') document.getElementById('fc-bin-save').click();
-        });
-        // Bulk BIN add
-        document.getElementById('fc-bin-bulk-save')?.addEventListener('click', () => {
-            const raw = document.getElementById('fc-bin-bulk').value.trim();
-            if (!raw) { toast('Paste BIN data', 'warning'); return; }
-            const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
-            const parsed = [];
-            lines.forEach(line => {
-                const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
-                if (richMatch) { parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' }); return; }
-                const digits = line.match(/\d{4,}/g);
-                if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
-            });
-            if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
-            parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, activeMerch.id, p.currency));
-            save(); toast(`${parsed.length} BINs added`, 'success'); renderMerchants();
-        });
-
-        // BIN delete
-        document.querySelectorAll('.fc-bin-del-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== btn.dataset.binId);
-                save(); toast('BIN removed', 'info'); renderMerchants();
+    // ── Wire up link copy buttons in Col 3 ──
+    document.querySelectorAll('.fc-link-copy').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const url = btn.dataset.url;
+            navigator.clipboard.writeText(url).then(() => {
+                toast('Copied: ' + url, 'success');
+                btn.textContent = '✓';
+                setTimeout(() => btn.textContent = '📋', 800);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = url; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                toast('Copied: ' + url, 'success');
             });
         });
-    }
+    });
 
     // Search
     document.getElementById('fc-search-btn').addEventListener('click', _mtSearch);
@@ -1455,6 +1292,243 @@ function renderMerchants() {
     document.getElementById('mf-modal-close')?.addEventListener('click', _mfCloseModal);
     document.getElementById('mf-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'mf-modal') _mfCloseModal();
+    });
+}
+
+// ═══ MERCHANT POPUP FORM (dblclick) ═══
+function _openMerchantPopup(merchantId) {
+    const m = STATE.merchants.find(x => x.id === merchantId);
+    if (!m) return;
+    if (!m.links) m.links = [];
+    if (!m.tags) m.tags = [];
+
+    const mBins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
+    const uBins = [...new Set(mBins.map(b => b.bin))].length;
+
+    // Tags HTML
+    const tagsHtml = m.tags.map((t, i) =>
+        `<span class="fc-tag">${t} <button class="fc-tag-x mfp-tag-del" data-idx="${i}">✕</button></span>`
+    ).join('') || '<span class="fc-muted">No tags</span>';
+
+    // Links HTML
+    let linksHtml = '';
+    m.links.forEach((l, i) => {
+        linksHtml += `<div class="fc-data-row">
+            <a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>
+            <div class="fc-row-actions" style="opacity:1">
+                <button class="fc-row-btn mfp-link-edit" data-idx="${i}" title="Edit">✏️</button>
+                <button class="fc-row-btn mfp-link-del" data-idx="${i}" title="Delete">✕</button>
+            </div>
+        </div>`;
+    });
+    if (!linksHtml) linksHtml = '<span class="fc-muted">No links</span>';
+
+    // BINs HTML
+    let binsHtml = '';
+    if (mBins.length > 0) {
+        const byBin = {};
+        mBins.forEach(b => { if (!byBin[b.bin]) byBin[b.bin] = []; byBin[b.bin].push(b); });
+        Object.entries(byBin).forEach(([bin, entries]) => {
+            binsHtml += `<div class="fc-bin-group">
+                <div class="fc-bin-head"><span class="fc-bin-code">${bin}</span><span class="fc-bin-count">${entries.length} tx</span></div>`;
+            entries.forEach(entry => {
+                const amt = entry.amount ? '$' + entry.amount : '—';
+                const cur = entry.currency || '';
+                binsHtml += `<div class="fc-data-row">
+                    <span class="fc-tx-amt-sm">${amt}</span>
+                    ${cur ? `<span class="fc-tx-cur">${cur}</span>` : ''}
+                    <div class="fc-row-actions" style="opacity:1">
+                        <button class="fc-row-btn mfp-bin-del" data-bin-id="${entry.id}" title="Delete">✕</button>
+                    </div>
+                </div>`;
+            });
+            binsHtml += `</div>`;
+        });
+    } else {
+        binsHtml = '<span class="fc-muted">No BINs</span>';
+    }
+
+    const bodyHtml = `
+        <div class="mfp-merch-form">
+            <!-- TAGS -->
+            <div class="fc-card-section">
+                <div class="fc-card-section-head">
+                    <span class="fc-card-section-title">🏷️ TAGS</span>
+                    <button class="fc-card-add-btn" id="mfp-add-tag">+ Tag</button>
+                </div>
+                <div id="mfp-tag-form" class="fc-inline-form hidden">
+                    <input type="text" id="mfp-tag-input" class="mf-input mf-input-sm" placeholder="Tag..." autocomplete="off">
+                    <button class="mf-btn-ok" id="mfp-tag-save">OK</button>
+                </div>
+                <div class="fc-tags-list" id="mfp-tags">${tagsHtml}</div>
+            </div>
+            <!-- LINKS -->
+            <div class="fc-card-section">
+                <div class="fc-card-section-head">
+                    <span class="fc-card-section-title">🔗 LINKS</span>
+                    <button class="fc-card-add-btn" id="mfp-add-link">+ Link</button>
+                </div>
+                <div id="mfp-link-form" class="fc-inline-form hidden">
+                    <input type="text" id="mfp-link-label" class="mf-input mf-input-sm" placeholder="Label" autocomplete="off">
+                    <input type="text" id="mfp-link-url" class="mf-input" placeholder="https://..." autocomplete="off">
+                    <button class="mf-btn-ok" id="mfp-link-save">OK</button>
+                </div>
+                <div id="mfp-links">${linksHtml}</div>
+            </div>
+            <!-- BINs -->
+            <div class="fc-card-section">
+                <div class="fc-card-section-head">
+                    <span class="fc-card-section-title">💳 BINs <span class="fc-muted">(${uBins} unique · ${mBins.length} total)</span></span>
+                    <button class="fc-card-add-btn" id="mfp-add-bin">+ BIN</button>
+                </div>
+                <div id="mfp-bin-form" class="fc-inline-form hidden">
+                    <input type="text" id="mfp-bin-input" class="mf-input mf-input-sm" placeholder="BIN (6)" maxlength="6" autocomplete="off">
+                    <input type="text" id="mfp-bin-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
+                    <button class="mf-btn-ok" id="mfp-bin-save">OK</button>
+                </div>
+                <div id="mfp-bin-bulk-form" class="fc-inline-form hidden">
+                    <textarea id="mfp-bin-bulk" class="mf-modal-textarea" rows="3" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
+                    <button class="mf-btn-ok mf-btn-wide" id="mfp-bin-bulk-save">+ Add All</button>
+                </div>
+                <div id="mfp-bins">${binsHtml}</div>
+            </div>
+            <!-- Actions -->
+            <div style="display:flex;gap:6px;margin-top:8px">
+                <button class="fc-ctx-btn fc-ctx-edit" id="mfp-rename" style="flex:1">✏️ Rename</button>
+                <button class="fc-ctx-btn fc-ctx-del" id="mfp-delete" style="flex:1">🗑️ Delete</button>
+            </div>
+        </div>`;
+
+    _mfOpenModal(m.name, bodyHtml);
+
+    // ── Wire events inside popup ──
+    // Tag add
+    document.getElementById('mfp-add-tag')?.addEventListener('click', () => {
+        document.getElementById('mfp-tag-form').classList.toggle('hidden');
+        document.getElementById('mfp-tag-input').focus();
+    });
+    document.getElementById('mfp-tag-save')?.addEventListener('click', () => {
+        const tag = document.getElementById('mfp-tag-input').value.trim();
+        if (!tag) return;
+        m.tags = m.tags || [];
+        if (!m.tags.includes(tag)) { m.tags.push(tag); save(); }
+        _mfCloseModal(); _openMerchantPopup(merchantId);
+        toast(`Tag "${tag}" added`, 'success');
+    });
+    document.getElementById('mfp-tag-input')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('mfp-tag-save').click();
+    });
+    document.querySelectorAll('.mfp-tag-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            m.tags.splice(parseInt(btn.dataset.idx), 1);
+            save(); _mfCloseModal(); _openMerchantPopup(merchantId);
+        });
+    });
+
+    // Link add
+    document.getElementById('mfp-add-link')?.addEventListener('click', () => {
+        document.getElementById('mfp-link-form').classList.toggle('hidden');
+        document.getElementById('mfp-link-label').focus();
+    });
+    document.getElementById('mfp-link-save')?.addEventListener('click', () => {
+        const label = document.getElementById('mfp-link-label').value.trim();
+        const url = document.getElementById('mfp-link-url').value.trim();
+        if (!url) { toast('Enter URL', 'warning'); return; }
+        m.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
+        save(); toast('Link added', 'success');
+        _mfCloseModal(); _openMerchantPopup(merchantId);
+    });
+    document.getElementById('mfp-link-url')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('mfp-link-save').click();
+    });
+    document.querySelectorAll('.mfp-link-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            m.links.splice(parseInt(btn.dataset.idx), 1);
+            save(); toast('Link removed', 'info');
+            _mfCloseModal(); _openMerchantPopup(merchantId);
+        });
+    });
+    document.querySelectorAll('.mfp-link-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.idx);
+            const link = m.links[idx];
+            if (!link) return;
+            const row = btn.closest('.fc-data-row');
+            row.innerHTML = `
+                <input type="text" id="mfp-el-label" class="mf-input mf-input-sm" value="${link.label || ''}" placeholder="Label" autocomplete="off" style="max-width:100px">
+                <input type="text" id="mfp-el-url" class="mf-input" value="${link.url || ''}" placeholder="https://..." autocomplete="off">
+                <button class="mf-btn-ok" id="mfp-el-save">Save</button>`;
+            document.getElementById('mfp-el-label').focus();
+            document.getElementById('mfp-el-save').addEventListener('click', () => {
+                const nl = document.getElementById('mfp-el-label').value.trim();
+                const nu = document.getElementById('mfp-el-url').value.trim();
+                if (!nu) { toast('Enter URL', 'warning'); return; }
+                m.links[idx] = { label: nl || nu, url: nu.startsWith('http') ? nu : 'https://' + nu };
+                save(); toast('Link updated', 'success');
+                _mfCloseModal(); _openMerchantPopup(merchantId);
+            });
+        });
+    });
+
+    // BIN add
+    document.getElementById('mfp-add-bin')?.addEventListener('click', () => {
+        const form = document.getElementById('mfp-bin-form');
+        const bulkForm = document.getElementById('mfp-bin-bulk-form');
+        const isOpen = !form.classList.contains('hidden');
+        form.classList.toggle('hidden');
+        bulkForm.classList.toggle('hidden');
+        if (!isOpen) document.getElementById('mfp-bin-input').focus();
+    });
+    document.getElementById('mfp-bin-save')?.addEventListener('click', () => {
+        const bin = document.getElementById('mfp-bin-input').value.replace(/\D/g, '').slice(0, 6);
+        const amount = document.getElementById('mfp-bin-amount').value.trim();
+        if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
+        _addBinToMerchant(bin.padEnd(6, '0'), amount, m.id);
+        toast('BIN added', 'success');
+        _mfCloseModal(); _openMerchantPopup(merchantId);
+    });
+    document.getElementById('mfp-bin-input')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('mfp-bin-save').click();
+    });
+    document.getElementById('mfp-bin-bulk-save')?.addEventListener('click', () => {
+        const raw = document.getElementById('mfp-bin-bulk').value.trim();
+        if (!raw) { toast('Paste BIN data', 'warning'); return; }
+        const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
+        const parsed = [];
+        lines.forEach(line => {
+            const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
+            if (richMatch) { parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' }); return; }
+            const digits = line.match(/\d{4,}/g);
+            if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
+        });
+        if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
+        parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, m.id, p.currency));
+        save(); toast(`${parsed.length} BINs added`, 'success');
+        _mfCloseModal(); _openMerchantPopup(merchantId);
+    });
+    document.querySelectorAll('.mfp-bin-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== btn.dataset.binId);
+            save(); toast('BIN removed', 'info');
+            _mfCloseModal(); _openMerchantPopup(merchantId);
+        });
+    });
+
+    // Rename
+    document.getElementById('mfp-rename')?.addEventListener('click', () => {
+        const oldName = m.name;
+        const nameInput = prompt('Rename merchant:', oldName);
+        if (nameInput && nameInput.trim() && nameInput.trim() !== oldName) {
+            m.name = nameInput.trim(); save();
+            toast(`Renamed to "${m.name}"`, 'success');
+            _mfCloseModal(); renderMerchants();
+        }
+    });
+
+    // Delete
+    document.getElementById('mfp-delete')?.addEventListener('click', () => {
+        _mfCloseModal();
+        _mtDeleteMerchant(m.id);
     });
 }
 
@@ -1659,8 +1733,6 @@ function _parseLogFields(text) {
 function _mtSearch() {
     const textarea = document.getElementById('fc-textarea');
     const text = textarea.value.trim();
-    const resultsDiv = document.getElementById('fc-results');
-    const parsedDiv = document.getElementById('fc-parsed');
 
     if (!text) { toast('Paste card data first', 'warning'); return; }
 
@@ -1705,12 +1777,11 @@ function _mtSearch() {
     bins = [...new Set(bins)];
 
     if (bins.length === 0) {
-        resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
-        parsedDiv.innerHTML = '';
+        toast('No valid card numbers found', 'warning');
         return;
     }
 
-    // ═══ COL 4: PARSED DATA ═══
+    // ═══ Build PARSED DATA HTML ═══
     let parsedHtml = '';
     const hasFields = fields.cc || fields.holder || fields.email || fields.phone || fields.address || fields.zip;
     if (hasFields) {
@@ -1754,16 +1825,15 @@ function _mtSearch() {
             parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🖥</span><span ${copyAttr(fields.userAgent)} style="font-size:10px">${fields.userAgent.slice(0,60)}${fields.userAgent.length>60?'…':''}</span></div>`;
         }
     }
-    parsedDiv.innerHTML = parsedHtml;
 
-    // ═══ COL 3: BIN RESULTS ═══
-    let html = '';
+    // ═══ Build BIN RESULTS HTML ═══
+    let binHtml = '';
     bins.forEach(bin => {
         const matches = STATE.merchantBins.filter(b => b.bin === bin);
         const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
 
-        html += `<div class="mt-result-block">`;
-        html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong></div>`;
+        binHtml += `<div class="mt-result-block">`;
+        binHtml += `<div class="mt-result-bin">BIN: <strong>${bin}</strong></div>`;
 
         // Group by merchant
         const byMerchant = {};
@@ -1780,76 +1850,53 @@ function _mtSearch() {
                 const m = STATE.merchants.find(x => x.id === mId);
                 const links = m && m.links ? m.links : [];
 
-                html += `<div class="mt-result-merchant-block">`;
-                html += `<div class="mt-result-row"><span class="mt-col-merchant">${data.name}</span> — <strong>${data.entries.length}</strong> transactions</div>`;
+                binHtml += `<div class="mt-result-merchant-block">`;
+                binHtml += `<div class="mt-result-row"><span class="mt-col-merchant">${data.name}</span> — <strong>${data.entries.length}</strong> transactions</div>`;
 
-                html += `<div class="fc-tx-list">`;
+                binHtml += `<div class="fc-tx-list">`;
                 data.entries.forEach(entry => {
                     const amt = entry.amount || '—';
                     const cur = entry.currency || '';
-                    html += `<div class="fc-tx-item">`;
-                    html += `<span class="fc-tx-amt">${amt !== '—' ? '$' + amt : '—'}</span>`;
-                    if (cur) html += `<span class="fc-tx-cur">${cur}</span>`;
-                    html += `</div>`;
+                    binHtml += `<div class="fc-tx-item">`;
+                    binHtml += `<span class="fc-tx-amt">${amt !== '—' ? '$' + amt : '—'}</span>`;
+                    if (cur) binHtml += `<span class="fc-tx-cur">${cur}</span>`;
+                    binHtml += `</div>`;
                 });
-                html += `</div>`;
+                binHtml += `</div>`;
 
                 if (links.length > 0) {
-                    html += `<div class="fc-links-row">`;
+                    binHtml += `<div class="fc-links-row">`;
                     links.forEach(l => {
-                        html += `<span class="fc-link-group">`;
-                        html += `<a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>`;
-                        html += `<button class="fc-link-copy" data-url="${l.url.replace(/"/g, '&quot;')}" title="Copy link">📋</button>`;
-                        html += `</span>`;
+                        binHtml += `<span class="fc-link-group">`;
+                        binHtml += `<a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>`;
+                        binHtml += `<button class="fc-link-copy" data-url="${l.url.replace(/"/g, '&quot;')}" title="Copy link">📋</button>`;
+                        binHtml += `</span>`;
                     });
-                    html += `</div>`;
+                    binHtml += `</div>`;
                 }
-                html += `</div>`;
+                binHtml += `</div>`;
             });
         } else {
-            html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
+            binHtml += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
         }
 
-        html += `</div>`;
+        binHtml += `</div>`;
     });
 
-    resultsDiv.innerHTML = html;
-
-    // Wire up copy-on-click in Col 4
-    parsedDiv.querySelectorAll('.mf-copy-field').forEach(el => {
-        el.addEventListener('click', () => {
-            const val = el.dataset.copy;
-            if (!val) return;
-            navigator.clipboard.writeText(val).then(() => {
-                toast('Copied: ' + val, 'success');
-                el.classList.add('mf-copied');
-                setTimeout(() => el.classList.remove('mf-copied'), 800);
-            }).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = val; document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                toast('Copied: ' + val, 'success');
-            });
-        });
+    // ═══ SAVE to persistent array ═══
+    STATE._logResults.push({
+        bins: bins,
+        binHtml: binHtml,
+        parsedHtml: parsedHtml,
+        timestamp: Date.now()
     });
 
-    // Wire up link copy buttons in Col 3
-    resultsDiv.querySelectorAll('.fc-link-copy').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const url = btn.dataset.url;
-            navigator.clipboard.writeText(url).then(() => {
-                toast('Copied: ' + url, 'success');
-                btn.textContent = '✓';
-                setTimeout(() => btn.textContent = '📋', 800);
-            }).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = url; document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                toast('Copied: ' + url, 'success');
-            });
-        });
-    });
+    // Clear textarea
+    textarea.value = '';
+
+    // Re-render to show results
+    renderMerchants();
+    toast(`Found ${bins.length} BIN(s)`, 'success');
 }
 
 // ══════════ QUICK SEARCH ══════════

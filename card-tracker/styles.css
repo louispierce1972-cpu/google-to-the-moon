@@ -8546,6 +8546,42 @@ tr.row-selected td {
 .fc-ctx-del { background: rgba(239,68,68,.1) !important; border-color: rgba(239,68,68,.25) !important; color: #ef4444 !important; }
 .fc-ctx-del:hover { background: rgba(239,68,68,.2) !important; }
 
+/* ── Persistent Log Result Blocks ── */
+.fc-log-result-block, .fc-log-parsed-block {
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    padding: 8px 0;
+    margin-bottom: 4px;
+}
+.fc-log-result-block:last-child, .fc-log-parsed-block:last-child { border-bottom: none; }
+.fc-log-result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px;
+    margin-bottom: 4px;
+    background: rgba(255,255,255,.03);
+    border-radius: 4px;
+}
+.fc-log-result-label {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.fc-log-result-del, .fc-log-parsed-del {
+    background: none;
+    border: 1px solid rgba(239,68,68,.2);
+    color: #ef4444;
+    opacity: .5;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all .15s;
+}
+.fc-log-result-del:hover, .fc-log-parsed-del:hover { opacity: 1; background: rgba(239,68,68,.15); }
+
 /* ── Col 3: Sections (LINKS, BINs) ── */
 .fc-section {
     margin-bottom: 12px;
