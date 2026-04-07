@@ -1592,23 +1592,24 @@ function _mtSearch() {
                 html += `<div class="mt-result-merchant-block">`;
                 html += `<div class="mt-result-row"><span class="mt-col-merchant">${data.name}</span> — <strong>${data.entries.length}</strong> transactions</div>`;
 
-                html += `<div class="mt-tx-list">`;
+                html += `<div class="fc-tx-list">`;
                 data.entries.forEach(entry => {
                     const amt = entry.amount || '—';
                     const cur = entry.currency || '';
-                    const date = entry.date ? new Date(entry.date).toLocaleDateString() : '';
-                    html += `<div class="mt-tx-item">`;
-                    html += `<span class="mt-tx-amt">${amt !== '—' ? '$' + amt : '—'}</span>`;
-                    if (cur) html += ` <span class="mt-tx-cur">${cur}</span>`;
-                    if (date) html += ` <span class="mt-tx-date">${date}</span>`;
+                    html += `<div class="fc-tx-item">`;
+                    html += `<span class="fc-tx-amt">${amt !== '—' ? '$' + amt : '—'}</span>`;
+                    if (cur) html += `<span class="fc-tx-cur">${cur}</span>`;
                     html += `</div>`;
                 });
                 html += `</div>`;
 
                 if (links.length > 0) {
-                    html += `<div class="mt-result-links">`;
+                    html += `<div class="fc-links-row">`;
                     links.forEach(l => {
-                        html += `<a href="${l.url}" target="_blank" rel="noopener" class="mt-link-badge-sm">[${l.label}]</a>`;
+                        html += `<span class="fc-link-group">`;
+                        html += `<a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>`;
+                        html += `<button class="fc-link-copy" data-url="${l.url.replace(/"/g, '&quot;')}" title="Copy link">📋</button>`;
+                        html += `</span>`;
                     });
                     html += `</div>`;
                 }
@@ -1616,15 +1617,6 @@ function _mtSearch() {
             });
         } else {
             html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
-        }
-
-        // Quick action — add to merchant
-        if (STATE.merchants.length > 0) {
-            let options = STATE.merchants.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-            html += `<div class="mt-result-action">
-                    <select class="mt-select mt-result-merch-select" data-bin="${bin}" data-amount="${allAmounts[0] || ''}">${options}</select>
-                    <button class="mt-btn mt-btn-ok mt-result-add-btn" data-bin="${bin}">+ Link</button>
-                </div>`;
         }
 
         html += `</div>`;
@@ -1650,17 +1642,21 @@ function _mtSearch() {
         });
     });
 
-    // Wire up "Link" buttons in Col 3
-    resultsDiv.querySelectorAll('.mt-result-add-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const bin = btn.dataset.bin;
-            const select = resultsDiv.querySelector(`.mt-result-merch-select[data-bin="${bin}"]`);
-            const merchantId = select.value;
-            const amount = select.dataset.amount || '';
-            _addBinToMerchant(bin, amount, merchantId);
-            const mName = STATE.merchants.find(m => m.id === merchantId)?.name || '';
-            toast(`BIN ${bin} linked to ${mName}`, 'success');
-            _mtSearch(); // Refresh results
+    // Wire up link copy buttons in Col 3
+    resultsDiv.querySelectorAll('.fc-link-copy').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const url = btn.dataset.url;
+            navigator.clipboard.writeText(url).then(() => {
+                toast('Copied: ' + url, 'success');
+                btn.textContent = '✓';
+                setTimeout(() => btn.textContent = '📋', 800);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = url; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                toast('Copied: ' + url, 'success');
+            });
         });
     });
 }

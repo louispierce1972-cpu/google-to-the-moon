@@ -8406,6 +8406,79 @@ tr.row-selected td {
 
 /* ── Col 3: BIN Results ── */
 .fc-col-results { min-width: 200px; }
+.fc-col-results .fc-scroll { padding: 8px; }
+
+.fc-tx-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 6px 0;
+}
+.fc-tx-item {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+.fc-tx-amt {
+    font-size: 18px;
+    font-weight: 700;
+    color: #22c55e;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: -.02em;
+}
+.fc-tx-cur {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary, #94a3b8);
+    text-transform: uppercase;
+}
+
+.fc-links-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+.fc-link-group {
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(99,102,241,.25);
+}
+.fc-link-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    background: rgba(99,102,241,.1);
+    color: #818cf8;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .15s;
+    cursor: pointer;
+}
+.fc-link-tag:hover {
+    background: rgba(99,102,241,.2);
+    color: #a5b4fc;
+}
+.fc-link-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    background: rgba(99,102,241,.06);
+    border: none;
+    border-left: 1px solid rgba(99,102,241,.2);
+    color: #64748b;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.fc-link-copy:hover {
+    background: rgba(99,102,241,.15);
+    color: #818cf8;
+}
 
 /* ── Col 4: Parsed Data ── */
 .fc-col-parsed {
