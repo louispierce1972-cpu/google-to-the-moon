@@ -7484,7 +7484,8 @@ tr.row-selected td {
 
 /* ── TYPE BUTTONS ROW (flat) ── */
 .parser-type-btns {
-    display: flex;
+    display: flex !important;
+    flex-direction: row !important;
     flex-wrap: wrap;
     gap: 4px;
     align-items: center;
