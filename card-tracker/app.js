@@ -6182,52 +6182,33 @@ function _processPipeline(allCards, status) {
     renderParser();
 }
 
-// ──── IMPORT TO PROJECT ────
+// ──── IMPORT TO NOTES (checker format) ────
 function importToProject() {
     const list = PARSER_STATE.collected;
     if (list.length === 0) { toast('No cards to import', 'warning'); return; }
 
-    const toImport = [];
+    const lines = [];
     PARSER_STATE.selected.forEach(idx => {
         const c = list[idx];
         if (!c || c._tag === 'EXISTING') return;
-        toImport.push(c);
-    });
-
-    if (toImport.length === 0) { toast('No NEW cards selected for import', 'warning'); return; }
-
-    let added = 0;
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    toImport.forEach(c => {
         const cc = (c.cc || '').replace(/\s/g, '');
-        if (existingNumbers.has(cc)) return;
-        const geo = (c.detectedGeo || c.country || '').toUpperCase();
-        const countryId = geo.length === 2 ? geo.toLowerCase() : 'canada';
-        STATE.cards.push({
-            id: genId(),
-            name: c.name || '',
-            surname: c.surname || '',
-            cardNumber: cc,
-            month: c.mm || '',
-            year: c.yy || '',
-            cvv: c.cvv || '',
-            amount: '',
-            notes: '',
-            status: [],
-            mailStatus: [],
-            country: countryId,
-            bank: c.bank || '',
-            cardType: c.cardType || '',
-            addedDate: new Date().toISOString()
-        });
-        existingNumbers.add(cc);
-        added++;
+        const mm = (c.mm || '').padStart(2, '0');
+        const yy = c.yy || '';
+        const cvv = c.cvv || '000';
+        lines.push(`${cc} ${mm} ${yy} ${cvv}`);
     });
 
+    if (lines.length === 0) { toast('No NEW cards selected for import', 'warning'); return; }
+
+    const block = lines.join('\n');
+    const activeTab = _getActiveNoteTab();
+    if (activeTab) {
+        activeTab.content = (activeTab.content || '') + '\n' + block + '\n';
+    }
+    STATE.notes = (STATE.notes || '') + '\n' + block + '\n';
+    STATE.notesLastSaved = Date.now();
     save();
-    toast(`${added} cards imported to project`, 'success');
-    _retagParserCards();
-    renderParser();
+    toast(`${lines.length} cards exported to Notes (checker format)`, 'success');
 }
 
 // ──── RENDER RESULTS ────
@@ -6286,7 +6267,7 @@ function renderParserResults(geoFilter) {
 
     // Import button
     const importHtml = `<div class="parser-action-bar">
-        <button class="pz-btn pz-btn-import" id="parser-import-btn">🚀 IMPORT TO PROJECT (${newCount} new)</button>
+        <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${newCount} new)</button>
     </div>`;
 
     // GEO dropdown
