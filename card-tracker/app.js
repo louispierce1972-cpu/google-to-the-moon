@@ -1108,75 +1108,20 @@ function renderMerchants() {
     if (bar) bar.innerHTML = '';
 
     STATE.merchants.forEach(m => { if (!m.links) m.links = []; });
-
     const activeMerch = STATE.merchantDetailId ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
 
-    // ═══ COL 1: Merchant list (compact, no filter) ═══
+    // ═══ COL 1: Merchant list ═══
     let listHtml = '';
     STATE.merchants.forEach(m => {
         const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
         const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
         const isActive = activeMerch && activeMerch.id === m.id;
-        listHtml += `<div class="mf-item ${isActive ? 'mf-item-active' : ''}" data-id="${m.id}">
-            <span class="mf-item-name">${m.name}</span>
-            <span class="mf-item-meta">${uniqueBins} BINs · ${bins.length}</span>
-            <div class="mf-item-actions">
-                <button class="mf-icon-btn mf-btn-edit" data-id="${m.id}" title="Edit">✏️</button>
-                <button class="mf-icon-btn mf-btn-del" data-id="${m.id}" title="Delete">🗑</button>
-            </div>
+        listHtml += `<div class="fc-item ${isActive ? 'fc-item-active' : ''}" data-id="${m.id}">
+            <span class="fc-item-name">${m.name}</span>
+            <span class="fc-item-meta">${uniqueBins} BINs · ${bins.length}</span>
         </div>`;
     });
-    if (!STATE.merchants.length) listHtml = '<div class="mf-empty">No merchants</div>';
-
-    // ═══ COL 2: Merchant detail (DATA ONLY — no forms) ═══
-    let detailHtml = '<div class="mf-placeholder">← Select a merchant</div>';
-    if (activeMerch) {
-        const bins = STATE.merchantBins.filter(b => b.merchant_id === activeMerch.id);
-        const binGroups = {};
-        bins.forEach(b => {
-            if (!binGroups[b.bin]) binGroups[b.bin] = { entries: [], bank: '' };
-            binGroups[b.bin].entries.push(b);
-            if (!binGroups[b.bin].bank && b.bank) binGroups[b.bin].bank = b.bank;
-        });
-        Object.keys(binGroups).forEach(bin => {
-            if (!binGroups[bin].bank && BIN_CACHE[bin]) binGroups[bin].bank = BIN_CACHE[bin].bank || '';
-        });
-        const sortedBins = Object.entries(binGroups).sort((a, b) => b[1].entries.length - a[1].entries.length);
-
-        const binRows = sortedBins.map(([bin, data]) => {
-            const last = data.entries[data.entries.length - 1];
-            const bankShort = (data.bank || '—').length > 22 ? data.bank.slice(0, 22) + '…' : (data.bank || '—');
-            return `<tr class="mf-bin-row" data-bin="${bin}">
-                <td class="mf-bin-val">${bin}</td>
-                <td class="mf-bin-bank">${bankShort}</td>
-                <td class="mf-bin-cnt">${data.entries.length}</td>
-                <td class="mf-bin-amt">${last.amount || '—'}</td>
-                <td class="mf-bin-cur">${last.currency || ''}</td>
-                <td><button class="mf-icon-btn mf-btn-del-bin" data-bin="${bin}" title="Remove">✕</button></td>
-            </tr>`;
-        }).join('');
-
-        const linksHtml = (activeMerch.links || []).map((link, i) =>
-            `<a href="${link.url}" target="_blank" rel="noopener" class="mf-link">${link.label || link.url} <span class="mf-link-del" data-idx="${i}">✕</span></a>`
-        ).join('');
-
-        detailHtml = `
-            <div class="mf-detail-header">
-                <h2 class="mf-detail-name">${activeMerch.name}</h2>
-                <span class="mf-detail-stats">${sortedBins.length} BINs · ${bins.length} uses</span>
-                <div class="mf-detail-actions">
-                    <button class="mf-btn-action" id="mf-open-add-bin">+ Add BIN</button>
-                    <button class="mf-btn-action" id="mf-open-add-link">+ Link</button>
-                </div>
-            </div>
-            ${linksHtml ? `<div class="mf-links-strip">${linksHtml}</div>` : ''}
-            <div class="mf-bin-table-wrap">
-                ${sortedBins.length > 0 ? `<table class="mf-bin-table">
-                    <thead><tr><th>BIN</th><th>Bank</th><th>Uses</th><th>Amount</th><th>Cur</th><th></th></tr></thead>
-                    <tbody>${binRows}</tbody>
-                </table>` : '<div class="mf-empty">No BINs — click "+ Add BIN"</div>'}
-            </div>`;
-    }
+    if (!STATE.merchants.length) listHtml = '<div class="fc-empty">No merchants</div>';
 
     // ═══ POPUP MODAL ═══
     const popupHtml = `
@@ -1190,27 +1135,38 @@ function renderMerchants() {
         </div>
     </div>`;
 
-    // ═══ RENDER ═══
+    // ═══ RENDER: 4-COLUMN FINDER ═══
     area.innerHTML = `
-    <div class="mf-finder">
-        <div class="mf-col mf-col-list">
-            <div class="mf-col-head">
-                <span class="mf-col-title">Merchants</span>
-                <button class="mf-btn-add" id="mf-add-btn">+</button>
+    <div class="fc-finder">
+        <div class="fc-col fc-col-merchants">
+            <div class="fc-col-head">
+                <span class="fc-col-title">MERCHANTS</span>
+                <button class="fc-btn-plus" id="fc-add-merch">+</button>
             </div>
-            <div id="mf-add-form" class="mf-add-form hidden">
-                <input type="text" id="mt-merch-name" class="mf-input" placeholder="Name..." autocomplete="off">
-                <button class="mf-btn-ok" id="mt-merch-save">OK</button>
+            <div id="fc-add-form" class="fc-add-form hidden">
+                <input type="text" id="fc-merch-name" class="fc-input" placeholder="Name..." autocomplete="off">
+                <button class="fc-btn-ok" id="fc-merch-save">OK</button>
             </div>
-            <div class="mf-list-scroll" id="mf-list">${listHtml}</div>
-            <div class="mf-list-footer">${STATE.merchants.length} merchants · ${STATE.merchantBins.length} BINs</div>
+            <div class="fc-scroll" id="fc-list">${listHtml}</div>
+            <div class="fc-col-foot">
+                <button class="fc-foot-btn" id="fc-open-add-bin">+ Add BIN</button>
+                <button class="fc-foot-btn" id="fc-open-add-link">+ Link</button>
+            </div>
         </div>
-        <div class="mf-col mf-col-detail" id="mf-detail">${detailHtml}</div>
-        <div class="mf-col mf-col-log">
-            <div class="mf-col-head"><span class="mf-col-title">Log Analysis</span></div>
-            <textarea id="mt-textarea" class="mf-log-textarea" placeholder="Paste card number or log here..."></textarea>
-            <button class="mf-btn-search" id="mt-search-btn">SEARCH</button>
-            <div id="mt-results" class="mf-results"></div>
+        <div class="fc-col fc-col-log">
+            <div class="fc-col-head"><span class="fc-col-title">LOG ANALYSIS</span></div>
+            <div class="fc-scroll fc-log-body">
+                <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here..."></textarea>
+                <button class="fc-btn-search" id="fc-search-btn">SEARCH</button>
+            </div>
+        </div>
+        <div class="fc-col fc-col-results" id="fc-col-results">
+            <div class="fc-col-head"><span class="fc-col-title">BIN RESULTS</span></div>
+            <div class="fc-scroll" id="fc-results"></div>
+        </div>
+        <div class="fc-col fc-col-parsed" id="fc-col-parsed">
+            <div class="fc-col-head"><span class="fc-col-title">📋 PARSED DATA</span></div>
+            <div class="fc-scroll" id="fc-parsed"></div>
         </div>
     </div>
     ${popupHtml}`;
@@ -1218,124 +1174,89 @@ function renderMerchants() {
     // ═══ EVENTS ═══
 
     // Add merchant
-    document.getElementById('mf-add-btn').addEventListener('click', () => {
-        const form = document.getElementById('mf-add-form');
+    document.getElementById('fc-add-merch').addEventListener('click', () => {
+        const form = document.getElementById('fc-add-form');
         form.classList.toggle('hidden');
-        if (!form.classList.contains('hidden')) { document.getElementById('mt-merch-name').value = ''; document.getElementById('mt-merch-name').focus(); }
+        if (!form.classList.contains('hidden')) { document.getElementById('fc-merch-name').value = ''; document.getElementById('fc-merch-name').focus(); }
     });
-    document.getElementById('mt-merch-save').addEventListener('click', _mtSaveMerchant);
-    document.getElementById('mt-merch-name').addEventListener('keydown', e => {
+    document.getElementById('fc-merch-save').addEventListener('click', _mtSaveMerchant);
+    document.getElementById('fc-merch-name').addEventListener('keydown', e => {
         if (e.key === 'Enter') _mtSaveMerchant();
-        if (e.key === 'Escape') document.getElementById('mf-add-form').classList.add('hidden');
+        if (e.key === 'Escape') document.getElementById('fc-add-form').classList.add('hidden');
     });
 
     // Select merchant
-    document.querySelectorAll('.mf-item').forEach(el => {
-        el.addEventListener('click', (e) => {
-            if (e.target.closest('.mf-icon-btn')) return;
+    document.querySelectorAll('.fc-item').forEach(el => {
+        el.addEventListener('click', () => {
             STATE.merchantDetailId = el.dataset.id;
-            STATE.merchantView = 'detail';
             renderMerchants();
         });
     });
 
-    // Edit / Delete merchant
-    document.querySelectorAll('.mf-btn-edit').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); _mtEditMerchant(btn.dataset.id); });
+    // Add BIN popup
+    document.getElementById('fc-open-add-bin')?.addEventListener('click', () => {
+        if (!activeMerch) { toast('Select a merchant first', 'warning'); return; }
+        _mfOpenModal('Add BIN to ' + activeMerch.name, `
+            <div class="mf-modal-row">
+                <input type="text" id="mf-p-bin" class="mf-input mf-input-sm" placeholder="BIN (6 digits)" maxlength="6" autocomplete="off">
+                <input type="text" id="mf-p-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
+                <button class="mf-btn-ok" id="mf-p-bin-add">+ Add</button>
+            </div>
+            <div class="mf-modal-divider">or bulk paste:</div>
+            <textarea id="mf-p-bulk" class="mf-modal-textarea" rows="4" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
+            <button class="mf-btn-ok mf-btn-wide" id="mf-p-bulk-add">+ Add All</button>
+        `);
+        document.getElementById('mf-p-bin-add').addEventListener('click', () => {
+            const bin = document.getElementById('mf-p-bin').value.replace(/\D/g, '').slice(0, 6);
+            const amount = document.getElementById('mf-p-amount').value.trim();
+            if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
+            _addBinToMerchant(bin.padEnd(6, '0'), amount, activeMerch.id);
+            _mfCloseModal(); renderMerchants();
+        });
+        document.getElementById('mf-p-bulk-add').addEventListener('click', () => {
+            const raw = document.getElementById('mf-p-bulk').value.trim();
+            if (!raw) { toast('Paste BIN data', 'warning'); return; }
+            const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
+            const parsed = [];
+            lines.forEach(line => {
+                const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
+                if (richMatch) { parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' }); return; }
+                const digits = line.match(/\d{4,}/g);
+                if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
+            });
+            if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
+            parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, activeMerch.id, p.currency));
+            save(); toast(`${parsed.length} BINs added`, 'success');
+            _mfCloseModal(); renderMerchants();
+        });
+        document.getElementById('mf-p-bin').focus();
     });
-    document.querySelectorAll('.mf-btn-del').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); _mtDeleteMerchant(btn.dataset.id); });
+
+    // Add Link popup
+    document.getElementById('fc-open-add-link')?.addEventListener('click', () => {
+        if (!activeMerch) { toast('Select a merchant first', 'warning'); return; }
+        _mfOpenModal('Add Link to ' + activeMerch.name, `
+            <div class="mf-modal-row">
+                <input type="text" id="mf-p-link-label" class="mf-input mf-input-sm" placeholder="Label" autocomplete="off">
+                <input type="text" id="mf-p-link-url" class="mf-input" placeholder="https://..." autocomplete="off">
+                <button class="mf-btn-ok" id="mf-p-link-add">+ Add</button>
+            </div>
+        `);
+        document.getElementById('mf-p-link-add').addEventListener('click', () => {
+            const label = document.getElementById('mf-p-link-label').value.trim();
+            const url = document.getElementById('mf-p-link-url').value.trim();
+            if (!url) { toast('Enter URL', 'warning'); return; }
+            activeMerch.links = activeMerch.links || [];
+            activeMerch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
+            save(); toast('Link added', 'success');
+            _mfCloseModal(); renderMerchants();
+        });
+        document.getElementById('mf-p-link-url').focus();
     });
 
-    // Detail events
-    if (activeMerch) {
-        // Delete BIN
-        document.querySelectorAll('.mf-btn-del-bin').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const bin = btn.dataset.bin;
-                STATE.merchantBins = STATE.merchantBins.filter(b => !(b.bin === bin && b.merchant_id === activeMerch.id));
-                save();
-                toast(`BIN ${bin} removed`, 'info');
-                renderMerchants();
-            });
-        });
-
-        // Delete link
-        document.querySelectorAll('.mf-link-del').forEach(el => {
-            el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const idx = parseInt(el.dataset.idx); activeMerch.links.splice(idx, 1); save(); renderMerchants(); });
-        });
-
-        // ── POPUP: Add BIN ──
-        document.getElementById('mf-open-add-bin')?.addEventListener('click', () => {
-            _mfOpenModal('Add BIN to ' + activeMerch.name, `
-                <div class="mf-modal-row">
-                    <input type="text" id="mf-p-bin" class="mf-input mf-input-sm" placeholder="BIN (6 digits)" maxlength="6" autocomplete="off">
-                    <input type="text" id="mf-p-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
-                    <button class="mf-btn-ok" id="mf-p-bin-add">+ Add</button>
-                </div>
-                <div class="mf-modal-divider">or bulk paste:</div>
-                <textarea id="mf-p-bulk" class="mf-modal-textarea" rows="4" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
-                <button class="mf-btn-ok mf-btn-wide" id="mf-p-bulk-add">+ Add All</button>
-            `);
-            // Single add
-            document.getElementById('mf-p-bin-add').addEventListener('click', () => {
-                const bin = document.getElementById('mf-p-bin').value.replace(/\D/g, '').slice(0, 6);
-                const amount = document.getElementById('mf-p-amount').value.trim();
-                if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
-                _addBinToMerchant(bin.padEnd(6, '0'), amount, activeMerch.id);
-                _mfCloseModal();
-                renderMerchants();
-            });
-            // Bulk add
-            document.getElementById('mf-p-bulk-add').addEventListener('click', () => {
-                const raw = document.getElementById('mf-p-bulk').value.trim();
-                if (!raw) { toast('Paste BIN data', 'warning'); return; }
-                const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
-                const parsed = [];
-                lines.forEach(line => {
-                    const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
-                    if (richMatch) { parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' }); return; }
-                    const digits = line.match(/\d{4,}/g);
-                    if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
-                });
-                if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
-                parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, activeMerch.id, p.currency));
-                save();
-                toast(`${parsed.length} BINs added`, 'success');
-                _mfCloseModal();
-                renderMerchants();
-            });
-            document.getElementById('mf-p-bin').focus();
-        });
-
-        // ── POPUP: Add Link ──
-        document.getElementById('mf-open-add-link')?.addEventListener('click', () => {
-            _mfOpenModal('Add Link to ' + activeMerch.name, `
-                <div class="mf-modal-row">
-                    <input type="text" id="mf-p-link-label" class="mf-input mf-input-sm" placeholder="Label" autocomplete="off">
-                    <input type="text" id="mf-p-link-url" class="mf-input" placeholder="https://..." autocomplete="off">
-                    <button class="mf-btn-ok" id="mf-p-link-add">+ Add</button>
-                </div>
-            `);
-            document.getElementById('mf-p-link-add').addEventListener('click', () => {
-                const label = document.getElementById('mf-p-link-label').value.trim();
-                const url = document.getElementById('mf-p-link-url').value.trim();
-                if (!url) { toast('Enter URL', 'warning'); return; }
-                activeMerch.links = activeMerch.links || [];
-                activeMerch.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
-                save();
-                toast('Link added', 'success');
-                _mfCloseModal();
-                renderMerchants();
-            });
-            document.getElementById('mf-p-link-url').focus();
-        });
-    }
-
-    // Search (log analysis)
-    document.getElementById('mt-search-btn').addEventListener('click', _mtSearch);
-    document.getElementById('mt-textarea').addEventListener('keydown', e => {
+    // Search
+    document.getElementById('fc-search-btn').addEventListener('click', _mtSearch);
+    document.getElementById('fc-textarea').addEventListener('keydown', e => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
     });
 
@@ -1360,7 +1281,7 @@ function _mfCloseModal() {
 // ══════════ CRUD HELPERS ══════════
 
 function _mtSaveMerchant() {
-    const inp = document.getElementById('mt-merch-name');
+    const inp = document.getElementById('fc-merch-name');
     const name = inp.value.trim();
     if (!name) { toast('Enter merchant name', 'warning'); return; }
     STATE.merchants.push({ id: 'merch-' + Date.now(), name: name, links: [] });
@@ -1545,9 +1466,10 @@ function _parseLogFields(text) {
 
 // ══════════ SEARCH / LOG ANALYSIS ══════════
 function _mtSearch() {
-    const textarea = document.getElementById('mt-textarea');
+    const textarea = document.getElementById('fc-textarea');
     const text = textarea.value.trim();
-    const resultsDiv = document.getElementById('mt-results');
+    const resultsDiv = document.getElementById('fc-results');
+    const parsedDiv = document.getElementById('fc-parsed');
 
     if (!text) { toast('Paste card data first', 'warning'); return; }
 
@@ -1572,7 +1494,6 @@ function _mtSearch() {
     let bins = [];
     if (fields.bin) bins.push(fields.bin);
 
-    // Also try CC patterns
     const ccPatterns = [
         /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN)[:\s]+([0-9\s\-]{13,25})/gi,
         /(?:CC|Card)[:\s]*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})/gi,
@@ -1594,67 +1515,64 @@ function _mtSearch() {
 
     if (bins.length === 0) {
         resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
+        parsedDiv.innerHTML = '';
         return;
     }
 
-    let html = '';
-
-    // ═══ PARSED DATA CARD ═══
+    // ═══ COL 4: PARSED DATA ═══
+    let parsedHtml = '';
     const hasFields = fields.cc || fields.holder || fields.email || fields.phone || fields.address || fields.zip;
     if (hasFields) {
         const copyAttr = (val) => val ? `class="mf-copy-field" data-copy="${val.replace(/"/g, '&quot;')}" title="Click to copy"` : '';
-        html += `<div class="mf-parsed-card">`;
-        html += `<div class="mf-parsed-title">📋 Parsed Data</div>`;
 
         if (fields.cc) {
-            const masked = fields.cc.length > 8 ? fields.cc.slice(0, 4) + ' •••• •••• ' + fields.cc.slice(-4) : fields.cc;
             const fullCC = fields.cc + (fields.expMonth ? ' ' + fields.expMonth + '/' + (fields.expYear || '') : '') + (fields.cvv ? ' ' + fields.cvv : '');
-            html += `<div class="mf-field"><span class="mf-field-icon">💳</span><span class="mf-field-label">CC:</span><span ${copyAttr(fullCC)} class="mf-copy-field mf-field-cc">${fields.cc}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">💳</span><span ${copyAttr(fullCC)} class="mf-copy-field mf-field-cc">${fields.cc}</span></div>`;
         }
         if (fields.expMonth) {
-            html += `<div class="mf-field"><span class="mf-field-icon">📅</span><span class="mf-field-label">Validity:</span><span ${copyAttr(fields.expMonth + '/' + (fields.expYear || ''))}>${fields.expMonth}/${fields.expYear || '??'}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📅</span><span ${copyAttr(fields.expMonth + '/' + (fields.expYear || ''))}>${fields.expMonth}/${fields.expYear || '??'}</span></div>`;
         }
         if (fields.cvv) {
-            html += `<div class="mf-field"><span class="mf-field-icon">🔒</span><span class="mf-field-label">CVV:</span><span ${copyAttr(fields.cvv)}>${fields.cvv}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🔒</span><span ${copyAttr(fields.cvv)}>${fields.cvv}</span></div>`;
         }
         if (fields.holder) {
-            html += `<div class="mf-field"><span class="mf-field-icon">👤</span><span class="mf-field-label">Holder:</span><span ${copyAttr(fields.holder)}>${fields.holder}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">👤</span><span ${copyAttr(fields.holder)}>${fields.holder}</span></div>`;
         }
         if (fields.email) {
-            html += `<div class="mf-field"><span class="mf-field-icon">📧</span><span class="mf-field-label">Email:</span><span ${copyAttr(fields.email)}>${fields.email}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📧</span><span ${copyAttr(fields.email)}>${fields.email}</span></div>`;
         }
         if (fields.phone) {
-            html += `<div class="mf-field"><span class="mf-field-icon">📱</span><span class="mf-field-label">Phone:</span><span ${copyAttr(fields.phone)}>${fields.phone}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📱</span><span ${copyAttr(fields.phone)}>${fields.phone}</span></div>`;
         }
         if (fields.address) {
-            html += `<div class="mf-field"><span class="mf-field-icon">🏠</span><span class="mf-field-label">Billing:</span><span ${copyAttr(fields.address)}>${fields.address}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🏠</span><span ${copyAttr(fields.address)}>${fields.address}</span></div>`;
         }
         if (fields.zip) {
-            html += `<div class="mf-field"><span class="mf-field-icon">📮</span><span class="mf-field-label">ZIP:</span><span ${copyAttr(fields.zip)}>${fields.zip}</span></div>`;
-        }
-        if (fields.price) {
-            html += `<div class="mf-field"><span class="mf-field-icon">💰</span><span class="mf-field-label">Price:</span><span ${copyAttr(fields.price)}>${fields.price}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📮</span><span ${copyAttr(fields.zip)}>${fields.zip}</span></div>`;
         }
         if (fields.bank) {
-            html += `<div class="mf-field"><span class="mf-field-icon">🏦</span><span class="mf-field-label">Bank:</span><span ${copyAttr(fields.bank)}>${fields.bank}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🏦</span><span ${copyAttr(fields.bank)}>${fields.bank}</span></div>`;
         }
         if (fields.cardType) {
-            html += `<div class="mf-field"><span class="mf-field-icon">💎</span><span class="mf-field-label">Card Type:</span><span ${copyAttr(fields.cardType)}>${fields.cardType}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">💎</span><span ${copyAttr(fields.cardType)}>${fields.cardType}</span></div>`;
         }
         if (fields.ip) {
-            html += `<div class="mf-field"><span class="mf-field-icon">🌐</span><span class="mf-field-label">IP:</span><span ${copyAttr(fields.ip)}>${fields.ip}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🌐</span><span ${copyAttr(fields.ip)}>${fields.ip}</span></div>`;
         }
-
-        html += `</div>`;
+        if (fields.userAgent) {
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🖥</span><span ${copyAttr(fields.userAgent)} style="font-size:10px">${fields.userAgent.slice(0,60)}${fields.userAgent.length>60?'…':''}</span></div>`;
+        }
     }
+    parsedDiv.innerHTML = parsedHtml;
 
-    // ═══ BIN MATCHES ═══
+    // ═══ COL 3: BIN RESULTS ═══
+    let html = '';
     bins.forEach(bin => {
         const matches = STATE.merchantBins.filter(b => b.bin === bin);
         const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
-        const bankName = bankInfo ? (bankInfo.bank || '—') : (matches.length > 0 && matches[0].bank ? matches[0].bank : '—');
-        const bankCountry = bankInfo ? (bankInfo.country || '') : '';
-        const bankType = bankInfo ? (bankInfo.type || '') : '';
+
+        html += `<div class="mt-result-block">`;
+        html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong></div>`;
 
         // Group by merchant
         const byMerchant = {};
@@ -1665,13 +1583,6 @@ function _mtSearch() {
             const m = STATE.merchants.find(x => x.id === mId);
             if (m) byMerchant[mId].name = m.name;
         });
-
-        html += `<div class="mt-result-block">`;
-        html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
-        if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
-        if (bankCountry) html += ` <span class="mt-result-geo">${bankCountry}</span>`;
-        if (bankType) html += ` <span class="mt-result-type">${bankType}</span>`;
-        html += `</div>`;
 
         if (Object.keys(byMerchant).length > 0) {
             Object.entries(byMerchant).forEach(([mId, data]) => {
@@ -1721,8 +1632,8 @@ function _mtSearch() {
 
     resultsDiv.innerHTML = html;
 
-    // Wire up copy-on-click
-    resultsDiv.querySelectorAll('.mf-copy-field').forEach(el => {
+    // Wire up copy-on-click in Col 4
+    parsedDiv.querySelectorAll('.mf-copy-field').forEach(el => {
         el.addEventListener('click', () => {
             const val = el.dataset.copy;
             if (!val) return;
@@ -1731,7 +1642,6 @@ function _mtSearch() {
                 el.classList.add('mf-copied');
                 setTimeout(() => el.classList.remove('mf-copied'), 800);
             }).catch(() => {
-                // fallback
                 const ta = document.createElement('textarea');
                 ta.value = val; document.body.appendChild(ta); ta.select();
                 document.execCommand('copy'); document.body.removeChild(ta);
@@ -1740,7 +1650,7 @@ function _mtSearch() {
         });
     });
 
-    // Wire up "Link" buttons
+    // Wire up "Link" buttons in Col 3
     resultsDiv.querySelectorAll('.mt-result-add-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const bin = btn.dataset.bin;

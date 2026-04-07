@@ -8207,11 +8207,211 @@ tr.row-selected td {
 }
 
 /* ── Detail header updated ── */
-.mf-detail-header {
+/* ═══════════════════════════════════════════
+   FINDER COLUMN-VIEW (fc-*)
+   macOS Finder style 4-column layout
+   ═══════════════════════════════════════════ */
+
+.fc-finder {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr 240px;
+    height: calc(100vh - 40px);
+    background: var(--bg-primary, #0a0c10);
+}
+
+.fc-col {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,.06);
+    min-width: 0;
+    overflow: hidden;
+}
+.fc-col:last-child { border-right: none; }
+
+.fc-col-head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    justify-content: space-between;
+    padding: 6px 10px;
     border-bottom: 1px solid rgba(255,255,255,.06);
-    flex-wrap: wrap;
+    background: rgba(255,255,255,.02);
+    flex-shrink: 0;
+}
+
+.fc-col-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.fc-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ── Col 1: Merchants ── */
+.fc-col-merchants {
+    min-width: 140px;
+    max-width: 200px;
+}
+
+.fc-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,.03);
+    transition: background .1s;
+}
+.fc-item:hover { background: rgba(99,102,241,.08); }
+.fc-item-active {
+    background: rgba(99,102,241,.15) !important;
+    border-left: 2px solid #6366f1;
+}
+.fc-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fc-item-active .fc-item-name { color: #818cf8; }
+.fc-item-meta {
+    font-size: 10px;
+    color: var(--text-dim, #64748b);
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.fc-btn-plus {
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(99,102,241,.15);
+    border: 1px solid rgba(99,102,241,.3);
+    border-radius: 4px;
+    color: #818cf8;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.fc-btn-plus:hover { background: rgba(99,102,241,.25); }
+
+.fc-add-form {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.fc-add-form.hidden { display: none; }
+
+.fc-input {
+    flex: 1;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 3px;
+    color: var(--text-primary, #e2e8f0);
+    font-size: 12px;
+    padding: 4px 6px;
+    min-width: 0;
+}
+
+.fc-btn-ok {
+    background: rgba(34,197,94,.15);
+    border: 1px solid rgba(34,197,94,.3);
+    color: #22c55e;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.fc-btn-ok:hover { background: rgba(34,197,94,.25); }
+
+.fc-col-foot {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.02);
+    flex-shrink: 0;
+}
+
+.fc-foot-btn {
+    flex: 1;
+    background: rgba(99,102,241,.1);
+    border: 1px solid rgba(99,102,241,.2);
+    color: #818cf8;
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+}
+.fc-foot-btn:hover { background: rgba(99,102,241,.2); }
+
+.fc-empty {
+    padding: 20px 10px;
+    text-align: center;
+    color: var(--text-dim, #64748b);
+    font-size: 12px;
+}
+
+/* ── Col 2: Log Analysis ── */
+.fc-col-log { min-width: 200px; }
+
+.fc-log-body {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fc-textarea {
+    width: 100%;
+    flex: 1;
+    min-height: 120px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 4px;
+    color: var(--text-primary, #e2e8f0);
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    padding: 8px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.fc-btn-search {
+    width: 100%;
+    padding: 8px;
+    background: rgba(34,197,94,.12);
+    border: 1px solid rgba(34,197,94,.3);
+    border-radius: 4px;
+    color: #22c55e;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all .15s;
+}
+.fc-btn-search:hover { background: rgba(34,197,94,.2); }
+
+/* ── Col 3: BIN Results ── */
+.fc-col-results { min-width: 200px; }
+
+/* ── Col 4: Parsed Data ── */
+.fc-col-parsed {
+    min-width: 200px;
+    max-width: 280px;
+}
+.fc-col-parsed .fc-scroll {
+    padding: 8px;
 }
