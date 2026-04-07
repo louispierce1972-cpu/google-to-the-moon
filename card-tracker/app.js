@@ -1323,27 +1323,31 @@ function _openMerchantPopup(merchantId) {
     });
     if (!linksHtml) linksHtml = '<span class="fc-muted">No links</span>';
 
-    // BINs HTML
+    // BINs HTML — compact table
     let binsHtml = '';
     if (mBins.length > 0) {
         const byBin = {};
         mBins.forEach(b => { if (!byBin[b.bin]) byBin[b.bin] = []; byBin[b.bin].push(b); });
+        binsHtml = `<div class="mfp-bin-table">
+            <div class="mfp-bin-row mfp-bin-header">
+                <span class="mfp-bin-col-bin">BIN</span>
+                <span class="mfp-bin-col-amt">Amount</span>
+                <span class="mfp-bin-col-cur">Cur</span>
+                <span class="mfp-bin-col-cnt">Cnt</span>
+                <span class="mfp-bin-col-act"></span>
+            </div>`;
         Object.entries(byBin).forEach(([bin, entries]) => {
-            binsHtml += `<div class="fc-bin-group">
-                <div class="fc-bin-head"><span class="fc-bin-code">${bin}</span><span class="fc-bin-count">${entries.length} tx</span></div>`;
-            entries.forEach(entry => {
-                const amt = entry.amount ? '$' + entry.amount : '—';
-                const cur = entry.currency || '';
-                binsHtml += `<div class="fc-data-row">
-                    <span class="fc-tx-amt-sm">${amt}</span>
-                    ${cur ? `<span class="fc-tx-cur">${cur}</span>` : ''}
-                    <div class="fc-row-actions" style="opacity:1">
-                        <button class="fc-row-btn mfp-bin-del" data-bin-id="${entry.id}" title="Delete">✕</button>
-                    </div>
-                </div>`;
-            });
-            binsHtml += `</div>`;
+            const amt = entries[0].amount ? '$' + entries[0].amount : '—';
+            const cur = entries[0].currency || '—';
+            binsHtml += `<div class="mfp-bin-row">
+                <span class="mfp-bin-col-bin mfp-bin-val">${bin}</span>
+                <span class="mfp-bin-col-amt mfp-amt-val">${amt}</span>
+                <span class="mfp-bin-col-cur">${cur}</span>
+                <span class="mfp-bin-col-cnt">${entries.length}x</span>
+                <span class="mfp-bin-col-act"><button class="fc-row-btn mfp-bin-del" data-bin-id="${entries[0].id}" title="Delete">✕</button></span>
+            </div>`;
         });
+        binsHtml += `</div>`;
     } else {
         binsHtml = '<span class="fc-muted">No BINs</span>';
     }
