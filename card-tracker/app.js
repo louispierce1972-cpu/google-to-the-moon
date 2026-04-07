@@ -1110,7 +1110,7 @@ function renderMerchants() {
     STATE.merchants.forEach(m => { if (!m.links) m.links = []; });
     const activeMerch = STATE.merchantDetailId ? STATE.merchants.find(m => m.id === STATE.merchantDetailId) : null;
 
-    // ═══ COL 1: Merchant list ═══
+    // ═══ COL 1: Merchant list with edit/delete ═══
     let listHtml = '';
     STATE.merchants.forEach(m => {
         const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
@@ -1118,21 +1118,73 @@ function renderMerchants() {
         const isActive = activeMerch && activeMerch.id === m.id;
         listHtml += `<div class="fc-item ${isActive ? 'fc-item-active' : ''}" data-id="${m.id}">
             <span class="fc-item-name">${m.name}</span>
-            <span class="fc-item-meta">${uniqueBins} BINs · ${bins.length}</span>
+            <div class="fc-item-actions">
+                <span class="fc-item-meta">${uniqueBins}·${bins.length}</span>
+                <button class="fc-item-btn fc-item-edit" data-id="${m.id}" title="Edit">✏️</button>
+                <button class="fc-item-btn fc-item-del" data-id="${m.id}" title="Delete">🗑️</button>
+            </div>
         </div>`;
     });
     if (!STATE.merchants.length) listHtml = '<div class="fc-empty">No merchants</div>';
 
-    // ═══ COL 3: Context header (merchant actions) ═══
+    // ═══ COL 3: Context header + merchant data ═══
     let col3Head = '<span class="fc-col-title">BIN RESULTS</span>';
+    let col3Content = '';
     if (activeMerch) {
         const mBins = STATE.merchantBins.filter(b => b.merchant_id === activeMerch.id);
         const uBins = [...new Set(mBins.map(b => b.bin))].length;
         col3Head = `<span class="fc-col-title">${activeMerch.name} <span class="fc-merch-stats">${uBins} BINs · ${mBins.length}</span></span>
             <div class="fc-ctx-actions">
-                <button class="fc-ctx-btn" id="fc-open-add-bin">+ Add BIN</button>
-                <button class="fc-ctx-btn" id="fc-open-add-link">+ Add Link</button>
+                <button class="fc-ctx-btn" id="fc-open-add-bin">+ BIN</button>
+                <button class="fc-ctx-btn" id="fc-open-add-link">+ Link</button>
             </div>`;
+
+        // ── Links section ──
+        if (activeMerch.links.length > 0) {
+            col3Content += `<div class="fc-section"><div class="fc-section-title">LINKS</div>`;
+            activeMerch.links.forEach((l, i) => {
+                col3Content += `<div class="fc-data-row">
+                    <a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>
+                    <div class="fc-row-actions">
+                        <button class="fc-row-btn fc-link-edit-btn" data-idx="${i}" title="Edit">✏️</button>
+                        <button class="fc-row-btn fc-link-del-btn" data-idx="${i}" title="Delete">✕</button>
+                    </div>
+                </div>`;
+            });
+            col3Content += `</div>`;
+        }
+
+        // ── BINs section ──
+        if (mBins.length > 0) {
+            // Group by bin
+            const byBin = {};
+            mBins.forEach(b => {
+                if (!byBin[b.bin]) byBin[b.bin] = [];
+                byBin[b.bin].push(b);
+            });
+            col3Content += `<div class="fc-section"><div class="fc-section-title">BINs</div>`;
+            Object.entries(byBin).forEach(([bin, entries]) => {
+                col3Content += `<div class="fc-bin-group">`;
+                col3Content += `<div class="fc-bin-head"><span class="fc-bin-code">${bin}</span><span class="fc-bin-count">${entries.length} tx</span></div>`;
+                entries.forEach(entry => {
+                    const amt = entry.amount ? '$' + entry.amount : '—';
+                    const cur = entry.currency || '';
+                    col3Content += `<div class="fc-data-row">
+                        <span class="fc-tx-amt-sm">${amt}</span>
+                        ${cur ? `<span class="fc-tx-cur">${cur}</span>` : ''}
+                        <div class="fc-row-actions">
+                            <button class="fc-row-btn fc-bin-del-btn" data-bin-id="${entry.id}" title="Delete">✕</button>
+                        </div>
+                    </div>`;
+                });
+                col3Content += `</div>`;
+            });
+            col3Content += `</div>`;
+        }
+
+        if (!activeMerch.links.length && !mBins.length) {
+            col3Content = '<div class="fc-empty">No BINs or Links yet</div>';
+        }
     }
 
     // ═══ POPUP MODAL ═══
@@ -1170,7 +1222,7 @@ function renderMerchants() {
         </div>
         <div class="fc-col fc-col-results" id="fc-col-results">
             <div class="fc-col-head fc-col-head-ctx">${col3Head}</div>
-            <div class="fc-scroll" id="fc-results"></div>
+            <div class="fc-scroll" id="fc-results">${col3Content}</div>
         </div>
         <div class="fc-col fc-col-parsed" id="fc-col-parsed">
             <div class="fc-col-head"><span class="fc-col-title">📋 PARSED DATA</span></div>
@@ -1193,18 +1245,99 @@ function renderMerchants() {
         if (e.key === 'Escape') document.getElementById('fc-add-form').classList.add('hidden');
     });
 
-    // Select merchant
+    // Select merchant (click on name area)
     document.querySelectorAll('.fc-item').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('.fc-item-btn')) return; // skip if clicked edit/delete
             STATE.merchantDetailId = el.dataset.id;
             renderMerchants();
+        });
+    });
+
+    // Edit merchant (popup)
+    document.querySelectorAll('.fc-item-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const m = STATE.merchants.find(x => x.id === id);
+            if (!m) return;
+            _mfOpenModal('Edit Merchant', `
+                <div class="mf-modal-row">
+                    <input type="text" id="mf-p-merch-name" class="mf-input" value="${m.name}" autocomplete="off">
+                    <button class="mf-btn-ok" id="mf-p-merch-save">Save</button>
+                </div>
+            `);
+            const inp = document.getElementById('mf-p-merch-name');
+            inp.focus(); inp.select();
+            document.getElementById('mf-p-merch-save').addEventListener('click', () => {
+                const newName = inp.value.trim();
+                if (!newName) { toast('Enter name', 'warning'); return; }
+                m.name = newName; save();
+                toast(`Renamed to "${newName}"`, 'success');
+                _mfCloseModal(); renderMerchants();
+            });
+            inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') document.getElementById('mf-p-merch-save').click(); });
+        });
+    });
+
+    // Delete merchant
+    document.querySelectorAll('.fc-item-del').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _mtDeleteMerchant(btn.dataset.id);
+        });
+    });
+
+    // ── Col 3: Delete BIN ──
+    document.querySelectorAll('.fc-bin-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const binId = btn.dataset.binId;
+            STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== binId);
+            save(); renderMerchants();
+            toast('BIN removed', 'info');
+        });
+    });
+
+    // ── Col 3: Delete Link ──
+    document.querySelectorAll('.fc-link-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!activeMerch) return;
+            const idx = parseInt(btn.dataset.idx);
+            activeMerch.links.splice(idx, 1);
+            save(); renderMerchants();
+            toast('Link removed', 'info');
+        });
+    });
+
+    // ── Col 3: Edit Link (popup) ──
+    document.querySelectorAll('.fc-link-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!activeMerch) return;
+            const idx = parseInt(btn.dataset.idx);
+            const link = activeMerch.links[idx];
+            if (!link) return;
+            _mfOpenModal('Edit Link', `
+                <div class="mf-modal-row">
+                    <input type="text" id="mf-p-el-label" class="mf-input mf-input-sm" value="${link.label || ''}" placeholder="Label" autocomplete="off">
+                    <input type="text" id="mf-p-el-url" class="mf-input" value="${link.url || ''}" placeholder="https://..." autocomplete="off">
+                    <button class="mf-btn-ok" id="mf-p-el-save">Save</button>
+                </div>
+            `);
+            document.getElementById('mf-p-el-label').focus();
+            document.getElementById('mf-p-el-save').addEventListener('click', () => {
+                const label = document.getElementById('mf-p-el-label').value.trim();
+                const url = document.getElementById('mf-p-el-url').value.trim();
+                if (!url) { toast('Enter URL', 'warning'); return; }
+                activeMerch.links[idx] = { label: label || url, url: url.startsWith('http') ? url : 'https://' + url };
+                save(); toast('Link updated', 'success');
+                _mfCloseModal(); renderMerchants();
+            });
         });
     });
 
     // ── POPUP: Add BIN (with link binding) ──
     if (activeMerch) {
         document.getElementById('fc-open-add-bin')?.addEventListener('click', () => {
-            // Build link options for dropdown
             const linkOpts = (activeMerch.links || []).map((l, i) =>
                 `<option value="${i}">${l.label || l.url}</option>`
             ).join('');
@@ -1224,7 +1357,6 @@ function renderMerchants() {
                 <textarea id="mf-p-bulk" class="mf-modal-textarea" rows="4" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
                 <button class="mf-btn-ok mf-btn-wide" id="mf-p-bulk-add">+ Add All</button>
             `);
-            // Single add
             document.getElementById('mf-p-bin-add').addEventListener('click', () => {
                 const bin = document.getElementById('mf-p-bin').value.replace(/\D/g, '').slice(0, 6);
                 const amount = document.getElementById('mf-p-amount').value.trim();
@@ -1232,7 +1364,6 @@ function renderMerchants() {
                 _addBinToMerchant(bin.padEnd(6, '0'), amount, activeMerch.id);
                 _mfCloseModal(); renderMerchants();
             });
-            // Bulk add
             document.getElementById('mf-p-bulk-add').addEventListener('click', () => {
                 const raw = document.getElementById('mf-p-bulk').value.trim();
                 if (!raw) { toast('Paste BIN data', 'warning'); return; }
@@ -1264,7 +1395,6 @@ function renderMerchants() {
                 <textarea id="mf-p-link-bulk" class="mf-modal-textarea" rows="4" placeholder="zak1 https://site.com/zak1&#10;zak2 https://site.com/zak2"></textarea>
                 <button class="mf-btn-ok mf-btn-wide" id="mf-p-link-bulk-add">+ Add All</button>
             `);
-            // Single add
             document.getElementById('mf-p-link-add').addEventListener('click', () => {
                 const label = document.getElementById('mf-p-link-label').value.trim();
                 const url = document.getElementById('mf-p-link-url').value.trim();
@@ -1274,14 +1404,12 @@ function renderMerchants() {
                 save(); toast('Link added', 'success');
                 _mfCloseModal(); renderMerchants();
             });
-            // Bulk add
             document.getElementById('mf-p-link-bulk-add').addEventListener('click', () => {
                 const raw = document.getElementById('mf-p-link-bulk').value.trim();
                 if (!raw) { toast('Paste link data', 'warning'); return; }
                 const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
                 let added = 0;
                 lines.forEach(line => {
-                    // Format: "label https://..." or "https://..."
                     const urlMatch = line.match(/(https?:\/\/\S+)/i);
                     if (urlMatch) {
                         const url = urlMatch[1];

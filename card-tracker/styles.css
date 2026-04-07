@@ -8438,6 +8438,109 @@ tr.row-selected td {
 }
 .fc-ctx-btn:hover { background: rgba(34,197,94,.2); }
 
+/* ── Col 1: Merchant item actions ── */
+.fc-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.fc-item-btn {
+    width: 20px; height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0;
+    transition: all .15s;
+    opacity: .3;
+}
+.fc-item:hover .fc-item-btn { opacity: 1; }
+.fc-item-btn:hover { background: rgba(255,255,255,.1); }
+.fc-item-del:hover { background: rgba(239,68,68,.2); }
+
+/* ── Col 3: Sections (LINKS, BINs) ── */
+.fc-section {
+    margin-bottom: 12px;
+}
+.fc-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-dim, #64748b);
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    margin-bottom: 4px;
+}
+.fc-data-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 4px;
+    border-radius: 3px;
+    transition: background .1s;
+    gap: 4px;
+}
+.fc-data-row:hover { background: rgba(255,255,255,.04); }
+.fc-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: .3;
+    transition: opacity .15s;
+}
+.fc-data-row:hover .fc-row-actions { opacity: 1; }
+.fc-row-btn {
+    width: 18px; height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 3px;
+    color: var(--text-dim, #64748b);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all .1s;
+    padding: 0;
+}
+.fc-row-btn:hover { background: rgba(255,255,255,.1); color: #e2e8f0; }
+.fc-link-del-btn:hover, .fc-bin-del-btn:hover { background: rgba(239,68,68,.2); color: #ef4444; border-color: rgba(239,68,68,.3); }
+
+.fc-bin-group {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,.03);
+}
+.fc-bin-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px;
+}
+.fc-bin-code {
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    font-weight: 700;
+    color: #818cf8;
+}
+.fc-bin-count {
+    font-size: 10px;
+    color: var(--text-dim, #64748b);
+}
+.fc-tx-amt-sm {
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    font-weight: 600;
+    color: #22c55e;
+}
+
 .fc-tx-list {
     display: flex;
     flex-wrap: wrap;
