@@ -1436,6 +1436,20 @@ function _mtSearch() {
 
     if (!text) { toast('Paste card data first', 'warning'); return; }
 
+    // Extract ALL amounts from log
+    const allAmounts = [];
+    const amountPatterns = [
+        /(?:Price|Amount|Total|Sum|Charge)[:\s]*\$?\s*([\d.,]+)/gi,
+        /\$([\d.,]+)/g
+    ];
+    for (const pat of amountPatterns) {
+        let m;
+        while ((m = pat.exec(text)) !== null) {
+            const val = _parseAmount(m[1]);
+            if (val > 0 && !allAmounts.includes(val.toString())) allAmounts.push(val.toString());
+        }
+    }
+
     // ── Smart BIN extraction: prioritize CC field ──
     let bins = [];
 
@@ -1466,10 +1480,7 @@ function _mtSearch() {
     // Deduplicate
     bins = [...new Set(bins)];
 
-    // Extract amounts separately (does NOT affect BIN search)
-    const amountMatch = text.match(/(?:Price|Amount|Total|Sum)[:\s]*\$?\s*([\d.,]+)/i)
-        || text.match(/\$([\d.,]+)/);
-    const detectedAmount = amountMatch ? _parseAmount(amountMatch[1]).toString() : '';
+
 
     if (bins.length === 0) {
         resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
@@ -1504,15 +1515,25 @@ function _mtSearch() {
 
         if (Object.keys(byMerchant).length > 0) {
             Object.entries(byMerchant).forEach(([mId, data]) => {
-                const lastEntry = data.entries[data.entries.length - 1];
                 const m = STATE.merchants.find(x => x.id === mId);
                 const links = m && m.links ? m.links : [];
 
+                // Summary line
                 html += `<div class="mt-result-merchant-block">`;
-                html += `<div class="mt-result-row">`;
-                html += `<span class="mt-col-merchant">${data.name}</span>`;
-                html += ` — Used: <strong>${data.entries.length}</strong> times`;
-                if (lastEntry.amount) html += ` — Last: <span class="mt-col-amount">$${lastEntry.amount}</span>`;
+                html += `<div class="mt-result-row"><span class="mt-col-merchant">${data.name}</span> — <strong>${data.entries.length}</strong> transactions</div>`;
+
+                // Full transaction list
+                html += `<div class="mt-tx-list">`;
+                data.entries.forEach(entry => {
+                    const amt = entry.amount || '—';
+                    const cur = entry.currency || '';
+                    const date = entry.date ? new Date(entry.date).toLocaleDateString() : '';
+                    html += `<div class="mt-tx-item">`;
+                    html += `<span class="mt-tx-amt">${amt !== '—' ? '$' + amt : '—'}</span>`;
+                    if (cur) html += ` <span class="mt-tx-cur">${cur}</span>`;
+                    if (date) html += ` <span class="mt-tx-date">${date}</span>`;
+                    html += `</div>`;
+                });
                 html += `</div>`;
 
                 // Links
@@ -1529,16 +1550,16 @@ function _mtSearch() {
             html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
         }
 
-        // Show detected amount
-        if (detectedAmount) {
-            html += `<div class="mt-result-amount-detected">💰 Detected amount: $${detectedAmount}</div>`;
+        // Show ALL detected amounts from log
+        if (allAmounts.length > 0) {
+            html += `<div class="mt-result-amounts">💰 Detected amounts: ${allAmounts.map(a => '<strong>$' + a + '</strong>').join(', ')}</div>`;
         }
 
         // Quick action — add to merchant
         if (STATE.merchants.length > 0) {
             let options = STATE.merchants.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
             html += `<div class="mt-result-action">
-                    <select class="mt-select mt-result-merch-select" data-bin="${bin}" data-amount="${detectedAmount}">${options}</select>
+                    <select class="mt-select mt-result-merch-select" data-bin="${bin}" data-amount="${allAmounts[0] || ''}">${options}</select>
                     <button class="mt-btn mt-btn-ok mt-result-add-btn" data-bin="${bin}">+ Link</button>
                 </div>`;
         }
