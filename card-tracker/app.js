@@ -1429,12 +1429,106 @@ function _parseAmount(str) {
 
 // ══════════ ENHANCED SEARCH ══════════
 
+// ══════════ LOG FIELD PARSER ══════════
+function _parseLogFields(text) {
+    const f = {};
+    const lines = text.split(/\n/);
+
+    // ── CC Number ──
+    const ccPat = [
+        /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN|New Card)\s*[:\[\(]?\s*([0-9\s\-]{13,25})/i,
+        /\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})\b/
+    ];
+    for (const p of ccPat) {
+        const m = text.match(p);
+        if (m) { f.cc = m[1].replace(/[\s\-]/g, ''); break; }
+    }
+    if (!f.cc) {
+        const plain = text.match(/\b(\d{13,19})\b/);
+        if (plain) f.cc = plain[1];
+    }
+
+    // ── Validity / Expiry ──
+    const valPat = [
+        /(?:Validity|Expiry|Exp|Exp\.?\s*Date|Valid\s*Thru)[:\s]*(\d{1,2})\s*[\/\|\-]\s*(\d{2,4})/i,
+        /(?:Validity|Expiry|Exp)[:\s]*(\d{2})(\d{2})/i
+    ];
+    for (const p of valPat) {
+        const m = text.match(p);
+        if (m) { f.expMonth = m[1].padStart(2, '0'); f.expYear = m[2].length === 4 ? m[2].slice(-2) : m[2]; break; }
+    }
+    // fallback: CC line with date parts — "4242424242424242|12|26|874"
+    if (!f.expMonth && f.cc) {
+        const pipePat = text.match(new RegExp(f.cc.replace(/(.)/g, '$1[\\s\\-]?').slice(0, -5) + '[\\|\\s]+?(\\d{1,2})[\\|\\s]+?(\\d{2,4})'));
+        if (pipePat) { f.expMonth = pipePat[1].padStart(2, '0'); f.expYear = pipePat[2].length === 4 ? pipePat[2].slice(-2) : pipePat[2]; }
+    }
+
+    // ── CVV ──
+    const cvvM = text.match(/(?:CVV|CVC|CVV2|CVC2|Security\s*Code)[:\s]*(\d{3,4})/i);
+    if (cvvM) f.cvv = cvvM[1];
+    // fallback from pipe format: CC|MM|YY|CVV
+    if (!f.cvv && f.cc) {
+        const pipeAll = text.match(/\d{13,19}\s*[\|]\s*\d{1,2}\s*[\|]\s*\d{2,4}\s*[\|]\s*(\d{3,4})/);
+        if (pipeAll) f.cvv = pipeAll[1];
+    }
+
+    // ── Holder / Name ──
+    const holderM = text.match(/(?:Holder|Cardholder|Name|Full\s*Name|Card\s*Holder)[:\s]*(.+)/i);
+    if (holderM) f.holder = holderM[1].trim().replace(/\s+/g, ' ');
+
+    // ── Email ──
+    const emailM = text.match(/(?:Email|E-mail|Mail)[:\s]*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i)
+                || text.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
+    if (emailM) f.email = emailM[1];
+
+    // ── Phone ──
+    const phoneM = text.match(/(?:Phone|Tel|Mobile|Cell)[:\s]*([\+]?[\d\s\-\(\)]{7,20})/i);
+    if (phoneM) f.phone = phoneM[1].trim();
+
+    // ── Address / Billing ──
+    const addrM = text.match(/(?:Billing|Address|Street|Addr)[:\s]*(.+)/i);
+    if (addrM) f.address = addrM[1].trim();
+
+    // ── ZIP ──
+    const zipM = text.match(/(?:ZIP|Zip\s*Code|Postal|Post\s*Code)[:\s]*(\d{3,10})/i);
+    if (zipM) f.zip = zipM[1];
+
+    // ── Price / Amount ──
+    const priceM = text.match(/(?:Price|Amount|Total|Sum|Charge)[:\s]*[\$€£]?\s*([\d.,]+)/i);
+    if (priceM) f.price = priceM[1];
+
+    // ── Bank ──
+    const bankM = text.match(/(?:Bank|Issuer)[:\s]*(.+)/i);
+    if (bankM) f.bank = bankM[1].trim();
+
+    // ── Card Type ──
+    const typeM = text.match(/(?:Card\s*Type|Type)[:\s]*(.+)/i);
+    if (typeM) f.cardType = typeM[1].trim();
+
+    // ── IP ──
+    const ipM = text.match(/(?:IP|IP\s*Address)[:\s]*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
+    if (ipM) f.ip = ipM[1];
+
+    // ── User Agent ──
+    const uaM = text.match(/(?:User[\s\-]?Agent|UA)[:\s]*(.+)/i);
+    if (uaM) f.userAgent = uaM[1].trim();
+
+    // BIN
+    if (f.cc && f.cc.length >= 6) f.bin = f.cc.slice(0, 6);
+
+    return f;
+}
+
+// ══════════ SEARCH / LOG ANALYSIS ══════════
 function _mtSearch() {
     const textarea = document.getElementById('mt-textarea');
     const text = textarea.value.trim();
     const resultsDiv = document.getElementById('mt-results');
 
     if (!text) { toast('Paste card data first', 'warning'); return; }
+
+    // ── Parse log fields ──
+    const fields = _parseLogFields(text);
 
     // Extract ALL amounts from log
     const allAmounts = [];
@@ -1450,16 +1544,15 @@ function _mtSearch() {
         }
     }
 
-    // ── Smart BIN extraction: prioritize CC field ──
+    // ── BIN extraction ──
     let bins = [];
+    if (fields.bin) bins.push(fields.bin);
 
-    // 1. Try to find CC/Card field in the text
-    // Matches: CC: 4165 4903 8860 5285, Card: 4242424242424242, CC Number: ..., etc.
+    // Also try CC patterns
     const ccPatterns = [
         /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN)[:\s]+([0-9\s\-]{13,25})/gi,
         /(?:CC|Card)[:\s]*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})/gi,
     ];
-
     for (const pat of ccPatterns) {
         let match;
         while ((match = pat.exec(text)) !== null) {
@@ -1469,18 +1562,11 @@ function _mtSearch() {
             }
         }
     }
-
-    // 2. Fallback: if no CC field found, look for standalone card numbers (13-19 consecutive digits)
-    //    but ONLY sequences that look like card numbers, not random IDs or phones
     if (bins.length === 0) {
         const cardMatches = text.match(/\b\d{13,19}\b/g) || [];
         cardMatches.forEach(c => bins.push(c.slice(0, 6)));
     }
-
-    // Deduplicate
     bins = [...new Set(bins)];
-
-
 
     if (bins.length === 0) {
         resultsDiv.innerHTML = '<div class="mt-no-data">NO DATA — no valid card numbers found</div>';
@@ -1489,6 +1575,56 @@ function _mtSearch() {
 
     let html = '';
 
+    // ═══ PARSED DATA CARD ═══
+    const hasFields = fields.cc || fields.holder || fields.email || fields.phone || fields.address || fields.zip;
+    if (hasFields) {
+        const copyAttr = (val) => val ? `class="mf-copy-field" data-copy="${val.replace(/"/g, '&quot;')}" title="Click to copy"` : '';
+        html += `<div class="mf-parsed-card">`;
+        html += `<div class="mf-parsed-title">📋 Parsed Data</div>`;
+
+        if (fields.cc) {
+            const masked = fields.cc.length > 8 ? fields.cc.slice(0, 4) + ' •••• •••• ' + fields.cc.slice(-4) : fields.cc;
+            const fullCC = fields.cc + (fields.expMonth ? ' ' + fields.expMonth + '/' + (fields.expYear || '') : '') + (fields.cvv ? ' ' + fields.cvv : '');
+            html += `<div class="mf-field"><span class="mf-field-icon">💳</span><span class="mf-field-label">CC:</span><span ${copyAttr(fullCC)} class="mf-copy-field mf-field-cc">${fields.cc}</span></div>`;
+        }
+        if (fields.expMonth) {
+            html += `<div class="mf-field"><span class="mf-field-icon">📅</span><span class="mf-field-label">Validity:</span><span ${copyAttr(fields.expMonth + '/' + (fields.expYear || ''))}>${fields.expMonth}/${fields.expYear || '??'}</span></div>`;
+        }
+        if (fields.cvv) {
+            html += `<div class="mf-field"><span class="mf-field-icon">🔒</span><span class="mf-field-label">CVV:</span><span ${copyAttr(fields.cvv)}>${fields.cvv}</span></div>`;
+        }
+        if (fields.holder) {
+            html += `<div class="mf-field"><span class="mf-field-icon">👤</span><span class="mf-field-label">Holder:</span><span ${copyAttr(fields.holder)}>${fields.holder}</span></div>`;
+        }
+        if (fields.email) {
+            html += `<div class="mf-field"><span class="mf-field-icon">📧</span><span class="mf-field-label">Email:</span><span ${copyAttr(fields.email)}>${fields.email}</span></div>`;
+        }
+        if (fields.phone) {
+            html += `<div class="mf-field"><span class="mf-field-icon">📱</span><span class="mf-field-label">Phone:</span><span ${copyAttr(fields.phone)}>${fields.phone}</span></div>`;
+        }
+        if (fields.address) {
+            html += `<div class="mf-field"><span class="mf-field-icon">🏠</span><span class="mf-field-label">Billing:</span><span ${copyAttr(fields.address)}>${fields.address}</span></div>`;
+        }
+        if (fields.zip) {
+            html += `<div class="mf-field"><span class="mf-field-icon">📮</span><span class="mf-field-label">ZIP:</span><span ${copyAttr(fields.zip)}>${fields.zip}</span></div>`;
+        }
+        if (fields.price) {
+            html += `<div class="mf-field"><span class="mf-field-icon">💰</span><span class="mf-field-label">Price:</span><span ${copyAttr(fields.price)}>${fields.price}</span></div>`;
+        }
+        if (fields.bank) {
+            html += `<div class="mf-field"><span class="mf-field-icon">🏦</span><span class="mf-field-label">Bank:</span><span ${copyAttr(fields.bank)}>${fields.bank}</span></div>`;
+        }
+        if (fields.cardType) {
+            html += `<div class="mf-field"><span class="mf-field-icon">💎</span><span class="mf-field-label">Card Type:</span><span ${copyAttr(fields.cardType)}>${fields.cardType}</span></div>`;
+        }
+        if (fields.ip) {
+            html += `<div class="mf-field"><span class="mf-field-icon">🌐</span><span class="mf-field-label">IP:</span><span ${copyAttr(fields.ip)}>${fields.ip}</span></div>`;
+        }
+
+        html += `</div>`;
+    }
+
+    // ═══ BIN MATCHES ═══
     bins.forEach(bin => {
         const matches = STATE.merchantBins.filter(b => b.bin === bin);
         const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
@@ -1518,11 +1654,9 @@ function _mtSearch() {
                 const m = STATE.merchants.find(x => x.id === mId);
                 const links = m && m.links ? m.links : [];
 
-                // Summary line
                 html += `<div class="mt-result-merchant-block">`;
                 html += `<div class="mt-result-row"><span class="mt-col-merchant">${data.name}</span> — <strong>${data.entries.length}</strong> transactions</div>`;
 
-                // Full transaction list
                 html += `<div class="mt-tx-list">`;
                 data.entries.forEach(entry => {
                     const amt = entry.amount || '—';
@@ -1536,7 +1670,6 @@ function _mtSearch() {
                 });
                 html += `</div>`;
 
-                // Links
                 if (links.length > 0) {
                     html += `<div class="mt-result-links">`;
                     links.forEach(l => {
@@ -1548,11 +1681,6 @@ function _mtSearch() {
             });
         } else {
             html += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
-        }
-
-        // Show ALL detected amounts from log
-        if (allAmounts.length > 0) {
-            html += `<div class="mt-result-amounts">💰 Detected amounts: ${allAmounts.map(a => '<strong>$' + a + '</strong>').join(', ')}</div>`;
         }
 
         // Quick action — add to merchant
@@ -1568,6 +1696,25 @@ function _mtSearch() {
     });
 
     resultsDiv.innerHTML = html;
+
+    // Wire up copy-on-click
+    resultsDiv.querySelectorAll('.mf-copy-field').forEach(el => {
+        el.addEventListener('click', () => {
+            const val = el.dataset.copy;
+            if (!val) return;
+            navigator.clipboard.writeText(val).then(() => {
+                toast('Copied: ' + val, 'success');
+                el.classList.add('mf-copied');
+                setTimeout(() => el.classList.remove('mf-copied'), 800);
+            }).catch(() => {
+                // fallback
+                const ta = document.createElement('textarea');
+                ta.value = val; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                toast('Copied: ' + val, 'success');
+            });
+        });
+    });
 
     // Wire up "Link" buttons
     resultsDiv.querySelectorAll('.mt-result-add-btn').forEach(btn => {
