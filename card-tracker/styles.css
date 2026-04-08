@@ -7422,6 +7422,19 @@ tr.row-selected td {
     background: rgba(239, 68, 68, .06);
 }
 
+/* ── TRASH BUTTON ── */
+.pz-btn-trash {
+    background: rgba(234, 179, 8, .1);
+    border-color: rgba(234, 179, 8, .3);
+    color: #EAB308;
+}
+
+.pz-btn-trash:hover:not(:disabled) {
+    background: rgba(234, 179, 8, .2);
+    border-color: rgba(234, 179, 8, .5);
+    color: #FACC15;
+}
+
 /* ── IMPORT BUTTON ── */
 .pz-btn-import {
     background: rgba(34, 197, 94, .15);

@@ -6010,6 +6010,7 @@ function renderParser() {
         <div class="pz-actions">
             <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>⚡ PARSE & CLEAN</button>
             <button class="pz-btn pz-btn-dim" id="parser-clear-btn">CLEAR</button>
+            <button class="pz-btn pz-btn-trash" id="parser-trash-btn">🗑 TRASH (${(STATE.trashCards || []).length})</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -6104,6 +6105,12 @@ function renderParser() {
         localStorage.removeItem('ct_parser_base');
         renderParser();
         toast('Parser cleared', 'info');
+    });
+
+    // ── TRASH BUTTON ──
+    document.getElementById('parser-trash-btn')?.addEventListener('click', () => {
+        const overlay = document.getElementById('trash-cards-overlay');
+        if (overlay) overlay.classList.remove('hidden');
     });
 
     // Card type toggle buttons
