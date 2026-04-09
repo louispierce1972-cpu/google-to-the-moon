@@ -1337,13 +1337,14 @@ function _openMerchantPopup(merchantId) {
                 <span class="mfp-bin-col-act"></span>
             </div>`;
         Object.entries(byBin).forEach(([bin, entries]) => {
-            const amt = entries[0].amount ? '$' + entries[0].amount : '—';
+            const amt = entries[0].amount || '—';
             const cur = entries[0].currency || '—';
+            const cnt = entries.reduce((sum, e) => sum + (e.cnt || 1), 0);
             binsHtml += `<div class="mfp-bin-row">
                 <span class="mfp-bin-col-bin mfp-bin-val">${bin}</span>
                 <span class="mfp-bin-col-amt mfp-amt-val">${amt}</span>
                 <span class="mfp-bin-col-cur">${cur}</span>
-                <span class="mfp-bin-col-cnt">${entries.length}x</span>
+                <span class="mfp-bin-col-cnt">${cnt}x</span>
                 <span class="mfp-bin-col-act"><button class="fc-row-btn mfp-bin-del" data-bin-id="${entries[0].id}" title="Delete">✕</button></span>
             </div>`;
         });
@@ -1500,14 +1501,25 @@ function _openMerchantPopup(merchantId) {
         const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
         const parsed = [];
         lines.forEach(line => {
-            const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*([A-Z]{3})?\s*$/);
-            if (richMatch) { parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: _parseAmount(richMatch[2]).toString(), currency: richMatch[3] || '' }); return; }
+            // Format: 412650 - 1,269.00 EUR  or  412650 - 949,00 USD  or  412650
+            const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,\s]+?)\s+([A-Za-z]{3})\s*$/);
+            if (richMatch) {
+                parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: richMatch[2].trim(), currency: richMatch[3].toUpperCase() });
+                return;
+            }
+            // Format: 412650 - 1,269.00  (no currency)
+            const amtMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*$/);
+            if (amtMatch) {
+                parsed.push({ bin: amtMatch[1].padEnd(6, '0'), amount: amtMatch[2].trim(), currency: '' });
+                return;
+            }
+            // Plain BIN(s)
             const digits = line.match(/\d{4,}/g);
             if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
         });
         if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
         parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, m.id, p.currency));
-        save(); toast(`${parsed.length} BINs added`, 'success');
+        save(); toast(`${parsed.length} BINs processed`, 'success');
         _mfCloseModal(); _openMerchantPopup(merchantId);
     });
     document.querySelectorAll('.mfp-bin-del').forEach(btn => {
@@ -1603,12 +1615,22 @@ function _mtDeleteMerchant(id) {
 }
 
 function _addBinToMerchant(bin, amount, merchantId, currency) {
+    // Check if this BIN already exists for this merchant
+    const existing = STATE.merchantBins.find(b => b.bin === bin && b.merchant_id === merchantId);
+    if (existing) {
+        existing.cnt = (existing.cnt || 1) + 1;
+        if (amount) existing.amount = amount;
+        if (currency) existing.currency = currency;
+        save();
+        return;
+    }
     const bank = BIN_CACHE[bin] ? (BIN_CACHE[bin].bank || '') : '';
     STATE.merchantBins.push({
         id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
         bin: bin,
         amount: amount || '',
         currency: currency || '',
+        cnt: 1,
         merchant_id: merchantId,
         bank: bank,
         date: Date.now()
