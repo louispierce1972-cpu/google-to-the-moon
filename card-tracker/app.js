@@ -5395,16 +5395,22 @@ function extractAllCardNumbersFromJSON(data) {
     function extractFromText(text) {
         if (!text || typeof text !== 'string') return;
 
-        // Pattern 1: Standalone 13-19 digit card numbers (most common: "4242424242424242 09 26 245")
-        // This catches the card number WITHOUT the trailing MM YY CVV
+        // Pattern 1: Pipe-separated (e.g. "4537800314042786|01|29|874" or "4537800314042786|01|29|874 Eric")
+        const piped = text.match(/(?:^|\s)(\d{13,19})\|/gm);
+        if (piped) piped.forEach(m => {
+            const num = m.trim().split('|')[0];
+            addIfCard(num);
+        });
+
+        // Pattern 2: Standalone 13-19 digit card numbers ("4242424242424242 09 26 245")
         const standalone = text.match(/(?<!\d)\d{13,19}(?!\d)/g);
         if (standalone) standalone.forEach(m => addIfCard(m));
 
-        // Pattern 2: Card numbers with dashes (e.g. "4242-4242-4242-4242")
+        // Pattern 3: Card numbers with dashes (e.g. "4242-4242-4242-4242")
         const dashed = text.match(/\d{4}[\-]\d{4}[\-]\d{4}[\-]\d{3,4}/g);
         if (dashed) dashed.forEach(m => addIfCard(m));
 
-        // Pattern 3: Card numbers with spaces in emoji format (e.g. "CC: 4242 4242 4242 4242")
+        // Pattern 4: Card numbers with spaces in emoji format (e.g. "CC: 4242 4242 4242 4242")
         const emojiMatch = text.match(/💳\s*CC:\s*([\d ]+)/g);
         if (emojiMatch) {
             emojiMatch.forEach(m => {
@@ -6547,44 +6553,54 @@ function _extractTrashCards(text) {
     let hasMarkers = false;
     const seen = new Set();
 
-    // Card number regex: 13-19 digits (possibly with spaces/dashes)
-    const ccRegex = /\d[\d\s\-]{11,18}\d/;
+    // Extract card number from a line (supports multiple formats)
+    function extractCC(line) {
+        // Pipe format: 4537800314042786|01|29|874
+        const pipeM = line.match(/(\d{13,19})\|/);
+        if (pipeM) return pipeM[1];
+        // Standalone digits: 4520880022987380 08 27 308
+        const standalone = line.match(/(?:^|\s)(\d{13,19})(?:\s|$)/);
+        if (standalone) return standalone[1];
+        // Digits with spaces/dashes: 4242 4242 4242 4242
+        const spaced = line.match(/(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})/);
+        if (spaced) return spaced[1].replace(/[\s\-]/g, '');
+        // Fallback: any 13-19 digit sequence
+        const fallback = line.match(/(\d{13,19})/);
+        return fallback ? fallback[1] : null;
+    }
 
     for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
         // Check for DEAD/ALIVE markers
-        const isDead = /(?:^|\.\s*|\s)(?:💀|DEAD|dead|Dead)(?:\s|$|\b)/i.test(trimmed);
-        const isAlive = /(?:^|\.\s*|\s)(?:✅|ALIVE|alive|Alive)(?:\s|$|\b)/i.test(trimmed);
+        const isDead = /(?:💀|DEAD|dead|Dead|Declined|declined|DECLINED)/i.test(trimmed);
+        const isAlive = /(?:✅|ALIVE|alive|Alive|Approved|approved|APPROVED)/i.test(trimmed);
 
         if (isDead || isAlive) {
             hasMarkers = true;
-            // Extract card number from this line
-            const match = trimmed.match(ccRegex);
-            if (match) {
-                const cc = match[0].replace(/[\s\-]/g, '');
-                if (cc.length >= 13 && cc.length <= 19) {
-                    if (isDead && !seen.has(cc)) {
-                        deadCards.push(cc);
-                        seen.add(cc);
-                    }
-                    if (isAlive) aliveCount++;
+            const cc = extractCC(trimmed);
+            if (cc && cc.length >= 13 && cc.length <= 19) {
+                if (isDead && !seen.has(cc)) {
+                    deadCards.push(cc);
+                    seen.add(cc);
                 }
+                if (isAlive) aliveCount++;
             }
         }
     }
 
     // Fallback: if no DEAD/ALIVE markers found, extract all card numbers (legacy)
     if (!hasMarkers) {
-        const matches = text.match(/\d[\d\s\-]{11,18}\d/g) || [];
-        matches.forEach(m => {
-            const cc = m.replace(/[\s\-]/g, '');
-            if (cc.length >= 13 && cc.length <= 19 && !seen.has(cc)) {
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const cc = extractCC(trimmed);
+            if (cc && cc.length >= 13 && cc.length <= 19 && !seen.has(cc)) {
                 deadCards.push(cc);
                 seen.add(cc);
             }
-        });
+        }
     }
 
     return { deadCards, aliveCount, hasMarkers };
