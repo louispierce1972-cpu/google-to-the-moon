@@ -1887,7 +1887,7 @@ function _mtSearch() {
                     const amt = entry.amount || '—';
                     const cur = entry.currency || '';
                     binHtml += `<div class="fc-tx-item">`;
-                    binHtml += `<span class="fc-tx-amt">${amt !== '—' ? '$' + amt : '—'}</span>`;
+                    binHtml += `<span class="fc-tx-amt">${amt}</span>`;
                     if (cur) binHtml += `<span class="fc-tx-cur">${cur}</span>`;
                     binHtml += `</div>`;
                 });
