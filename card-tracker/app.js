@@ -1117,9 +1117,10 @@ function renderMerchants() {
     STATE.merchants.forEach(m => {
         const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
         const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
+        const totalCnt = bins.reduce((s, b) => s + (b.cnt || 1), 0);
         listHtml += `<div class="fc-item" data-id="${m.id}">
             <span class="fc-item-name">${m.name}</span>
-            <span class="fc-item-meta">${uniqueBins}·${bins.length}</span>
+            <span class="fc-item-meta">${uniqueBins}·${totalCnt}</span>
         </div>`;
     });
     if (!STATE.merchants.length) listHtml = '<div class="fc-empty">No merchants</div>';
@@ -1389,6 +1390,7 @@ function _openMerchantPopup(merchantId) {
                 <div id="mfp-bin-form" class="fc-inline-form hidden">
                     <input type="text" id="mfp-bin-input" class="mf-input mf-input-sm" placeholder="BIN (6)" maxlength="6" autocomplete="off">
                     <input type="text" id="mfp-bin-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
+                    <input type="text" id="mfp-bin-currency" class="mf-input" style="max-width:50px" placeholder="EUR" maxlength="3" autocomplete="off">
                     <button class="mf-btn-ok" id="mfp-bin-save">OK</button>
                 </div>
                 <div id="mfp-bin-bulk-form" class="fc-inline-form hidden">
@@ -1487,8 +1489,9 @@ function _openMerchantPopup(merchantId) {
     document.getElementById('mfp-bin-save')?.addEventListener('click', () => {
         const bin = document.getElementById('mfp-bin-input').value.replace(/\D/g, '').slice(0, 6);
         const amount = document.getElementById('mfp-bin-amount').value.trim();
+        const currency = (document.getElementById('mfp-bin-currency')?.value || '').trim().toUpperCase();
         if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
-        _addBinToMerchant(bin.padEnd(6, '0'), amount, m.id);
+        _addBinToMerchant(bin.padEnd(6, '0'), amount, m.id, currency);
         toast('BIN added', 'success');
         _mfCloseModal(); _openMerchantPopup(merchantId);
     });
