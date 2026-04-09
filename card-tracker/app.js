@@ -6321,7 +6321,7 @@ function _initTrashCardModal() {
         });
     }
 
-    // 💀 Mini Parser file upload — auto-extract DEAD cards and add to trash
+    // 💀 Mini Parser — reads JSON like main parser, extracts cards → adds to trash
     const miniParserInput = document.getElementById('trash-mini-parser-file');
     if (miniParserInput) {
         miniParserInput.addEventListener('change', (e) => {
@@ -6329,44 +6329,43 @@ function _initTrashCardModal() {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                const text = ev.target.result;
-                const result = _extractTrashCards(text);
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    const cardNumbers = extractAllCardNumbersFromJSON(data); // returns Set
 
-                if (result.deadCards.length === 0) {
-                    if (result.aliveCount > 0) {
-                        toast(`${file.name}: ${result.aliveCount} ALIVE ignored — no DEAD cards found`, 'info');
-                    } else {
-                        toast(`${file.name}: no cards detected`, 'warning');
+                    if (cardNumbers.size === 0) {
+                        toast(`${file.name}: no cards found in JSON`, 'warning');
+                        return;
                     }
-                    return;
+
+                    const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+                    let added = 0, dupes = 0;
+                    cardNumbers.forEach(cc => {
+                        if (!existingSet.has(cc)) {
+                            STATE.trashCards.push(cc);
+                            existingSet.add(cc);
+                            added++;
+                        } else {
+                            dupes++;
+                        }
+                    });
+
+                    save();
+
+                    let msg = `${file.name}: +${added} trash cards`;
+                    if (dupes > 0) msg += `, ${dupes} dupes skipped`;
+                    msg += ` (${STATE.trashCards.length} total)`;
+                    toast(msg, 'success');
+
+                    // Update trash button count
+                    const trashBtn = document.getElementById('parser-trash-btn');
+                    if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
+
+                    // Update detected display
+                    detectedEl.textContent = `💀 +${added} from ${file.name} (${cardNumbers.size} parsed)`;
+                } catch (err) {
+                    toast(`${file.name}: invalid JSON — ${err.message}`, 'error');
                 }
-
-                const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
-                let added = 0, dupes = 0;
-                result.deadCards.forEach(n => {
-                    if (!existingSet.has(n)) {
-                        STATE.trashCards.push(n);
-                        existingSet.add(n);
-                        added++;
-                    } else {
-                        dupes++;
-                    }
-                });
-
-                save();
-
-                let msg = `${file.name}: +${added} trash`;
-                if (dupes > 0) msg += `, ${dupes} dupes`;
-                if (result.aliveCount > 0) msg += `, ${result.aliveCount} ALIVE skipped`;
-                msg += ` (${STATE.trashCards.length} total)`;
-                toast(msg, 'success');
-
-                // Update trash button count
-                const trashBtn = document.getElementById('parser-trash-btn');
-                if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
-
-                // Update detected display
-                detectedEl.textContent = `💀 +${added} added from file`;
             };
             reader.readAsText(file);
             miniParserInput.value = '';
