@@ -6416,6 +6416,42 @@ function _initTrashCardModal() {
             renderParserResults();
         }
     });
+
+    // 🗑 Clear All trash
+    document.getElementById('trash-clear-all')?.addEventListener('click', () => {
+        const count = (STATE.trashCards || []).length;
+        if (count === 0) { toast('Trash is already empty', 'info'); return; }
+        if (!confirm(`Clear all ${count} trash cards?`)) return;
+        STATE.trashCards = [];
+        save();
+        toast(`Trash cleared (${count} cards removed)`, 'success');
+        const trashBtn = document.getElementById('parser-trash-btn');
+        if (trashBtn) trashBtn.textContent = `🗑 TRASH (0)`;
+        detectedEl.textContent = '0 cards detected';
+    });
+
+    // 📋 Show List — open trash cards in new Notes tab
+    document.getElementById('trash-show-list')?.addEventListener('click', () => {
+        const cards = STATE.trashCards || [];
+        if (cards.length === 0) { toast('Trash is empty', 'info'); return; }
+        const block = cards.join('\n');
+        const newTab = {
+            id: 'tab-trash-' + Date.now(),
+            title: 'Trash List (' + cards.length + ')',
+            content: block,
+            pinned: false,
+            tag: null,
+            created: Date.now(),
+            scrollPos: 0
+        };
+        STATE.notesTabs.push(newTab);
+        STATE.notesActiveTab = newTab.id;
+        save();
+        closeModal();
+        // Switch to Notes tab
+        document.querySelector('[data-view="notes"]')?.click();
+        toast(`Trash list (${cards.length} cards) opened in Notes`, 'success');
+    });
 }
 
 /**
