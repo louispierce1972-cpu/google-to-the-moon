@@ -6809,10 +6809,12 @@ function renderParserResults(geoFilter) {
     const rows = sortedDisplay.map(c => {
         const globalIdx = PARSER_STATE.collected.indexOf(c);
         const geo = c.detectedGeo || c.country || '';
+        const bankDisplay = c.bank ? (c.bank.length > 25 ? c.bank.slice(0, 25) + '…' : c.bank) : '—';
         return `<tr>
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
             <td class="pc-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
             <td class="pc-card">${formatCardBin(c.cc)}</td>
+            <td class="pc-bank" title="${c.bank || ''}" style="font-size:10px;color:#9ca3af;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bankDisplay}</td>
             <td class="pc-exp">${c.validity}</td>
             <td class="pc-bin">${c.bin}</td>
             <td class="pc-geo">${geo}</td>
@@ -6827,8 +6829,8 @@ function renderParserResults(geoFilter) {
             <div class="parser-bin-analytics-grid"><div class="parser-bin-row parser-bin-header-row"><span class="parser-bin-val">BIN</span><span class="parser-bin-bank">BANK</span><span class="parser-bin-cnt">COUNT</span></div>${binRows}</div>
         </div>
         <div class="parser-table-wrap"><table class="data-table parser-table">
-            <colgroup><col style="width:28px"><col style="width:20%"><col style="width:18%"><col style="width:48px"><col style="width:10%"><col style="width:42px"></colgroup>
-            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>EXP</th><th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN">BIN ${binSortIcon}</th><th>GEO</th></tr></thead>
+            <colgroup><col style="width:28px"><col style="width:16%"><col style="width:15%"><col style="width:16%"><col style="width:48px"><col style="width:10%"><col style="width:42px"></colgroup>
+            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>BANK</th><th>EXP</th><th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN">BIN ${binSortIcon}</th><th>GEO</th></tr></thead>
             <tbody>${rows}</tbody>
         </table></div>`;
 
