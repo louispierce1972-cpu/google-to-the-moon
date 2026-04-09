@@ -6292,11 +6292,16 @@ function _initTrashCardModal() {
     cancelBtn?.addEventListener('click', closeModal);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-    // Auto-detect on input
-    textarea.addEventListener('input', () => {
-        const nums = _extractCardNumbers(textarea.value);
-        detectedEl.textContent = `${nums.length} cards detected`;
-    });
+    // Auto-detect on input (show DEAD / ALIVE / raw counts)
+    const updateDetected = () => {
+        const result = _extractTrashCards(textarea.value);
+        if (result.hasMarkers) {
+            detectedEl.textContent = `💀 ${result.deadCards.length} DEAD  ·  ✅ ${result.aliveCount} ALIVE ignored`;
+        } else {
+            detectedEl.textContent = `${result.deadCards.length} cards detected`;
+        }
+    };
+    textarea.addEventListener('input', updateDetected);
 
     // TXT file upload
     const fileInput = document.getElementById('trash-cards-file');
@@ -6308,33 +6313,52 @@ function _initTrashCardModal() {
             reader.onload = (ev) => {
                 const text = ev.target.result;
                 textarea.value = (textarea.value ? textarea.value + '\n' : '') + text;
-                const nums = _extractCardNumbers(textarea.value);
-                detectedEl.textContent = `${nums.length} cards detected`;
+                updateDetected();
                 toast(`Loaded ${file.name}`, 'success');
             };
             reader.readAsText(file);
-            fileInput.value = ''; // allow re-loading same file
+            fileInput.value = '';
         });
     }
 
-    // Save — APPEND to existing, keep unique
+    // Save — APPEND only DEAD cards to existing trash, keep unique
     saveBtn?.addEventListener('click', () => {
-        const nums = _extractCardNumbers(textarea.value);
-        if (nums.length === 0) { toast('No card numbers detected', 'warning'); return; }
+        const result = _extractTrashCards(textarea.value);
+        const deadCards = result.deadCards;
+        if (deadCards.length === 0) {
+            if (result.aliveCount > 0) {
+                toast(`${result.aliveCount} ALIVE cards ignored — no DEAD cards to add`, 'info');
+            } else {
+                toast('No card numbers detected', 'warning');
+            }
+            return;
+        }
 
         const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
-        let added = 0;
-        nums.forEach(n => {
+        let added = 0, dupes = 0;
+        deadCards.forEach(n => {
             if (!existingSet.has(n)) {
                 STATE.trashCards.push(n);
                 existingSet.add(n);
                 added++;
+            } else {
+                dupes++;
             }
         });
 
         save();
         closeModal();
-        toast(`${added} new trash cards added (${STATE.trashCards.length} total)`, 'success');
+
+        // Build detailed toast message
+        let msg = `+${added} trash cards`;
+        if (dupes > 0) msg += `, ${dupes} dupes skipped`;
+        if (result.aliveCount > 0) msg += `, ${result.aliveCount} ALIVE ignored`;
+        msg += ` (${STATE.trashCards.length} total)`;
+        toast(msg, 'success');
+
+        // Update trash button count
+        const trashBtn = document.getElementById('parser-trash-btn');
+        if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
 
         // Re-render if parser has results (trash applied on next parse)
         if (PARSER_STATE.collected.length > 0) {
@@ -6343,10 +6367,60 @@ function _initTrashCardModal() {
     });
 }
 
-function _extractCardNumbers(text) {
-    const matches = text.match(/\d[\d\s\-]{11,18}\d/g) || [];
-    const cleaned = matches.map(m => m.replace(/[\s\-]/g, '')).filter(n => n.length >= 13 && n.length <= 19);
-    return [...new Set(cleaned)];
+/**
+ * Smart trash card extractor.
+ * Parses checker output format: looks for DEAD/💀 and ALIVE/✅ markers.
+ * If markers found: returns only DEAD card numbers.
+ * If no markers: falls back to raw card number extraction (legacy behavior).
+ */
+function _extractTrashCards(text) {
+    const lines = text.split(/\n/);
+    const deadCards = [];
+    let aliveCount = 0;
+    let hasMarkers = false;
+    const seen = new Set();
+
+    // Card number regex: 13-19 digits (possibly with spaces/dashes)
+    const ccRegex = /\d[\d\s\-]{11,18}\d/;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Check for DEAD/ALIVE markers
+        const isDead = /(?:^|\.\s*|\s)(?:💀|DEAD|dead|Dead)(?:\s|$|\b)/i.test(trimmed);
+        const isAlive = /(?:^|\.\s*|\s)(?:✅|ALIVE|alive|Alive)(?:\s|$|\b)/i.test(trimmed);
+
+        if (isDead || isAlive) {
+            hasMarkers = true;
+            // Extract card number from this line
+            const match = trimmed.match(ccRegex);
+            if (match) {
+                const cc = match[0].replace(/[\s\-]/g, '');
+                if (cc.length >= 13 && cc.length <= 19) {
+                    if (isDead && !seen.has(cc)) {
+                        deadCards.push(cc);
+                        seen.add(cc);
+                    }
+                    if (isAlive) aliveCount++;
+                }
+            }
+        }
+    }
+
+    // Fallback: if no DEAD/ALIVE markers found, extract all card numbers (legacy)
+    if (!hasMarkers) {
+        const matches = text.match(/\d[\d\s\-]{11,18}\d/g) || [];
+        matches.forEach(m => {
+            const cc = m.replace(/[\s\-]/g, '');
+            if (cc.length >= 13 && cc.length <= 19 && !seen.has(cc)) {
+                deadCards.push(cc);
+                seen.add(cc);
+            }
+        });
+    }
+
+    return { deadCards, aliveCount, hasMarkers };
 }
 
 // _retagParserCards removed — workspace cards are now excluded in pipeline, no tagging needed

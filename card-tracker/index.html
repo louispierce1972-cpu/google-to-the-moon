@@ -661,7 +661,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>ADD TRASH CARDS</h3>
-                <p class="modal-subtitle">Paste cards / logs / text — auto-detect card numbers</p>
+                <p class="modal-subtitle">Paste checker output or card list — auto-detects 💀 DEAD cards</p>
                 <button class="modal-close" id="trash-cards-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
@@ -669,7 +669,7 @@
             <div class="modal-body">
                 <div class="form-group full-width">
                     <label>Paste any text with card data</label>
-                    <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Paste anything — logs, lists, messages...&#10;&#10;Auto-detects card numbers (13-19 digits)&#10;Duplicates within paste are removed automatically&#10;&#10;Examples:&#10;4242424242424242&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
+                    <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Paste checker output or card numbers...&#10;&#10;Supports formats:&#10;💀 4242424242424242 01 27 246 - DEAD&#10;✅ 5555555555554444 12 29 901 - ALIVE&#10;&#10;DEAD cards → added to trash&#10;ALIVE cards → ignored&#10;Or paste raw card numbers (no markers = all added)"></textarea>
                 </div>
                 <div class="list-info" style="display:flex;align-items:center;gap:10px">
                     <span id="trash-cards-detected" class="list-count-badge">0 cards detected</span>
