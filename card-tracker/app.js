@@ -6303,7 +6303,7 @@ function _initTrashCardModal() {
     };
     textarea.addEventListener('input', updateDetected);
 
-    // TXT file upload
+    // TXT file upload (raw — appends text to textarea)
     const fileInput = document.getElementById('trash-cards-file');
     if (fileInput) {
         fileInput.addEventListener('change', (e) => {
@@ -6318,6 +6318,58 @@ function _initTrashCardModal() {
             };
             reader.readAsText(file);
             fileInput.value = '';
+        });
+    }
+
+    // 💀 Mini Parser file upload — auto-extract DEAD cards and add to trash
+    const miniParserInput = document.getElementById('trash-mini-parser-file');
+    if (miniParserInput) {
+        miniParserInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const text = ev.target.result;
+                const result = _extractTrashCards(text);
+
+                if (result.deadCards.length === 0) {
+                    if (result.aliveCount > 0) {
+                        toast(`${file.name}: ${result.aliveCount} ALIVE ignored — no DEAD cards found`, 'info');
+                    } else {
+                        toast(`${file.name}: no cards detected`, 'warning');
+                    }
+                    return;
+                }
+
+                const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+                let added = 0, dupes = 0;
+                result.deadCards.forEach(n => {
+                    if (!existingSet.has(n)) {
+                        STATE.trashCards.push(n);
+                        existingSet.add(n);
+                        added++;
+                    } else {
+                        dupes++;
+                    }
+                });
+
+                save();
+
+                let msg = `${file.name}: +${added} trash`;
+                if (dupes > 0) msg += `, ${dupes} dupes`;
+                if (result.aliveCount > 0) msg += `, ${result.aliveCount} ALIVE skipped`;
+                msg += ` (${STATE.trashCards.length} total)`;
+                toast(msg, 'success');
+
+                // Update trash button count
+                const trashBtn = document.getElementById('parser-trash-btn');
+                if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
+
+                // Update detected display
+                detectedEl.textContent = `💀 +${added} added from file`;
+            };
+            reader.readAsText(file);
+            miniParserInput.value = '';
         });
     }
 

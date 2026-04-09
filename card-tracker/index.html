@@ -671,11 +671,15 @@
                     <label>Paste any text with card data</label>
                     <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Paste checker output or card numbers...&#10;&#10;Supports formats:&#10;💀 4242424242424242 01 27 246 - DEAD&#10;✅ 5555555555554444 12 29 901 - ALIVE&#10;&#10;DEAD cards → added to trash&#10;ALIVE cards → ignored&#10;Or paste raw card numbers (no markers = all added)"></textarea>
                 </div>
-                <div class="list-info" style="display:flex;align-items:center;gap:10px">
+                <div class="list-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                     <span id="trash-cards-detected" class="list-count-badge">0 cards detected</span>
                     <label class="pz-btn pz-btn-dim" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
                         📁 Load .txt
                         <input type="file" id="trash-cards-file" accept=".txt" hidden>
+                    </label>
+                    <label class="pz-btn pz-btn-trash" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
+                        💀 Mini Parser
+                        <input type="file" id="trash-mini-parser-file" accept=".txt,.log,.text" hidden>
                     </label>
                 </div>
             </div>
