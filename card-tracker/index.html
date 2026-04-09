@@ -671,8 +671,12 @@
                     <label>Paste any text with card data</label>
                     <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Paste anything — logs, lists, messages...&#10;&#10;Auto-detects card numbers (13-19 digits)&#10;Duplicates within paste are removed automatically&#10;&#10;Examples:&#10;4242424242424242&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
                 </div>
-                <div class="list-info">
+                <div class="list-info" style="display:flex;align-items:center;gap:10px">
                     <span id="trash-cards-detected" class="list-count-badge">0 cards detected</span>
+                    <label class="pz-btn pz-btn-dim" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
+                        📁 Load .txt
+                        <input type="file" id="trash-cards-file" accept=".txt" hidden>
+                    </label>
                 </div>
             </div>
             <div class="modal-footer">

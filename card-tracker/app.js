@@ -5245,14 +5245,15 @@ let PARSER_STATE = {
     compareFile: null, // {name, size, cardCount, _binLast4Set}
     file: null,
     collected: [],     // final cards after all steps
-    _cleanCollected: [], // cards after trash+dedup (before compare)
+    _cleanCollected: [], // cards after trash+compare (before workspace+dedup)
     binGroups: [],
     selected: new Set(),
     binFilter: null,
     sortBy: 'index',
     statusFilter: 'ALL',
     _compareSet: null,
-    _pipelineStats: null // {totalRaw, trashRemoved, dupRemoved, compareRemoved, net}
+    _pipelineStats: null, // {totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved}
+    filters: { bins: '', country: '', bank: '', minExpiry: '', activeTypes: [], activeNetworks: [] }
 };
 
 // ──── HELPERS ────
@@ -5983,26 +5984,30 @@ function renderParser() {
             <div class="parser-filter-row">
                 <div class="parser-filter-group parser-filter-bins">
                     <label>BINs <span class="parser-filter-hint">(comma separated)</span></label>
-                    <textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610..."></textarea>
+                    <textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610...">${PARSER_STATE.filters.bins || ''}</textarea>
                 </div>
                 <div class="parser-filter-group">
                     <label>Country</label>
-                    <input type="text" id="parser-country" placeholder="CA, US, GB...">
+                    <input type="text" id="parser-country" placeholder="CA, US, GB..." value="${PARSER_STATE.filters.country || ''}">
                 </div>
                 <div class="parser-filter-group">
                     <label>Bank</label>
-                    <input type="text" id="parser-bank" placeholder="Bank name...">
+                    <input type="text" id="parser-bank" placeholder="Bank name..." value="${PARSER_STATE.filters.bank || ''}">
+                </div>
+                <div class="parser-filter-group">
+                    <label>Min Expiry</label>
+                    <input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}">
                 </div>
             </div>
             <div class="parser-type-btns" id="parser-type-btns">
-                <button class="parser-type-btn" data-type="credit">Credit</button>
-                <button class="parser-type-btn" data-type="debit">Debit</button>
-                <button class="parser-type-btn" data-type="prepaid">Prepaid</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeTypes || []).includes('credit') ? ' active' : ''}" data-type="credit">Credit</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeTypes || []).includes('debit') ? ' active' : ''}" data-type="debit">Debit</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeTypes || []).includes('prepaid') ? ' active' : ''}" data-type="prepaid">Prepaid</button>
                 <span class="pz-sep">|</span>
-                <button class="parser-type-btn" data-network="VISA">Visa</button>
-                <button class="parser-type-btn" data-network="MASTERCARD">MC</button>
-                <button class="parser-type-btn" data-network="AMEX">Amex</button>
-                <button class="parser-type-btn" data-network="DISCOVER">Disc</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('VISA') ? ' active' : ''}" data-network="VISA">Visa</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('MASTERCARD') ? ' active' : ''}" data-network="MASTERCARD">MC</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('AMEX') ? ' active' : ''}" data-network="AMEX">Amex</button>
+                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('DISCOVER') ? ' active' : ''}" data-network="DISCOVER">Disc</button>
             </div>
         </div>
 
@@ -6018,8 +6023,9 @@ function renderParser() {
         <div class="parser-stats-bar" id="parser-stats-bar" style="${hasParsed ? '' : 'display:none'}">
             <span class="ps-item">Parsed: <strong id="ps-total">0</strong></span>
             <span class="ps-item ps-trash">Trash: <strong id="ps-trash">0</strong></span>
+            <span class="ps-item ps-compare">Old Base: <strong id="ps-compared">0</strong></span>
+            <span class="ps-item ps-workspace">Workspace: <strong id="ps-workspace">0</strong></span>
             <span class="ps-item ps-dup">Dupes: <strong id="ps-dupes">0</strong></span>
-            <span class="ps-item ps-compare">Compared: <strong id="ps-compared">0</strong></span>
             <span class="ps-item ps-net">→ Clean: <strong id="ps-net">0</strong></span>
         </div>
 
@@ -6195,11 +6201,10 @@ function _loadCompareFile(file) {
 function _removeCompare() {
     PARSER_STATE.compareFile = null;
     PARSER_STATE._compareSet = null;
-    // Restore clean collected (before compare)
+    // Re-run workspace+dedup from clean state
     if (PARSER_STATE._cleanCollected.length > 0) {
-        PARSER_STATE.collected = [...PARSER_STATE._cleanCollected];
         if (PARSER_STATE._pipelineStats) PARSER_STATE._pipelineStats.compareRemoved = 0;
-        _rebuildBinGroups();
+        _rerunFromClean();
     }
     renderParser();
     toast('Compare base removed', 'info');
@@ -6207,17 +6212,42 @@ function _removeCompare() {
 
 function _applyCompare() {
     if (!PARSER_STATE._compareSet || PARSER_STATE._cleanCollected.length === 0) return;
-    const before = PARSER_STATE._cleanCollected.length;
-    PARSER_STATE.collected = PARSER_STATE._cleanCollected.filter(c => {
-        const cc = (c.cc || '').replace(/[\s\-]/g, '');
-        return !PARSER_STATE._compareSet.has(cc);
-    });
-    const removed = before - PARSER_STATE.collected.length;
-    if (PARSER_STATE._pipelineStats) PARSER_STATE._pipelineStats.compareRemoved = removed;
-    _rebuildBinGroups();
+    // Re-run full post-trash pipeline from clean state
+    _rerunFromClean();
     _updateStatsBar();
+    const removed = PARSER_STATE._pipelineStats ? PARSER_STATE._pipelineStats.compareRemoved : 0;
     toast(`Compared: ${removed} matches removed (${PARSER_STATE.collected.length} remaining)`, 'success');
     renderParser();
+}
+
+// Re-run pipeline from _cleanCollected (after trash): Compare → Workspace → Dedup
+function _rerunFromClean() {
+    let cards = [...PARSER_STATE._cleanCollected];
+    // Compare
+    let compareRemoved = 0;
+    if (PARSER_STATE._compareSet && PARSER_STATE._compareSet.size > 0) {
+        const before = cards.length;
+        cards = cards.filter(c => !PARSER_STATE._compareSet.has((c.cc || '').replace(/[\s\-]/g, '')));
+        compareRemoved = before - cards.length;
+    }
+    // Workspace exclusion
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const beforeWs = cards.length;
+    cards = cards.filter(c => !existingNumbers.has((c.cc || '').replace(/\s/g, '')));
+    const workspaceRemoved = beforeWs - cards.length;
+    // Dedup
+    const seen = new Set();
+    const beforeDedup = cards.length;
+    cards = cards.filter(c => { const cc = (c.cc || '').replace(/\s/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
+    const dupRemoved = beforeDedup - cards.length;
+    // Update state
+    if (PARSER_STATE._pipelineStats) {
+        PARSER_STATE._pipelineStats.compareRemoved = compareRemoved;
+        PARSER_STATE._pipelineStats.workspaceRemoved = workspaceRemoved;
+        PARSER_STATE._pipelineStats.dupRemoved = dupRemoved;
+    }
+    PARSER_STATE.collected = cards;
+    _rebuildBinGroups();
 }
 
 function _rebuildBinGroups() {
@@ -6240,8 +6270,9 @@ function _updateStatsBar() {
     const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
     el('ps-total', stats.totalRaw);
     el('ps-trash', stats.trashRemoved);
-    el('ps-dupes', stats.dupRemoved);
     el('ps-compared', stats.compareRemoved || 0);
+    el('ps-workspace', stats.workspaceRemoved || 0);
+    el('ps-dupes', stats.dupRemoved);
     el('ps-net', PARSER_STATE.collected.length);
 }
 
@@ -6267,6 +6298,25 @@ function _initTrashCardModal() {
         detectedEl.textContent = `${nums.length} cards detected`;
     });
 
+    // TXT file upload
+    const fileInput = document.getElementById('trash-cards-file');
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const text = ev.target.result;
+                textarea.value = (textarea.value ? textarea.value + '\n' : '') + text;
+                const nums = _extractCardNumbers(textarea.value);
+                detectedEl.textContent = `${nums.length} cards detected`;
+                toast(`Loaded ${file.name}`, 'success');
+            };
+            reader.readAsText(file);
+            fileInput.value = ''; // allow re-loading same file
+        });
+    }
+
     // Save — APPEND to existing, keep unique
     saveBtn?.addEventListener('click', () => {
         const nums = _extractCardNumbers(textarea.value);
@@ -6286,9 +6336,8 @@ function _initTrashCardModal() {
         closeModal();
         toast(`${added} new trash cards added (${STATE.trashCards.length} total)`, 'success');
 
-        // Re-tag if parser has results
+        // Re-render if parser has results (trash applied on next parse)
         if (PARSER_STATE.collected.length > 0) {
-            _retagParserCards();
             renderParserResults();
         }
     });
@@ -6300,14 +6349,7 @@ function _extractCardNumbers(text) {
     return [...new Set(cleaned)];
 }
 
-function _retagParserCards() {
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    PARSER_STATE.collected.forEach(c => {
-        const num = c.cc.replace(/\s/g, '');
-        if (existingNumbers.has(num)) c._tag = 'EXISTING';
-        else c._tag = 'NEW';
-    });
-}
+// _retagParserCards removed — workspace cards are now excluded in pipeline, no tagging needed
 
 // Keep legacy alias
 function loadParserFile(file) { _loadBaseFile(file); }
@@ -6326,6 +6368,13 @@ function runParse() {
     const countryFilter = countryEl ? countryEl.value.trim().toUpperCase() : '';
     const bankEl = document.getElementById('parser-bank');
     const bankFilter = bankEl ? bankEl.value.trim().toLowerCase() : '';
+    const minExpEl = document.getElementById('parser-min-expiry');
+    const minExpRaw = minExpEl ? minExpEl.value.trim() : '';
+
+    // Save filters to state for persistence
+    const activeTypes = Array.from(document.querySelectorAll('.parser-type-btn.active[data-type]')).map(b => b.dataset.type);
+    const activeNetworks = Array.from(document.querySelectorAll('.parser-type-btn.active[data-network]')).map(b => b.dataset.network);
+    PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks };
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
@@ -6338,9 +6387,21 @@ function runParse() {
     }
     if (bankFilter) allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
 
+    // Min Expiry filter (MM/YY → keep cards >= this date)
+    if (minExpRaw) {
+        const expMatch = minExpRaw.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+        if (expMatch) {
+            const minVal = parseInt(expMatch[2]) * 100 + parseInt(expMatch[1]);
+            allCards = allCards.filter(c => {
+                const cmm = parseInt(c.mm) || 0;
+                const cyy = parseInt(c.yy) || 0;
+                if (!cmm || !cyy) return true; // keep cards with no expiry data
+                return (cyy * 100 + cmm) >= minVal;
+            });
+        }
+    }
+
     // Type/network filter
-    const activeTypes = Array.from(document.querySelectorAll('.parser-type-btn.active[data-type]')).map(b => b.dataset.type);
-    const activeNetworks = Array.from(document.querySelectorAll('.parser-type-btn.active[data-network]')).map(b => b.dataset.network);
     if (activeTypes.length > 0) allCards = allCards.filter(c => { const info = BIN_CACHE[c.bin]; const ct = (info?.type || c.type || '').toLowerCase(); return activeTypes.some(t => ct.includes(t)); });
     if (activeNetworks.length > 0) allCards = allCards.filter(c => activeNetworks.includes(getCardType(c.cc || c.bin || '')));
 
@@ -6348,11 +6409,11 @@ function runParse() {
     _processPipeline(allCards, status);
 }
 
-// ──── PIPELINE: Parse → Remove Trash → Dedup → Tag → Done ────
+// ──── PIPELINE: Filters → Trash → OldBase → Workspace → Dedup ────
 function _processPipeline(allCards, status) {
     const totalRaw = allCards.length;
 
-    // Step 1: Remove TRASH
+    // Step 1: Remove TRASH cards
     const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
     let trashRemoved = 0;
     if (trashSet.size > 0) {
@@ -6361,36 +6422,38 @@ function _processPipeline(allCards, status) {
         trashRemoved = before - allCards.length;
     }
 
-    // Step 2: Dedup (always)
-    const seen = new Set();
-    const before = allCards.length;
-    allCards = allCards.filter(c => { const cc = (c.cc || '').replace(/\s/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
-    const dupRemoved = before - allCards.length;
-
-    // Step 3: Tag (NEW vs EXISTING in project)
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
-    allCards.forEach(c => {
-        const num = (c.cc || '').replace(/\s/g, '');
-        c._tag = existingNumbers.has(num) ? 'EXISTING' : 'NEW';
-    });
-
-    // Save clean state (before compare)
-    PARSER_STATE._cleanCollected = [...allCards];
-    PARSER_STATE._pipelineStats = { totalRaw, trashRemoved, dupRemoved, compareRemoved: 0 };
-
-    // Step 4: Apply compare if already loaded
+    // Step 2: Remove Old Base / Compare matches
+    let compareRemoved = 0;
     if (PARSER_STATE._compareSet && PARSER_STATE._compareSet.size > 0) {
         const beforeCompare = allCards.length;
         allCards = allCards.filter(c => !PARSER_STATE._compareSet.has((c.cc || '').replace(/[\s\-]/g, '')));
-        PARSER_STATE._pipelineStats.compareRemoved = beforeCompare - allCards.length;
+        compareRemoved = beforeCompare - allCards.length;
     }
+
+    // Save clean state (after trash+compare, before workspace+dedup)
+    PARSER_STATE._cleanCollected = [...allCards];
+
+    // Step 3: Remove Workspace / Project cards
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const beforeWs = allCards.length;
+    allCards = allCards.filter(c => !existingNumbers.has((c.cc || '').replace(/\s/g, '')));
+    const workspaceRemoved = beforeWs - allCards.length;
+
+    // Step 4: Remove internal duplicates
+    const seen = new Set();
+    const beforeDedup = allCards.length;
+    allCards = allCards.filter(c => { const cc = (c.cc || '').replace(/\s/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
+    const dupRemoved = beforeDedup - allCards.length;
+
+    // Save stats
+    PARSER_STATE._pipelineStats = { totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved };
 
     // Finish
     PARSER_STATE.collected = allCards;
     _rebuildBinGroups();
 
     if (status) status.textContent = `✅ ${allCards.length} cards ready`;
-    toast(`Parsed: ${totalRaw} → cleaned: ${allCards.length} (${trashRemoved} trash, ${dupRemoved} dupes removed)`, 'success');
+    toast(`Parsed: ${totalRaw} → clean: ${allCards.length} (trash: ${trashRemoved}, old base: ${compareRemoved}, workspace: ${workspaceRemoved}, dupes: ${dupRemoved})`, 'success');
     renderParser();
 }
 
@@ -6402,7 +6465,7 @@ function importToProject() {
     const lines = [];
     PARSER_STATE.selected.forEach(idx => {
         const c = list[idx];
-        if (!c || c._tag === 'EXISTING') return;
+        if (!c) return;
         const cc = (c.cc || '').replace(/\s/g, '');
         const mm = (c.mm || '').padStart(2, '0');
         const yy = c.yy || '';
@@ -6410,17 +6473,25 @@ function importToProject() {
         lines.push(`${cc} ${mm} ${yy} ${cvv}`);
     });
 
-    if (lines.length === 0) { toast('No NEW cards selected for import', 'warning'); return; }
+    if (lines.length === 0) { toast('No cards selected for import', 'warning'); return; }
 
     const block = lines.join('\n');
-    const activeTab = _getActiveNoteTab();
-    if (activeTab) {
-        activeTab.content = (activeTab.content || '') + '\n' + block + '\n';
-    }
+    // Always create a new Notes tab
+    const newTab = {
+        id: 'tab-parser-' + Date.now(),
+        title: 'Parser ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        content: block,
+        pinned: false,
+        tag: null,
+        created: Date.now(),
+        scrollPos: 0
+    };
+    STATE.notesTabs.push(newTab);
+    STATE.notesActiveTab = newTab.id;
     STATE.notes = (STATE.notes || '') + '\n' + block + '\n';
     STATE.notesLastSaved = Date.now();
     save();
-    toast(`${lines.length} cards exported to Notes (checker format)`, 'success');
+    toast(`${lines.length} cards exported to new Notes tab (checker format)`, 'success');
 }
 
 // ──── RENDER RESULTS ────
@@ -6435,10 +6506,6 @@ function renderParserResults(geoFilter) {
     // Update stats bar
     _updateStatsBar();
 
-    // Counts
-    let newCount = 0, existCount = 0;
-    list.forEach(c => { if (c._tag === 'NEW') newCount++; else existCount++; });
-
     // GEO
     const geoMap = {};
     list.forEach(c => { const geo = (c.detectedGeo || c.country || '').toUpperCase(); if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1; });
@@ -6450,11 +6517,6 @@ function renderParserResults(geoFilter) {
     const activeGeo = geoFilter || '';
     let displayList = activeGeo ? list.filter(c => (c.detectedGeo || c.country || '').toUpperCase() === activeGeo) : list;
 
-    // Apply status filter
-    const sf = PARSER_STATE.statusFilter || 'ALL';
-    if (sf === 'NEW') displayList = displayList.filter(c => c._tag === 'NEW');
-    else if (sf === 'EXISTING') displayList = displayList.filter(c => c._tag === 'EXISTING');
-
     // Sort
     const sortBy = PARSER_STATE.sortBy || 'index';
     const binCounts = {};
@@ -6465,21 +6527,12 @@ function renderParserResults(geoFilter) {
 
     // Summary
     const summaryHtml = `<div class="parser-summary">
-        <span class="ps-item">Total: <strong>${list.length}</strong></span>
-        <span class="ps-item ps-new">New: <strong>${newCount}</strong></span>
-        <span class="ps-item ps-dup">In project: <strong>${existCount}</strong></span>
-    </div>`;
-
-    // Status tabs
-    const statusTabsHtml = `<div class="parser-status-tabs">
-        <button class="pst-tab ${sf === 'ALL' ? 'active' : ''}" data-filter="ALL">ALL (${list.length})</button>
-        <button class="pst-tab pst-new ${sf === 'NEW' ? 'active' : ''}" data-filter="NEW">NEW (${newCount})</button>
-        <button class="pst-tab pst-dup ${sf === 'EXISTING' ? 'active' : ''}" data-filter="EXISTING">IN PROJECT (${existCount})</button>
+        <span class="ps-item">Clean: <strong>${list.length}</strong></span>
     </div>`;
 
     // Import button
     const importHtml = `<div class="parser-action-bar">
-        <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${newCount} new)</button>
+        <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${list.length})</button>
     </div>`;
 
     // GEO dropdown
@@ -6499,20 +6552,17 @@ function renderParserResults(geoFilter) {
     const rows = sortedDisplay.map(c => {
         const globalIdx = PARSER_STATE.collected.indexOf(c);
         const geo = c.detectedGeo || c.country || '';
-        const isNew = c._tag === 'NEW';
-        const badge = isNew ? '<span class="parser-tag parser-tag-new">NEW</span>' : '<span class="parser-tag parser-tag-dup">EXISTS</span>';
-        return `<tr class="${isNew ? 'parser-row-new' : 'parser-row-dup'}">
+        return `<tr>
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
             <td class="pc-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
             <td class="pc-card">${formatCardBin(c.cc)}</td>
             <td class="pc-exp">${c.validity}</td>
             <td class="pc-bin">${c.bin}</td>
             <td class="pc-geo">${geo}</td>
-            <td class="pc-status">${badge}</td>
         </tr>`;
     }).join('');
 
-    el.innerHTML = `${summaryHtml}${statusTabsHtml}${importHtml}
+    el.innerHTML = `${summaryHtml}${importHtml}
         <div class="parser-toolbar">${geoHtml}
             <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
         </div>
@@ -6520,8 +6570,8 @@ function renderParserResults(geoFilter) {
             <div class="parser-bin-analytics-grid"><div class="parser-bin-row parser-bin-header-row"><span class="parser-bin-val">BIN</span><span class="parser-bin-bank">BANK</span><span class="parser-bin-cnt">COUNT</span></div>${binRows}</div>
         </div>
         <div class="parser-table-wrap"><table class="data-table parser-table">
-            <colgroup><col style="width:28px"><col style="width:18%"><col style="width:15%"><col style="width:48px"><col style="width:10%"><col style="width:42px"><col style="width:70px"></colgroup>
-            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>EXP</th><th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN">BIN ${binSortIcon}</th><th>GEO</th><th>STATUS</th></tr></thead>
+            <colgroup><col style="width:28px"><col style="width:20%"><col style="width:18%"><col style="width:48px"><col style="width:10%"><col style="width:42px"></colgroup>
+            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>EXP</th><th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN">BIN ${binSortIcon}</th><th>GEO</th></tr></thead>
             <tbody>${rows}</tbody>
         </table></div>`;
 
@@ -6536,9 +6586,7 @@ function renderParserResults(geoFilter) {
         el.querySelectorAll('.parser-check').forEach(cb => cb.checked = e.target.checked);
     });
 
-    el.querySelectorAll('.pst-tab').forEach(tab => {
-        tab.addEventListener('click', () => { PARSER_STATE.statusFilter = tab.dataset.filter; renderParserResults(activeGeo); });
-    });
+
 
     document.getElementById('parser-import-btn')?.addEventListener('click', importToProject);
     document.getElementById('parser-geo-select')?.addEventListener('change', (e) => renderParserResults(e.target.value));

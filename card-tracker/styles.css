@@ -7493,6 +7493,7 @@ tr.row-selected td {
 .parser-stats-bar .ps-trash strong { color: #ef4444; }
 .parser-stats-bar .ps-dup strong { color: #f59e0b; }
 .parser-stats-bar .ps-compare strong { color: #818cf8; }
+.parser-stats-bar .ps-workspace strong { color: #14b8a6; }
 .parser-stats-bar .ps-net strong { color: #22C55E; font-size: 13px; }
 
 /* ── TYPE BUTTONS ROW (flat) ── */
