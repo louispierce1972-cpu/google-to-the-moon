@@ -5303,11 +5303,14 @@ function formatCardBin(cc) {
 }
 
 function detectGeo(billing, country) {
-    if (country && country.length >= 2) return country.toUpperCase();
+    const knownCodes = ['CA', 'US', 'AU', 'AE', 'UK', 'GB', 'IL', 'DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'NZ', 'SG', 'JP', 'KR', 'IN', 'BR', 'MX', 'ZA', 'IE', 'IT', 'ES', 'CH', 'AT', 'BE', 'PT'];
+    // Only accept country if it's a known 2-letter code
+    if (country) {
+        const upper = country.trim().toUpperCase();
+        if (upper.length === 2 && knownCodes.includes(upper)) return upper;
+    }
     if (!billing) return '';
     const parts = billing.split(',').map(p => p.trim());
-    // Look for 2-letter country codes
-    const knownCodes = ['CA', 'US', 'AU', 'AE', 'UK', 'GB', 'IL', 'DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'NZ', 'SG', 'JP', 'KR', 'IN', 'BR', 'MX', 'ZA', 'IE', 'IT', 'ES', 'CH', 'AT', 'BE', 'PT'];
     for (const p of parts) {
         const upper = p.toUpperCase().trim();
         if (knownCodes.includes(upper)) return upper;
@@ -6588,7 +6591,7 @@ function runParse() {
     }
 
     // Type/network filter
-    if (activeTypes.length > 0) allCards = allCards.filter(c => { const info = BIN_CACHE[c.bin]; const ct = (info?.type || c.type || '').toLowerCase(); return activeTypes.some(t => ct.includes(t)); });
+    if (activeTypes.length > 0) allCards = allCards.filter(c => { const info = BIN_CACHE[c.bin]; const ct = (info?.type || c.cardType || '').toLowerCase(); return activeTypes.some(t => ct.includes(t)); });
     if (activeNetworks.length > 0) allCards = allCards.filter(c => activeNetworks.includes(getCardType(c.cc || c.bin || '')));
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
