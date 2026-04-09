@@ -5302,19 +5302,58 @@ function formatCardBin(cc) {
     return `${bin6} •••• ${last4}`;
 }
 
-function detectGeo(billing, country) {
-    const knownCodes = ['CA', 'US', 'AU', 'AE', 'UK', 'GB', 'IL', 'DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'NZ', 'SG', 'JP', 'KR', 'IN', 'BR', 'MX', 'ZA', 'IE', 'IT', 'ES', 'CH', 'AT', 'BE', 'PT'];
-    // Only accept country if it's a known 2-letter code
+function detectGeo(billing, country, countryCode, bankCountryCode) {
+    const knownCodes = ['CA', 'US', 'AU', 'AE', 'UK', 'GB', 'IL', 'DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'NZ', 'SG', 'JP', 'KR', 'IN', 'BR', 'MX', 'ZA', 'IE', 'IT', 'ES', 'CH', 'AT', 'BE', 'PT', 'RU', 'CN', 'HK', 'TW', 'TH', 'PH', 'MY', 'ID', 'VN', 'PK', 'SA', 'QA', 'KW', 'EG', 'NG', 'KE', 'CL', 'CO', 'PE', 'AR', 'RO', 'BG', 'HR', 'CZ', 'PL', 'HU', 'LT', 'LV', 'EE', 'GR', 'CY', 'TR'];
+    const nameToCode = {
+        'canada': 'CA', 'united states': 'US', 'usa': 'US', 'australia': 'AU',
+        'united arab emirates': 'AE', 'uae': 'AE', 'united kingdom': 'GB', 'uk': 'GB',
+        'great britain': 'GB', 'israel': 'IL', 'germany': 'DE', 'france': 'FR',
+        'netherlands': 'NL', 'sweden': 'SE', 'norway': 'NO', 'denmark': 'DK',
+        'finland': 'FI', 'new zealand': 'NZ', 'singapore': 'SG', 'japan': 'JP',
+        'south korea': 'KR', 'korea': 'KR', 'india': 'IN', 'brazil': 'BR',
+        'mexico': 'MX', 'south africa': 'ZA', 'ireland': 'IE', 'italy': 'IT',
+        'spain': 'ES', 'switzerland': 'CH', 'austria': 'AT', 'belgium': 'BE',
+        'portugal': 'PT', 'russia': 'RU', 'china': 'CN', 'hong kong': 'HK',
+        'taiwan': 'TW', 'thailand': 'TH', 'philippines': 'PH', 'malaysia': 'MY',
+        'indonesia': 'ID', 'vietnam': 'VN', 'pakistan': 'PK',
+        'saudi arabia': 'SA', 'qatar': 'QA', 'kuwait': 'KW', 'egypt': 'EG',
+        'nigeria': 'NG', 'kenya': 'KE', 'romania': 'RO', 'poland': 'PL',
+        'czech republic': 'CZ', 'czechia': 'CZ', 'greece': 'GR', 'turkey': 'TR', 'turkiye': 'TR'
+    };
+    const _isCode = (s) => { const u = (s || '').trim().toUpperCase(); return u.length === 2 && knownCodes.includes(u) ? u : null; };
+
+    // Priority 1: explicit 🏷 Country Code: CA
+    const cc1 = _isCode(countryCode);
+    if (cc1) return cc1;
+
+    // Priority 2: [CA] from bank field
+    const cc2 = _isCode(bankCountryCode);
+    if (cc2) return cc2;
+
+    // Priority 3: billing first element (🏷 Billing: CA, AB, CALGARY...)
+    if (billing) {
+        const first = billing.split(',')[0]?.trim();
+        const cc3 = _isCode(first);
+        if (cc3) return cc3;
+    }
+
+    // Priority 4: 🌍 Country: Canada (name → code mapping)
     if (country) {
-        const upper = country.trim().toUpperCase();
-        if (upper.length === 2 && knownCodes.includes(upper)) return upper;
+        const cc4 = _isCode(country);
+        if (cc4) return cc4;
+        const mapped = nameToCode[country.trim().toLowerCase()];
+        if (mapped) return mapped;
     }
-    if (!billing) return '';
-    const parts = billing.split(',').map(p => p.trim());
-    for (const p of parts) {
-        const upper = p.toUpperCase().trim();
-        if (knownCodes.includes(upper)) return upper;
+
+    // Priority 5: scan all billing parts for any known code
+    if (billing) {
+        const parts = billing.split(',').map(p => p.trim());
+        for (const p of parts) {
+            const cc5 = _isCode(p);
+            if (cc5) return cc5;
+        }
     }
+
     return '';
 }
 
@@ -5417,8 +5456,11 @@ function extractCardsFromMessages(messages) {
     const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/gs;
     const holderP = /👶\s*Holder:\s*(.+)/i;
     const bankP = /🏦\s*Bank:\s*(.+)/i;
-    const typeP = /📊\s*Card Type:\s*(.+)/i;
+    const typeP = /📊\s*(?:Card Type|Card):\s*(.+)/i;
     const billingP = /🏷\s*Billing:\s*(.+)/i;
+    const countryP = /🌍\s*Country:\s*(.+)/i;
+    const countryCodeP = /🏷\s*Country\s*Code:\s*([A-Za-z]{2})/i;
+    const bankCodeP = /\[([A-Z]{2})\]/;
 
     const cards = [];
     for (const msg of messages) {
@@ -5439,23 +5481,33 @@ function extractCardsFromMessages(messages) {
             const bankM = fullText.match(bankP);
             const typeM = fullText.match(typeP);
             const billingM = fullText.match(billingP);
+            const countryM = fullText.match(countryP);
+            const countryCodeM = fullText.match(countryCodeP);
 
             const holder = holderM ? holderM[1].trim() : '';
             const nameParts = holder.split(/\s+/);
             const name = nameParts[0] || '';
             const surname = nameParts.slice(1).join(' ') || '';
 
-            const bank = bankM ? bankM[1].trim() : '';
+            const bankRaw = bankM ? bankM[1].trim() : '';
+            // Extract [XX] country code from bank field
+            const bankCodeM = bankRaw.match(bankCodeP);
+            const bankCountryCode = bankCodeM ? bankCodeM[1] : '';
+            // Clean bank name: remove [XX] and flag emojis
+            const bank = bankRaw.replace(/\s*\[[A-Z]{2}\]/, '').replace(/[\u{1F1E0}-\u{1F1FF}]{2}/gu, '').trim();
+
             const cardType = typeM ? typeM[1].trim() : '';
             const billing = billingM ? billingM[1].trim() : '';
-            const country = billing.split(',')[0]?.trim() || '';
+            const countryName = countryM ? countryM[1].trim() : '';
+            const countryCode = countryCodeM ? countryCodeM[1].trim() : '';
 
             cards.push({
                 cc: ccRaw,
                 mm, yy, cvv,
                 name, surname,
                 bank, cardType,
-                country, billing,
+                country: countryName, billing,
+                countryCode, bankCountryCode,
                 msgDate,
                 validity: `${mm}/${yy}`,
                 bin: ccRaw.substring(0, 6)
@@ -6566,7 +6618,7 @@ function runParse() {
     PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks };
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
-    allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country) }));
+    allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode) }));
 
     // Apply filters
     if (binFilters.length > 0) allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
