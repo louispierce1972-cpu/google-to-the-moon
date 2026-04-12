@@ -1193,10 +1193,10 @@ function renderMerchants() {
             <div class="fc-log-split-container">
                 <!-- LEFT: Log Parser -->
                 <div class="fc-log-left">
-                    <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here — auto-detects on paste..."></textarea>
+                    <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here, then click SEARCH..."></textarea>
                     <button class="fc-btn-search" id="fc-search-btn">SEARCH</button>
                 </div>
-                <!-- RIGHT: Billing Generator -->
+                <!-- RIGHT: Parsed Data + Billing Generator -->
                 <div class="fc-log-right">
                     <!-- Card info from parsed log (top) -->
                     <div class="fc-card-info" id="fc-card-info">
@@ -1205,7 +1205,16 @@ function renderMerchants() {
                         <div class="fc-card-row mf-copy-field" data-copy="" id="ci-cvv"><span class="fc-card-label">🔐</span> <span class="fc-card-val">—</span></div>
                     </div>
                     <div class="fc-divider"></div>
-                    <!-- Country selector -->
+                    <!-- Billing info (from log or generated) -->
+                    <div class="fc-billing-info" id="fc-billing-info">
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-name"><span class="fc-billing-val fc-billing-name">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-val">—</span></div>
+                    </div>
+                    <div class="fc-divider"></div>
+                    <!-- Country selector + Generate (bottom) -->
                     <div class="fc-country-select">
                         <select id="fc-country" class="fc-select">
                             <option value="US">🇺🇸 US</option>
@@ -1214,14 +1223,6 @@ function renderMerchants() {
                             <option value="AU">🇦🇺 AU</option>
                         </select>
                         <button class="fc-btn-generate" id="fc-generate-btn">GENERATE</button>
-                    </div>
-                    <!-- Billing info -->
-                    <div class="fc-billing-info" id="fc-billing-info">
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-name"><span class="fc-billing-val fc-billing-name">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-val">—</span></div>
                     </div>
                 </div>
             </div>
@@ -1310,23 +1311,13 @@ function renderMerchants() {
         });
     });
 
-    // Search
+    // Search (only on button click or Ctrl+Enter)
     document.getElementById('fc-search-btn').addEventListener('click', _mtSearch);
     document.getElementById('fc-textarea').addEventListener('keydown', e => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
     });
 
-    // Auto-detect on paste
-    document.getElementById('fc-textarea')?.addEventListener('paste', (e) => {
-        setTimeout(() => {
-            const text = document.getElementById('fc-textarea').value.trim();
-            if (text.length > 10) {
-                _mtSearch();
-            }
-        }, 100);
-    });
-
-    // Generate Random Billing Info
+    // Generate Random Billing Info (only replaces billing, keeps card info)
     document.getElementById('fc-generate-btn')?.addEventListener('click', _generateRandomBilling);
 
     // Modal close
