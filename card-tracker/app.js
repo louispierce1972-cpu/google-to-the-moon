@@ -1193,43 +1193,43 @@ function renderMerchants() {
             <div class="fc-log-split-container">
                 <!-- LEFT: Log Parser -->
                 <div class="fc-log-left">
-                    <div class="fc-log-left-head">LOG PARSER</div>
-                    <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here..."></textarea>
+                    <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here — auto-detects on paste..."></textarea>
                     <button class="fc-btn-search" id="fc-search-btn">SEARCH</button>
-                    <div class="fc-parsed-info" id="fc-parsed-info">
-                        <div class="fc-parsed-info-title">PARSED INFO</div>
-                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-card"><span class="fc-parsed-label">💳 Card:</span> <span class="fc-parsed-val">—</span></div>
-                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-exp"><span class="fc-parsed-label">📅 Exp:</span> <span class="fc-parsed-val">—</span></div>
-                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-cvv"><span class="fc-parsed-label">🔐 CVV:</span> <span class="fc-parsed-val">—</span></div>
-                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-name"><span class="fc-parsed-label">👤 Name:</span> <span class="fc-parsed-val">—</span></div>
-                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-phone"><span class="fc-parsed-label">📱 Phone:</span> <span class="fc-parsed-val">—</span></div>
-                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-email"><span class="fc-parsed-label">📧 Email:</span> <span class="fc-parsed-val">—</span></div>
-                    </div>
                 </div>
                 <!-- RIGHT: Billing Generator -->
                 <div class="fc-log-right">
-                    <div class="fc-log-right-head">BILLING GENERATOR</div>
-                    <button class="fc-btn-generate" id="fc-generate-btn">GENERATE RANDOM INFO</button>
-                    <div class="fc-billing-info" id="fc-billing-info">
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-fname"><span class="fc-billing-label">👤 First:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-lname"><span class="fc-billing-label">👤 Last:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-label">🏠 Address:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-label">🏙️ City:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-state"><span class="fc-billing-label">📍 State:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-label">📮 ZIP:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-label">📱 Phone:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-fulladdr"><span class="fc-billing-label">📋 Full:</span> <span class="fc-billing-val">—</span></div>
+                    <!-- Card info from parsed log (top) -->
+                    <div class="fc-card-info" id="fc-card-info">
+                        <div class="fc-card-row mf-copy-field" data-copy="" id="ci-card"><span class="fc-card-label">💳</span> <span class="fc-card-val">—</span></div>
+                        <div class="fc-card-row mf-copy-field" data-copy="" id="ci-exp"><span class="fc-card-label">📅</span> <span class="fc-card-val">—</span></div>
+                        <div class="fc-card-row mf-copy-field" data-copy="" id="ci-cvv"><span class="fc-card-label">🔐</span> <span class="fc-card-val">—</span></div>
                     </div>
+                    <div class="fc-divider"></div>
+                    <!-- Country selector -->
+                    <div class="fc-country-select">
+                        <select id="fc-country" class="fc-select">
+                            <option value="US">🇺🇸 US</option>
+                            <option value="UK">🇬🇧 UK</option>
+                            <option value="CA">🇨🇦 CA</option>
+                            <option value="AU">🇦🇺 AU</option>
+                        </select>
+                        <button class="fc-btn-generate" id="fc-generate-btn">GENERATE</button>
+                    </div>
+                    <!-- Billing info -->
+                    <div class="fc-billing-info" id="fc-billing-info">
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-name"><span class="fc-billing-val fc-billing-name">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-val">—</span></div>
+                    </div>
+                    <button class="fc-btn-copy-all" id="fc-copy-all">📋 COPY ALL</button>
                 </div>
             </div>
         </div>
         <div class="fc-col fc-col-results" id="fc-col-results">
             <div class="fc-col-head fc-col-head-ctx">${col3Head}</div>
             <div class="fc-scroll" id="fc-results">${col3Content}</div>
-        </div>
-        <div class="fc-col fc-col-parsed" id="fc-col-parsed">
-            <div class="fc-col-head"><span class="fc-col-title">📋 PARSED DATA</span></div>
-            <div class="fc-scroll" id="fc-parsed">${col4Content}</div>
         </div>
     </div>
     ${popupHtml}`;
@@ -1317,8 +1317,21 @@ function renderMerchants() {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
     });
 
+    // Auto-detect on paste
+    document.getElementById('fc-textarea')?.addEventListener('paste', (e) => {
+        setTimeout(() => {
+            const text = document.getElementById('fc-textarea').value.trim();
+            if (text.length > 10) {
+                _mtSearch();
+            }
+        }, 100);
+    });
+
     // Generate Random Billing Info
     document.getElementById('fc-generate-btn')?.addEventListener('click', _generateRandomBilling);
+
+    // Copy All billing info
+    document.getElementById('fc-copy-all')?.addEventListener('click', _copyAllBilling);
 
     // Modal close
     document.getElementById('mf-modal-close')?.addEventListener('click', _mfCloseModal);
@@ -1967,7 +1980,7 @@ function _updateParsedInfo(fields) {
     const setField = (id, val) => {
         const el = document.getElementById(id);
         if (!el) return;
-        const valSpan = el.querySelector('.fc-parsed-val');
+        const valSpan = el.querySelector('.fc-card-val');
         if (valSpan) valSpan.textContent = val || '—';
         el.dataset.copy = val || '';
     };
@@ -1975,56 +1988,102 @@ function _updateParsedInfo(fields) {
     const cc = fields.cc || '';
     const exp = (fields.expMonth && fields.expYear) ? `${fields.expMonth}/${fields.expYear}` : (fields.expMonth || '');
 
-    setField('pi-card', cc);
-    setField('pi-exp', exp);
-    setField('pi-cvv', fields.cvv || '');
-    setField('pi-name', fields.holder || '');
-    setField('pi-phone', fields.phone || '');
-    setField('pi-email', fields.email || '');
+    setField('ci-card', cc);
+    setField('ci-exp', exp);
+    setField('ci-cvv', fields.cvv || '');
 }
 
-// ═══ RANDOM BILLING GENERATOR ═══
-function _generateRandomBilling() {
-    const firstNames = ['James', 'Michael', 'Robert', 'David', 'William', 'John', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Christopher', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Donald', 'Steven', 'Paul', 'Andrew', 'Joshua', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Barbara', 'Elizabeth', 'Susan', 'Jessica', 'Sarah', 'Karen', 'Lisa', 'Nancy', 'Betty', 'Margaret', 'Sandra', 'Ashley', 'Kimberly', 'Emily', 'Donna', 'Michelle'];
-    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson'];
-    const streets = ['Main St', 'Oak Ave', 'Maple Dr', 'Cedar Ln', 'Pine St', 'Elm St', 'Washington Ave', 'Park Blvd', 'Lake Dr', 'Hill Rd', 'Forest Ave', 'River Rd', 'Church St', 'Mill St', 'Spring St', 'High St', 'Union St', 'Market St', 'Water St', 'Bridge St'];
-    const cities = [
-        { city: 'New York', state: 'NY', zip: '10001' },
-        { city: 'Los Angeles', state: 'CA', zip: '90001' },
-        { city: 'Chicago', state: 'IL', zip: '60601' },
-        { city: 'Houston', state: 'TX', zip: '77001' },
-        { city: 'Phoenix', state: 'AZ', zip: '85001' },
-        { city: 'Philadelphia', state: 'PA', zip: '19101' },
-        { city: 'San Antonio', state: 'TX', zip: '78201' },
-        { city: 'San Diego', state: 'CA', zip: '92101' },
-        { city: 'Dallas', state: 'TX', zip: '75201' },
-        { city: 'San Jose', state: 'CA', zip: '95101' },
-        { city: 'Austin', state: 'TX', zip: '78701' },
-        { city: 'Jacksonville', state: 'FL', zip: '32099' },
-        { city: 'Fort Worth', state: 'TX', zip: '76101' },
-        { city: 'Columbus', state: 'OH', zip: '43085' },
-        { city: 'Charlotte', state: 'NC', zip: '28201' },
-        { city: 'Seattle', state: 'WA', zip: '98101' },
-        { city: 'Denver', state: 'CO', zip: '80201' },
-        { city: 'Boston', state: 'MA', zip: '02101' },
-        { city: 'Las Vegas', state: 'NV', zip: '89101' },
-        { city: 'Miami', state: 'FL', zip: '33101' }
-    ];
+// ═══ RANDOM BILLING GENERATOR (Multi-country) ═══
+const BILLING_DATA = {
+    US: {
+        firstNames: ['James', 'Michael', 'Robert', 'David', 'William', 'John', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Susan', 'Jessica', 'Sarah', 'Karen', 'Lisa'],
+        lastNames: ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Thompson', 'White'],
+        streets: ['Main St', 'Oak Ave', 'Maple Dr', 'Cedar Ln', 'Pine St', 'Elm St', 'Washington Ave', 'Park Blvd', 'Lake Dr', 'Hill Rd'],
+        cities: [
+            { city: 'New York', state: 'NY', zip: '10001' },
+            { city: 'Los Angeles', state: 'CA', zip: '90001' },
+            { city: 'Chicago', state: 'IL', zip: '60601' },
+            { city: 'Houston', state: 'TX', zip: '77001' },
+            { city: 'Phoenix', state: 'AZ', zip: '85001' },
+            { city: 'Miami', state: 'FL', zip: '33101' },
+            { city: 'Seattle', state: 'WA', zip: '98101' },
+            { city: 'Denver', state: 'CO', zip: '80201' },
+            { city: 'Boston', state: 'MA', zip: '02101' },
+            { city: 'Las Vegas', state: 'NV', zip: '89101' }
+        ],
+        phoneFormat: (r) => `+1-${r(200,999)}-${r(200,999)}-${r(1000,9999)}`
+    },
+    UK: {
+        firstNames: ['Oliver', 'George', 'Harry', 'Jack', 'Jacob', 'Noah', 'Charlie', 'Olivia', 'Amelia', 'Emily', 'Isla', 'Ava', 'Sophie', 'Grace', 'Mia'],
+        lastNames: ['Smith', 'Jones', 'Williams', 'Taylor', 'Brown', 'Davies', 'Evans', 'Wilson', 'Thomas', 'Roberts', 'Johnson', 'Lewis', 'Walker', 'Robinson', 'Wood'],
+        streets: ['High Street', 'Station Road', 'Church Lane', 'Mill Road', 'Park Avenue', 'Victoria Road', 'Manor Way', 'Kings Road', 'Queens Drive', 'London Road'],
+        cities: [
+            { city: 'London', state: 'England', zip: 'SW1A' },
+            { city: 'Manchester', state: 'England', zip: 'M1' },
+            { city: 'Birmingham', state: 'England', zip: 'B1' },
+            { city: 'Leeds', state: 'England', zip: 'LS1' },
+            { city: 'Liverpool', state: 'England', zip: 'L1' },
+            { city: 'Edinburgh', state: 'Scotland', zip: 'EH1' },
+            { city: 'Glasgow', state: 'Scotland', zip: 'G1' },
+            { city: 'Bristol', state: 'England', zip: 'BS1' }
+        ],
+        phoneFormat: (r) => `+44 ${r(7000,7999)} ${r(100000,999999)}`
+    },
+    CA: {
+        firstNames: ['Liam', 'Noah', 'William', 'James', 'Oliver', 'Emma', 'Olivia', 'Charlotte', 'Amelia', 'Sophia', 'Benjamin', 'Lucas', 'Henry', 'Alexander', 'Mason'],
+        lastNames: ['Smith', 'Brown', 'Tremblay', 'Martin', 'Roy', 'Wilson', 'Macdonald', 'Gagnon', 'Johnson', 'Taylor', 'Campbell', 'Anderson', 'Lee', 'Jones', 'Williams'],
+        streets: ['Maple Street', 'Oak Avenue', 'Cedar Drive', 'Pine Road', 'Birch Lane', 'Willow Way', 'Spruce Street', 'Elm Avenue', 'Aspen Drive', 'Poplar Road'],
+        cities: [
+            { city: 'Toronto', state: 'ON', zip: 'M5H' },
+            { city: 'Montreal', state: 'QC', zip: 'H2Y' },
+            { city: 'Vancouver', state: 'BC', zip: 'V6C' },
+            { city: 'Calgary', state: 'AB', zip: 'T2P' },
+            { city: 'Edmonton', state: 'AB', zip: 'T5J' },
+            { city: 'Ottawa', state: 'ON', zip: 'K1P' },
+            { city: 'Winnipeg', state: 'MB', zip: 'R3C' }
+        ],
+        phoneFormat: (r) => `+1-${r(200,999)}-${r(200,999)}-${r(1000,9999)}`
+    },
+    AU: {
+        firstNames: ['Oliver', 'Noah', 'Jack', 'William', 'Leo', 'Charlotte', 'Olivia', 'Amelia', 'Isla', 'Mia', 'Lucas', 'Henry', 'Ethan', 'James', 'Alexander'],
+        lastNames: ['Smith', 'Jones', 'Williams', 'Brown', 'Wilson', 'Taylor', 'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Garcia', 'Martinez'],
+        streets: ['High Street', 'George Street', 'William Street', 'Queen Street', 'King Street', 'Beach Road', 'Park Avenue', 'Church Street', 'Victoria Street', 'Albert Road'],
+        cities: [
+            { city: 'Sydney', state: 'NSW', zip: '2000' },
+            { city: 'Melbourne', state: 'VIC', zip: '3000' },
+            { city: 'Brisbane', state: 'QLD', zip: '4000' },
+            { city: 'Perth', state: 'WA', zip: '6000' },
+            { city: 'Adelaide', state: 'SA', zip: '5000' },
+            { city: 'Gold Coast', state: 'QLD', zip: '4217' },
+            { city: 'Canberra', state: 'ACT', zip: '2600' }
+        ],
+        phoneFormat: (r) => `+61 4${r(00,99)} ${r(100,999)} ${r(100,999)}`
+    }
+};
 
+// Store current billing for copy all
+let _currentBilling = null;
+
+function _generateRandomBilling() {
+    const country = document.getElementById('fc-country')?.value || 'US';
+    const data = BILLING_DATA[country];
+    
     const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const randNum = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-    const firstName = rand(firstNames);
-    const lastName = rand(lastNames);
-    const streetNum = randNum(100, 9999);
-    const street = rand(streets);
+    const firstName = rand(data.firstNames);
+    const lastName = rand(data.lastNames);
+    const fullName = `${firstName} ${lastName}`;
+    const streetNum = randNum(1, 999);
+    const street = rand(data.streets);
     const address = `${streetNum} ${street}`;
-    const loc = rand(cities);
-    const zip = loc.zip.slice(0, 3) + randNum(10, 99).toString();
-    const areaCode = randNum(200, 999);
-    const phone = `+1-${areaCode}-${randNum(200, 999)}-${randNum(1000, 9999)}`;
+    const loc = rand(data.cities);
+    const zip = loc.zip + (country === 'UK' ? ` ${randNum(1,9)}${String.fromCharCode(65+randNum(0,25))}${String.fromCharCode(65+randNum(0,25))}` : randNum(10, 99).toString());
+    const phone = data.phoneFormat(randNum);
+    const cityState = `${loc.city}, ${loc.state}`;
 
-    const fullAddr = `${address}, ${loc.city}, ${loc.state} ${zip}`;
+    // Store for copy all
+    _currentBilling = { fullName, address, cityState, zip, phone, country };
 
     // Update billing info fields
     const setField = (id, val) => {
@@ -2035,16 +2094,37 @@ function _generateRandomBilling() {
         el.dataset.copy = val || '';
     };
 
-    setField('bi-fname', firstName);
-    setField('bi-lname', lastName);
+    setField('bi-name', fullName);
     setField('bi-address', address);
-    setField('bi-city', loc.city);
-    setField('bi-state', loc.state);
+    setField('bi-city', cityState);
     setField('bi-zip', zip);
     setField('bi-phone', phone);
-    setField('bi-fulladdr', fullAddr);
 
-    toast('Random billing generated!', 'success');
+    toast(`Generated ${country} billing`, 'success');
+}
+
+// ═══ COPY ALL BILLING ═══
+function _copyAllBilling() {
+    if (!_currentBilling) {
+        toast('Generate billing first', 'warning');
+        return;
+    }
+    const b = _currentBilling;
+    const text = `${b.fullName}\n${b.address}\n${b.cityState} ${b.zip}\n${b.phone}`;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        toast('All billing copied!', 'success');
+        const btn = document.getElementById('fc-copy-all');
+        if (btn) {
+            btn.textContent = '✓ COPIED';
+            setTimeout(() => btn.textContent = '📋 COPY ALL', 1000);
+        }
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        toast('All billing copied!', 'success');
+    });
 }
 
 // ══════════ QUICK SEARCH ══════════
