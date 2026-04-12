@@ -1188,11 +1188,39 @@ function renderMerchants() {
             </div>
             <div class="fc-scroll" id="fc-list">${listHtml}</div>
         </div>
-        <div class="fc-col fc-col-log">
+        <div class="fc-col fc-col-log fc-col-log-split">
             <div class="fc-col-head"><span class="fc-col-title">LOG ANALYSIS</span></div>
-            <div class="fc-scroll fc-log-body">
-                <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here..."></textarea>
-                <button class="fc-btn-search" id="fc-search-btn">SEARCH</button>
+            <div class="fc-log-split-container">
+                <!-- LEFT: Log Parser -->
+                <div class="fc-log-left">
+                    <div class="fc-log-left-head">LOG PARSER</div>
+                    <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here..."></textarea>
+                    <button class="fc-btn-search" id="fc-search-btn">SEARCH</button>
+                    <div class="fc-parsed-info" id="fc-parsed-info">
+                        <div class="fc-parsed-info-title">PARSED INFO</div>
+                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-card"><span class="fc-parsed-label">💳 Card:</span> <span class="fc-parsed-val">—</span></div>
+                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-exp"><span class="fc-parsed-label">📅 Exp:</span> <span class="fc-parsed-val">—</span></div>
+                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-cvv"><span class="fc-parsed-label">🔐 CVV:</span> <span class="fc-parsed-val">—</span></div>
+                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-name"><span class="fc-parsed-label">👤 Name:</span> <span class="fc-parsed-val">—</span></div>
+                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-phone"><span class="fc-parsed-label">📱 Phone:</span> <span class="fc-parsed-val">—</span></div>
+                        <div class="fc-parsed-row mf-copy-field" data-copy="" id="pi-email"><span class="fc-parsed-label">📧 Email:</span> <span class="fc-parsed-val">—</span></div>
+                    </div>
+                </div>
+                <!-- RIGHT: Billing Generator -->
+                <div class="fc-log-right">
+                    <div class="fc-log-right-head">BILLING GENERATOR</div>
+                    <button class="fc-btn-generate" id="fc-generate-btn">GENERATE RANDOM INFO</button>
+                    <div class="fc-billing-info" id="fc-billing-info">
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-fname"><span class="fc-billing-label">👤 First:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-lname"><span class="fc-billing-label">👤 Last:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-label">🏠 Address:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-label">🏙️ City:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-state"><span class="fc-billing-label">📍 State:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-label">📮 ZIP:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-label">📱 Phone:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-fulladdr"><span class="fc-billing-label">📋 Full:</span> <span class="fc-billing-val">—</span></div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="fc-col fc-col-results" id="fc-col-results">
@@ -1288,6 +1316,9 @@ function renderMerchants() {
     document.getElementById('fc-textarea').addEventListener('keydown', e => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
     });
+
+    // Generate Random Billing Info
+    document.getElementById('fc-generate-btn')?.addEventListener('click', _generateRandomBilling);
 
     // Modal close
     document.getElementById('mf-modal-close')?.addEventListener('click', _mfCloseModal);
@@ -1923,9 +1954,97 @@ function _mtSearch() {
     // Clear textarea
     textarea.value = '';
 
+    // ═══ UPDATE PARSED INFO in left panel ═══
+    _updateParsedInfo(fields);
+
     // Re-render to show results
     renderMerchants();
     toast(`Found ${bins.length} BIN(s)`, 'success');
+}
+
+// ═══ UPDATE PARSED INFO (left panel) ═══
+function _updateParsedInfo(fields) {
+    const setField = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const valSpan = el.querySelector('.fc-parsed-val');
+        if (valSpan) valSpan.textContent = val || '—';
+        el.dataset.copy = val || '';
+    };
+
+    const cc = fields.cc || '';
+    const exp = (fields.expMonth && fields.expYear) ? `${fields.expMonth}/${fields.expYear}` : (fields.expMonth || '');
+
+    setField('pi-card', cc);
+    setField('pi-exp', exp);
+    setField('pi-cvv', fields.cvv || '');
+    setField('pi-name', fields.holder || '');
+    setField('pi-phone', fields.phone || '');
+    setField('pi-email', fields.email || '');
+}
+
+// ═══ RANDOM BILLING GENERATOR ═══
+function _generateRandomBilling() {
+    const firstNames = ['James', 'Michael', 'Robert', 'David', 'William', 'John', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Christopher', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Donald', 'Steven', 'Paul', 'Andrew', 'Joshua', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Barbara', 'Elizabeth', 'Susan', 'Jessica', 'Sarah', 'Karen', 'Lisa', 'Nancy', 'Betty', 'Margaret', 'Sandra', 'Ashley', 'Kimberly', 'Emily', 'Donna', 'Michelle'];
+    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson'];
+    const streets = ['Main St', 'Oak Ave', 'Maple Dr', 'Cedar Ln', 'Pine St', 'Elm St', 'Washington Ave', 'Park Blvd', 'Lake Dr', 'Hill Rd', 'Forest Ave', 'River Rd', 'Church St', 'Mill St', 'Spring St', 'High St', 'Union St', 'Market St', 'Water St', 'Bridge St'];
+    const cities = [
+        { city: 'New York', state: 'NY', zip: '10001' },
+        { city: 'Los Angeles', state: 'CA', zip: '90001' },
+        { city: 'Chicago', state: 'IL', zip: '60601' },
+        { city: 'Houston', state: 'TX', zip: '77001' },
+        { city: 'Phoenix', state: 'AZ', zip: '85001' },
+        { city: 'Philadelphia', state: 'PA', zip: '19101' },
+        { city: 'San Antonio', state: 'TX', zip: '78201' },
+        { city: 'San Diego', state: 'CA', zip: '92101' },
+        { city: 'Dallas', state: 'TX', zip: '75201' },
+        { city: 'San Jose', state: 'CA', zip: '95101' },
+        { city: 'Austin', state: 'TX', zip: '78701' },
+        { city: 'Jacksonville', state: 'FL', zip: '32099' },
+        { city: 'Fort Worth', state: 'TX', zip: '76101' },
+        { city: 'Columbus', state: 'OH', zip: '43085' },
+        { city: 'Charlotte', state: 'NC', zip: '28201' },
+        { city: 'Seattle', state: 'WA', zip: '98101' },
+        { city: 'Denver', state: 'CO', zip: '80201' },
+        { city: 'Boston', state: 'MA', zip: '02101' },
+        { city: 'Las Vegas', state: 'NV', zip: '89101' },
+        { city: 'Miami', state: 'FL', zip: '33101' }
+    ];
+
+    const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const randNum = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+    const firstName = rand(firstNames);
+    const lastName = rand(lastNames);
+    const streetNum = randNum(100, 9999);
+    const street = rand(streets);
+    const address = `${streetNum} ${street}`;
+    const loc = rand(cities);
+    const zip = loc.zip.slice(0, 3) + randNum(10, 99).toString();
+    const areaCode = randNum(200, 999);
+    const phone = `+1-${areaCode}-${randNum(200, 999)}-${randNum(1000, 9999)}`;
+
+    const fullAddr = `${address}, ${loc.city}, ${loc.state} ${zip}`;
+
+    // Update billing info fields
+    const setField = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const valSpan = el.querySelector('.fc-billing-val');
+        if (valSpan) valSpan.textContent = val || '—';
+        el.dataset.copy = val || '';
+    };
+
+    setField('bi-fname', firstName);
+    setField('bi-lname', lastName);
+    setField('bi-address', address);
+    setField('bi-city', loc.city);
+    setField('bi-state', loc.state);
+    setField('bi-zip', zip);
+    setField('bi-phone', phone);
+    setField('bi-fulladdr', fullAddr);
+
+    toast('Random billing generated!', 'success');
 }
 
 // ══════════ QUICK SEARCH ══════════

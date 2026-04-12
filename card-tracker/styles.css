@@ -8384,9 +8384,132 @@ tr.row-selected td {
     font-size: 12px;
 }
 
-/* ── Col 2: Log Analysis ── */
+/* ── Col 2: Log Analysis (Split Layout) ── */
 .fc-col-log { min-width: 200px; }
+.fc-col-log-split { min-width: 400px; flex: 2; }
 
+.fc-log-split-container {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    height: calc(100% - 36px);
+}
+
+.fc-log-left, .fc-log-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(255,255,255,.02);
+    border-radius: 6px;
+    padding: 8px;
+    min-width: 0;
+}
+
+.fc-log-left-head, .fc-log-right-head {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text-dim, #64748b);
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    margin-bottom: 4px;
+}
+
+/* PARSED INFO block */
+.fc-parsed-info {
+    margin-top: auto;
+    background: rgba(0,0,0,.2);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.fc-parsed-info-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text-dim, #64748b);
+    margin-bottom: 6px;
+}
+
+.fc-parsed-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .15s;
+    font-size: 11px;
+}
+
+.fc-parsed-row:hover { background: rgba(255,255,255,.05); }
+
+.fc-parsed-label {
+    color: var(--text-dim, #64748b);
+    min-width: 60px;
+}
+
+.fc-parsed-val {
+    color: var(--text-primary, #e2e8f0);
+    font-family: var(--font-mono, monospace);
+}
+
+/* BILLING GENERATOR */
+.fc-btn-generate {
+    width: 100%;
+    padding: 12px 8px;
+    background: linear-gradient(135deg, rgba(99,102,241,.2), rgba(168,85,247,.2));
+    border: 1px solid rgba(139,92,246,.4);
+    border-radius: 6px;
+    color: #a78bfa;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all .15s;
+}
+.fc-btn-generate:hover {
+    background: linear-gradient(135deg, rgba(99,102,241,.3), rgba(168,85,247,.3));
+    transform: translateY(-1px);
+}
+
+.fc-billing-info {
+    flex: 1;
+    background: rgba(0,0,0,.2);
+    border-radius: 4px;
+    padding: 8px;
+    overflow-y: auto;
+}
+
+.fc-billing-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .15s;
+    font-size: 11px;
+}
+
+.fc-billing-row:hover { background: rgba(255,255,255,.05); }
+
+.fc-billing-label {
+    color: var(--text-dim, #64748b);
+    min-width: 60px;
+}
+
+.fc-billing-val {
+    color: var(--text-primary, #e2e8f0);
+    font-family: var(--font-mono, monospace);
+    word-break: break-all;
+}
+
+/* Legacy log body (fallback) */
 .fc-log-body {
     padding: 8px;
     display: flex;
