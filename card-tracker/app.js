@@ -1325,6 +1325,11 @@ function renderMerchants() {
     document.getElementById('mf-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'mf-modal') _mfCloseModal();
     });
+
+    // ═══ RESTORE parsed fields after render ═══
+    if (STATE._lastParsedFields) {
+        _updateParsedInfo(STATE._lastParsedFields);
+    }
 }
 
 // ═══ MERCHANT POPUP FORM (dblclick) ═══
@@ -1953,10 +1958,10 @@ function _mtSearch() {
 
     // Keep textarea content (don't clear)
     
-    // ═══ UPDATE CARD INFO in right panel ═══
-    _updateParsedInfo(fields);
+    // ═══ SAVE parsed fields to STATE for persistence ═══
+    STATE._lastParsedFields = fields;
 
-    // Re-render to show results
+    // Re-render to show results (will restore parsed fields)
     renderMerchants();
     toast(`Found ${bins.length} BIN(s)`, 'success');
 }
