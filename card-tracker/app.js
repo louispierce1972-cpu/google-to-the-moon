@@ -1223,7 +1223,6 @@ function renderMerchants() {
                         <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-val">—</span></div>
                         <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-val">—</span></div>
                     </div>
-                    <button class="fc-btn-copy-all" id="fc-copy-all">📋 COPY ALL</button>
                 </div>
             </div>
         </div>
@@ -1329,9 +1328,6 @@ function renderMerchants() {
 
     // Generate Random Billing Info
     document.getElementById('fc-generate-btn')?.addEventListener('click', _generateRandomBilling);
-
-    // Copy All billing info
-    document.getElementById('fc-copy-all')?.addEventListener('click', _copyAllBilling);
 
     // Modal close
     document.getElementById('mf-modal-close')?.addEventListener('click', _mfCloseModal);
@@ -1964,10 +1960,9 @@ function _mtSearch() {
         timestamp: Date.now()
     });
 
-    // Clear textarea
-    textarea.value = '';
-
-    // ═══ UPDATE PARSED INFO in left panel ═══
+    // Keep textarea content (don't clear)
+    
+    // ═══ UPDATE CARD INFO in right panel ═══
     _updateParsedInfo(fields);
 
     // Re-render to show results
@@ -1975,9 +1970,10 @@ function _mtSearch() {
     toast(`Found ${bins.length} BIN(s)`, 'success');
 }
 
-// ═══ UPDATE PARSED INFO (left panel) ═══
+// ═══ UPDATE PARSED INFO (right panel) ═══
 function _updateParsedInfo(fields) {
-    const setField = (id, val) => {
+    // Update card info
+    const setCardField = (id, val) => {
         const el = document.getElementById(id);
         if (!el) return;
         const valSpan = el.querySelector('.fc-card-val');
@@ -1988,9 +1984,31 @@ function _updateParsedInfo(fields) {
     const cc = fields.cc || '';
     const exp = (fields.expMonth && fields.expYear) ? `${fields.expMonth}/${fields.expYear}` : (fields.expMonth || '');
 
-    setField('ci-card', cc);
-    setField('ci-exp', exp);
-    setField('ci-cvv', fields.cvv || '');
+    setCardField('ci-card', cc);
+    setCardField('ci-exp', exp);
+    setCardField('ci-cvv', fields.cvv || '');
+
+    // Update billing info from log (if available)
+    const setBillingField = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const valSpan = el.querySelector('.fc-billing-val');
+        if (valSpan) valSpan.textContent = val || '—';
+        el.dataset.copy = val || '';
+    };
+
+    // Fill billing from parsed log data
+    const fullName = fields.holder || '—';
+    const address = fields.address || '—';
+    const city = fields.city || '—';
+    const zip = fields.zip || '—';
+    const phone = fields.phone || '—';
+
+    setBillingField('bi-name', fullName);
+    setBillingField('bi-address', address);
+    setBillingField('bi-city', city);
+    setBillingField('bi-zip', zip);
+    setBillingField('bi-phone', phone);
 }
 
 // ═══ RANDOM BILLING GENERATOR (Multi-country) ═══
@@ -2104,29 +2122,6 @@ function _generateRandomBilling() {
 }
 
 // ═══ COPY ALL BILLING ═══
-function _copyAllBilling() {
-    if (!_currentBilling) {
-        toast('Generate billing first', 'warning');
-        return;
-    }
-    const b = _currentBilling;
-    const text = `${b.fullName}\n${b.address}\n${b.cityState} ${b.zip}\n${b.phone}`;
-    
-    navigator.clipboard.writeText(text).then(() => {
-        toast('All billing copied!', 'success');
-        const btn = document.getElementById('fc-copy-all');
-        if (btn) {
-            btn.textContent = '✓ COPIED';
-            setTimeout(() => btn.textContent = '📋 COPY ALL', 1000);
-        }
-    }).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta); ta.select();
-        document.execCommand('copy'); document.body.removeChild(ta);
-        toast('All billing copied!', 'success');
-    });
-}
-
 // ══════════ QUICK SEARCH ══════════
 
 function _mtQuickSearch(query) {

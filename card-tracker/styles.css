@@ -8519,22 +8519,6 @@ tr.row-selected td {
     font-size: 12px;
 }
 
-/* Copy All button */
-.fc-btn-copy-all {
-    width: 100%;
-    padding: 8px;
-    background: rgba(34,197,94,.1);
-    border: 1px solid rgba(34,197,94,.25);
-    border-radius: 4px;
-    color: #22c55e;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    cursor: pointer;
-    transition: all .15s;
-}
-.fc-btn-copy-all:hover { background: rgba(34,197,94,.2); }
-
 /* Legacy log body (fallback) */
 .fc-log-body {
     padding: 8px;
