@@ -5704,9 +5704,8 @@ function extractAllCardNumbersFromJSON(data) {
 }
 
 function extractCardsFromMessages(messages) {
-    // BUG #3 FIX: Removed /s flag — prevents regex from scanning across the entire message
-    // The core CC|Validity|CVV fields are typically on the same line or adjacent lines
-    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/g;
+    // Block-splitting limits scope, so /s is safe (no backtracking across megabytes)
+    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/gs;
     const holderP = /👶\s*Holder:\s*(.+)/i;
     const bankP = /🏦\s*Bank:\s*(.+)/i;
     const typeP = /📊\s*(?:Card Type|Card):\s*(.+)/i;
