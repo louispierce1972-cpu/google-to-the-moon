@@ -8519,6 +8519,16 @@ tr.row-selected td {
     font-size: 12px;
 }
 
+.fc-billing-lbl {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+    min-width: 52px;
+    display: inline-block;
+}
+
 /* Legacy log body (fallback) */
 .fc-log-body {
     padding: 8px;

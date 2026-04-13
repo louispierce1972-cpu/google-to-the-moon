@@ -1203,15 +1203,16 @@ function renderMerchants() {
                         <div class="fc-card-row mf-copy-field" data-copy="" id="ci-card"><span class="fc-card-label">💳</span> <span class="fc-card-val">—</span></div>
                         <div class="fc-card-row mf-copy-field" data-copy="" id="ci-exp"><span class="fc-card-label">📅</span> <span class="fc-card-val">—</span></div>
                         <div class="fc-card-row mf-copy-field" data-copy="" id="ci-cvv"><span class="fc-card-label">🔐</span> <span class="fc-card-val">—</span></div>
+                        <div class="fc-card-row" id="ci-bininfo" style="font-size:11px;opacity:0.6;padding-top:2px"><span class="fc-card-val" style="font-size:11px">—</span></div>
                     </div>
                     <div class="fc-divider"></div>
                     <!-- Billing info (from log or generated) -->
                     <div class="fc-billing-info" id="fc-billing-info">
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-name"><span class="fc-billing-val fc-billing-name">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-name"><span class="fc-billing-lbl">Name:</span> <span class="fc-billing-val fc-billing-name">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-lbl">Address:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-lbl">City:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-lbl">ZIP:</span> <span class="fc-billing-val">—</span></div>
+                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-lbl">Phone:</span> <span class="fc-billing-val">—</span></div>
                     </div>
                     <div class="fc-divider"></div>
                     <!-- Country selector + Generate (bottom) -->
@@ -1222,7 +1223,7 @@ function renderMerchants() {
                             <option value="CA">🇨🇦 CA</option>
                             <option value="AU">🇦🇺 AU</option>
                         </select>
-                        <button class="fc-btn-generate" id="fc-generate-btn">GENERATE</button>
+                        <button class="fc-btn-generate" id="fc-generate-btn" title="Generate random billing info for selected country">GENERATE BILLING</button>
                     </div>
                 </div>
             </div>
@@ -1273,6 +1274,19 @@ function renderMerchants() {
         STATE._logResults = [];
         renderMerchants();
         toast('Results cleared', 'info');
+    });
+
+    // ── Link BIN to merchant buttons (from search results) ──
+    document.querySelectorAll('.fc-link-to-merch').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bin = btn.dataset.bin;
+            const merchId = btn.dataset.merchId;
+            const m = STATE.merchants.find(x => x.id === merchId);
+            if (!bin || !merchId || !m) return;
+            _addBinToMerchant(bin, '', merchId, '');
+            toast(`BIN ${bin} linked to "${m.name}"`, 'success');
+            renderMerchants();
+        });
     });
 
     // ── Wire up copy-on-click in Col 4 ──
@@ -1897,8 +1911,20 @@ function _mtSearch() {
         const matches = STATE.merchantBins.filter(b => b.bin === bin);
         const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
 
+        // BIN label with bank/type/country from cache
+        let binLabel = `BIN: <strong>${bin}</strong>`;
+        const network = getCardType(bin + '0000000000');
+        if (network) binLabel += ` <span class="fc-bin-network" style="color:#8b5cf6;font-size:11px">${network}</span>`;
+        if (bankInfo && !bankInfo.error) {
+            const parts = [];
+            if (bankInfo.type) parts.push(bankInfo.type);
+            if (bankInfo.bank) parts.push(bankInfo.bank);
+            if (bankInfo.country) parts.push(bankInfo.country);
+            if (parts.length > 0) binLabel += ` <span style="color:#666;font-size:11px">· ${parts.join(' · ')}</span>`;
+        }
+
         binHtml += `<div class="mt-result-block">`;
-        binHtml += `<div class="mt-result-bin">BIN: <strong>${bin}</strong></div>`;
+        binHtml += `<div class="mt-result-bin">${binLabel}</div>`;
 
         // Group by merchant
         const byMerchant = {};
@@ -1942,7 +1968,16 @@ function _mtSearch() {
                 binHtml += `</div>`;
             });
         } else {
-            binHtml += `<div class="mt-no-data">NO DATA — BIN not linked to any merchant</div>`;
+            // "Link to merchant" buttons for each merchant
+            let linkBtns = '';
+            if (STATE.merchants.length > 0) {
+                linkBtns = `<div class="fc-link-merchant-row" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">`;
+                STATE.merchants.forEach(m => {
+                    linkBtns += `<button class="fc-link-to-merch" data-bin="${bin}" data-merch-id="${m.id}" style="font-size:11px;padding:3px 8px;background:#1a1a2e;border:1px solid #333;border-radius:4px;color:#8b5cf6;cursor:pointer" title="Link BIN ${bin} to ${m.name}">+ ${m.name}</button>`;
+                });
+                linkBtns += `</div>`;
+            }
+            binHtml += `<div class="mt-no-data" style="color:#666;opacity:0.8">Not linked to any merchant</div>${linkBtns}`;
         }
 
         binHtml += `</div>`;
@@ -1956,7 +1991,11 @@ function _mtSearch() {
         timestamp: Date.now()
     });
 
-    // Keep textarea content (don't clear)
+    // Clear textarea after successful search to prevent duplicates
+    textarea.value = '';
+
+    // ═══ Auto-lookup BIN info from RustBin API ═══
+    bins.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin); });
 
     // ═══ SAVE parsed fields to STATE for persistence ═══
     STATE._lastParsedFields = fields;
@@ -1983,6 +2022,22 @@ function _updateParsedInfo(fields) {
     setCardField('ci-card', cc);
     setCardField('ci-exp', exp);
     setCardField('ci-cvv', fields.cvv || '');
+
+    // Show card type/network + BIN info
+    const binInfoEl = document.getElementById('ci-bininfo');
+    if (binInfoEl && cc) {
+        const network = getCardType(cc);
+        const bin6 = cc.slice(0, 6);
+        const cached = BIN_CACHE[bin6];
+        let infoStr = network || '';
+        if (cached && !cached.error) {
+            if (cached.type) infoStr += (infoStr ? ' · ' : '') + cached.type;
+            if (cached.bank) infoStr += (infoStr ? ' · ' : '') + cached.bank;
+            if (cached.country) infoStr += (infoStr ? ' · ' : '') + cached.country;
+        }
+        const valSpan = binInfoEl.querySelector('.fc-card-val');
+        if (valSpan) valSpan.textContent = infoStr || '—';
+    }
 
     // Update billing info from log (if available)
     const setBillingField = (id, val) => {
