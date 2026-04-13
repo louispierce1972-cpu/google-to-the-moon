@@ -794,7 +794,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'generator', 'builder', 'merchants', 'analytics'].includes(STATE.currentView)) {
+    if (['notes', 'generator', 'builder', 'merchants', 'analytics', 'tasks'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -2262,6 +2262,312 @@ window.deleteMerchBin = function (id) {
     save();
 };
 
+// ═══════════════════════════════════════════
+//        TASKS — WEEKLY PLANNER + HABITS
+// ═══════════════════════════════════════════
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function _getWeekKey(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay() + (offset || 0) * 7);
+    return `${d.getFullYear()}-W${String(Math.ceil(((d - new Date(d.getFullYear(),0,1)) / 86400000 + 1) / 7)).padStart(2,'0')}`;
+}
+
+function _getWeekStart(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay() + (offset || 0) * 7);
+    return d;
+}
+
+function _formatDate(d) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function _loadTasksData() {
+    try {
+        return JSON.parse(localStorage.getItem('ct_tasks_data') || '{}');
+    } catch { return {}; }
+}
+
+function _saveTasksData(data) {
+    localStorage.setItem('ct_tasks_data', JSON.stringify(data));
+}
+
+if (!STATE._tasksWeekOffset) STATE._tasksWeekOffset = 0;
+
+function renderTasks() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    if (bar) bar.innerHTML = '';
+
+    const offset = STATE._tasksWeekOffset || 0;
+    const weekKey = _getWeekKey(offset);
+    const weekStart = _getWeekStart(offset);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+    const data = _loadTasksData();
+
+    if (!data[weekKey]) data[weekKey] = { tasks: {}, habits: [] };
+    const week = data[weekKey];
+    if (!week.tasks) week.tasks = {};
+    if (!week.habits) week.habits = [];
+
+    // Ensure global habits list
+    if (!data._habits) data._habits = [];
+
+    // Sync habits from global list to this week
+    data._habits.forEach(h => {
+        if (!week.habits.find(wh => wh.id === h.id)) {
+            week.habits.push({ id: h.id, name: h.name, days: [false,false,false,false,false,false,false] });
+        }
+    });
+    // Update names from global
+    week.habits.forEach(wh => {
+        const g = data._habits.find(h => h.id === wh.id);
+        if (g) wh.name = g.name;
+    });
+    // Remove deleted
+    week.habits = week.habits.filter(wh => data._habits.some(h => h.id === wh.id));
+
+    // ── Progress calc ──
+    let totalTasks = 0, doneTasks = 0;
+    DAYS.forEach((_, di) => {
+        const dayTasks = week.tasks[di] || [];
+        totalTasks += dayTasks.length;
+        doneTasks += dayTasks.filter(t => t.done).length;
+    });
+    const taskPct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+    let totalHabitCells = week.habits.length * 7;
+    let doneHabitCells = 0;
+    week.habits.forEach(h => { doneHabitCells += (h.days || []).filter(Boolean).length; });
+    const habitPct = totalHabitCells ? Math.round((doneHabitCells / totalHabitCells) * 100) : 0;
+
+    const overallPct = (totalTasks + totalHabitCells) ? Math.round(((doneTasks + doneHabitCells) / (totalTasks + totalHabitCells)) * 100) : 0;
+
+    // ── Week day dates ──
+    const dayDates = DAYS.map((_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        return d;
+    });
+    const today = new Date();
+    const todayIdx = today.getDay();
+    const isCurrentWeek = offset === 0;
+
+    // ── Build HTML ──
+    let daysHtml = '';
+    DAYS.forEach((dayName, di) => {
+        const dayTasks = week.tasks[di] || [];
+        const dayDate = dayDates[di];
+        const isToday = isCurrentWeek && di === todayIdx;
+        const dayDone = dayTasks.filter(t => t.done).length;
+        const dayTotal = dayTasks.length;
+        const short = dayName.slice(0, 3).toUpperCase();
+        const dateStr = `${dayDate.getDate()}`;
+
+        let tasksListHtml = '';
+        dayTasks.forEach((t, ti) => {
+            tasksListHtml += `<div class="tw-task ${t.done ? 'tw-task-done' : ''}" data-day="${di}" data-idx="${ti}">
+                <label class="tw-check-wrap"><input type="checkbox" class="tw-check" ${t.done ? 'checked' : ''} data-day="${di}" data-idx="${ti}"><span class="tw-checkmark"></span></label>
+                <span class="tw-task-text">${t.text}</span>
+                <button class="tw-task-del" data-day="${di}" data-idx="${ti}" title="Delete">✕</button>
+            </div>`;
+        });
+
+        daysHtml += `<div class="tw-day-col ${isToday ? 'tw-today' : ''}">
+            <div class="tw-day-head">
+                <span class="tw-day-name">${short}</span>
+                <span class="tw-day-date">${dateStr}</span>
+                ${dayTotal ? `<span class="tw-day-count">${dayDone}/${dayTotal}</span>` : ''}
+            </div>
+            <div class="tw-tasks-list" data-day="${di}">${tasksListHtml}</div>
+            <div class="tw-add-task">
+                <input type="text" class="tw-add-input" data-day="${di}" placeholder="+ Add task..." autocomplete="off">
+            </div>
+        </div>`;
+    });
+
+    // ── Habits table ──
+    let habitsHtml = '';
+    week.habits.forEach((h, hi) => {
+        const doneCount = (h.days || []).filter(Boolean).length;
+        const pct = Math.round((doneCount / 7) * 100);
+        let cellsHtml = '';
+        DAYS.forEach((_, di) => {
+            const checked = h.days && h.days[di];
+            cellsHtml += `<div class="tw-habit-cell ${checked ? 'tw-habit-done' : ''}" data-habit="${hi}" data-day="${di}"></div>`;
+        });
+        habitsHtml += `<div class="tw-habit-row">
+            <div class="tw-habit-name-wrap">
+                <span class="tw-habit-name">${h.name}</span>
+                <button class="tw-habit-del" data-habit-id="${h.id}" title="Delete habit">✕</button>
+            </div>
+            <div class="tw-habit-cells">${cellsHtml}</div>
+            <div class="tw-habit-pct ${pct === 100 ? 'tw-pct-full' : ''}">${pct}%</div>
+        </div>`;
+    });
+
+    // Day headers for habit table
+    let habitDayHeaders = '';
+    DAYS.forEach((d, di) => {
+        const isT = isCurrentWeek && di === todayIdx;
+        habitDayHeaders += `<div class="tw-habit-day-head ${isT ? 'tw-habit-today' : ''}">${d.slice(0,2)}</div>`;
+    });
+
+    area.innerHTML = `
+    <div class="tw-container">
+        <!-- HEADER -->
+        <div class="tw-header">
+            <div class="tw-nav">
+                <button class="tw-nav-btn" id="tw-prev" title="Previous week">◀</button>
+                <div class="tw-week-info">
+                    <span class="tw-week-range">${_formatDate(weekStart)} — ${_formatDate(weekEnd)}</span>
+                    ${isCurrentWeek ? '<span class="tw-current-badge">This Week</span>' : ''}
+                </div>
+                <button class="tw-nav-btn" id="tw-next" title="Next week">▶</button>
+            </div>
+            <div class="tw-progress-bar-wrap">
+                <div class="tw-progress-stats">
+                    <span class="tw-stat-item">📋 Tasks <strong>${taskPct}%</strong></span>
+                    <span class="tw-stat-item">🔁 Habits <strong>${habitPct}%</strong></span>
+                    <span class="tw-stat-item tw-stat-overall">Overall <strong>${overallPct}%</strong></span>
+                </div>
+                <div class="tw-progress-track"><div class="tw-progress-fill" style="width:${overallPct}%"></div></div>
+            </div>
+        </div>
+
+        <!-- WEEKLY GRID -->
+        <div class="tw-week-grid">${daysHtml}</div>
+
+        <!-- HABITS -->
+        <div class="tw-habits-section">
+            <div class="tw-habits-head">
+                <span class="tw-habits-title">🔁 HABIT TRACKER</span>
+                <button class="tw-add-habit-btn" id="tw-add-habit">+ Habit</button>
+            </div>
+            <div class="tw-habits-table">
+                <div class="tw-habit-row tw-habit-header-row">
+                    <div class="tw-habit-name-wrap"><span class="tw-habit-name" style="font-size:10px;color:#64748b">HABIT</span></div>
+                    <div class="tw-habit-cells">${habitDayHeaders}</div>
+                    <div class="tw-habit-pct" style="font-size:9px;color:#64748b">%</div>
+                </div>
+                ${habitsHtml || '<div class="tw-habits-empty">No habits yet — click + Habit to add</div>'}
+            </div>
+        </div>
+    </div>`;
+
+    // ── EVENTS ──
+
+    // Week navigation
+    document.getElementById('tw-prev')?.addEventListener('click', () => { STATE._tasksWeekOffset = (STATE._tasksWeekOffset || 0) - 1; renderTasks(); });
+    document.getElementById('tw-next')?.addEventListener('click', () => { STATE._tasksWeekOffset = (STATE._tasksWeekOffset || 0) + 1; renderTasks(); });
+
+    // Add task (Enter key)
+    document.querySelectorAll('.tw-add-input').forEach(inp => {
+        inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                const txt = inp.value.trim();
+                if (!txt) return;
+                const di = parseInt(inp.dataset.day);
+                const d = _loadTasksData();
+                if (!d[weekKey]) d[weekKey] = { tasks: {}, habits: [] };
+                if (!d[weekKey].tasks[di]) d[weekKey].tasks[di] = [];
+                d[weekKey].tasks[di].push({ text: txt, done: false, id: 't-' + Date.now() });
+                _saveTasksData(d);
+                renderTasks();
+                // Focus same day's input after re-render
+                setTimeout(() => { document.querySelector(`.tw-add-input[data-day="${di}"]`)?.focus(); }, 50);
+            }
+        });
+    });
+
+    // Toggle task done
+    document.querySelectorAll('.tw-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const di = parseInt(cb.dataset.day);
+            const ti = parseInt(cb.dataset.idx);
+            const d = _loadTasksData();
+            if (d[weekKey]?.tasks[di]?.[ti] !== undefined) {
+                d[weekKey].tasks[di][ti].done = cb.checked;
+                _saveTasksData(d);
+                renderTasks();
+            }
+        });
+    });
+
+    // Delete task
+    document.querySelectorAll('.tw-task-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const di = parseInt(btn.dataset.day);
+            const ti = parseInt(btn.dataset.idx);
+            const d = _loadTasksData();
+            if (d[weekKey]?.tasks[di]) {
+                d[weekKey].tasks[di].splice(ti, 1);
+                _saveTasksData(d);
+                renderTasks();
+            }
+        });
+    });
+
+    // Habit cell toggle
+    document.querySelectorAll('.tw-habit-cell').forEach(cell => {
+        cell.addEventListener('click', () => {
+            const hi = parseInt(cell.dataset.habit);
+            const di = parseInt(cell.dataset.day);
+            const d = _loadTasksData();
+            if (d[weekKey]?.habits[hi]) {
+                if (!d[weekKey].habits[hi].days) d[weekKey].habits[hi].days = [false,false,false,false,false,false,false];
+                d[weekKey].habits[hi].days[di] = !d[weekKey].habits[hi].days[di];
+                _saveTasksData(d);
+                renderTasks();
+            }
+        });
+    });
+
+    // Add habit
+    document.getElementById('tw-add-habit')?.addEventListener('click', () => {
+        const name = prompt('Habit name:');
+        if (!name || !name.trim()) return;
+        const d = _loadTasksData();
+        if (!d._habits) d._habits = [];
+        const id = 'hab-' + Date.now();
+        d._habits.push({ id, name: name.trim() });
+        // Add to current week too
+        if (!d[weekKey]) d[weekKey] = { tasks: {}, habits: [] };
+        d[weekKey].habits.push({ id, name: name.trim(), days: [false,false,false,false,false,false,false] });
+        _saveTasksData(d);
+        renderTasks();
+        toast(`Habit "${name.trim()}" added`, 'success');
+    });
+
+    // Delete habit
+    document.querySelectorAll('.tw-habit-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const hid = btn.dataset.habitId;
+            if (!confirm('Delete this habit from all weeks?')) return;
+            const d = _loadTasksData();
+            d._habits = (d._habits || []).filter(h => h.id !== hid);
+            // Remove from all weeks
+            Object.keys(d).forEach(k => {
+                if (k.startsWith('20') && d[k].habits) {
+                    d[k].habits = d[k].habits.filter(h => h.id !== hid);
+                }
+            });
+            _saveTasksData(d);
+            renderTasks();
+            toast('Habit deleted', 'info');
+        });
+    });
+
+    // Focus today if current week
+    if (isCurrentWeek) {
+        const todayCol = document.querySelector('.tw-today');
+        if (todayCol) todayCol.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+}
+
 function renderContent() {
     const area = document.getElementById('content-area');
     const footer = document.getElementById('table-footer');
@@ -2296,6 +2602,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'analytics') {
         renderAnalytics();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'tasks') {
+        renderTasks();
         footer.style.display = 'none';
         return;
     }
