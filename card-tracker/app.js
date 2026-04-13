@@ -1753,7 +1753,7 @@ function _parseLogFields(text) {
 
     // ── Email ──
     const emailM = text.match(/(?:Email|E-mail|Mail)[:\s]*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i)
-                || text.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
+        || text.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
     if (emailM) f.email = emailM[1];
 
     // ── Phone ──
@@ -1887,7 +1887,7 @@ function _mtSearch() {
             parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🌐</span><span ${copyAttr(fields.ip)}>${fields.ip}</span></div>`;
         }
         if (fields.userAgent) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🖥</span><span ${copyAttr(fields.userAgent)} style="font-size:10px">${fields.userAgent.slice(0,60)}${fields.userAgent.length>60?'…':''}</span></div>`;
+            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🖥</span><span ${copyAttr(fields.userAgent)} style="font-size:10px">${fields.userAgent.slice(0, 60)}${fields.userAgent.length > 60 ? '…' : ''}</span></div>`;
         }
     }
 
@@ -1957,7 +1957,7 @@ function _mtSearch() {
     });
 
     // Keep textarea content (don't clear)
-    
+
     // ═══ SAVE parsed fields to STATE for persistence ═══
     STATE._lastParsedFields = fields;
 
@@ -2025,7 +2025,7 @@ const BILLING_DATA = {
             { city: 'Boston', state: 'MA', zip: '02101' },
             { city: 'Las Vegas', state: 'NV', zip: '89101' }
         ],
-        phoneFormat: (r) => `+1-${r(200,999)}-${r(200,999)}-${r(1000,9999)}`
+        phoneFormat: (r) => `+1-${r(200, 999)}-${r(200, 999)}-${r(1000, 9999)}`
     },
     UK: {
         firstNames: ['Oliver', 'George', 'Harry', 'Jack', 'Jacob', 'Noah', 'Charlie', 'Olivia', 'Amelia', 'Emily', 'Isla', 'Ava', 'Sophie', 'Grace', 'Mia'],
@@ -2041,7 +2041,7 @@ const BILLING_DATA = {
             { city: 'Glasgow', state: 'Scotland', zip: 'G1' },
             { city: 'Bristol', state: 'England', zip: 'BS1' }
         ],
-        phoneFormat: (r) => `+44 ${r(7000,7999)} ${r(100000,999999)}`
+        phoneFormat: (r) => `+44 ${r(7000, 7999)} ${r(100000, 999999)}`
     },
     CA: {
         firstNames: ['Liam', 'Noah', 'William', 'James', 'Oliver', 'Emma', 'Olivia', 'Charlotte', 'Amelia', 'Sophia', 'Benjamin', 'Lucas', 'Henry', 'Alexander', 'Mason'],
@@ -2056,7 +2056,7 @@ const BILLING_DATA = {
             { city: 'Ottawa', state: 'ON', zip: 'K1P' },
             { city: 'Winnipeg', state: 'MB', zip: 'R3C' }
         ],
-        phoneFormat: (r) => `+1-${r(200,999)}-${r(200,999)}-${r(1000,9999)}`
+        phoneFormat: (r) => `+1-${r(200, 999)}-${r(200, 999)}-${r(1000, 9999)}`
     },
     AU: {
         firstNames: ['Oliver', 'Noah', 'Jack', 'William', 'Leo', 'Charlotte', 'Olivia', 'Amelia', 'Isla', 'Mia', 'Lucas', 'Henry', 'Ethan', 'James', 'Alexander'],
@@ -2071,7 +2071,7 @@ const BILLING_DATA = {
             { city: 'Gold Coast', state: 'QLD', zip: '4217' },
             { city: 'Canberra', state: 'ACT', zip: '2600' }
         ],
-        phoneFormat: (r) => `+61 4${r(00,99)} ${r(100,999)} ${r(100,999)}`
+        phoneFormat: (r) => `+61 4${r(00, 99)} ${r(100, 999)} ${r(100, 999)}`
     }
 };
 
@@ -2081,7 +2081,7 @@ let _currentBilling = null;
 function _generateRandomBilling() {
     const country = document.getElementById('fc-country')?.value || 'US';
     const data = BILLING_DATA[country];
-    
+
     const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const randNum = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -2092,7 +2092,7 @@ function _generateRandomBilling() {
     const street = rand(data.streets);
     const address = `${streetNum} ${street}`;
     const loc = rand(data.cities);
-    const zip = loc.zip + (country === 'UK' ? ` ${randNum(1,9)}${String.fromCharCode(65+randNum(0,25))}${String.fromCharCode(65+randNum(0,25))}` : randNum(10, 99).toString());
+    const zip = loc.zip + (country === 'UK' ? ` ${randNum(1, 9)}${String.fromCharCode(65 + randNum(0, 25))}${String.fromCharCode(65 + randNum(0, 25))}` : randNum(10, 99).toString());
     const phone = data.phoneFormat(randNum);
     const cityState = `${loc.city}, ${loc.state}`;
 
@@ -5649,7 +5649,9 @@ function extractAllCardNumbersFromJSON(data) {
 }
 
 function extractCardsFromMessages(messages) {
-    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/gs;
+    // BUG #3 FIX: Removed /s flag — prevents regex from scanning across the entire message
+    // The core CC|Validity|CVV fields are typically on the same line or adjacent lines
+    const pattern = /💳\s*CC:\s*([\d ]+).*?📅\s*Validity:\s*(\d{2})\s*\/\s*(\d{2,4}).*?🔐\s*CVV:\s*(\d{3,4})/g;
     const holderP = /👶\s*Holder:\s*(.+)/i;
     const bankP = /🏦\s*Bank:\s*(.+)/i;
     const typeP = /📊\s*(?:Card Type|Card):\s*(.+)/i;
@@ -5658,27 +5660,37 @@ function extractCardsFromMessages(messages) {
     const countryCodeP = /🏷\s*Country\s*Code:\s*([A-Za-z]{2})/i;
     const bankCodeP = /\[([A-Z]{2})\]/;
 
+    // BUG #7 FIX: Split each message into per-card blocks
+    // so holder/bank/etc are matched within the correct card section
+    const cardBlockSplitter = /(?=💳\s*CC:)/;
+
     const cards = [];
     for (const msg of messages) {
         const fullText = flattenText(msg.text);
         if (!fullText) continue;
         const msgDate = msg.date || '';
 
-        pattern.lastIndex = 0;
-        let m;
-        while ((m = pattern.exec(fullText)) !== null) {
+        // Split message into blocks, each starting with 💳 CC:
+        const blocks = fullText.split(cardBlockSplitter).filter(b => b.includes('💳'));
+
+        for (const block of blocks) {
+            pattern.lastIndex = 0;
+            const m = pattern.exec(block);
+            if (!m) continue;
+
             const ccRaw = m[1].replace(/\s/g, '');
             let mm = m[2];
             let yy = m[3];
             const cvv = m[4];
             if (yy.length === 4) yy = yy.slice(2);
 
-            const holderM = fullText.match(holderP);
-            const bankM = fullText.match(bankP);
-            const typeM = fullText.match(typeP);
-            const billingM = fullText.match(billingP);
-            const countryM = fullText.match(countryP);
-            const countryCodeM = fullText.match(countryCodeP);
+            // BUG #7 FIX: Match within THIS card block, not the whole message
+            const holderM = block.match(holderP);
+            const bankM = block.match(bankP);
+            const typeM = block.match(typeP);
+            const billingM = block.match(billingP);
+            const countryM = block.match(countryP);
+            const countryCodeM = block.match(countryCodeP);
 
             const holder = holderM ? holderM[1].trim() : '';
             const nameParts = holder.split(/\s+/);
@@ -5686,10 +5698,8 @@ function extractCardsFromMessages(messages) {
             const surname = nameParts.slice(1).join(' ') || '';
 
             const bankRaw = bankM ? bankM[1].trim() : '';
-            // Extract [XX] country code from bank field
-            const bankCodeM = bankRaw.match(bankCodeP);
-            const bankCountryCode = bankCodeM ? bankCodeM[1] : '';
-            // Clean bank name: remove [XX] and flag emojis
+            const bankCodeM2 = bankRaw.match(bankCodeP);
+            const bankCountryCode = bankCodeM2 ? bankCodeM2[1] : '';
             const bank = bankRaw.replace(/\s*\[[A-Z]{2}\]/, '').replace(/[\u{1F1E0}-\u{1F1FF}]{2}/gu, '').trim();
 
             const cardType = typeM ? typeM[1].trim() : '';
@@ -6226,7 +6236,7 @@ function renderParser() {
     const totalMessages = PARSER_STATE.rawMessages.length;
 
     // Build file chips HTML for loaded bases
-    const baseChipsHtml = PARSER_STATE.mainFiles.map((f, i) => 
+    const baseChipsHtml = PARSER_STATE.mainFiles.map((f, i) =>
         `<span class="pz-file-chip">📁 ${f.name} <span class="pz-chip-count">${f.messages.length}</span><button class="pz-chip-remove" data-base-idx="${i}" title="Remove">×</button></span>`
     ).join('');
 
@@ -6416,7 +6426,7 @@ function _loadBaseFile(file) {
         try {
             const data = JSON.parse(e.target.result);
             const messages = Array.isArray(data) ? data : (data.messages || []);
-            
+
             PARSER_STATE.mainFiles.push({
                 name: file.name,
                 size: file.size,
@@ -6424,7 +6434,7 @@ function _loadBaseFile(file) {
             });
             PARSER_STATE.file = file.name;
             _mergeBaseMessages();
-            
+
             toast(`Base loaded: ${file.name} (${messages.length.toLocaleString()} messages)`, 'success');
             renderParser();
         } catch (err) {
@@ -6438,10 +6448,12 @@ function _loadBaseFile(file) {
 
 // Merge all base file messages into rawMessages
 function _mergeBaseMessages() {
-    PARSER_STATE.rawMessages = [];
+    // BUG #4 FIX: push instead of concat-in-loop to avoid O(n²)
+    const all = [];
     PARSER_STATE.mainFiles.forEach(f => {
-        PARSER_STATE.rawMessages = PARSER_STATE.rawMessages.concat(f.messages);
+        for (let i = 0; i < f.messages.length; i++) all.push(f.messages[i]);
     });
+    PARSER_STATE.rawMessages = all;
 }
 
 // ──── LOAD COMPARE FILE (Stage 2) ────
@@ -6506,22 +6518,23 @@ function _rerunFromClean() {
         cards = cards.filter(c => !PARSER_STATE._compareSet.has((c.cc || '').replace(/[\s\-]/g, '')));
         compareRemoved = before - cards.length;
     }
-    // Workspace exclusion
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    // Workspace exclusion — unified normalization (spaces + dashes)
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/[\s\-]/g, '')));
     const beforeWs = cards.length;
-    cards = cards.filter(c => !existingNumbers.has((c.cc || '').replace(/\s/g, '')));
+    cards = cards.filter(c => !existingNumbers.has((c.cc || '').replace(/[\s\-]/g, '')));
     const workspaceRemoved = beforeWs - cards.length;
-    // Dedup
+    // Dedup — unified normalization
     const seen = new Set();
     const beforeDedup = cards.length;
-    cards = cards.filter(c => { const cc = (c.cc || '').replace(/\s/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
+    cards = cards.filter(c => { const cc = (c.cc || '').replace(/[\s\-]/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
     const dupRemoved = beforeDedup - cards.length;
-    // Update state
-    if (PARSER_STATE._pipelineStats) {
-        PARSER_STATE._pipelineStats.compareRemoved = compareRemoved;
-        PARSER_STATE._pipelineStats.workspaceRemoved = workspaceRemoved;
-        PARSER_STATE._pipelineStats.dupRemoved = dupRemoved;
+    // BUG #6 FIX: Create _pipelineStats if null to prevent silent stat loss
+    if (!PARSER_STATE._pipelineStats) {
+        PARSER_STATE._pipelineStats = { totalRaw: PARSER_STATE._cleanCollected.length, trashRemoved: 0, compareRemoved: 0, workspaceRemoved: 0, dupRemoved: 0 };
     }
+    PARSER_STATE._pipelineStats.compareRemoved = compareRemoved;
+    PARSER_STATE._pipelineStats.workspaceRemoved = workspaceRemoved;
+    PARSER_STATE._pipelineStats.dupRemoved = dupRemoved;
     PARSER_STATE.collected = cards;
     _rebuildBinGroups();
 }
@@ -6687,9 +6700,9 @@ function _initTrashCardModal() {
         const trashBtn = document.getElementById('parser-trash-btn');
         if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
 
-        // Re-render if parser has results (trash applied on next parse)
-        if (PARSER_STATE.collected.length > 0) {
-            renderParserResults();
+        // BUG #5 FIX: Re-run pipeline after trash addition (not just re-render)
+        if (PARSER_STATE.rawMessages.length > 0) {
+            runParse();
         }
     });
 
@@ -6861,13 +6874,18 @@ function _processPipeline(allCards, status) {
     const totalRaw = allCards.length;
 
     // Step 1: Remove TRASH cards
-    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+    // Unified normalization: remove spaces AND dashes for all comparisons
+    const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
     let trashRemoved = 0;
     if (trashSet.size > 0) {
         const before = allCards.length;
-        allCards = allCards.filter(c => !trashSet.has((c.cc || '').replace(/\s/g, '')));
+        allCards = allCards.filter(c => !trashSet.has((c.cc || '').replace(/[\s\-]/g, '')));
         trashRemoved = before - allCards.length;
     }
+
+    // BUG #1 FIX: Save clean state AFTER trash but BEFORE compare
+    // This allows _rerunFromClean() to correctly re-apply compare from scratch
+    PARSER_STATE._cleanCollected = [...allCards];
 
     // Step 2: Remove Old Base / Compare matches
     let compareRemoved = 0;
@@ -6877,19 +6895,16 @@ function _processPipeline(allCards, status) {
         compareRemoved = beforeCompare - allCards.length;
     }
 
-    // Save clean state (after trash+compare, before workspace+dedup)
-    PARSER_STATE._cleanCollected = [...allCards];
-
     // Step 3: Remove Workspace / Project cards
-    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/[\s\-]/g, '')));
     const beforeWs = allCards.length;
-    allCards = allCards.filter(c => !existingNumbers.has((c.cc || '').replace(/\s/g, '')));
+    allCards = allCards.filter(c => !existingNumbers.has((c.cc || '').replace(/[\s\-]/g, '')));
     const workspaceRemoved = beforeWs - allCards.length;
 
     // Step 4: Remove internal duplicates
     const seen = new Set();
     const beforeDedup = allCards.length;
-    allCards = allCards.filter(c => { const cc = (c.cc || '').replace(/\s/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
+    allCards = allCards.filter(c => { const cc = (c.cc || '').replace(/[\s\-]/g, ''); if (seen.has(cc)) return false; seen.add(cc); return true; });
     const dupRemoved = beforeDedup - allCards.length;
 
     // Save stats
@@ -6957,8 +6972,8 @@ function renderParserResults(geoFilter) {
     const geoMap = {};
     list.forEach(c => { const geo = (c.detectedGeo || c.country || '').toUpperCase(); if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1; });
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
-    const countryFlags = { US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',AE:'🇦🇪',AU:'🇦🇺',IT:'🇮🇹',ES:'🇪🇸',NL:'🇳🇱',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',IE:'🇮🇪',PT:'🇵🇹',IL:'🇮🇱',SG:'🇸🇬',NZ:'🇳🇿',ZA:'🇿🇦',TR:'🇹🇷' };
-    const countryNames = { US:'United States',CA:'Canada',GB:'United Kingdom',DE:'Germany',FR:'France',AE:'UAE',AU:'Australia',IT:'Italy',ES:'Spain',NL:'Netherlands',BR:'Brazil',MX:'Mexico',JP:'Japan',KR:'South Korea',IN:'India',SE:'Sweden',NO:'Norway',DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',BE:'Belgium',IE:'Ireland',PT:'Portugal',IL:'Israel',SG:'Singapore',NZ:'New Zealand',ZA:'South Africa',TR:'Turkey' };
+    const countryFlags = { US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹', IL: '🇮🇱', SG: '🇸🇬', NZ: '🇳🇿', ZA: '🇿🇦', TR: '🇹🇷' };
+    const countryNames = { US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE', AU: 'Australia', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', BR: 'Brazil', MX: 'Mexico', JP: 'Japan', KR: 'South Korea', IN: 'India', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria', BE: 'Belgium', IE: 'Ireland', PT: 'Portugal', IL: 'Israel', SG: 'Singapore', NZ: 'New Zealand', ZA: 'South Africa', TR: 'Turkey' };
 
     // Apply GEO filter
     const activeGeo = geoFilter || '';
