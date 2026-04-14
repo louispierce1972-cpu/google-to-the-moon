@@ -3112,7 +3112,7 @@ function renderNotes() {
     const content = activeTab.content || '';
     const lines = content.split('\n');
     const lineCount = lines.length || 1;
-    const lineNums = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
+    const lineNums = Array.from({ length: lineCount }, (_, i) => `📌 ${i + 1}`).join('\n');
 
     let tabsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
@@ -3128,7 +3128,6 @@ function renderNotes() {
             <div class="nt-tab-bar">
                 <div class="nt-tabs-scroll">${tabsHTML}</div>
                 <div class="nt-toolbar-right">
-                    <button class="nt-tool-btn nt-highlight-btn" id="notes-highlight-btn" title="Highlight selected text">🖍 MARK</button>
                     <button class="nt-tool-btn" id="notes-clear-btn" title="Clear current tab">CLEAR</button>
                     <button class="nt-tool-btn" id="notes-save-btn">SAVE</button>
                 </div>
@@ -3147,7 +3146,7 @@ function renderNotes() {
     let _notesSaveTimer = null;
     textarea.addEventListener('input', () => {
         const nums = (textarea.value || '').split('\n').length;
-        document.getElementById('notes-line-nums').textContent = Array.from({ length: nums }, (_, i) => i + 1).join('\n');
+        document.getElementById('notes-line-nums').textContent = Array.from({ length: nums }, (_, i) => `📌 ${i + 1}`).join('\n');
         const si = document.querySelector('.notes-saved-info');
         if (si) si.textContent = 'Editing...';
         clearTimeout(_notesSaveTimer);
@@ -7285,6 +7284,35 @@ function _processPipeline(allCards, status) {
 }
 
 // ──── IMPORT TO NOTES (checker format) ────
+function _buildExportTabTitle() {
+    const filters = PARSER_STATE.filters || {};
+    const parts = [];
+    // Card type (credit, debit, prepaid)
+    if (filters.activeTypes && filters.activeTypes.length > 0) {
+        const typeNames = { credit: 'Credit Card', debit: 'Debit Card', prepaid: 'Prepaid' };
+        parts.push(filters.activeTypes.map(t => typeNames[t] || t).join(', '));
+    }
+    // Network (VISA, MASTERCARD, etc.)
+    if (filters.activeNetworks && filters.activeNetworks.length > 0) {
+        parts.push(filters.activeNetworks.join(', '));
+    }
+    // Country / GEO
+    if (filters.country) {
+        parts.push(filters.country.toUpperCase());
+    }
+    // BIN filter
+    if (filters.bins) {
+        const binList = filters.bins.split(/[\s,;|]+/).filter(Boolean).slice(0, 3);
+        if (binList.length > 0) parts.push('BIN ' + binList.join(','));
+    }
+    // Bank filter
+    if (filters.bank) {
+        parts.push(filters.bank);
+    }
+    if (parts.length === 0) return 'Export ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return parts.join(' — ');
+}
+
 function importToProject() {
     const list = PARSER_STATE.collected;
     if (list.length === 0) { toast('No cards to import', 'warning'); return; }
@@ -7303,10 +7331,12 @@ function importToProject() {
     if (lines.length === 0) { toast('No cards selected for import', 'warning'); return; }
 
     const block = lines.join('\n');
+    // Build descriptive tab title from active filters
+    const tabTitle = _buildExportTabTitle();
     // Always create a new Notes tab
     const newTab = {
         id: 'tab-parser-' + Date.now(),
-        title: 'Parser ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        title: tabTitle,
         content: block,
         pinned: false,
         tag: null,
@@ -7318,7 +7348,7 @@ function importToProject() {
     STATE.notes = (STATE.notes || '') + '\n' + block + '\n';
     STATE.notesLastSaved = Date.now();
     save();
-    toast(`${lines.length} cards exported to new Notes tab (checker format)`, 'success');
+    toast(`${lines.length} cards exported → "${tabTitle}"`, 'success');
 }
 
 // ──── RENDER RESULTS ────
