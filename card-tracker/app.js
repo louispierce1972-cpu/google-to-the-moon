@@ -3103,16 +3103,58 @@ function _saveAllTabs() {
     toast('All tabs saved', 'success');
 }
 
+function _buildLineNumsHTML(count, pinnedLines) {
+    const pinSet = new Set(pinnedLines || []);
+    let html = '';
+    for (let i = 1; i <= count; i++) {
+        const isPinned = pinSet.has(i);
+        html += `<div class="nl-row${isPinned ? ' nl-pinned' : ''}" data-line="${i}"><span class="nl-pin">${isPinned ? '📌' : ''}</span><span class="nl-num">${i}</span></div>`;
+    }
+    return html;
+}
+
+function _rebuildLineNums(textarea) {
+    const nums = (textarea.value || '').split('\n').length;
+    const tab = _getActiveNoteTab();
+    const container = document.getElementById('notes-line-nums');
+    if (!container) return;
+    container.innerHTML = _buildLineNumsHTML(nums, tab?.pinnedLines);
+    _wireLinePinClicks(container);
+}
+
+function _wireLinePinClicks(container) {
+    container.querySelectorAll('.nl-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const lineNum = parseInt(row.dataset.line);
+            const tab = _getActiveNoteTab();
+            if (!tab) return;
+            if (!tab.pinnedLines) tab.pinnedLines = [];
+            const idx = tab.pinnedLines.indexOf(lineNum);
+            if (idx >= 0) {
+                tab.pinnedLines.splice(idx, 1);
+                row.classList.remove('nl-pinned');
+                row.querySelector('.nl-pin').textContent = '';
+            } else {
+                tab.pinnedLines.push(lineNum);
+                row.classList.add('nl-pinned');
+                row.querySelector('.nl-pin').textContent = '📌';
+            }
+            save();
+        });
+    });
+}
+
 function renderNotes() {
     const area = document.getElementById('content-area');
     const activeTab = _getActiveNoteTab();
     if (!activeTab) return;
+    if (!activeTab.pinnedLines) activeTab.pinnedLines = [];
 
     const tabs = [...STATE.notesTabs];
     const content = activeTab.content || '';
     const lines = content.split('\n');
     const lineCount = lines.length || 1;
-    const lineNums = Array.from({ length: lineCount }, (_, i) => `📌 ${i + 1}`).join('\n');
+    const lineNumsHTML = _buildLineNumsHTML(lineCount, activeTab.pinnedLines);
 
     let tabsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
@@ -3133,7 +3175,7 @@ function renderNotes() {
                 </div>
             </div>
             <div class="notes-editor-wrap">
-                <pre class="notes-line-numbers" id="notes-line-nums">${lineNums}</pre>
+                <div class="notes-line-numbers" id="notes-line-nums">${lineNumsHTML}</div>
                 <textarea class="notes-editor" id="notes-textarea" style="font-size:${STATE.notesFontSize}px" placeholder="Write notes...">${content}</textarea>
             </div>
             <div class="notes-status-bar">
@@ -3142,16 +3184,19 @@ function renderNotes() {
         </div>
     `;
 
+    // Wire pin clicks on line numbers
+    _wireLinePinClicks(document.getElementById('notes-line-nums'));
+
     const textarea = document.getElementById('notes-textarea');
     let _notesSaveTimer = null;
     textarea.addEventListener('input', () => {
-        const nums = (textarea.value || '').split('\n').length;
-        document.getElementById('notes-line-nums').textContent = Array.from({ length: nums }, (_, i) => `📌 ${i + 1}`).join('\n');
+        _rebuildLineNums(textarea);
         const si = document.querySelector('.notes-saved-info');
         if (si) si.textContent = 'Editing...';
         clearTimeout(_notesSaveTimer);
         _notesSaveTimer = setTimeout(() => {
             _saveActiveTab();
+            const nums = (textarea.value || '').split('\n').length;
             if (si) si.textContent = nums + ' lines';
         }, 600);
     });
