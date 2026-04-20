@@ -7251,8 +7251,14 @@ function runParse() {
     // Apply filters
     if (binFilters.length > 0) allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
     if (countryFilter) {
-        const codes = countryFilter.split(/[\s,;]+/).filter(Boolean);
-        allCards = allCards.filter(c => codes.some(code => (c.detectedGeo || c.country || '').toUpperCase().includes(code)));
+        const codes = countryFilter.split(/[\s,;]+/).map(s => s.toUpperCase().trim()).filter(Boolean);
+        allCards = allCards.filter(c => {
+            const geo = (c.detectedGeo || '').toUpperCase();
+            // Also try name-to-code mapping as fallback
+            const geoFromName = detectGeo('', c.country || '', c.countryCode || '', c.bankCountryCode || '');
+            const resolvedGeo = geo || geoFromName.toUpperCase();
+            return codes.some(code => resolvedGeo === code || resolvedGeo.startsWith(code));
+        });
     }
     if (bankFilter) allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
 
@@ -7271,8 +7277,17 @@ function runParse() {
     }
 
     // Type/network filter
-    if (activeTypes.length > 0) allCards = allCards.filter(c => { const info = BIN_CACHE[c.bin]; const ct = (info?.type || c.cardType || '').toLowerCase(); return activeTypes.some(t => ct.includes(t)); });
-    if (activeNetworks.length > 0) allCards = allCards.filter(c => activeNetworks.includes(getCardType(c.cc || c.bin || '')));
+    if (activeTypes.length > 0) allCards = allCards.filter(c => {
+        const info = BIN_CACHE[c.bin];
+        // Use BIN cache first, then card's own type field, then detect from card number
+        const ct = (info?.type || c.cardType || '').toLowerCase();
+        return activeTypes.some(t => ct.includes(t));
+    });
+    if (activeNetworks.length > 0) allCards = allCards.filter(c => {
+        // Detect network from card number — works without BIN_CACHE
+        const network = getCardType(c.cc || '');
+        return activeNetworks.includes(network);
+    });
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
     _processPipeline(allCards, status);
@@ -7408,16 +7423,20 @@ function renderParserResults(geoFilter) {
     // Update stats bar
     _updateStatsBar();
 
-    // GEO
+    // GEO — use only the resolved ISO-2 code (detectedGeo)
+    // c.country is a raw text name like "Canada" and must NOT be used directly as a code
     const geoMap = {};
-    list.forEach(c => { const geo = (c.detectedGeo || c.country || '').toUpperCase(); if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1; });
+    list.forEach(c => {
+        const geo = (c.detectedGeo || '').toUpperCase();
+        if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1;
+    });
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
     const countryFlags = { US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹', IL: '🇮🇱', SG: '🇸🇬', NZ: '🇳🇿', ZA: '🇿🇦', TR: '🇹🇷' };
     const countryNames = { US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE', AU: 'Australia', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', BR: 'Brazil', MX: 'Mexico', JP: 'Japan', KR: 'South Korea', IN: 'India', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria', BE: 'Belgium', IE: 'Ireland', PT: 'Portugal', IL: 'Israel', SG: 'Singapore', NZ: 'New Zealand', ZA: 'South Africa', TR: 'Turkey' };
 
-    // Apply GEO filter
+    // Apply GEO filter — only match against detectedGeo (ISO-2 code)
     const activeGeo = geoFilter || '';
-    let displayList = activeGeo ? list.filter(c => (c.detectedGeo || c.country || '').toUpperCase() === activeGeo) : list;
+    let displayList = activeGeo ? list.filter(c => (c.detectedGeo || '').toUpperCase() === activeGeo) : list;
 
     // Sort
     const sortBy = PARSER_STATE.sortBy || 'index';
@@ -7453,7 +7472,10 @@ function renderParserResults(geoFilter) {
     const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
     const rows = sortedDisplay.map(c => {
         const globalIdx = PARSER_STATE.collected.indexOf(c);
-        const geo = c.detectedGeo || c.country || '';
+        // Use only the resolved ISO-2 code for GEO display
+        const geoCode = (c.detectedGeo || '').toUpperCase();
+        const geoFlag = countryFlags[geoCode] || '';
+        const geoDisplay = geoCode ? `${geoFlag} ${geoCode}` : '—';
         const bankDisplay = c.bank ? (c.bank.length > 25 ? c.bank.slice(0, 25) + '…' : c.bank) : '—';
         return `<tr>
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
@@ -7462,7 +7484,7 @@ function renderParserResults(geoFilter) {
             <td class="pc-bank" title="${c.bank || ''}" style="font-size:10px;color:#9ca3af;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bankDisplay}</td>
             <td class="pc-exp">${c.validity}</td>
             <td class="pc-bin">${c.bin}</td>
-            <td class="pc-geo">${geo}</td>
+            <td class="pc-geo">${geoDisplay}</td>
         </tr>`;
     }).join('');
 
