@@ -2296,6 +2296,9 @@ function _saveTasksData(data) {
 }
 
 if (!STATE._tasksWeekOffset) STATE._tasksWeekOffset = 0;
+if (!STATE._tasksCategory) STATE._tasksCategory = 'all';
+
+const CAT_COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#8b5cf6','#14b8a6','#f97316','#84cc16'];
 
 function renderTasks() {
     const area = document.getElementById('content-area');
@@ -2315,6 +2318,10 @@ function renderTasks() {
 
     // Ensure global habits list
     if (!data._habits) data._habits = [];
+    if (!data._categories) {
+        data._categories = [{ id: 'cat-default', name: 'General', color: '#6366f1' }];
+        _saveTasksData(data);
+    }
 
     // Sync habits from global list to this week
     data._habits.forEach(h => {
@@ -2356,23 +2363,38 @@ function renderTasks() {
     const todayIdx = today.getDay();
     const isCurrentWeek = offset === 0;
 
+    // ── Categories ──
+    const cats = data._categories || [];
+    const activeCat = STATE._tasksCategory || 'all';
+    const catBarHtml = `<div class="tw-cat-bar">
+        <button class="tw-cat-btn${activeCat === 'all' ? ' tw-cat-active' : ''}" data-cat="all"><span class="tw-cat-dot" style="background:#64748b"></span>All</button>
+        ${cats.map(c => `<button class="tw-cat-btn${activeCat === c.id ? ' tw-cat-active' : ''}" data-cat="${c.id}" style="--cat-color:${c.color}"><span class="tw-cat-dot" style="background:${c.color}"></span>${c.name}<span class="tw-cat-del-x" data-cat-id="${c.id}">✕</span></button>`).join('')}
+        <button class="tw-cat-add-btn" id="tw-add-cat">＋ Category</button>
+    </div>`;
+
     // ── Build HTML ──
     let daysHtml = '';
     DAYS.forEach((dayName, di) => {
-        const dayTasks = week.tasks[di] || [];
+        const allDayTasks = week.tasks[di] || [];
+        const filteredTasks = activeCat === 'all'
+            ? allDayTasks.map((t, origIdx) => ({ t, origIdx }))
+            : allDayTasks.map((t, origIdx) => ({ t, origIdx })).filter(({ t }) => t.categoryId === activeCat);
         const dayDate = dayDates[di];
         const isToday = isCurrentWeek && di === todayIdx;
-        const dayDone = dayTasks.filter(t => t.done).length;
-        const dayTotal = dayTasks.length;
+        const dayDone = allDayTasks.filter(t => t.done).length;
+        const dayTotal = allDayTasks.length;
         const short = dayName.slice(0, 3).toUpperCase();
         const dateStr = `${dayDate.getDate()}`;
 
         let tasksListHtml = '';
-        dayTasks.forEach((t, ti) => {
-            tasksListHtml += `<div class="tw-task ${t.done ? 'tw-task-done' : ''}" data-day="${di}" data-idx="${ti}">
-                <label class="tw-check-wrap"><input type="checkbox" class="tw-check" ${t.done ? 'checked' : ''} data-day="${di}" data-idx="${ti}"><span class="tw-checkmark"></span></label>
+        filteredTasks.forEach(({ t, origIdx }) => {
+            const taskCat = cats.find(c => c.id === t.categoryId);
+            const dotColor = taskCat ? taskCat.color : 'rgba(255,255,255,0.12)';
+            tasksListHtml += `<div class="tw-task ${t.done ? 'tw-task-done' : ''}" data-day="${di}" data-idx="${origIdx}">
+                <label class="tw-check-wrap"><input type="checkbox" class="tw-check" ${t.done ? 'checked' : ''} data-day="${di}" data-idx="${origIdx}"><span class="tw-checkmark"></span></label>
+                <span class="tw-task-cat-dot" style="background:${dotColor}" title="${taskCat ? taskCat.name : 'No category'}"></span>
                 <span class="tw-task-text">${t.text}</span>
-                <button class="tw-task-del" data-day="${di}" data-idx="${ti}" title="Delete">✕</button>
+                <button class="tw-task-del" data-day="${di}" data-idx="${origIdx}" title="Delete">✕</button>
             </div>`;
         });
 
@@ -2438,6 +2460,7 @@ function renderTasks() {
             </div>
         </div>
 
+        ${catBarHtml}
         <!-- WEEKLY GRID -->
         <div class="tw-week-grid">${daysHtml}</div>
 
@@ -2464,6 +2487,67 @@ function renderTasks() {
     document.getElementById('tw-prev')?.addEventListener('click', () => { STATE._tasksWeekOffset = (STATE._tasksWeekOffset || 0) - 1; renderTasks(); });
     document.getElementById('tw-next')?.addEventListener('click', () => { STATE._tasksWeekOffset = (STATE._tasksWeekOffset || 0) + 1; renderTasks(); });
 
+    // Category filter buttons
+    document.querySelectorAll('.tw-cat-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            if (e.target.classList.contains('tw-cat-del-x')) return;
+            STATE._tasksCategory = btn.dataset.cat;
+            renderTasks();
+        });
+    });
+
+    // Delete category (x on badge)
+    document.querySelectorAll('.tw-cat-del-x').forEach(x => {
+        x.addEventListener('click', e => {
+            e.stopPropagation();
+            const cid = x.dataset.catId;
+            const d = _loadTasksData();
+            d._categories = (d._categories || []).filter(c => c.id !== cid);
+            _saveTasksData(d);
+            if (STATE._tasksCategory === cid) STATE._tasksCategory = 'all';
+            renderTasks();
+            toast('Category removed', 'info');
+        });
+    });
+
+    // Add new category
+    document.getElementById('tw-add-cat')?.addEventListener('click', () => {
+        const overlay = document.getElementById('mini-modal-overlay');
+        const titleEl = document.getElementById('mini-modal-title');
+        const labelEl = document.getElementById('mini-modal-label');
+        const inputEl = document.getElementById('mini-modal-input');
+        const saveBtn = document.getElementById('mini-modal-save');
+        const cancelBtn = document.getElementById('mini-modal-cancel');
+        const closeBtn = document.getElementById('mini-modal-close');
+        if (!overlay) return;
+        titleEl.textContent = 'New Category';
+        labelEl.textContent = 'Category name';
+        inputEl.placeholder = 'OnlyFans, Google, Design...';
+        inputEl.value = '';
+        overlay.classList.remove('hidden');
+        setTimeout(() => inputEl.focus(), 50);
+        const save = () => {
+            const name = inputEl.value.trim();
+            if (!name) return;
+            const d = _loadTasksData();
+            if (!d._categories) d._categories = [];
+            const color = CAT_COLORS[d._categories.length % CAT_COLORS.length];
+            const id = 'cat-' + Date.now();
+            d._categories.push({ id, name, color });
+            _saveTasksData(d);
+            overlay.classList.add('hidden');
+            cleanup();
+            renderTasks();
+            toast(`Category "${name}" added`, 'success');
+        };
+        const cancel = () => { overlay.classList.add('hidden'); cleanup(); };
+        const cleanup = () => { saveBtn.onclick = null; cancelBtn.onclick = null; closeBtn.onclick = null; };
+        saveBtn.onclick = save;
+        cancelBtn.onclick = cancel;
+        closeBtn.onclick = cancel;
+        inputEl.onkeydown = e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); };
+    });
+
     // Add task (Enter key)
     document.querySelectorAll('.tw-add-input').forEach(inp => {
         inp.addEventListener('keydown', e => {
@@ -2474,7 +2558,8 @@ function renderTasks() {
                 const d = _loadTasksData();
                 if (!d[weekKey]) d[weekKey] = { tasks: {}, habits: [] };
                 if (!d[weekKey].tasks[di]) d[weekKey].tasks[di] = [];
-                d[weekKey].tasks[di].push({ text: txt, done: false, id: 't-' + Date.now() });
+                const defaultCatId = activeCat === 'all' ? (d._categories?.[0]?.id || 'cat-default') : activeCat;
+                d[weekKey].tasks[di].push({ text: txt, done: false, id: 't-' + Date.now(), categoryId: defaultCatId });
                 _saveTasksData(d);
                 renderTasks();
                 // Focus same day's input after re-render
