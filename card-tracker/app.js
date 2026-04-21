@@ -794,7 +794,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'generator', 'builder', 'merchants', 'analytics', 'tasks'].includes(STATE.currentView)) {
+    if (['notes', 'generator', 'builder', 'merchants', 'analytics', 'tasks', 'prompts'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -2653,6 +2653,249 @@ function renderTasks() {
     }
 }
 
+// ═══════════════════════════════════════════
+//   PROMPTS — Prompt Manager
+// ═══════════════════════════════════════════
+
+const PROMPT_CAT_COLORS = ['#6366f1','#ec4899','#22c55e','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#14b8a6','#f97316','#84cc16'];
+if (!STATE._promptsCat) STATE._promptsCat = 'all';
+if (!STATE._promptSearch) STATE._promptSearch = '';
+
+function _loadPromptsData() {
+    try { return JSON.parse(localStorage.getItem('ct_prompts_data') || '{"categories":[],"prompts":[]}'); }
+    catch { return { categories: [], prompts: [] }; }
+}
+function _savePromptsData(d) { localStorage.setItem('ct_prompts_data', JSON.stringify(d)); }
+
+function _openPromptModal(prompt, categories, onSave) {
+    document.getElementById('pr-dyn-modal')?.remove();
+    const catOptions = categories.map(c =>
+        `<option value="${c.id}" ${prompt && prompt.categoryId === c.id ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+    const modal = document.createElement('div');
+    modal.id = 'pr-dyn-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal pr-modal-box">
+            <div class="modal-header">
+                <h3>${prompt ? 'EDIT PROMPT' : 'ADD PROMPT'}</h3>
+                <p class="modal-subtitle">${prompt ? 'Update your saved prompt' : 'Save a new prompt for quick access'}</p>
+                <button class="modal-close" id="pr-mc"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group" style="flex:2">
+                        <label>Title *</label>
+                        <input type="text" id="pr-m-title" placeholder="e.g. Caption template for OnlyFans" value="${prompt ? prompt.title : ''}">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label>Category</label>
+                        <select id="pr-m-cat" class="form-select">
+                            <option value="">— No category —</option>
+                            ${catOptions}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Prompt text *</label>
+                    <textarea id="pr-m-text" class="pr-modal-textarea" placeholder="Paste your prompt here...">${prompt ? prompt.text : ''}</textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="pr-mc2">Cancel</button>
+                <button class="btn-primary" id="pr-ms">${prompt ? 'Save Changes' : 'Save Prompt'}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    document.getElementById('pr-mc').onclick = close;
+    document.getElementById('pr-mc2').onclick = close;
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    document.getElementById('pr-ms').onclick = () => {
+        const title = document.getElementById('pr-m-title').value.trim();
+        const text = document.getElementById('pr-m-text').value.trim();
+        const catId = document.getElementById('pr-m-cat').value || null;
+        if (!title || !text) { toast('Title and prompt text are required', 'error'); return; }
+        close(); onSave(title, text, catId);
+    };
+    setTimeout(() => document.getElementById('pr-m-title')?.focus(), 50);
+}
+
+function renderPrompts() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    if (bar) bar.innerHTML = '';
+
+    const d = _loadPromptsData();
+    if (!d.categories) d.categories = [];
+    if (!d.prompts) d.prompts = [];
+
+    const activeCat = STATE._promptsCat || 'all';
+    const search = (STATE._promptSearch || '').toLowerCase();
+
+    let shown = d.prompts;
+    if (activeCat !== 'all') shown = shown.filter(p => p.categoryId === activeCat);
+    if (search) shown = shown.filter(p =>
+        p.title.toLowerCase().includes(search) || p.text.toLowerCase().includes(search));
+
+    const catSideHtml = `
+    <div class="pr-sidebar">
+        <button class="pr-cat-item${activeCat === 'all' ? ' pr-cat-active' : ''}" data-cat="all">
+            <span class="pr-cat-icon">&#9635;</span><span class="pr-cat-label">All prompts</span>
+            <span class="pr-cat-count">${d.prompts.length}</span>
+        </button>
+        ${d.categories.map(c => {
+            const cnt = d.prompts.filter(p => p.categoryId === c.id).length;
+            return `<button class="pr-cat-item${activeCat === c.id ? ' pr-cat-active' : ''}" data-cat="${c.id}" style="--pc:${c.color}">
+                <span class="pr-cat-dot" style="background:${c.color}"></span>
+                <span class="pr-cat-label">${c.name}</span>
+                <span class="pr-cat-count">${cnt}</span>
+                <span class="pr-cat-del" data-cid="${c.id}">✕</span>
+            </button>`;
+        }).join('')}
+        <button class="pr-cat-add" id="pr-add-cat">＋ Category</button>
+    </div>`;
+
+    const cardsHtml = shown.length === 0
+        ? `<div class="pr-empty">
+            <div class="pr-empty-icon">&#128172;</div>
+            <p class="pr-empty-title">${search || activeCat !== 'all' ? 'No prompts found' : 'No prompts yet'}</p>
+            <p class="pr-empty-sub">${search || activeCat !== 'all' ? 'Try a different filter or category' : 'Click \u201c+ Add Prompt\u201d to save your first prompt'}</p>
+          </div>`
+        : shown.map(p => {
+            const cat = d.categories.find(c => c.id === p.categoryId);
+            const preview = p.text.length > 140 ? p.text.slice(0, 140) + '\u2026' : p.text;
+            const catBadge = cat ? `<span class="pr-card-cat" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44">${cat.name}</span>` : '';
+            return `<div class="pr-card" data-id="${p.id}">
+                <div class="pr-card-head">
+                    <span class="pr-card-title">${p.title}</span>
+                    ${catBadge}
+                </div>
+                <div class="pr-card-body">${preview}</div>
+                <div class="pr-card-foot">
+                    <button class="pr-copy-btn" data-id="${p.id}">&#128203; Copy</button>
+                    <div class="pr-card-actions">
+                        <button class="pr-edit-btn" data-id="${p.id}" title="Edit">&#9998;</button>
+                        <button class="pr-del-btn" data-id="${p.id}" title="Delete">&#128465;</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+    area.innerHTML = `<div class="pr-container">
+        <div class="pr-topbar">
+            <div class="pr-topbar-left">
+                <span class="pr-title">&#128172; PROMPTS</span>
+                <span class="pr-sub">${d.prompts.length} saved prompt${d.prompts.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="pr-topbar-right">
+                <input type="text" class="pr-search" id="pr-search-input" placeholder="&#128269; Search prompts..." value="${STATE._promptSearch || ''}">
+                <button class="pr-add-btn" id="pr-add-prompt">&#xff0b; Add Prompt</button>
+            </div>
+        </div>
+        <div class="pr-layout">
+            ${catSideHtml}
+            <div class="pr-cards" id="pr-cards">${cardsHtml}</div>
+        </div>
+    </div>`;
+
+    // ── Events ──
+    document.getElementById('pr-search-input')?.addEventListener('input', e => {
+        STATE._promptSearch = e.target.value; renderPrompts();
+    });
+
+    document.querySelectorAll('.pr-cat-item').forEach(btn => {
+        btn.addEventListener('click', e => {
+            if (e.target.classList.contains('pr-cat-del')) return;
+            STATE._promptsCat = btn.dataset.cat; renderPrompts();
+        });
+    });
+
+    document.querySelectorAll('.pr-cat-del').forEach(x => {
+        x.addEventListener('click', e => {
+            e.stopPropagation();
+            const cid = x.dataset.cid;
+            const data = _loadPromptsData();
+            data.categories = data.categories.filter(c => c.id !== cid);
+            data.prompts.forEach(p => { if (p.categoryId === cid) p.categoryId = null; });
+            _savePromptsData(data);
+            if (STATE._promptsCat === cid) STATE._promptsCat = 'all';
+            renderPrompts(); toast('Category removed', 'info');
+        });
+    });
+
+    document.getElementById('pr-add-cat')?.addEventListener('click', () => {
+        const overlay = document.getElementById('mini-modal-overlay');
+        const titleEl = document.getElementById('mini-modal-title');
+        const labelEl = document.getElementById('mini-modal-label');
+        const inputEl = document.getElementById('mini-modal-input');
+        const saveBtn = document.getElementById('mini-modal-save');
+        const cancelBtn = document.getElementById('mini-modal-cancel');
+        const closeBtn = document.getElementById('mini-modal-close');
+        if (!overlay) return;
+        titleEl.textContent = 'New Category'; labelEl.textContent = 'Category name';
+        inputEl.placeholder = 'OnlyFans, Google, Design...'; inputEl.value = '';
+        overlay.classList.remove('hidden'); setTimeout(() => inputEl.focus(), 50);
+        const save = () => {
+            const name = inputEl.value.trim(); if (!name) return;
+            const data = _loadPromptsData();
+            const color = PROMPT_CAT_COLORS[data.categories.length % PROMPT_CAT_COLORS.length];
+            data.categories.push({ id: 'pc-' + Date.now(), name, color });
+            _savePromptsData(data); overlay.classList.add('hidden'); cleanup();
+            renderPrompts(); toast(`Category "${name}" added`, 'success');
+        };
+        const cancel = () => { overlay.classList.add('hidden'); cleanup(); };
+        const cleanup = () => { saveBtn.onclick = null; cancelBtn.onclick = null; closeBtn.onclick = null; };
+        saveBtn.onclick = save; cancelBtn.onclick = cancel; closeBtn.onclick = cancel;
+        inputEl.onkeydown = e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); };
+    });
+
+    document.querySelectorAll('.pr-copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const p = d.prompts.find(x => x.id === btn.dataset.id);
+            if (!p) return;
+            navigator.clipboard.writeText(p.text).then(() => {
+                btn.textContent = '\u2705 Copied!';
+                setTimeout(() => { btn.textContent = '\ud83d\udccb Copy'; }, 1800);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = p.text; document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); ta.remove();
+                btn.textContent = '\u2705 Copied!';
+                setTimeout(() => { btn.textContent = '\ud83d\udccb Copy'; }, 1800);
+            });
+        });
+    });
+
+    document.querySelectorAll('.pr-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const data = _loadPromptsData();
+            data.prompts = data.prompts.filter(p => p.id !== btn.dataset.id);
+            _savePromptsData(data); renderPrompts(); toast('Prompt deleted', 'info');
+        });
+    });
+
+    document.querySelectorAll('.pr-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const data = _loadPromptsData();
+            const p = data.prompts.find(x => x.id === btn.dataset.id);
+            if (!p) return;
+            _openPromptModal(p, data.categories, (title, text, catId) => {
+                p.title = title; p.text = text; p.categoryId = catId;
+                _savePromptsData(data); renderPrompts(); toast('Prompt updated', 'success');
+            });
+        });
+    });
+
+    document.getElementById('pr-add-prompt')?.addEventListener('click', () => {
+        const data = _loadPromptsData();
+        _openPromptModal(null, data.categories, (title, text, catId) => {
+            data.prompts.push({ id: 'p-' + Date.now(), title, text, categoryId: catId, created: new Date().toLocaleDateString() });
+            _savePromptsData(data); renderPrompts(); toast('Prompt saved!', 'success');
+        });
+    });
+}
+
 function renderContent() {
     const area = document.getElementById('content-area');
     const footer = document.getElementById('table-footer');
@@ -2692,6 +2935,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'tasks') {
         renderTasks();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'prompts') {
+        renderPrompts();
         footer.style.display = 'none';
         return;
     }
