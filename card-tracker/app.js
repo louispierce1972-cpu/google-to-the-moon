@@ -6211,7 +6211,7 @@ let PARSER_STATE = {
     statusFilter: 'ALL',
     _compareSet: null,
     _pipelineStats: null, // {totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved}
-    filters: { bins: '', country: '', bank: '', minExpiry: '', activeTypes: [], activeNetworks: [] }
+    filters: { bins: '', country: '', bank: '', minExpiry: '', activeTypes: [], activeNetworks: [], filterType: null, filterClass: null, filterPaymentSystem: null }
 };
 
 // ──── HELPERS ────
@@ -7027,15 +7027,37 @@ function renderParser() {
                     <input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}">
                 </div>
             </div>
-            <div class="parser-type-btns" id="parser-type-btns">
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeTypes || []).includes('credit') ? ' active' : ''}" data-type="credit">Credit</button>
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeTypes || []).includes('debit') ? ' active' : ''}" data-type="debit">Debit</button>
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeTypes || []).includes('prepaid') ? ' active' : ''}" data-type="prepaid">Prepaid</button>
-                <span class="pz-sep">|</span>
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('VISA') ? ' active' : ''}" data-network="VISA">Visa</button>
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('MASTERCARD') ? ' active' : ''}" data-network="MASTERCARD">MC</button>
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('AMEX') ? ' active' : ''}" data-network="AMEX">Amex</button>
-                <button class="parser-type-btn${(PARSER_STATE.filters.activeNetworks || []).includes('DISCOVER') ? ' active' : ''}" data-network="DISCOVER">Disc</button>
+            <!-- Многоуровневая система фильтрации карт -->
+            <div class="parser-filter-levels" id="parser-filter-levels">
+                <!-- Уровень 1 — Тип карты -->
+                <div class="parser-filter-level">
+                    <span class="parser-filter-level-label">ТИП</span>
+                    <div class="parser-filter-level-btns">
+                        ${['CREDIT','DEBIT','PREPAID','CHARGE','BUSINESS','GIFT'].map(t =>
+                            `<button class="parser-level-btn${PARSER_STATE.filters.filterType === t ? ' active' : ''}" data-filter-type="${t}">${t}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+                <!-- Уровень 2 — Класс карты -->
+                <div class="parser-filter-level">
+                    <span class="parser-filter-level-label">КЛАСС</span>
+                    <div class="parser-filter-level-btns">
+                        ${['CLASSIC','STANDARD','GOLD','PLATINUM','TITANIUM','SIGNATURE','WORLD','WORLD_ELITE','INFINITE','BLACK','ELECTRON','MAESTRO'].map(t =>
+                            `<button class="parser-level-btn${PARSER_STATE.filters.filterClass === t ? ' active' : ''}" data-filter-class="${t}">${t.replace('_',' ')}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+                <!-- Уровень 3 — Платёжная система -->
+                <div class="parser-filter-level">
+                    <span class="parser-filter-level-label">СИСТЕМА</span>
+                    <div class="parser-filter-level-btns">
+                        ${['VISA','MASTERCARD','AMEX','DISCOVER','UNIONPAY','MIR'].map(t =>
+                            `<button class="parser-level-btn${PARSER_STATE.filters.filterPaymentSystem === t ? ' active' : ''}" data-filter-network="${t}">${t}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+                <!-- Кнопка сброса всех фильтров -->
+                <button class="parser-filter-reset-btn" id="parser-filter-reset" title="Сбросить все фильтры">⟲ СБРОС</button>
             </div>
         </div>
 
@@ -7147,9 +7169,38 @@ function renderParser() {
         if (overlay) overlay.classList.remove('hidden');
     });
 
-    // Card type toggle buttons
-    document.querySelectorAll('.parser-type-btn').forEach(btn => {
-        btn.addEventListener('click', () => btn.classList.toggle('active'));
+    // Многоуровневые фильтры: один выбор на уровень (переключение)
+    document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const isActive = btn.classList.contains('active');
+            document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(b => b.classList.remove('active'));
+            if (!isActive) btn.classList.add('active');
+            PARSER_STATE.filters.filterType = isActive ? null : btn.dataset.filterType;
+        });
+    });
+    document.querySelectorAll('.parser-level-btn[data-filter-class]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const isActive = btn.classList.contains('active');
+            document.querySelectorAll('.parser-level-btn[data-filter-class]').forEach(b => b.classList.remove('active'));
+            if (!isActive) btn.classList.add('active');
+            PARSER_STATE.filters.filterClass = isActive ? null : btn.dataset.filterClass;
+        });
+    });
+    document.querySelectorAll('.parser-level-btn[data-filter-network]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const isActive = btn.classList.contains('active');
+            document.querySelectorAll('.parser-level-btn[data-filter-network]').forEach(b => b.classList.remove('active'));
+            if (!isActive) btn.classList.add('active');
+            PARSER_STATE.filters.filterPaymentSystem = isActive ? null : btn.dataset.filterNetwork;
+        });
+    });
+    // Кнопка сброса всех трёх уровней фильтров
+    document.getElementById('parser-filter-reset')?.addEventListener('click', () => {
+        PARSER_STATE.filters.filterType = null;
+        PARSER_STATE.filters.filterClass = null;
+        PARSER_STATE.filters.filterPaymentSystem = null;
+        document.querySelectorAll('.parser-level-btn').forEach(b => b.classList.remove('active'));
+        toast('Фильтры сброшены', 'info');
     });
 
     _initTrashCardModal();
@@ -7573,10 +7624,14 @@ function runParse() {
     const minExpEl = document.getElementById('parser-min-expiry');
     const minExpRaw = minExpEl ? minExpEl.value.trim() : '';
 
-    // Save filters to state for persistence
-    const activeTypes = Array.from(document.querySelectorAll('.parser-type-btn.active[data-type]')).map(b => b.dataset.type);
-    const activeNetworks = Array.from(document.querySelectorAll('.parser-type-btn.active[data-network]')).map(b => b.dataset.network);
-    PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks };
+    // Чтение новых многоуровневых фильтров из состояния
+    const filterType = PARSER_STATE.filters.filterType;
+    const filterClass = PARSER_STATE.filters.filterClass;
+    const filterPaymentSystem = PARSER_STATE.filters.filterPaymentSystem;
+    // Совместимость: преобразуем в старый формат
+    const activeTypes = filterType ? [filterType.toLowerCase()] : [];
+    const activeNetworks = filterPaymentSystem ? [filterPaymentSystem] : [];
+    PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterType, filterClass, filterPaymentSystem };
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode) }));
@@ -7609,18 +7664,30 @@ function runParse() {
         }
     }
 
-    // Type/network filter
-    if (activeTypes.length > 0) allCards = allCards.filter(c => {
-        const info = BIN_CACHE[c.bin];
-        // Use BIN cache first, then card's own type field, then detect from card number
-        const ct = (info?.type || c.cardType || '').toLowerCase();
-        return activeTypes.some(t => ct.includes(t));
-    });
-    if (activeNetworks.length > 0) allCards = allCards.filter(c => {
-        // Detect network from card number — works without BIN_CACHE
-        const network = getCardType(c.cc || '');
-        return activeNetworks.includes(network);
-    });
+    // Многоуровневая фильтрация: Уровень 1 — Тип карты (CREDIT, DEBIT и т.д.)
+    if (filterType) {
+        allCards = allCards.filter(c => {
+            const info = BIN_CACHE[c.bin];
+            const ct = (info?.type || c.cardType || '').toUpperCase();
+            return ct.includes(filterType);
+        });
+    }
+    // Многоуровневая фильтрация: Уровень 2 — Класс карты (GOLD, PLATINUM и т.д.)
+    if (filterClass) {
+        allCards = allCards.filter(c => {
+            const info = BIN_CACHE[c.bin];
+            const level = (info?.level || '').toUpperCase().replace(/\s+/g, '_');
+            return level.includes(filterClass) || level === filterClass;
+        });
+    }
+    // Многоуровневая фильтрация: Уровень 3 — Платёжная система (VISA, MASTERCARD и т.д.)
+    if (filterPaymentSystem) {
+        allCards = allCards.filter(c => {
+            const network = getCardType(c.cc || '');
+            const brand = (BIN_CACHE[c.bin]?.brand || '').toUpperCase();
+            return network === filterPaymentSystem || brand.includes(filterPaymentSystem);
+        });
+    }
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
     _processPipeline(allCards, status);
@@ -7680,13 +7747,21 @@ function _processPipeline(allCards, status) {
 function _buildExportTabTitle() {
     const filters = PARSER_STATE.filters || {};
     const parts = [];
-    // Card type (credit, debit, prepaid)
-    if (filters.activeTypes && filters.activeTypes.length > 0) {
+    // Тип карты (новая система фильтрации)
+    if (filters.filterType) {
+        parts.push(filters.filterType);
+    } else if (filters.activeTypes && filters.activeTypes.length > 0) {
         const typeNames = { credit: 'Credit Card', debit: 'Debit Card', prepaid: 'Prepaid' };
         parts.push(filters.activeTypes.map(t => typeNames[t] || t).join(', '));
     }
-    // Network (VISA, MASTERCARD, etc.)
-    if (filters.activeNetworks && filters.activeNetworks.length > 0) {
+    // Класс карты
+    if (filters.filterClass) {
+        parts.push(filters.filterClass.replace('_', ' '));
+    }
+    // Платёжная система
+    if (filters.filterPaymentSystem) {
+        parts.push(filters.filterPaymentSystem);
+    } else if (filters.activeNetworks && filters.activeNetworks.length > 0) {
         parts.push(filters.activeNetworks.join(', '));
     }
     // Country / GEO
