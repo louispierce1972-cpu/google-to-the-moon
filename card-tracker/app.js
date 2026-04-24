@@ -530,13 +530,15 @@ function getFilteredCards() {
         STATE.cards.forEach(c => {
             const num = c.cardNumber.replace(/\s/g, '');
             cardUsageMap[num] = (cardUsageMap[num] || 0) + 1;
-            const fullName = (c.name + ' ' + c.surname).toUpperCase();
-            nameUsageMap[fullName] = (nameUsageMap[fullName] || 0) + 1;
+            // Нормализуем: trim() убирает лишние пробелы если surname пустой
+            const fullName = (c.name + ' ' + c.surname).trim().toUpperCase();
+            if (fullName) nameUsageMap[fullName] = (nameUsageMap[fullName] || 0) + 1;
         });
         cards.forEach(c => {
             const num = c.cardNumber.replace(/\s/g, '');
             c._cardUsage = cardUsageMap[num] || 1;
-            c._nameUsage = nameUsageMap[(c.name + ' ' + c.surname).toUpperCase()] || 1;
+            const fullName = (c.name + ' ' + c.surname).trim().toUpperCase();
+            c._nameUsage = (fullName ? nameUsageMap[fullName] : 0) || 1;
         });
     }
 
@@ -3005,8 +3007,11 @@ function renderContent() {
         const cardUsageBadge = (c._cardUsage && c._cardUsage > 1)
             ? `<span class="usage-badge usage-card" onclick="event.stopPropagation(); _showCardDrawer('${c.cardNumber.replace(/\s/g, '')}', this)" title="Card used ${c._cardUsage} times">📇${c._cardUsage}</span>`
             : '';
+        // trim() нормализует имя (убирает лишние пробелы если surname пустой)
+        // — ключ должен совпадать с фильтром в _showNameDrawer
+        const _nameTrimmed = (c.name + ' ' + c.surname).trim().toUpperCase().replace(/'/g, "\\'");
         const nameUsageBadge = (!isAllCards && c._nameUsage && c._nameUsage > 1)
-            ? `<span class="usage-badge usage-name" onclick="event.stopPropagation(); _showNameDrawer('${(c.name + ' ' + c.surname).toUpperCase().replace(/'/g, "\\'")}', this)" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
+            ? `<span class="usage-badge usage-name" onclick="event.stopPropagation(); _showNameDrawer('${_nameTrimmed}', this)" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
             : '';
         const allCardsNamesBadge = (isAllCards && c._nameCount && c._nameCount > 1)
             ? `<span class="usage-badge usage-names" title="${c._nameCount} unique names">👤${c._nameCount}</span>`
@@ -3998,7 +4003,6 @@ window.permanentDelete = function (id) {
 // ═══════ EXPAND DRAWERS ═══════
 
 window._showCardDrawer = function (cardNum, el) {
-    // Close existing drawer
     const existing = document.querySelector('.expand-drawer');
     if (existing) {
         const wasForSame = existing.dataset.key === 'card:' + cardNum;
@@ -4006,16 +4010,19 @@ window._showCardDrawer = function (cardNum, el) {
         if (wasForSame) return;
     }
 
-    const matches = STATE.cards.filter(c => c.cardNumber.replace(/\s/g, '') === cardNum);
+    // Фильтр: строгое совпадение по номеру карты
+    const matches = STATE.cards.filter(c => c.cardNumber.replace(/[\s\-]/g, '') === cardNum);
     if (matches.length <= 1) return;
 
+    // Карта одна для всех — показываем разные ИМЕНА крупно
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
         const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
+        const fullName = (c.name + ' ' + c.surname).trim().toUpperCase() || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
-            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
-            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-name" style="font-weight:600;color:var(--text-primary)">${fullName}</span>
+            <span class="drawer-card" style="opacity:0.5;font-size:11px">${maskCard(c.cardNumber)}</span>
             <span class="drawer-status">${statuses}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
@@ -4029,7 +4036,7 @@ window._showCardDrawer = function (cardNum, el) {
     drawerTr.dataset.key = 'card:' + cardNum;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">📇 ${matches.length} records with this card</div>
+            <div class="drawer-header">─ 📇 ${matches.length} записей с картой <span style="font-family:monospace;opacity:0.7">${maskCard(cardNum)}</span> — разные имена</div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -4044,16 +4051,24 @@ window._showNameDrawer = function (fullName, el) {
         if (wasForSame) return;
     }
 
-    const matches = STATE.cards.filter(c => (c.name + ' ' + c.surname).toUpperCase() === fullName);
+    // Нормализация: trim() убирает лишние пробелы (например если surname = '')
+    const normalizedName = fullName.trim().toUpperCase();
+    const matches = STATE.cards.filter(c =>
+        (c.name + ' ' + c.surname).trim().toUpperCase() === normalizedName
+    );
     if (matches.length <= 1) return;
 
+    // Имя одно для всех — показываем разные КАРТЫ крупно
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
         const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
+        const bin = getBin(c.cardNumber);
+        const binInfo = getBinInfo(bin);
+        const binTxt = formatBinInfoText(binInfo);
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
-            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
-            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-card" style="font-weight:600;color:var(--text-primary);font-family:monospace">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-name" style="opacity:0.55;font-size:11px">${binTxt || bin}</span>
             <span class="drawer-status">${statuses}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
@@ -4067,7 +4082,7 @@ window._showNameDrawer = function (fullName, el) {
     drawerTr.dataset.key = 'name:' + fullName;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">👤 ${matches.length} records with this name</div>
+            <div class="drawer-header">─ 👤 ${matches.length} карт на имя <span style="color:var(--accent);font-weight:600">${normalizedName}</span></div>
             ${rowsHtml}
         </div>
     </td>`;
