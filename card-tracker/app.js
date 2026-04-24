@@ -469,20 +469,21 @@ function getFilteredCards() {
     let cards = [];
     switch (STATE.currentView) {
         case 'cards':
-            cards = STATE.cards.filter(c => c.country === STATE.currentCountry);
+            // Исключаем standaloneCard — только для All Cards, не Workspace
+            cards = STATE.cards.filter(c => c.country === STATE.currentCountry && !c.standaloneCard);
             break;
         case 'my-card':
-            cards = [...STATE.cards];
+            cards = STATE.cards.filter(c => !c.standaloneCard);
             if (_geoFilter !== 'all') cards = cards.filter(c => c.country === _geoFilter);
             break;
         case 'favorites':
-            cards = STATE.cards.filter(c => isFavorite(c));
+            cards = STATE.cards.filter(c => isFavorite(c) && !c.standaloneCard);
             break;
         case 'active-now':
-            cards = STATE.cards.filter(c => isActiveNow(c));
+            cards = STATE.cards.filter(c => isActiveNow(c) && !c.standaloneCard);
             break;
         case 'ready-to-work':
-            cards = STATE.cards.filter(c => c.readyToWork === true);
+            cards = STATE.cards.filter(c => c.readyToWork === true && !c.standaloneCard);
             break;
         case 'all-cards': {
             // Group by card number — show aggregate view
@@ -518,7 +519,8 @@ function getFilteredCards() {
             cards = [...STATE.trash];
             break;
         default:
-            cards = STATE.cards.filter(c => c.country === STATE.currentCountry);
+            // Исключаем standaloneCard — они только для All Cards, не Workspace
+            cards = STATE.cards.filter(c => c.country === STATE.currentCountry && !c.standaloneCard);
     }
 
     // Build usage maps for badges (Workspace indicators)
@@ -617,7 +619,8 @@ function getCardStats(cards) {
 }
 
 function getMyCardStats() {
-    const all = STATE.cards;
+    // Исключаем standaloneCard — они не отображаются в Workspace
+    const all = STATE.cards.filter(c => !c.standaloneCard);
     const bins = {};
     all.forEach(c => {
         const b = getBin(c.cardNumber);
@@ -816,10 +819,19 @@ function renderStats() {
         const cards = getFilteredCards();
         const totalUse = cards.reduce((s, c) => s + (c._cardUsage || 1), 0);
         const avgUse = cards.length > 0 ? (totalUse / cards.length).toFixed(1) : '0';
+        // Уникальные BIN
+        const uniqueBins = new Set(cards.map(c => getBin(c.cardNumber))).size;
+        // Карты, добавленные только в All Cards (без Workspace)
+        const standaloneCount = STATE.cards.filter(c => c.standaloneCard).length;
+        const standaloneStatHtml = standaloneCount > 0
+            ? `<div class="stat-card minic"><span class="stat-label">Cards Only</span><span class="stat-value">${standaloneCount}</span></div>`
+            : '';
         bar.innerHTML = `
             <div class="stat-card total"><span class="stat-label">Unique Cards</span><span class="stat-value">${cards.length}</span></div>
             <div class="stat-card card-add"><span class="stat-label">Total Use</span><span class="stat-value">${totalUse}</span></div>
             <div class="stat-card run-ads"><span class="stat-label">Avg Use</span><span class="stat-value">${avgUse}</span></div>
+            <div class="stat-card top-bins"><span class="stat-label">Unique BINs</span><span class="stat-value">${uniqueBins}</span></div>
+            ${standaloneStatHtml}
         `;
         return;
     }
@@ -3156,13 +3168,20 @@ function renderAllCards() {
         return 'color: var(--red)';
     };
 
+    // Считаем сколько раз каждый BIN встречается по всем картам
+    const binUsageMap = {};
+    STATE.cards.forEach(c => {
+        const b = getBin(c.cardNumber);
+        if (b) binUsageMap[b] = (binUsageMap[b] || 0) + 1;
+    });
+
     let rows = pageCards.map(c => {
         const bin = getBin(c.cardNumber);
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
         const info = getBinInfo(bin);
         const binTxt = formatBinInfoText(info);
         const useCount = c._cardUsage || 1;
-        const names = c._nameCount || 1;
+        const binUseCount = binUsageMap[bin] || 1;
         const lastDate = c._lastDate || c.date || '—';
         const cardNum = c.cardNumber.replace(/\s/g, '');
 
@@ -3176,7 +3195,7 @@ function renderAllCards() {
             </td>
             <td class="bin-cell">${bin}</td>
             <td class="use-cell" style="${getUseColor(useCount)}">${useCount}x</td>
-            <td class="ac-names-cell">${names}</td>
+            <td class="use-cell" style="${getUseColor(binUseCount)}">${binUseCount}</td>
             <td class="date-cell">${lastDate}</td>
         </tr>`;
     }).join('');
@@ -3193,7 +3212,7 @@ function renderAllCards() {
                     <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
                     <th class="sortable" data-sort="status">Use ${sortIcon('status')}</th>
-                    <th>Names</th>
+                    <th>BIN Use</th>
                     <th class="sortable" data-sort="date">Last ${sortIcon('date')}</th>
                 </tr>
             </thead>
@@ -3330,7 +3349,6 @@ function renderDocs() {
         const newBadge = d.docStatus === 'new'
             ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
             : '';
-        const cardsCount = (d.cardIds || []).length;
         return `
         <tr class="doc-row" onclick="_toggleDocDrawer('${d.id}', this)">
             <td class="td-num">${i + 1}</td>
@@ -3347,7 +3365,6 @@ function renderDocs() {
             <td class="doc-type" onclick="event.stopPropagation()"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
-            <td class="ac-names-cell">${cardsCount}</td>
             <td>
                 <div class="status-btns vs-counters" onclick="event.stopPropagation()">
                     <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
@@ -3375,7 +3392,6 @@ function renderDocs() {
                     <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
                     <th class="sortable-doc" data-sort="geo">Geo ${docSortIcon('geo')}</th>
                     <th class="sortable-doc" data-sort="use">Use ${docSortIcon('use')}</th>
-                    <th>Cards</th>
                     <th class="sortable-doc" data-sort="vs">V / S ${docSortIcon('vs')}</th>
                     <th class="sortable-doc" data-sort="date">Date ${docSortIcon('date')}</th>
                     <th></th>
@@ -4788,8 +4804,12 @@ const modalOverlay = document.getElementById('modal-overlay');
 const editOverlay = document.getElementById('edit-modal-overlay');
 
 document.getElementById('add-card-btn').addEventListener('click', () => {
-    if (STATE.currentView === 'docs') {
+    // Документы — открываем модал документов
+    if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         openDocModal();
+    // All Cards — открываем модал только для карты (без Workspace и Documents)
+    } else if (STATE.currentView === 'all-cards') {
+        openAddCardOnlyModal();
     } else {
         openAddModal();
     }
@@ -4812,6 +4832,132 @@ function openAddModal() {
     resetForm();
     populateCountrySelects();
     modalOverlay.classList.remove('hidden');
+}
+
+// ──── МОДАЛ: ДОБАВИТЬ КАРТУ ТОЛЬКО В ALL CARDS (без Workspace и Documents) ────
+function openAddCardOnlyModal() {
+    // Удаляем старый модал если уже открыт
+    document.getElementById('ac-only-modal')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'ac-only-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>ADD CARD — ALL CARDS ONLY</h3>
+                <p class="modal-subtitle">Карта добавляется только в All Cards. Workspace и Documents не затрагиваются.</p>
+                <button class="modal-close" id="ac-only-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Country</label>
+                        <select id="ac-only-country" class="form-select">
+                            ${STATE.countries.map(c => `<option value="${c.id}" ${c.id === STATE.currentCountry ? 'selected' : ''}>${c.flag} ${c.name}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width card-number-group">
+                        <label>Card Number *</label>
+                        <input type="text" id="ac-only-card" placeholder="0000 0000 0000 0000" maxlength="19" autocomplete="off">
+                        <span id="ac-only-badge" class="card-type-badge"></span>
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Month *</label>
+                        <input type="text" id="ac-only-month" placeholder="MM" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>Year *</label>
+                        <input type="text" id="ac-only-year" placeholder="YY" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>CVV *</label>
+                        <input type="password" id="ac-only-cvv" placeholder="•••" maxlength="4">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <input type="text" id="ac-only-notes" placeholder="Заметка (необязательно)...">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="ac-only-cancel">Cancel</button>
+                <button class="btn-primary" id="ac-only-save">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                    Add to All Cards
+                </button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    document.getElementById('ac-only-close').onclick = close;
+    document.getElementById('ac-only-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // Форматирование номера карты + определение типа
+    document.getElementById('ac-only-card').addEventListener('input', function () {
+        this.value = formatCardInput(this.value);
+        document.getElementById('ac-only-badge').textContent = getCardType(this.value);
+    });
+
+    // Закрытие по Escape
+    overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+    // Сохранение
+    document.getElementById('ac-only-save').onclick = () => {
+        const cardNum = document.getElementById('ac-only-card').value.replace(/\s/g, '');
+        const month   = document.getElementById('ac-only-month').value.trim();
+        const year    = document.getElementById('ac-only-year').value.trim();
+        const cvv     = document.getElementById('ac-only-cvv').value.trim();
+        const country = document.getElementById('ac-only-country').value;
+        const notes   = document.getElementById('ac-only-notes').value.trim();
+
+        if (cardNum.length < 13 || !month || !year || !cvv) {
+            toast('Заполните все обязательные поля', 'error');
+            return;
+        }
+
+        // Проверка дублей в STATE.cards
+        const exists = STATE.cards.some(c => c.cardNumber.replace(/[\s\-]/g, '') === cardNum);
+        if (exists) {
+            toast('Эта карта уже существует', 'warning');
+            return;
+        }
+
+        // Добавляем карту с флагом standaloneCard — НЕ попадает в Workspace и Documents
+        const card = {
+            id: genId(),
+            name: '', surname: '',
+            cardNumber: cardNum,
+            month, year, cvv,
+            cardType: getCardType(cardNum),
+            amount: 0, notes,
+            country,
+            standaloneCard: true,   // Флаг: только All Cards
+            cardAdd: false, runAds: false, verified: false,
+            suspended: false, starred: false,
+            date: todayStr(),
+        };
+
+        STATE.cards.unshift(card);
+        save();
+        close();
+        renderAll();
+        toast('Карта добавлена в All Cards', 'success');
+    };
+
+    // Фокус на поле карты
+    setTimeout(() => document.getElementById('ac-only-card')?.focus(), 80);
 }
 
 function resetForm() {
