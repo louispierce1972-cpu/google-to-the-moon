@@ -3009,9 +3009,10 @@ function renderContent() {
             : '';
         // trim() нормализует имя (убирает лишние пробелы если surname пустой)
         // — ключ должен совпадать с фильтром в _showNameDrawer
-        const _nameTrimmed = (c.name + ' ' + c.surname).trim().toUpperCase().replace(/'/g, "\\'");
+        const _nameTrimmed = (c.name + ' ' + c.surname).trim().toUpperCase();
+        const _nameEsc = _nameTrimmed.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         const nameUsageBadge = (!isAllCards && c._nameUsage && c._nameUsage > 1)
-            ? `<span class="usage-badge usage-name" onclick="event.stopPropagation(); _showNameDrawer('${_nameTrimmed}', this)" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
+            ? `<span class="usage-badge usage-name name-drawer-trigger" data-name="${_nameEsc}" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
             : '';
         const allCardsNamesBadge = (isAllCards && c._nameCount && c._nameCount > 1)
             ? `<span class="usage-badge usage-names" title="${c._nameCount} unique names">👤${c._nameCount}</span>`
@@ -3112,6 +3113,14 @@ function renderContent() {
                 STATE.sortDir = 'asc';
             }
             renderContent();
+        });
+    });
+
+    // Name drawer triggers (use data-name to avoid apostrophe/quote issues in inline onclick)
+    area.querySelectorAll('.name-drawer-trigger').forEach(badge => {
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _showNameDrawer(badge.dataset.name, badge);
         });
     });
 
@@ -3274,7 +3283,10 @@ window._toggleAllCardsDrawer = function (cardNum, rowEl) {
     drawerTr.dataset.key = 'ac:' + cardNum;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">📇 ${matches.length} records with this card</div>
+            <div class="drawer-top-bar">
+                <div class="drawer-header">📇 ${matches.length} records with this card</div>
+                <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
+            </div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -3314,7 +3326,10 @@ window._toggleDocDrawer = function (docId, rowEl) {
     drawerTr.dataset.key = 'doc:' + docId;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">👤 ${linkedCards.length} cards linked to ${doc.fullName}</div>
+            <div class="drawer-top-bar">
+                <div class="drawer-header">👤 ${linkedCards.length} cards linked to ${doc.fullName}</div>
+                <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
+            </div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -4036,7 +4051,10 @@ window._showCardDrawer = function (cardNum, el) {
     drawerTr.dataset.key = 'card:' + cardNum;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">─ 📇 ${matches.length} записей с картой <span style="font-family:monospace;opacity:0.7">${maskCard(cardNum)}</span> — разные имена</div>
+            <div class="drawer-top-bar">
+                <div class="drawer-header">📇 ${matches.length} записей с картой <span style="font-family:monospace;opacity:0.7">${maskCard(cardNum)}</span></div>
+                <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
+            </div>
             ${rowsHtml}
         </div>
     </td>`;
@@ -4082,7 +4100,10 @@ window._showNameDrawer = function (fullName, el) {
     drawerTr.dataset.key = 'name:' + fullName;
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
-            <div class="drawer-header">─ 👤 ${matches.length} карт на имя <span style="color:var(--accent);font-weight:600">${normalizedName}</span></div>
+            <div class="drawer-top-bar">
+                <div class="drawer-header">👤 ${matches.length} карт на имя <span style="color:var(--accent);font-weight:600">${normalizedName}</span></div>
+                <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
+            </div>
             ${rowsHtml}
         </div>
     </td>`;

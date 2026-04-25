@@ -6987,9 +6987,33 @@ tr.row-selected td {
 }
 
 .drawer-content {
-    background: rgba(0, 0, 0, .25);
+    background: rgba(0, 0, 0, .30);
     border-left: 3px solid #38BDF8;
-    padding: 6px 12px;
+    padding: 8px 12px 8px 40px;
+    overflow: hidden;
+    max-height: 0;
+    animation: drawerOpen 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.drawer-content.drawer-closing {
+    animation: drawerClose 0.22s ease forwards;
+}
+
+@keyframes drawerOpen {
+    from { max-height: 0; opacity: 0; transform: translateY(-4px); }
+    to   { max-height: 800px; opacity: 1; transform: translateY(0); }
+}
+
+@keyframes drawerClose {
+    from { max-height: 800px; opacity: 1; }
+    to   { max-height: 0; opacity: 0; }
+}
+
+.drawer-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
 }
 
 .drawer-header {
@@ -6997,22 +7021,43 @@ tr.row-selected td {
     font-weight: 700;
     font-family: var(--font-mono);
     color: var(--text-dim);
-    margin-bottom: 4px;
     letter-spacing: .5px;
+}
+
+.drawer-close-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 1px 6px;
+    line-height: 1.4;
+    transition: all .15s;
+    flex-shrink: 0;
+}
+
+.drawer-close-btn:hover {
+    background: rgba(239,68,68,.15);
+    border-color: rgba(239,68,68,.4);
+    color: #ef4444;
 }
 
 .drawer-row {
     display: flex;
     gap: 12px;
     align-items: center;
-    padding: 2px 0;
+    padding: 3px 0;
     font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-secondary);
+    border-radius: 3px;
+    transition: background .1s;
 }
 
 .drawer-row:hover {
-    background: rgba(255, 255, 255, .03);
+    background: rgba(255, 255, 255, .04);
+    padding-left: 4px;
 }
 
 .drawer-flag {
