@@ -7056,7 +7056,7 @@ tr.row-selected td {
 /* ─── Drawer rows: CSS Grid для идеального выравнивания ─── */
 .drawer-row {
     display: grid;
-    grid-template-columns: 22px 170px 1fr 50px 72px;
+    grid-template-columns: 22px 170px 1fr 90px 72px;
     gap: 8px;
     align-items: center;
     padding: 5px 4px;
@@ -7110,9 +7110,9 @@ tr.row-selected td {
 }
 
 .drawer-status {
-    color: #38BDF8;
-    font-weight: 600;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     white-space: nowrap;
 }
 
@@ -7120,6 +7120,12 @@ tr.row-selected td {
     color: var(--text-dim);
     text-align: right;
     white-space: nowrap;
+}
+
+/* Статусы в дровере — только визуальные, не кликабельные */
+.drawer-status .status-btn {
+    cursor: default;
+    pointer-events: none;
 }
 
 /* ═══════ PARSER TYPE TOGGLE BUTTONS ═══════ */

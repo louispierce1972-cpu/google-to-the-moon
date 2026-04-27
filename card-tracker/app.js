@@ -3279,12 +3279,11 @@ window._toggleAllCardsDrawer = function (cardNum, rowEl) {
 
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
-            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-status">${_drawerStatusHtml(c)}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
@@ -3323,12 +3322,11 @@ window._toggleDocDrawer = function (docId, rowEl) {
 
     const rowsHtml = linkedCards.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
             <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
-            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-status">${_drawerStatusHtml(c)}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
@@ -4040,6 +4038,16 @@ function _enableDrawerScroll(drawerTr) {
     }, { once: true });
 }
 
+// Статусы A R V M в том же стиле, что и в основной таблице (без onclick)
+function _drawerStatusHtml(c) {
+    return `<div class="status-btns">
+        <span class="status-btn btn-a ${c.cardAdd ? 'active' : ''}">A</span>
+        <span class="status-btn btn-r ${c.runAds ? 'active' : ''}">R</span>
+        <span class="status-btn btn-v ${c.verified ? 'active' : ''}">V</span>
+        <span class="status-btn btn-m ${c.minic ? 'active' : ''}">M</span>
+    </div>`;
+}
+
 window._showCardDrawer = function (cardNum, el) {
     const existing = document.querySelector('.expand-drawer');
     if (existing) {
@@ -4055,13 +4063,12 @@ window._showCardDrawer = function (cardNum, el) {
     // Карта одна для всех — показываем разные ИМЕНА крупно
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         const fullName = (c.name + ' ' + c.surname).trim().toUpperCase() || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-name">${fullName}</span>
             <span class="drawer-card">${maskCard(c.cardNumber)}</span>
-            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-status">${_drawerStatusHtml(c)}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
@@ -4103,7 +4110,6 @@ window._showNameDrawer = function (fullName, el) {
     // Имя одно для всех — показываем разные КАРТЫ крупно
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        const statuses = [c.cardAdd && 'A', c.runAds && 'R', c.verified && 'V', c.minic && 'M'].filter(Boolean).join(' ') || '—';
         const bin = getBin(c.cardNumber);
         const binInfo = getBinInfo(bin);
         const binTxt = formatBinInfoText(binInfo);
@@ -4111,7 +4117,7 @@ window._showNameDrawer = function (fullName, el) {
             <span class="drawer-flag">${flag}</span>
             <span class="drawer-card drawer-card-primary">${maskCard(c.cardNumber)}</span>
             <span class="drawer-name drawer-name-dim">${binTxt || bin}</span>
-            <span class="drawer-status">${statuses}</span>
+            <span class="drawer-status">${_drawerStatusHtml(c)}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
     }).join('');
