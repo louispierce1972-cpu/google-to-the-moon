@@ -1847,7 +1847,7 @@ textarea {
     position: sticky;
     top: 0;
     background: var(--bg-primary);
-    padding: 4px 8px;
+    padding: 8px 12px;
     text-align: left;
     font-size: 9px;
     font-weight: 700;
@@ -1895,12 +1895,12 @@ textarea {
 }
 
 .data-table td {
-    padding: 3px 8px;
+    padding: 8px 12px;
     font-size: 11px;
     border-bottom: 1px solid rgba(255, 255, 255, .04);
     vertical-align: middle;
     white-space: nowrap;
-    height: 28px;
+    height: 44px;
     box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;

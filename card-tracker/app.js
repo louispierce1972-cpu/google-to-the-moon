@@ -653,8 +653,10 @@ function getMyCardStats() {
 }
 
 function getDocStats(docs) {
+    // Подсчёт суммарных verified и suspended по всем документам
     const totalV = docs.reduce((sum, d) => sum + (d.verified || 0), 0);
     const totalS = docs.reduce((sum, d) => sum + (d.suspended || 0), 0);
+    // Waiting — документы у которых нет ни одного V и ни одного S (ещё не обработаны)
     const waiting = docs.filter(d => (d.verified || 0) === 0 && (d.suspended || 0) === 0).length;
     return {
         total: docs.length,
@@ -662,6 +664,23 @@ function getDocStats(docs) {
         failed: totalS,
         waiting: waiting,
     };
+}
+
+// ──── ОБНОВЛЕНИЕ СТАТИСТИКИ ДОКУМЕНТОВ ────
+// Пересчитывает и обновляет счётчики TOTAL/VERIFIED/FAILED/WAITING в шапке
+function updateDocStats() {
+    const bar = document.getElementById('stats-bar');
+    if (!bar) return;
+    if (STATE.currentView !== 'docs' && STATE.currentView !== 'global-docs') return;
+    const docs = getFilteredDocs();
+    const s = getDocStats(docs);
+    const statCards = bar.querySelectorAll('.stat-card');
+    if (statCards.length >= 4) {
+        statCards[0].querySelector('.stat-value').textContent = s.total;
+        statCards[1].querySelector('.stat-value').textContent = s.verified;
+        statCards[2].querySelector('.stat-value').textContent = s.failed;
+        statCards[3].querySelector('.stat-value').textContent = s.waiting;
+    }
 }
 
 // ══════════════════════════════════════
@@ -3201,7 +3220,7 @@ function renderAllCards() {
         if (b) binUsageMap[b] = (binUsageMap[b] || 0) + 1;
     });
 
-    let rows = pageCards.map(c => {
+    let rows = pageCards.map((c, idx) => {
         const bin = getBin(c.cardNumber);
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
         const info = getBinInfo(bin);
@@ -3210,9 +3229,12 @@ function renderAllCards() {
         const binUseCount = binUsageMap[bin] || 1;
         const lastDate = c._lastDate || c.date || '—';
         const cardNum = c.cardNumber.replace(/\s/g, '');
+        // Нумерация начинается с 1 для каждой страницы
+        const rowNum = idx + 1;
 
         return `
         <tr class="ac-row" data-cardnum="${cardNum}" onclick="_toggleAllCardsDrawer('${cardNum}', this)">
+            <td class="td-num">${rowNum}</td>
             <td>
                 <div class="card-cell">
                     <span class="card-name"><span class="flag">${flag}</span> ${maskCard(c.cardNumber)}</span>
@@ -3235,6 +3257,7 @@ function renderAllCards() {
         <table class="data-table ac-table">
             <thead>
                 <tr>
+                    <th class="td-num">#</th>
                     <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
                     <th class="sortable" data-sort="status">Use ${sortIcon('status')}</th>
@@ -4577,16 +4600,10 @@ function updateStatsInPlace() {
     const bar = document.getElementById('stats-bar');
     if (!bar) return;
 
-    if (STATE.currentView === 'docs') {
-        const docs = getFilteredDocs();
-        const s = getDocStats(docs);
-        const statCards = bar.querySelectorAll('.stat-card');
-        if (statCards.length >= 4) {
-            statCards[0].querySelector('.stat-value').textContent = s.total;
-            statCards[1].querySelector('.stat-value').textContent = s.verified;
-            statCards[2].querySelector('.stat-value').textContent = s.failed;
-            statCards[3].querySelector('.stat-value').textContent = s.waiting;
-        }
+    // Документы — обновляем TOTAL/VERIFIED/FAILED/WAITING
+    if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
+        updateDocStats();
+        return;
     } else if (STATE.currentView === 'my-card') {
         const s = getMyCardStats();
         const statCards = bar.querySelectorAll('.stat-card');
@@ -4652,8 +4669,10 @@ function updateSidebarBadges() {
 }
 
 // ──── DOC V/S COUNTERS ────
+// ──── ОБЁРТКА ДЛЯ ОБНОВЛЕНИЯ СТАТИСТИКИ ДОКУМЕНТОВ ────
+// Вызывается после каждого изменения V/S счётчика
 function updateDocStatsBar() {
-    updateStatsInPlace();
+    updateDocStats();
 }
 
 window.incrementDocV = function (docId) {
