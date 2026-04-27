@@ -255,7 +255,7 @@ function save() {
         localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
         localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
         localStorage.setItem('ct_notes_tabs', JSON.stringify(STATE.notesTabs));
-        localStorage.setItem('ct_notes_active', STATE.notesActiveTab);
+        localStorage.setItem('activeNoteTab', STATE.notesActiveTab);
         localStorage.setItem('ct_notes', STATE.notes);
         localStorage.setItem('ct_trash', JSON.stringify(STATE.trash));
         localStorage.setItem('ct_countries', JSON.stringify(STATE.countries));
@@ -296,11 +296,27 @@ function load() {
                 PARSER_STATE.file = pb.file || '';
             } catch (e) { }
         }
+        // Load parserFilters
+        const parserFiltersRaw = localStorage.getItem('parserFilters');
+        if (parserFiltersRaw) {
+            try {
+                const pf = JSON.parse(parserFiltersRaw);
+                PARSER_STATE.filters.bins = pf.bins || '';
+                PARSER_STATE.filters.country = pf.country || '';
+                PARSER_STATE.filters.bank = pf.bank || '';
+                PARSER_STATE.filters.minExpiry = pf.minExpiry || '';
+                PARSER_STATE.filters.activeTypes = pf.types || [];
+                PARSER_STATE.filters.activeNetworks = pf.networks || [];
+                PARSER_STATE.filters.filterTypes = new Set(pf.types || []);
+                PARSER_STATE.filters.filterClasses = new Set(pf.classes || []);
+                PARSER_STATE.filters.filterPaymentSystems = new Set(pf.networks || []);
+            } catch (e) { }
+        }
         // Load notesTabs
         const tabsRaw = localStorage.getItem('ct_notes_tabs');
         if (tabsRaw) {
             STATE.notesTabs = JSON.parse(tabsRaw);
-            STATE.notesActiveTab = localStorage.getItem('ct_notes_active') || (STATE.notesTabs[0]?.id || '');
+            STATE.notesActiveTab = localStorage.getItem('activeNoteTab') || localStorage.getItem('ct_notes_active') || (STATE.notesTabs[0]?.id || '');
         }
     } catch (e) {
         console.error('Load error:', e);
@@ -3658,6 +3674,28 @@ function renderNotes() {
     }).join('');
     tabsHTML += `<button class="nt-new-tab" id="nt-new-tab">+</button>`;
 
+    tabsHTML += `
+        <div class="nt-dropdown-wrap">
+            <button class="nt-dropdown-btn" id="nt-all-notes-btn">All Notes (${tabs.length}) ▾</button>
+            <div class="nt-dropdown-menu hidden" id="nt-all-notes-menu">
+                <div class="nt-dropdown-list">
+                    ${tabs.map(t => {
+                        const linesCount = (t.content || '').split('\\n').length;
+                        const isActive = t.id === STATE.notesActiveTab;
+                        return \`<button class="nt-dropdown-item \${isActive ? 'active' : ''}" data-tab="\${t.id}">
+                            \${isActive ? '✓ ' : ''}\${t.title} <span class="nt-item-lines">(\${linesCount} lines)</span>
+                        </button>\`;
+                    }).join('')}
+                </div>
+                <div class="nt-dropdown-divider"></div>
+                <div class="nt-dropdown-actions">
+                    <button class="nt-dropdown-action" id="nt-close-all">Close All</button>
+                    <button class="nt-dropdown-action" id="nt-close-others">Close Others</button>
+                </div>
+            </div>
+        </div>
+    `;
+
     area.innerHTML = `
         <div class="notes-container">
             <div class="nt-tab-bar">
@@ -3776,7 +3814,7 @@ function renderNotes() {
             created: Date.now(),
             scrollPos: 0
         };
-        STATE.notesTabs.push(newTab);
+        STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
         save();
         renderNotes();
@@ -3843,6 +3881,45 @@ function renderNotes() {
             }
         }
     });
+
+    // Dropdown events
+    const allNotesBtn = document.getElementById('nt-all-notes-btn');
+    const allNotesMenu = document.getElementById('nt-all-notes-menu');
+    if (allNotesBtn && allNotesMenu) {
+        allNotesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            allNotesMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nt-dropdown-wrap')) {
+                allNotesMenu.classList.add('hidden');
+            }
+        });
+        allNotesMenu.querySelectorAll('.nt-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                _saveActiveTab();
+                STATE.notesActiveTab = item.dataset.tab;
+                save();
+                renderNotes();
+            });
+        });
+        document.getElementById('nt-close-all')?.addEventListener('click', () => {
+            if (!confirm('Close all tabs?')) return;
+            const newTab = { id: 'tab-' + Date.now(), title: 'Main', content: '', created: Date.now(), scrollPos: 0 };
+            STATE.notesTabs = [newTab];
+            STATE.notesActiveTab = newTab.id;
+            save();
+            renderNotes();
+        });
+        document.getElementById('nt-close-others')?.addEventListener('click', () => {
+            const active = STATE.notesTabs.find(t => t.id === STATE.notesActiveTab);
+            if (!active) return;
+            if (!confirm('Close all other tabs?')) return;
+            STATE.notesTabs = [active];
+            save();
+            renderNotes();
+        });
+    }
 }
 
 function renderFooter(count, page, totalPages) {
@@ -6153,7 +6230,7 @@ function importExtras(data) {
                 ...tab,
                 id: 'tab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)
             };
-            STATE.notesTabs.push(newTab);
+            STATE.notesTabs.unshift(newTab);
         });
         STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
         STATE.notes = STATE.notesTabs[0]?.content || '';
@@ -6170,7 +6247,7 @@ function importExtras(data) {
                     created: Date.now(),
                     scrollPos: 0
                 };
-                STATE.notesTabs.push(importedTab);
+                STATE.notesTabs.unshift(importedTab);
                 STATE.notesActiveTab = importedTab.id;
             } else {
                 // Append to first tab
@@ -7572,6 +7649,7 @@ function renderParser() {
                 PARSER_STATE.filters.filterTypes.add(val);
                 btn.classList.add('active');
             }
+            _saveParserFilters();
         });
     });
     document.querySelectorAll('.parser-level-btn[data-filter-class]').forEach(btn => {
@@ -7584,6 +7662,7 @@ function renderParser() {
                 PARSER_STATE.filters.filterClasses.add(val);
                 btn.classList.add('active');
             }
+            _saveParserFilters();
         });
     });
     document.querySelectorAll('.parser-level-btn[data-filter-network]').forEach(btn => {
@@ -7596,6 +7675,7 @@ function renderParser() {
                 PARSER_STATE.filters.filterPaymentSystems.add(val);
                 btn.classList.add('active');
             }
+            _saveParserFilters();
         });
     });
     // Кнопка СБРОС — снимает все выбранные фильтры во всех трёх категориях
@@ -7608,7 +7688,13 @@ function renderParser() {
         PARSER_STATE.testMode = false;
         const tmBtn = document.getElementById('parser-test-mode');
         if (tmBtn) tmBtn.classList.remove('active');
+        _saveParserFilters();
         toast('Фильтры сброшены', 'info');
+    });
+    
+    // Сохранение фильтров при вводе в текстовые поля
+    ['parser-bins', 'parser-country', 'parser-bank', 'parser-min-expiry'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', _saveParserFilters);
     });
 
     // TEST MODE — toggle-кнопка: режим тестирования уникальных БИНов с ротацией
@@ -7954,7 +8040,7 @@ function _initTrashCardModal() {
             created: Date.now(),
             scrollPos: 0
         };
-        STATE.notesTabs.push(newTab);
+        STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
         save();
         closeModal();
@@ -8261,7 +8347,7 @@ function importToProject() {
         created: Date.now(),
         scrollPos: 0
     };
-    STATE.notesTabs.push(newTab);
+    STATE.notesTabs.unshift(newTab);
     STATE.notesActiveTab = newTab.id;
     STATE.notes = (STATE.notes || '') + '\n' + block + '\n';
     STATE.notesLastSaved = Date.now();
@@ -8950,6 +9036,19 @@ function addCollectedToCards() {
     window.openChecker = openChecker;
 
 })();
+
+function _saveParserFilters() {
+    const filters = {
+        bins: document.getElementById('parser-bins')?.value || '',
+        country: document.getElementById('parser-country')?.value || '',
+        bank: document.getElementById('parser-bank')?.value || '',
+        minExpiry: document.getElementById('parser-min-expiry')?.value || '',
+        types: [...(PARSER_STATE.filters.filterTypes || [])],
+        classes: [...(PARSER_STATE.filters.filterClasses || [])],
+        networks: [...(PARSER_STATE.filters.filterPaymentSystems || [])]
+    };
+    localStorage.setItem('parserFilters', JSON.stringify(filters));
+}
 
 // ═══════ COLUMN RESIZE UTILITY ═══════
 function initColumnResize(table, storageKey) {
