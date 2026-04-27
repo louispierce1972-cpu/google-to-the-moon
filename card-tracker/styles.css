@@ -7632,6 +7632,14 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(99, 102, 241, .15);
 }
 
+/* Ряд кнопок управления фильтрами (СБРОС + TEST MODE) */
+.parser-filter-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
 /* Кнопка сброса всех фильтров */
 .parser-filter-reset-btn {
     align-self: flex-start;
@@ -7652,6 +7660,48 @@ tr.row-selected td {
     border-color: rgba(239, 68, 68, .5);
     background: rgba(239, 68, 68, .12);
     color: #ef4444;
+}
+
+/* ── TEST MODE BUTTON ── */
+.parser-test-mode-btn {
+    align-self: flex-start;
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    border: 1px solid rgba(59, 130, 246, .25);
+    background: rgba(59, 130, 246, .06);
+    color: rgba(96, 165, 250, .7);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .2s;
+    margin-top: 2px;
+    margin-left: 4px;
+}
+
+.parser-test-mode-btn:hover {
+    border-color: rgba(59, 130, 246, .5);
+    background: rgba(59, 130, 246, .12);
+    color: #60a5fa;
+}
+
+/* TEST MODE активирована — яркий синий акцент с свечением */
+.parser-test-mode-btn.active {
+    background: rgba(59, 130, 246, .2);
+    border-color: rgba(59, 130, 246, .6);
+    color: #60a5fa;
+    box-shadow: 0 0 12px rgba(59, 130, 246, .25), inset 0 0 6px rgba(59, 130, 246, .1);
+    text-shadow: 0 0 6px rgba(59, 130, 246, .3);
+}
+
+/* TEST MODE статистика в stats bar */
+.ps-test {
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.ps-test strong {
+    color: #93c5fd;
 }
 
 /* ── DISABLED FILTER SECTION ── */

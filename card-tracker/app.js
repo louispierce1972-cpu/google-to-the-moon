@@ -6393,9 +6393,65 @@ let PARSER_STATE = {
     statusFilter: 'ALL',
     _compareSet: null,
     _pipelineStats: null, // {totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved}
+    // TEST MODE: режим тестирования уникальных БИНов с ротацией карт
+    testMode: false,
     // Мультивыбор: filterTypes, filterClasses, filterPaymentSystems — множества (Set) для OR-логики внутри категории
     filters: { bins: '', country: '', bank: '', minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() }
 };
+
+// ──── TEST MODE: Загрузка/сохранение индексов ротации БИНов ────
+function _loadBinRotationIndex() {
+    try {
+        const raw = localStorage.getItem('binRotationIndex');
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+}
+
+function _saveBinRotationIndex(index) {
+    try {
+        localStorage.setItem('binRotationIndex', JSON.stringify(index));
+    } catch { /* quota exceeded — игнорируем */ }
+}
+
+/**
+ * Применяет TEST MODE к списку карт: оставляет по одной карте на уникальный БИН,
+ * используя ротацию — при каждом вызове с advance=true сдвигает индекс на 1.
+ * @param {Array} cards — отфильтрованный список карт
+ * @param {boolean} advance — если true, увеличиваем индекс ротации (при клике на TEST MODE)
+ * @returns {Array} — массив карт, по одной на каждый уникальный БИН
+ */
+function _applyTestMode(cards, advance) {
+    // Группируем карты по БИНу (первые 6 цифр)
+    const binMap = {};
+    cards.forEach(c => {
+        const bin = (c.bin || (c.cc || '').replace(/[\s\-]/g, '').slice(0, 6));
+        if (!binMap[bin]) binMap[bin] = [];
+        binMap[bin].push(c);
+    });
+
+    // Загружаем текущие индексы ротации
+    const rotationIndex = _loadBinRotationIndex();
+
+    // Для каждого БИНа выбираем карту по текущему индексу
+    const result = [];
+    Object.entries(binMap).forEach(([bin, binCards]) => {
+        let idx = rotationIndex[bin] || 0;
+        // Нормализуем индекс если он вышел за границы массива
+        if (idx >= binCards.length) idx = 0;
+        result.push(binCards[idx]);
+        // Если advance=true, сдвигаем индекс для следующего использования
+        if (advance) {
+            rotationIndex[bin] = (idx + 1) % binCards.length;
+        }
+    });
+
+    // Сохраняем обновлённые индексы ротации в localStorage
+    if (advance) {
+        _saveBinRotationIndex(rotationIndex);
+    }
+
+    return result;
+}
 
 // ──── HELPERS ────
 
@@ -7239,9 +7295,12 @@ function renderParser() {
                         ).join('')}
                     </div>
                 </div>
-                <!-- Кнопка сброса всех фильтров -->
-                <button class="parser-filter-reset-btn" id="parser-filter-reset" title="Сбросить все фильтры">⟲ СБРОС</button>
-            </div>
+                <!-- Кнопки управления фильтрами (СБРОС и TEST MODE) -->
+                <div class="parser-filter-actions-row">
+                    <button class="parser-filter-reset-btn" id="parser-filter-reset" title="Сбросить все фильтры">⟲ СБРОС</button>
+                    <!-- TEST MODE: режим тестирования уникальных БИНов с ротацией -->
+                    <button class="parser-test-mode-btn${PARSER_STATE.testMode ? ' active' : ''}" id="parser-test-mode" title="Test Mode: по одной карте на каждый уникальный БИН с ротацией">🧪 TEST MODE</button>
+                </div>
         </div>
 
         <!-- ACTION BAR -->
@@ -7260,6 +7319,7 @@ function renderParser() {
             <span class="ps-item ps-workspace">Workspace: <strong id="ps-workspace">0</strong></span>
             <span class="ps-item ps-dup">Dupes: <strong id="ps-dupes">0</strong></span>
             <span class="ps-item ps-net">→ Clean: <strong id="ps-net">0</strong></span>
+            <span class="ps-item ps-test" id="ps-test-mode" style="display:none">🧪 Test: <strong id="ps-test-cards">0</strong> cards (<strong id="ps-test-bins">0</strong> BINs)</span>
         </div>
 
         <!-- STAGE 2: COMPARE (shown after parse) -->
@@ -7341,6 +7401,8 @@ function renderParser() {
         PARSER_STATE.statusFilter = 'ALL';
         PARSER_STATE._compareSet = null;
         PARSER_STATE._pipelineStats = null;
+        // Сбрасываем TEST MODE при очистке парсера
+        PARSER_STATE.testMode = false;
         localStorage.removeItem('ct_parser_base');
         renderParser();
         toast('Parser cleared', 'info');
@@ -7396,7 +7458,31 @@ function renderParser() {
         PARSER_STATE.filters.filterClasses.clear();
         PARSER_STATE.filters.filterPaymentSystems.clear();
         document.querySelectorAll('.parser-level-btn').forEach(b => b.classList.remove('active'));
+        // Также деактивируем TEST MODE при сбросе
+        PARSER_STATE.testMode = false;
+        const tmBtn = document.getElementById('parser-test-mode');
+        if (tmBtn) tmBtn.classList.remove('active');
         toast('Фильтры сброшены', 'info');
+    });
+
+    // TEST MODE — toggle-кнопка: режим тестирования уникальных БИНов с ротацией
+    document.getElementById('parser-test-mode')?.addEventListener('click', () => {
+        PARSER_STATE.testMode = !PARSER_STATE.testMode;
+        const btn = document.getElementById('parser-test-mode');
+        if (btn) btn.classList.toggle('active', PARSER_STATE.testMode);
+
+        if (PARSER_STATE.testMode && PARSER_STATE.collected.length > 0) {
+            // При каждом клике сдвигаем ротацию (advance=true)
+            _applyTestMode(PARSER_STATE.collected, true);
+            toast('🧪 TEST MODE: ротация БИНов обновлена', 'info');
+        } else if (!PARSER_STATE.testMode) {
+            toast('TEST MODE выключен', 'info');
+        }
+
+        // Перерисовываем результаты с учётом TEST MODE
+        if (PARSER_STATE.collected.length > 0) {
+            renderParserResults();
+        }
     });
 
     _initTrashCardModal();
@@ -7978,23 +8064,41 @@ function _buildExportTabTitle() {
         parts.push(filters.bank);
     }
     if (parts.length === 0) return 'Export ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return parts.join(' — ');
+    // TEST MODE: добавляем маркер TEST в заголовок экспорта
+    const prefix = PARSER_STATE.testMode ? '🧪 TEST — ' : '';
+    return prefix + parts.join(' — ');
 }
 
 function importToProject() {
-    const list = PARSER_STATE.collected;
+    let list = PARSER_STATE.collected;
     if (list.length === 0) { toast('No cards to import', 'warning'); return; }
 
+    // TEST MODE: экспортируем только уникальные БИНы с текущей ротацией
+    if (PARSER_STATE.testMode) {
+        list = _applyTestMode(list, false);
+    }
+
     const lines = [];
-    PARSER_STATE.selected.forEach(idx => {
-        const c = list[idx];
-        if (!c) return;
-        const cc = (c.cc || '').replace(/\s/g, '');
-        const mm = (c.mm || '').padStart(2, '0');
-        const yy = c.yy || '';
-        const cvv = c.cvv || '000';
-        lines.push(`${cc} ${mm} ${yy} ${cvv}`);
-    });
+    // В TEST MODE экспортируем все карты из отфильтрованного списка, без TEST MODE — только выбранные
+    if (PARSER_STATE.testMode) {
+        list.forEach(c => {
+            const cc = (c.cc || '').replace(/\s/g, '');
+            const mm = (c.mm || '').padStart(2, '0');
+            const yy = c.yy || '';
+            const cvv = c.cvv || '000';
+            lines.push(`${cc} ${mm} ${yy} ${cvv}`);
+        });
+    } else {
+        PARSER_STATE.selected.forEach(idx => {
+            const c = PARSER_STATE.collected[idx];
+            if (!c) return;
+            const cc = (c.cc || '').replace(/\s/g, '');
+            const mm = (c.mm || '').padStart(2, '0');
+            const yy = c.yy || '';
+            const cvv = c.cvv || '000';
+            lines.push(`${cc} ${mm} ${yy} ${cvv}`);
+        });
+    }
 
     if (lines.length === 0) { toast('No cards selected for import', 'warning'); return; }
 
@@ -8046,6 +8150,29 @@ function renderParserResults(geoFilter) {
     const activeGeo = geoFilter || '';
     let displayList = activeGeo ? list.filter(c => (c.detectedGeo || '').toUpperCase() === activeGeo) : list;
 
+    // TEST MODE: применяем дедупликацию по БИНам с ротацией (после всех фильтров)
+    let testModeActive = PARSER_STATE.testMode;
+    let testModeCards = 0;
+    let testModeBins = 0;
+    if (testModeActive) {
+        // advance=false — не сдвигаем ротацию при перерисовке (сдвиг только при клике)
+        displayList = _applyTestMode(displayList, false);
+        testModeCards = displayList.length;
+        // Считаем уникальные БИНы
+        const uniqueBins = new Set(displayList.map(c => c.bin));
+        testModeBins = uniqueBins.size;
+    }
+
+    // Обновляем статистику TEST MODE в stats bar
+    const testStatEl = document.getElementById('ps-test-mode');
+    if (testStatEl) {
+        testStatEl.style.display = testModeActive ? 'inline' : 'none';
+        const cardsEl = document.getElementById('ps-test-cards');
+        const binsEl = document.getElementById('ps-test-bins');
+        if (cardsEl) cardsEl.textContent = testModeCards;
+        if (binsEl) binsEl.textContent = testModeBins;
+    }
+
     // Sort
     const sortBy = PARSER_STATE.sortBy || 'index';
     const binCounts = {};
@@ -8054,14 +8181,16 @@ function renderParserResults(geoFilter) {
     if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin] || 0) - (binCounts[a.bin] || 0));
     else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin] || 0) - (binCounts[b.bin] || 0));
 
-    // Summary
+    // Summary (учитываем TEST MODE в отображении)
+    const displayCount = displayList.length;
     const summaryHtml = `<div class="parser-summary">
         <span class="ps-item">Clean: <strong>${list.length}</strong></span>
+        ${testModeActive ? `<span class="ps-item" style="color:#60a5fa">🧪 Test Mode: <strong>${testModeCards}</strong> cards (<strong>${testModeBins}</strong> BINs)</span>` : ''}
     </div>`;
 
-    // Import button
+    // Import button (показываем количество с учётом TEST MODE)
     const importHtml = `<div class="parser-action-bar">
-        <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${list.length})</button>
+        <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${displayCount})</button>
     </div>`;
 
     // GEO dropdown
