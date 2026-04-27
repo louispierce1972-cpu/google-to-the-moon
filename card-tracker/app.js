@@ -929,7 +929,7 @@ function renderAnalytics() {
         ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) <= periodMs; })
         : allCards;
 
-    // Previous period cards for trend comparison
+    // Previous period cards for trend comparison (only used for overall trend if needed)
     const prevCards = periodMs > 0
         ? allCards.filter(c => { const t = _anParseDate(c.date); return t && (now - t) > periodMs && (now - t) <= periodMs * 2; })
         : [];
@@ -948,91 +948,180 @@ function renderAnalytics() {
         binMap[bin].cards.push(c);
     });
 
-    // Previous period BIN stats for trend
-    const prevBinMap = {};
-    prevCards.forEach(c => {
-        const bin = getBin(c.cardNumber);
-        if (!bin || bin.length < 6) return;
-        if (!prevBinMap[bin]) prevBinMap[bin] = { used: 0, a: 0 };
-        prevBinMap[bin].used++;
-        if (c.cardAdd) prevBinMap[bin].a++;
-    });
-
-    // Sort by USED desc
-    const bins = Object.values(binMap).sort((a, b) => b.used - a.used);
-
-    // Build grid rows
-    let rowsHtml = '';
-    if (bins.length === 0) {
-        rowsHtml = '<div class="an-empty">No data for this period</div>';
-    } else {
-        bins.forEach(b => {
-            const rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
-
-            // Trend calculation
-            let trendHtml = '<span class="an-trend an-trend-na">——</span>';
-            if (_anPeriod > 0 && prevBinMap[b.bin]) {
-                const prevRate = prevBinMap[b.bin].used > 0
-                    ? Math.round((prevBinMap[b.bin].a / prevBinMap[b.bin].used) * 100) : 0;
-                const delta = rate - prevRate;
-                if (delta > 0) {
-                    trendHtml = `<span class="an-trend an-trend-up">▲ +${delta}%</span>`;
-                } else if (delta < 0) {
-                    trendHtml = `<span class="an-trend an-trend-down">▼ ${delta}%</span>`;
-                } else {
-                    trendHtml = '<span class="an-trend an-trend-na">── 0%</span>';
+    // Add SCORE, RATE and sorting
+    const bins = Object.values(binMap).map(b => {
+        b.score = b.a + b.r;
+        b.rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
+        
+        // Generate trend data
+        const numDays = _anPeriod > 0 ? _anPeriod : 30; // default 30 days for 'All'
+        const counts = new Array(numDays).fill(0);
+        b.cards.forEach(c => {
+            const t = _anParseDate(c.date);
+            if (t) {
+                const daysAgo = Math.floor((now - t) / DAY);
+                if (daysAgo >= 0 && daysAgo < numDays) {
+                    counts[numDays - 1 - daysAgo]++;
                 }
             }
-
-            // Rate color class
-            let rateClass = 'an-rate-bad';
-            if (rate >= 60) rateClass = 'an-rate-good';
-            else if (rate >= 30) rateClass = 'an-rate-mid';
-
-            rowsHtml += `<div class="an-row" data-bin="${b.bin}">
-                    <span class="an-cell an-cell-bin">${b.bin}</span>
-                    <span class="an-cell an-cell-num">${b.used}</span>
-                    <span class="an-cell an-cell-a">${b.a}</span>
-                    <span class="an-cell an-cell-r">${b.r}</span>
-                    <span class="an-cell an-cell-v">${b.v}</span>
-                    <span class="an-cell an-cell-m">${b.m}</span>
-                    <span class="an-cell ${rateClass}">${rate}%</span>
-                    <span class="an-cell">${trendHtml}</span>
-                </div>`;
         });
-    }
+        b.trendData = counts;
+        return b;
+    }).sort((a, b) => b.score - a.score || b.used - a.used);
 
-    area.innerHTML = `
-            <div class="an-workspace">
-                <div class="an-period-bar">
-                    <button class="an-period-btn ${_anPeriod === 7 ? 'active' : ''}" data-days="7">7d</button>
-                    <button class="an-period-btn ${_anPeriod === 14 ? 'active' : ''}" data-days="14">14d</button>
-                    <button class="an-period-btn ${_anPeriod === 30 ? 'active' : ''}" data-days="30">30d</button>
-                    <button class="an-period-btn ${_anPeriod === 0 ? 'active' : ''}" data-days="0">All</button>
-                    <span class="an-summary">${bins.length} BINs · ${cards.length} cards</span>
-                </div>
-                <div class="an-grid-wrap">
-                    <div class="an-grid-header">
-                        <span class="an-cell an-cell-bin">BIN</span>
-                        <span class="an-cell an-cell-num">USED</span>
-                        <span class="an-cell an-cell-a">A</span>
-                        <span class="an-cell an-cell-r">R</span>
-                        <span class="an-cell an-cell-v">V</span>
-                        <span class="an-cell an-cell-m">M</span>
-                        <span class="an-cell">RATE</span>
-                        <span class="an-cell">TREND</span>
+    const createSparkline = (data) => {
+        if (!data || data.length === 0) return '';
+        const w = 80, h = 30;
+        const max = Math.max(...data, 1);
+        const min = 0;
+        const pts = data.map((val, i) => {
+            const x = (i / (data.length - 1)) * w;
+            const y = h - ((val - min) / (max - min)) * (h - 4) - 2;
+            return `${x},${y}`;
+        }).join(' ');
+
+        const firstHalf = data.slice(0, Math.floor(data.length / 2)).reduce((a, b) => a + b, 0);
+        const secondHalf = data.slice(Math.floor(data.length / 2)).reduce((a, b) => a + b, 0);
+        
+        let color = '#71717A'; // gray
+        let trendType = 'stable';
+        if (secondHalf > firstHalf) { color = '#22C55E'; trendType = 'up'; }
+        else if (secondHalf < firstHalf) { color = '#EF4444'; trendType = 'down'; }
+
+        return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="sparkline-svg ${trendType}">
+            <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sparkline-path" />
+        </svg>`;
+    };
+
+    const getRateHtml = (rate) => {
+        let colorClass = 'rate-red', icon = '⚠️';
+        if (rate >= 90) { colorClass = 'rate-green'; icon = rate === 100 ? '✔️' : '📈'; }
+        else if (rate >= 80) { colorClass = 'rate-yellow'; icon = '⚡'; }
+        return `<span class="rate-indicator ${colorClass}">${rate}% <span class="rate-icon">${icon}</span></span>`;
+    };
+
+    const getMedal = (idx) => {
+        if (idx === 0) return '🥇';
+        if (idx === 1) return '🥈';
+        if (idx === 2) return '🥉';
+        return '';
+    };
+
+    const avgScore = bins.length ? (bins.reduce((s, b) => s + b.score, 0) / bins.length).toFixed(1) : 0;
+    const bestRate = bins.length ? Math.max(...bins.map(b => b.rate)) : 0;
+
+    let cardsHtml = '';
+    const topBins = bins.slice(0, 3);
+    topBins.forEach((b, i) => {
+        const binInfo = BIN_CACHE[b.bin] || {};
+        const bankName = binInfo.bank || 'Unknown Bank';
+        cardsHtml += `
+            <div class="top-card">
+                <div class="tc-header">
+                    <div class="tc-medal">${getMedal(i)}</div>
+                    <div class="tc-bin-info">
+                        <div class="tc-bin">${b.bin}</div>
+                        <div class="tc-bank">${bankName}</div>
                     </div>
-                    <div class="an-grid-body">${rowsHtml}</div>
+                    <div class="tc-rate">${getRateHtml(b.rate)}</div>
+                </div>
+                <div class="tc-body">
+                    <div class="tc-score">
+                        <span class="tc-score-lbl">SCORE</span>
+                        <span class="tc-score-val">⭐ ${b.score}</span>
+                    </div>
+                    <div class="tc-graph">${createSparkline(b.trendData)}</div>
+                </div>
+                <div class="tc-footer">
+                    <div class="tc-stat"><span class="tc-stat-lbl">A</span><span class="tc-stat-val pos">${b.a}</span></div>
+                    <div class="tc-stat"><span class="tc-stat-lbl">R</span><span class="tc-stat-val neg">${b.r}</span></div>
+                    <div class="tc-stat"><span class="tc-stat-lbl">V</span><span class="tc-stat-val warn">${b.v}</span></div>
+                    <div class="tc-stat"><span class="tc-stat-lbl">M</span><span class="tc-stat-val neu">${b.m}</span></div>
                 </div>
             </div>
-            <div id="an-modal" class="an-modal hidden"></div>
         `;
+    });
+
+    let rowsHtml = '';
+    bins.forEach((b, i) => {
+        const trClass = i < 3 ? `an-row top-row top-row-${i+1}` : 'an-row';
+        rowsHtml += `<tr class="${trClass}" data-bin="${b.bin}">
+                <td class="td-num">${i + 1} ${getMedal(i)}</td>
+                <td class="bin-cell">${b.bin}</td>
+                <td>${b.used}</td>
+                <td class="score-cell"><strong>${b.score}</strong></td>
+                <td style="color:var(--green)">${b.a}</td>
+                <td style="color:var(--red)">${b.r}</td>
+                <td style="color:var(--amber)">${b.v}</td>
+                <td style="color:var(--text-dim)">${b.m}</td>
+                <td>${getRateHtml(b.rate)}</td>
+                <td class="trend-cell">${createSparkline(b.trendData)}</td>
+            </tr>`;
+    });
+
+    area.innerHTML = `
+        <div class="an-workspace fade-in">
+            <div class="an-top-bar">
+                <div class="an-filters">
+                    <button class="an-pill ${_anPeriod === 7 ? 'active' : ''}" data-days="7">7d</button>
+                    <button class="an-pill ${_anPeriod === 14 ? 'active' : ''}" data-days="14">14d</button>
+                    <button class="an-pill ${_anPeriod === 30 ? 'active' : ''}" data-days="30">30d</button>
+                    <button class="an-pill ${_anPeriod === 0 ? 'active' : ''}" data-days="0">ALL</button>
+                </div>
+                <div class="an-global-stats">
+                    <div class="an-g-stat"><span class="an-gs-val">${bins.length}</span><span class="an-gs-lbl">TOTAL BINS</span></div>
+                    <div class="an-g-stat"><span class="an-gs-val">${cards.length}</span><span class="an-gs-lbl">TOTAL CARDS</span></div>
+                    <div class="an-g-stat"><span class="an-gs-val">${avgScore}</span><span class="an-gs-lbl">AVG SCORE</span></div>
+                    <div class="an-g-stat"><span class="an-gs-val rate-green">${bestRate}%</span><span class="an-gs-lbl">BEST RATE</span></div>
+                </div>
+            </div>
+            
+            <div class="an-top-cards-wrap">
+                ${cardsHtml}
+            </div>
+
+            <div class="an-table-wrapper">
+                <table class="data-table an-modern-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>BIN</th>
+                            <th>USED</th>
+                            <th>SCORE</th>
+                            <th>A</th>
+                            <th>R</th>
+                            <th>V</th>
+                            <th>M</th>
+                            <th>RATE</th>
+                            <th>TREND</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>
+        <div id="an-modal" class="an-modal hidden"></div>
+    `;
+
+    // Stagger animation for rows
+    const rows = area.querySelectorAll('.an-row');
+    rows.forEach((r, i) => {
+        r.style.opacity = '0';
+        r.style.transform = 'translateY(10px)';
+        r.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        setTimeout(() => {
+            r.style.opacity = '1';
+            r.style.transform = 'translateY(0)';
+        }, 50 * Math.min(i, 20)); // cap delay at 20 rows
+    });
 
     // Period button listeners
-    area.querySelectorAll('.an-period-btn').forEach(btn => {
+    area.querySelectorAll('.an-pill').forEach(btn => {
         btn.addEventListener('click', () => {
             _anPeriod = parseInt(btn.dataset.days);
-            renderAnalytics();
+            // Quick fade out
+            area.querySelector('.an-workspace').classList.add('fade-out');
+            setTimeout(renderAnalytics, 150);
         });
     });
 
