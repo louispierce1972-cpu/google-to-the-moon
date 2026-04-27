@@ -2448,6 +2448,91 @@ function _saveTasksData(data) {
 if (!STATE._tasksWeekOffset) STATE._tasksWeekOffset = 0;
 if (!STATE._tasksCategory) STATE._tasksCategory = 'all';
 
+// ── Pomodoro: состояние таймера (сохраняется между ре-рендерами) ──
+let _pomodoroRunning = false;
+let _pomodoroInterval = null;
+let _pomodoroSeconds = 25 * 60; // текущее кол-во секунд
+let _pomodoroDuration = 25 * 60; // выбранная длительность в секундах
+
+// Создаём Audio-объект для звукового сигнала (Web Audio API синтез бипа)
+function _playPomodoroBeep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 1.2);
+        // Второй бип через 0.3 секунды для эффекта колокольчика
+        setTimeout(() => {
+            try {
+                const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+                const osc2 = ctx2.createOscillator();
+                const gain2 = ctx2.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx2.destination);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1320, ctx2.currentTime);
+                gain2.gain.setValueAtTime(0.3, ctx2.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + 0.8);
+                osc2.start(ctx2.currentTime);
+                osc2.stop(ctx2.currentTime + 0.8);
+            } catch(e){}
+        }, 300);
+    } catch(e) { console.warn('Audio не поддерживается', e); }
+}
+
+// Получить количество завершённых помодоро за сегодня из localStorage
+function _getPomodoroHistory() {
+    try {
+        const raw = localStorage.getItem('pomodoroHistory');
+        const hist = JSON.parse(raw || '{}');
+        const todayKey = new Date().toISOString().slice(0, 10);
+        return hist[todayKey] || 0;
+    } catch { return 0; }
+}
+
+// Записать завершённый помодоро в localStorage
+function _incrementPomodoroHistory() {
+    try {
+        const raw = localStorage.getItem('pomodoroHistory');
+        const hist = JSON.parse(raw || '{}');
+        const todayKey = new Date().toISOString().slice(0, 10);
+        hist[todayKey] = (hist[todayKey] || 0) + 1;
+        localStorage.setItem('pomodoroHistory', JSON.stringify(hist));
+    } catch {}
+}
+
+// Форматировать секунды в MM:SS
+function _formatPomodoroTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Обновить DOM таймера без полного ре-рендера
+function _updatePomodoroDOM() {
+    const display = document.getElementById('pom-display');
+    const ring = document.getElementById('pom-ring');
+    if (display) display.textContent = _formatPomodoroTime(_pomodoroSeconds);
+    if (ring) {
+        // SVG окружность: r=54, периметр = 2*π*54 ≈ 339.3
+        const circumference = 339.3;
+        const progress = _pomodoroSeconds / _pomodoroDuration;
+        const offset = circumference * (1 - progress);
+        ring.style.strokeDashoffset = offset;
+    }
+    // Пульсирующая анимация когда таймер активен
+    const wrap = document.getElementById('pom-timer-wrap');
+    if (wrap) wrap.classList.toggle('pom-active', _pomodoroRunning);
+}
+
 const CAT_COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#8b5cf6','#14b8a6','#f97316','#84cc16'];
 
 function renderTasks() {
@@ -2588,9 +2673,93 @@ function renderTasks() {
         habitDayHeaders += `<div class="tw-habit-day-head ${isT ? 'tw-habit-today' : ''}">${d.slice(0,2)}</div>`;
     });
 
+    // ── Генерируем HTML кругового SVG-индикатора прогресса ──
+    const _circleProgress = (pct, icon, label, done, total) => {
+        const r = 54;
+        const circumference = 2 * Math.PI * r; // ≈ 339.3
+        const offset = circumference * (1 - pct / 100);
+        const color = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#6366f1';
+        return `<div class="pom-circle-wrap">
+            <svg class="pom-circle-svg" viewBox="0 0 120 120" width="100" height="100">
+                <circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
+                <circle class="pom-arc" cx="60" cy="60" r="${r}" fill="none"
+                    stroke="${color}" stroke-width="7"
+                    stroke-linecap="round"
+                    stroke-dasharray="${circumference.toFixed(1)}"
+                    stroke-dashoffset="${circumference.toFixed(1)}"
+                    data-target-offset="${offset.toFixed(1)}"
+                    transform="rotate(-90 60 60)"/>
+                <text x="60" y="52" text-anchor="middle" dominant-baseline="middle" font-size="22">${icon}</text>
+                <text x="60" y="74" text-anchor="middle" dominant-baseline="middle"
+                    fill="${color}" font-size="14" font-weight="700" font-family="Inter,sans-serif">${pct}%</text>
+            </svg>
+            <div class="pom-circle-label">${label}</div>
+            <div class="pom-circle-sub">${done}/${total} done</div>
+        </div>`;
+    };
+
+    // ── История помодоро за сегодня ──
+    const pomHistory = _getPomodoroHistory();
+    const pomTomatoes = pomHistory > 0
+        ? Array(Math.min(pomHistory, 12)).fill('🍅').join('')
+        : '<span style="opacity:0.4;font-size:12px">Нет завершённых сессий</span>';
+
+    // ── Режимы Pomodoro ──
+    const pomModes = [
+        { label: '🍅 25 мин', seconds: 25 * 60 },
+        { label: '☕ 5 мин',  seconds: 5 * 60 },
+        { label: '🌿 15 мин', seconds: 15 * 60 },
+    ];
+    const pomModesHtml = pomModes.map(m =>
+        `<button class="pom-mode-btn${_pomodoroDuration === m.seconds ? ' pom-mode-active' : ''}" data-sec="${m.seconds}">${m.label}</button>`
+    ).join('');
+
+    // ── SVG кольцо таймера ──
+    const pomR = 54;
+    const pomCircumference = 2 * Math.PI * pomR; // 339.3
+    const pomOffset = pomCircumference * (1 - _pomodoroSeconds / _pomodoroDuration);
+
     area.innerHTML = `
     <div class="tw-container">
-        <!-- HEADER -->
+
+        <!-- ═══ POMODORO ТАЙМЕР ═══ -->
+        <div class="pom-section">
+            <div class="pom-left">
+                <div class="pom-modes">${pomModesHtml}</div>
+                <div class="pom-timer-wrap${_pomodoroRunning ? ' pom-active' : ''}" id="pom-timer-wrap">
+                    <svg class="pom-timer-svg" viewBox="0 0 120 120" width="160" height="160">
+                        <circle cx="60" cy="60" r="${pomR}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7"/>
+                        <circle id="pom-ring" cx="60" cy="60" r="${pomR}" fill="none"
+                            stroke="#22c55e" stroke-width="7" stroke-linecap="round"
+                            stroke-dasharray="${pomCircumference.toFixed(1)}"
+                            stroke-dashoffset="${pomOffset.toFixed(1)}"
+                            transform="rotate(-90 60 60)"
+                            style="transition:stroke-dashoffset 1s linear"/>
+                    </svg>
+                    <div class="pom-display" id="pom-display">${_formatPomodoroTime(_pomodoroSeconds)}</div>
+                </div>
+                <div class="pom-controls">
+                    <button class="pom-btn pom-btn-start" id="pom-start">▶ START</button>
+                    <button class="pom-btn pom-btn-pause" id="pom-pause">⏸ PAUSE</button>
+                    <button class="pom-btn pom-btn-reset" id="pom-reset">↺ RESET</button>
+                </div>
+                <div class="pom-history">
+                    <span class="pom-history-label">Сегодня:</span>
+                    <div class="pom-tomatoes" id="pom-tomatoes">${pomTomatoes}</div>
+                </div>
+            </div>
+
+            <!-- ═══ КРУГОВЫЕ ИНДИКАТОРЫ ПРОГРЕССА ═══ -->
+            <div class="pom-right">
+                <div class="pom-circles">
+                    ${_circleProgress(taskPct, '📋', 'Tasks', doneTasks, totalTasks || 0)}
+                    ${_circleProgress(habitPct, '🎯', 'Habits', doneHabitCells, totalHabitCells || 0)}
+                    ${_circleProgress(overallPct, '⭐', 'Overall', doneTasks + doneHabitCells, (totalTasks + totalHabitCells) || 0)}
+                </div>
+            </div>
+        </div>
+
+        <!-- HEADER (навигация по неделям) -->
         <div class="tw-header">
             <div class="tw-nav">
                 <button class="tw-nav-btn" id="tw-prev" title="Previous week">◀</button>
@@ -2599,14 +2768,6 @@ function renderTasks() {
                     ${isCurrentWeek ? '<span class="tw-current-badge">This Week</span>' : ''}
                 </div>
                 <button class="tw-nav-btn" id="tw-next" title="Next week">▶</button>
-            </div>
-            <div class="tw-progress-bar-wrap">
-                <div class="tw-progress-stats">
-                    <span class="tw-stat-item">📋 Tasks <strong>${taskPct}%</strong></span>
-                    <span class="tw-stat-item">🔁 Habits <strong>${habitPct}%</strong></span>
-                    <span class="tw-stat-item tw-stat-overall">Overall <strong>${overallPct}%</strong></span>
-                </div>
-                <div class="tw-progress-track"><div class="tw-progress-fill" style="width:${overallPct}%"></div></div>
             </div>
         </div>
 
@@ -2630,6 +2791,15 @@ function renderTasks() {
             </div>
         </div>
     </div>`;
+
+    // ── Анимация кругов прогресса при загрузке (от 0 до целевого offset) ──
+    setTimeout(() => {
+        document.querySelectorAll('.pom-arc').forEach(arc => {
+            const target = parseFloat(arc.dataset.targetOffset);
+            arc.style.transition = 'stroke-dashoffset 1s ease-out';
+            arc.style.strokeDashoffset = target;
+        });
+    }, 60);
 
     // ── EVENTS ──
 
@@ -2794,6 +2964,71 @@ function renderTasks() {
             renderTasks();
             toast('Habit deleted', 'info');
         });
+    });
+
+    // ── Pomodoro: выбор режима (25/5/15 мин) ──
+    document.querySelectorAll('.pom-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Если таймер идёт — останавливаем при смене режима
+            if (_pomodoroRunning) {
+                clearInterval(_pomodoroInterval);
+                _pomodoroInterval = null;
+                _pomodoroRunning = false;
+            }
+            _pomodoroDuration = parseInt(btn.dataset.sec);
+            _pomodoroSeconds = _pomodoroDuration;
+            // Перерисовываем таймер с новым режимом
+            renderTasks();
+        });
+    });
+
+    // ── Pomodoro: START ──
+    document.getElementById('pom-start')?.addEventListener('click', () => {
+        if (_pomodoroRunning) return;
+        _pomodoroRunning = true;
+        _updatePomodoroDOM();
+        _pomodoroInterval = setInterval(() => {
+            if (_pomodoroSeconds > 0) {
+                _pomodoroSeconds--;
+                _updatePomodoroDOM();
+            } else {
+                // Таймер завершён — звуковой сигнал + запись в историю
+                clearInterval(_pomodoroInterval);
+                _pomodoroInterval = null;
+                _pomodoroRunning = false;
+                _playPomodoroBeep();
+                _incrementPomodoroHistory();
+                // Обновляем историю в DOM без полного ре-рендера
+                const hist = _getPomodoroHistory();
+                const tomatoEl = document.getElementById('pom-tomatoes');
+                if (tomatoEl) {
+                    tomatoEl.innerHTML = hist > 0
+                        ? Array(Math.min(hist, 12)).fill('🍅').join('')
+                        : '<span style="opacity:0.4;font-size:12px">Нет завершённых сессий</span>';
+                }
+                _pomodoroSeconds = _pomodoroDuration;
+                _updatePomodoroDOM();
+                toast('🍅 Помодоро завершён! Отдохните немного.', 'success');
+            }
+        }, 1000);
+    });
+
+    // ── Pomodoro: PAUSE ──
+    document.getElementById('pom-pause')?.addEventListener('click', () => {
+        if (!_pomodoroRunning) return;
+        clearInterval(_pomodoroInterval);
+        _pomodoroInterval = null;
+        _pomodoroRunning = false;
+        _updatePomodoroDOM();
+    });
+
+    // ── Pomodoro: RESET ──
+    document.getElementById('pom-reset')?.addEventListener('click', () => {
+        clearInterval(_pomodoroInterval);
+        _pomodoroInterval = null;
+        _pomodoroRunning = false;
+        _pomodoroSeconds = _pomodoroDuration;
+        _updatePomodoroDOM();
     });
 
     // Focus today if current week
