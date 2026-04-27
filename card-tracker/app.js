@@ -3674,19 +3674,20 @@ function renderNotes() {
     }).join('');
     tabsHTML += `<button class="nt-new-tab" id="nt-new-tab">+</button>`;
 
+    // Build dropdown items separately to avoid nested template literal issues
+    const dropdownItemsHTML = tabs.map(t => {
+        const linesCount = (t.content || '').split('\n').length;
+        const isActive = t.id === STATE.notesActiveTab;
+        return '<button class="nt-dropdown-item ' + (isActive ? 'active' : '') + '" data-tab="' + t.id + '">'
+            + (isActive ? '✓ ' : '') + t.title + ' <span class="nt-item-lines">(' + linesCount + ' lines)</span>'
+            + '</button>';
+    }).join('');
+
     tabsHTML += `
         <div class="nt-dropdown-wrap">
             <button class="nt-dropdown-btn" id="nt-all-notes-btn">All Notes (${tabs.length}) ▾</button>
             <div class="nt-dropdown-menu hidden" id="nt-all-notes-menu">
-                <div class="nt-dropdown-list">
-                    ${tabs.map(t => {
-                        const linesCount = (t.content || '').split('\\n').length;
-                        const isActive = t.id === STATE.notesActiveTab;
-                        return \`<button class="nt-dropdown-item \${isActive ? 'active' : ''}" data-tab="\${t.id}">
-                            \${isActive ? '✓ ' : ''}\${t.title} <span class="nt-item-lines">(\${linesCount} lines)</span>
-                        </button>\`;
-                    }).join('')}
-                </div>
+                <div class="nt-dropdown-list">${dropdownItemsHTML}</div>
                 <div class="nt-dropdown-divider"></div>
                 <div class="nt-dropdown-actions">
                     <button class="nt-dropdown-action" id="nt-close-all">Close All</button>
