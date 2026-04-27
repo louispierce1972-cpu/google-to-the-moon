@@ -4059,8 +4059,8 @@ window._showCardDrawer = function (cardNum, el) {
         const fullName = (c.name + ' ' + c.surname).trim().toUpperCase() || '—';
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
-            <span class="drawer-name" style="font-weight:600;color:var(--text-primary)">${fullName}</span>
-            <span class="drawer-card" style="opacity:0.5;font-size:11px">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-name">${fullName}</span>
+            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
             <span class="drawer-status">${statuses}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;
@@ -4109,8 +4109,8 @@ window._showNameDrawer = function (fullName, el) {
         const binTxt = formatBinInfoText(binInfo);
         return `<div class="drawer-row">
             <span class="drawer-flag">${flag}</span>
-            <span class="drawer-card" style="font-weight:600;color:var(--text-primary);font-family:monospace">${maskCard(c.cardNumber)}</span>
-            <span class="drawer-name" style="opacity:0.55;font-size:11px">${binTxt || bin}</span>
+            <span class="drawer-card drawer-card-primary">${maskCard(c.cardNumber)}</span>
+            <span class="drawer-name drawer-name-dim">${binTxt || bin}</span>
             <span class="drawer-status">${statuses}</span>
             <span class="drawer-date">${c.date || '—'}</span>
         </div>`;

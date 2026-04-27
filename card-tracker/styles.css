@@ -7020,15 +7020,17 @@ tr.row-selected td {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
 }
 
 .drawer-header {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     font-family: var(--font-mono);
-    color: var(--text-dim);
-    letter-spacing: .5px;
+    color: var(--text-secondary);
+    letter-spacing: .3px;
 }
 
 .drawer-close-btn {
@@ -7038,10 +7040,11 @@ tr.row-selected td {
     color: var(--text-dim);
     font-size: 11px;
     cursor: pointer;
-    padding: 1px 6px;
+    padding: 2px 8px;
     line-height: 1.4;
     transition: all .15s;
     flex-shrink: 0;
+    margin-left: 12px;
 }
 
 .drawer-close-btn:hover {
@@ -7050,47 +7053,73 @@ tr.row-selected td {
     color: #ef4444;
 }
 
+/* ─── Drawer rows: CSS Grid для идеального выравнивания ─── */
 .drawer-row {
-    display: flex;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 22px 170px 1fr 50px 72px;
+    gap: 8px;
     align-items: center;
-    padding: 3px 0;
+    padding: 5px 4px;
     font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-secondary);
     border-radius: 3px;
-    transition: background .1s;
+    border-bottom: 1px solid rgba(255, 255, 255, .03);
+    transition: background .12s;
+}
+
+.drawer-row:last-child {
+    border-bottom: none;
 }
 
 .drawer-row:hover {
-    background: rgba(255, 255, 255, .04);
-    padding-left: 4px;
+    background: rgba(255, 255, 255, .05);
 }
 
 .drawer-flag {
-    width: 18px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .drawer-name {
-    width: 180px;
+    color: var(--text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drawer-card {
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Модификаторы: Name Drawer — карта = primary, BIN info = dim */
+.drawer-card-primary {
     color: var(--text-primary);
     font-weight: 600;
 }
 
-.drawer-card {
-    width: 160px;
+.drawer-name-dim {
     color: var(--text-dim);
+    font-weight: 400;
+    opacity: .65;
+    font-size: 10px;
 }
 
 .drawer-status {
-    width: 60px;
     color: #38BDF8;
     font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .drawer-date {
     color: var(--text-dim);
+    text-align: right;
+    white-space: nowrap;
 }
 
 /* ═══════ PARSER TYPE TOGGLE BUTTONS ═══════ */
