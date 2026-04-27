@@ -3303,6 +3303,7 @@ window._toggleAllCardsDrawer = function (cardNum, rowEl) {
         </div>
     </td>`;
     rowEl.after(drawerTr);
+    _enableDrawerScroll(drawerTr);
 };
 
 // Documents detail drawer toggle
@@ -3346,6 +3347,7 @@ window._toggleDocDrawer = function (docId, rowEl) {
         </div>
     </td>`;
     rowEl.after(drawerTr);
+    _enableDrawerScroll(drawerTr);
 };
 
 function renderDocs() {
@@ -4029,6 +4031,15 @@ window.permanentDelete = function (id) {
 
 // ═══════ EXPAND DRAWERS ═══════
 
+// После завершения анимации — добавляем класс drawer-open для скролла
+function _enableDrawerScroll(drawerTr) {
+    const content = drawerTr.querySelector('.drawer-content');
+    if (!content) return;
+    content.addEventListener('animationend', () => {
+        content.classList.add('drawer-open');
+    }, { once: true });
+}
+
 window._showCardDrawer = function (cardNum, el) {
     const existing = document.querySelector('.expand-drawer');
     if (existing) {
@@ -4071,6 +4082,7 @@ window._showCardDrawer = function (cardNum, el) {
         </div>
     </td>`;
     tr.after(drawerTr);
+    _enableDrawerScroll(drawerTr);
 };
 
 window._showNameDrawer = function (fullName, el) {
@@ -4120,6 +4132,7 @@ window._showNameDrawer = function (fullName, el) {
         </div>
     </td>`;
     tr.after(drawerTr);
+    _enableDrawerScroll(drawerTr);
 };
 
 // ──── MULTI-SELECT ACTIONS ────

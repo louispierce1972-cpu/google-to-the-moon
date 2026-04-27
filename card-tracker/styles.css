@@ -6986,13 +6986,20 @@ tr.row-selected td {
     border-bottom: 1px solid var(--border-subtle);
 }
 
+/* Drawer: тёмный фон, цветная полоса слева, отступ, плавная анимация */
 .drawer-content {
     background: rgba(0, 0, 0, .30);
     border-left: 3px solid #38BDF8;
     padding: 8px 12px 8px 40px;
     overflow: hidden;
     max-height: 0;
-    animation: drawerOpen 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: drawerOpen 0.3s ease forwards;
+}
+
+/* После завершения анимации — показываем скролл если записей много */
+.drawer-content.drawer-open {
+    overflow-y: auto;
+    max-height: 60vh;
 }
 
 .drawer-content.drawer-closing {
@@ -7001,11 +7008,11 @@ tr.row-selected td {
 
 @keyframes drawerOpen {
     from { max-height: 0; opacity: 0; transform: translateY(-4px); }
-    to   { max-height: 800px; opacity: 1; transform: translateY(0); }
+    to   { max-height: 4000px; opacity: 1; transform: translateY(0); }
 }
 
 @keyframes drawerClose {
-    from { max-height: 800px; opacity: 1; }
+    from { max-height: 4000px; opacity: 1; }
     to   { max-height: 0; opacity: 0; }
 }
 
