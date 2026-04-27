@@ -385,6 +385,18 @@ function ensureDoc(card) {
     }
 }
 
+// ──── УДАЛЕНИЕ ССЫЛКИ НА КАРТУ ИЗ ДОКУМЕНТОВ ────
+// При удалении карты из Workspace нужно убрать её id из doc.cardIds
+function removeCardFromDocs(cardId) {
+    STATE.docs.forEach(doc => {
+        if (!doc.cardIds) return;
+        const idx = doc.cardIds.indexOf(cardId);
+        if (idx >= 0) {
+            doc.cardIds.splice(idx, 1);
+        }
+    });
+}
+
 // ──── FAVORITES LOGIC ────
 // Card goes to favorites when both cardAdd AND runAds are true
 function isFavorite(card) { return card.cardAdd && card.runAds; }
@@ -4195,6 +4207,8 @@ function bulkDeleteCards() {
     const ids = [..._selectedCards];
     const cards = STATE.cards.filter(c => ids.includes(c.id));
     if (cards.length === 0) return;
+    // Удаляем ссылки на карты из документов перед удалением
+    ids.forEach(id => removeCardFromDocs(id));
     STATE.trash.push(...cards);
     STATE.cards = STATE.cards.filter(c => !ids.includes(c.id));
     save();
@@ -4256,6 +4270,8 @@ function handleCardMenuAction(action) {
             break;
         }
         case 'delete':
+            // Удаляем cardId из массива doc.cardIds связанного документа
+            removeCardFromDocs(card.id);
             STATE.cards = STATE.cards.filter(c => c.id !== card.id);
             STATE.trash.push({ ...card, deletedAt: todayStr() });
             save();
@@ -4793,6 +4809,8 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
             const name = parts[0] || '';
             const surname = parts.slice(1).join(' ') || '';
 
+            // Документ добавляется напрямую в Documents — без создания записи
+            // в STATE.cards. cardIds пустой, use = 0 (нет привязанных карт).
             STATE.docs.push({
                 id: genId(),
                 fullName,
@@ -4804,7 +4822,8 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
                 suspended: 0,
                 docStatus: 'new',
                 preview: previewBase64 || '',
-                use: 1,
+                cardIds: [],   // Пустой массив — нет привязанных карт
+                use: 0,        // 0 — документ standalone, не связан с картами
                 country,
                 date: dateStr,
             });
