@@ -37,7 +37,7 @@ const STATE = {
 };
 
 
-const CREDENTIALS = { username: 'admin', password: 'google2026' };
+const CREDENTIALS = { username: 'admin', password: 'google2027' };
 
 // ──── BIN CACHE (RustBin API) ────
 let BIN_CACHE = {};
