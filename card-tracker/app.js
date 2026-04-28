@@ -899,6 +899,25 @@ function renderStats() {
         return;
     }
 
+    // ── Trash view — специальная секция со счётчиками и кнопкой CHECK BASE ──
+    if (STATE.currentView === 'trash') {
+        const trashDeleted = (STATE.trash || []).length;
+        const trashParser = (STATE.trashCards || []).length;
+        const trashTotal = trashDeleted + trashParser;
+        bar.innerHTML = `
+            <div class="stat-card total"><span class="stat-label">Total Trash</span><span class="stat-value">${trashTotal}</span></div>
+            <div class="stat-card suspended"><span class="stat-label">Deleted Cards</span><span class="stat-value">${trashDeleted}</span></div>
+            <div class="stat-card run-ads"><span class="stat-label">Parser Trash</span><span class="stat-value">${trashParser}</span></div>
+            <div class="stat-card active-stat check-base-card" id="check-base-open" style="cursor:pointer">
+                <span class="stat-label">Check Base</span>
+                <span class="stat-value" style="font-size:18px">🔍</span>
+            </div>
+        `;
+        // Клик по карточке CHECK BASE открывает модал
+        document.getElementById('check-base-open')?.addEventListener('click', _openCheckBase);
+        return;
+    }
+
     // Cards view (country / favorites / active / trash)
     const cards = getFilteredCards();
     const s = getCardStats(cards);
@@ -978,6 +997,242 @@ function _copyStatCards(filter, cards) {
         document.execCommand('copy');
         document.body.removeChild(ta);
         toast(`Copied ${filtered.length} cards`, 'success');
+    });
+}
+
+
+// ══════════════════════════════════════
+//  CHECK BASE — Проверка карт против Trash
+//  Сравнивает вставленные карты с STATE.trash + STATE.trashCards
+// ══════════════════════════════════════
+
+// Хранилище последних результатов проверки
+let _checkBaseResults = { clean: [], trash: [] };
+
+// Открытие модала Check Base
+function _openCheckBase() {
+    const overlay = document.getElementById('check-base-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    // Очищаем предыдущие данные
+    const input = document.getElementById('check-base-input');
+    if (input) input.value = '';
+    const results = document.getElementById('check-base-results');
+    if (results) { results.innerHTML = ''; results.classList.add('hidden'); }
+    // Фокус на textarea
+    setTimeout(() => input?.focus(), 100);
+    // Навешиваем обработчики
+    _initCheckBaseHandlers();
+}
+
+// Закрытие модала Check Base
+function _closeCheckBase() {
+    const overlay = document.getElementById('check-base-overlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+// Инициализация обработчиков (вызывается при каждом открытии)
+let _checkBaseHandlersReady = false;
+function _initCheckBaseHandlers() {
+    if (_checkBaseHandlersReady) return;
+    _checkBaseHandlersReady = true;
+
+    document.getElementById('check-base-close')?.addEventListener('click', _closeCheckBase);
+    document.getElementById('check-base-cancel')?.addEventListener('click', _closeCheckBase);
+    document.getElementById('check-base-run')?.addEventListener('click', _runCheckBase);
+    // Закрытие по клику на оверлей
+    document.getElementById('check-base-overlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'check-base-overlay') _closeCheckBase();
+    });
+}
+
+// Извлечение номера карты из строки (первые 13-19 цифр)
+function _extractCardNumber(line) {
+    // Убираем все нецифровые символы кроме пробелов и разделителей
+    const digits = line.replace(/[\s\-\.]/g, '').match(/\d{13,19}/);
+    return digits ? digits[0] : null;
+}
+
+// Парсинг полной строки карты (извлекаем номер + MM + YY + CVV если есть)
+function _parseCardLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed) return null;
+
+    // Пробуем разные форматы разделителей: пробел, |, :, ;, /
+    // Формат: НОМЕР МЕСЯЦ ГОД CVV (или НОМЕР|MM|YY|CVV и т.д.)
+    const parts = trimmed.split(/[\s|:;]+/);
+
+    // Ищем номер карты (13-19 цифр)
+    let cardNum = null;
+    let mm = '';
+    let yy = '';
+    let cvv = '';
+
+    for (let i = 0; i < parts.length; i++) {
+        const clean = parts[i].replace(/[\-\.]/g, '');
+        if (!cardNum && /^\d{13,19}$/.test(clean)) {
+            cardNum = clean;
+            // Следующие части — MM, YY, CVV
+            if (parts[i + 1] && /^\d{1,2}$/.test(parts[i + 1])) mm = parts[i + 1].padStart(2, '0');
+            if (parts[i + 2] && /^\d{2,4}$/.test(parts[i + 2])) {
+                yy = parts[i + 2];
+                if (yy.length === 4) yy = yy.slice(2);
+            }
+            if (parts[i + 3] && /^\d{3,4}$/.test(parts[i + 3])) cvv = parts[i + 3];
+            break;
+        }
+    }
+
+    // Fallback: просто извлечь первые 13-19 цифр из строки
+    if (!cardNum) {
+        const allDigits = trimmed.replace(/\D/g, '');
+        if (allDigits.length >= 13) {
+            cardNum = allDigits.slice(0, 16);
+        }
+    }
+
+    if (!cardNum) return null;
+
+    return { num: cardNum, mm, yy, cvv, raw: trimmed };
+}
+
+// Основная функция проверки
+function _runCheckBase() {
+    const input = document.getElementById('check-base-input');
+    const resultsDiv = document.getElementById('check-base-results');
+    if (!input || !resultsDiv) return;
+
+    const rawText = input.value.trim();
+    if (!rawText) {
+        toast('Вставьте карты для проверки', 'info');
+        return;
+    }
+
+    // Парсим введённые строки
+    const lines = rawText.split('\n').filter(l => l.trim());
+    const parsed = lines.map(_parseCardLine).filter(Boolean);
+
+    if (parsed.length === 0) {
+        toast('Не найдено валидных номеров карт', 'info');
+        return;
+    }
+
+    // Собираем полный Trash Set (номера без пробелов/дефисов)
+    // 1. STATE.trash — удалённые workspace-карты (объекты с .cardNumber)
+    // 2. STATE.trashCards — номера из парсера (массив строк)
+    const trashSet = new Set();
+
+    // Добавляем номера из удалённых карт
+    (STATE.trash || []).forEach(c => {
+        const n = (c.cardNumber || '').replace(/[\s\-]/g, '');
+        if (n) trashSet.add(n);
+    });
+
+    // Добавляем номера из парсерного мусора
+    (STATE.trashCards || []).forEach(n => {
+        const clean = (n || '').replace(/[\s\-]/g, '');
+        if (clean) trashSet.add(clean);
+    });
+
+    // Сравнение: разделяем на TRASH и CLEAN
+    const trashMatches = [];
+    const cleanCards = [];
+
+    parsed.forEach(card => {
+        const normalized = card.num.replace(/[\s\-]/g, '');
+        if (trashSet.has(normalized)) {
+            trashMatches.push(card);
+        } else {
+            cleanCards.push(card);
+        }
+    });
+
+    // Сохраняем результаты для копирования
+    _checkBaseResults = { clean: cleanCards, trash: trashMatches };
+
+    // Отображаем результаты
+    const totalChecked = parsed.length;
+    const foundInTrash = trashMatches.length;
+    const cleanCount = cleanCards.length;
+
+    let html = `
+        <div class="cb-stats">
+            <div class="cb-stat"><span class="cb-stat-label">TOTAL CHECKED</span><span class="cb-stat-value">${totalChecked}</span></div>
+            <div class="cb-stat cb-stat-trash"><span class="cb-stat-label">FOUND IN TRASH</span><span class="cb-stat-value">${foundInTrash}</span></div>
+            <div class="cb-stat cb-stat-clean"><span class="cb-stat-label">CLEAN</span><span class="cb-stat-value">${cleanCount}</span></div>
+        </div>
+    `;
+
+    // Кнопки копирования
+    html += `<div class="cb-copy-actions">
+        <button class="cb-copy-btn cb-copy-clean" id="cb-copy-clean" ${cleanCount === 0 ? 'disabled' : ''}>📋 COPY CLEAN (${cleanCount})</button>
+        <button class="cb-copy-btn cb-copy-trash" id="cb-copy-trash" ${foundInTrash === 0 ? 'disabled' : ''}>📋 COPY TRASH (${foundInTrash})</button>
+    </div>`;
+
+    // Список TRASH MATCHES
+    if (foundInTrash > 0) {
+        html += `<div class="cb-section">
+            <div class="cb-section-title cb-title-trash">🗑 TRASH MATCHES (${foundInTrash})</div>
+            <div class="cb-list cb-list-trash">
+                ${trashMatches.map(c => `<div class="cb-list-item">${_maskCardNum(c.num)}${c.mm ? ' ' + c.mm : ''}${c.yy ? '/' + c.yy : ''}${c.cvv ? ' ' + c.cvv : ''}</div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    // Список CLEAN CARDS
+    if (cleanCount > 0) {
+        html += `<div class="cb-section">
+            <div class="cb-section-title cb-title-clean">✅ CLEAN CARDS (${cleanCount})</div>
+            <div class="cb-list cb-list-clean">
+                ${cleanCards.map(c => `<div class="cb-list-item">${_maskCardNum(c.num)}${c.mm ? ' ' + c.mm : ''}${c.yy ? '/' + c.yy : ''}${c.cvv ? ' ' + c.cvv : ''}</div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    resultsDiv.innerHTML = html;
+    resultsDiv.classList.remove('hidden');
+
+    // Обработчики кнопок копирования
+    document.getElementById('cb-copy-clean')?.addEventListener('click', () => _copyCheckBaseCards('clean'));
+    document.getElementById('cb-copy-trash')?.addEventListener('click', () => _copyCheckBaseCards('trash'));
+
+    toast(`Проверено: ${totalChecked} | Trash: ${foundInTrash} | Clean: ${cleanCount}`, foundInTrash > 0 ? 'warning' : 'success');
+}
+
+// Маскировка номера карты для отображения (показываем первые 6 и последние 4)
+function _maskCardNum(num) {
+    if (num.length < 10) return num;
+    return num.slice(0, 6) + '••••' + num.slice(-4);
+}
+
+// Копирование результатов Check Base в буфер
+function _copyCheckBaseCards(type) {
+    const cards = type === 'clean' ? _checkBaseResults.clean : _checkBaseResults.trash;
+    if (cards.length === 0) {
+        toast('Нет карт для копирования', 'info');
+        return;
+    }
+
+    // Формат: НОМЕР ММ ГГ CVV
+    const lines = cards.map(c => {
+        const parts = [c.num];
+        if (c.mm) parts.push(c.mm);
+        if (c.yy) parts.push(c.yy);
+        if (c.cvv) parts.push(c.cvv);
+        return parts.join(' ');
+    }).join('\n');
+
+    navigator.clipboard.writeText(lines).then(() => {
+        const label = type === 'clean' ? 'clean' : 'trash';
+        toast(`Copied ${cards.length} ${label} cards`, 'success');
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = lines;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        toast(`Copied ${cards.length} cards`, 'success');
     });
 }
 
