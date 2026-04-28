@@ -902,14 +902,83 @@ function renderStats() {
     // Cards view (country / favorites / active / trash)
     const cards = getFilteredCards();
     const s = getCardStats(cards);
+    // Кнопка копирования — маленькая иконка 📋 рядом со счётчиком
+    const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Копировать карты в буфер">📋</button>`;
     bar.innerHTML = `
-        <div class="stat-card total"><span class="stat-label">Total</span><span class="stat-value">${s.total}</span></div>
-        <div class="stat-card verified"><span class="stat-label">Verified</span><span class="stat-value">${s.verified}</span></div>
-        <div class="stat-card suspended"><span class="stat-label">Suspended</span><span class="stat-value">${s.suspended}</span></div>
-        <div class="stat-card card-add"><span class="stat-label">Card Add</span><span class="stat-value">${s.cardAdd}</span></div>
-        <div class="stat-card run-ads"><span class="stat-label">Run Ads</span><span class="stat-value">${s.runAds}</span></div>
-        <div class="stat-card active-stat"><span class="stat-label">Active</span><span class="stat-value">${s.active}</span></div>
+        <div class="stat-card total"><span class="stat-label">Total</span><span class="stat-value">${s.total}</span>${copyBtn('total')}</div>
+        <div class="stat-card verified"><span class="stat-label">Verified</span><span class="stat-value">${s.verified}</span>${copyBtn('verified')}</div>
+        <div class="stat-card suspended"><span class="stat-label">Suspended</span><span class="stat-value">${s.suspended}</span>${copyBtn('suspended')}</div>
+        <div class="stat-card card-add"><span class="stat-label">Card Add</span><span class="stat-value">${s.cardAdd}</span>${copyBtn('cardAdd')}</div>
+        <div class="stat-card run-ads"><span class="stat-label">Run Ads</span><span class="stat-value">${s.runAds}</span>${copyBtn('runAds')}</div>
+        <div class="stat-card active-stat"><span class="stat-label">Active</span><span class="stat-value">${s.active}</span>${copyBtn('active')}</div>
     `;
+
+    // Обработчики кликов на кнопки копирования
+    bar.querySelectorAll('.stat-copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _copyStatCards(btn.dataset.copyFilter, cards);
+        });
+    });
+}
+
+// ══════════════════════════════════════
+//  КОПИРОВАНИЕ КАРТ ПО СТАТУСУ
+//  Формат: НОМЕР МЕСЯЦ ГОД CVV (каждая на отдельной строке)
+// ══════════════════════════════════════
+function _copyStatCards(filter, cards) {
+    // Фильтрация карт по статусу
+    let filtered = [];
+    switch (filter) {
+        case 'total':
+            filtered = cards;
+            break;
+        case 'verified':
+            filtered = cards.filter(c => c.verified);
+            break;
+        case 'suspended':
+            filtered = cards.filter(c => c.suspended);
+            break;
+        case 'cardAdd':
+            filtered = cards.filter(c => c.cardAdd);
+            break;
+        case 'runAds':
+            filtered = cards.filter(c => c.runAds);
+            break;
+        case 'active':
+            filtered = cards.filter(c => c.starred);
+            break;
+        default:
+            filtered = cards;
+    }
+
+    if (filtered.length === 0) {
+        toast('No cards to copy', 'info');
+        return;
+    }
+
+    // Формируем строки: НОМЕР_КАРТЫ МЕСЯЦ ГОД CVV
+    const lines = filtered.map(c => {
+        const num = (c.cardNumber || '').replace(/[\s\-]/g, '');
+        const mm = (c.month || c.mm || '').toString().padStart(2, '0');
+        const yy = (c.year || c.yy || '').toString().padStart(2, '0');
+        const cvv = c.cvv || '';
+        return `${num} ${mm} ${yy} ${cvv}`;
+    }).join('\n');
+
+    // Копирование в буфер обмена
+    navigator.clipboard.writeText(lines).then(() => {
+        toast(`Copied ${filtered.length} cards`, 'success');
+    }).catch(() => {
+        // Fallback для старых браузеров
+        const ta = document.createElement('textarea');
+        ta.value = lines;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        toast(`Copied ${filtered.length} cards`, 'success');
+    });
 }
 
 

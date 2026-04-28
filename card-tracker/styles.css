@@ -1828,6 +1828,36 @@ textarea {
     color: var(--amber)
 }
 
+/* Кнопка копирования в stat-card */
+.stat-copy-btn {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+    line-height: 1;
+    padding: 2px 3px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 150ms, background 150ms;
+    z-index: 2;
+}
+
+.stat-card:hover .stat-copy-btn {
+    opacity: 0.5;
+}
+
+.stat-copy-btn:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.stat-copy-btn:active {
+    transform: scale(0.9);
+}
+
 /* ═══════ CONTENT ═══════ */
 .content-area {
     flex: 1;
