@@ -7933,6 +7933,18 @@ tr.row-selected td {
     color: #FACC15;
 }
 
+/* ── VALID CARDS BUTTON ── */
+.pz-btn-valid {
+    background: rgba(34, 197, 94, .12);
+    border-color: rgba(34, 197, 94, .35);
+    color: #22C55E;
+}
+.pz-btn-valid:hover:not(:disabled) {
+    background: rgba(34, 197, 94, .22);
+    border-color: rgba(34, 197, 94, .55);
+    color: #4ADE80;
+}
+
 /* ── IMPORT BUTTON ── */
 .pz-btn-import {
     background: rgba(34, 197, 94, .15);
@@ -10881,4 +10893,195 @@ tr.row-selected td {
     .pom-circles { gap: 16px; }
     .pom-display { font-size: 32px; }
     .pom-timer-wrap { width: 130px; height: 130px; }
+}
+
+/* ════════════════════════════════════════════════
+   VALID CARDS — экран результатов
+   ════════════════════════════════════════════════ */
+
+.vc-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* Заголовок */
+.vc-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.vc-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+.vc-back-btn {
+    font-size: 11px;
+    padding: 5px 12px;
+    flex-shrink: 0;
+}
+
+/* Статистика */
+.vc-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.vc-stat-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color .2s;
+}
+.vc-stat-card:hover { border-color: var(--border-hover); }
+.vc-stat-val {
+    font-size: 26px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}
+.vc-stat-lbl {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+.vc-stat-green .vc-stat-val { color: #22C55E; }
+.vc-stat-red   .vc-stat-val { color: #EF4444; }
+.vc-stat-blue  .vc-stat-val { color: #60A5FA; }
+.vc-stat-dim   .vc-stat-val { color: var(--text-muted); }
+
+/* GEO фильтр */
+.vc-countries-block {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.vc-countries-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.vc-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    flex: 1;
+}
+.vc-ctrl-btn {
+    font-size: 10px;
+    padding: 4px 10px;
+}
+.vc-countries-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.vc-country-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .18s;
+    letter-spacing: .04em;
+}
+.vc-country-chip:hover {
+    border-color: rgba(34,197,94,.4);
+    color: #22C55E;
+    background: rgba(34,197,94,.07);
+}
+.vc-country-chip.active {
+    background: rgba(34,197,94,.15);
+    border-color: rgba(34,197,94,.5);
+    color: #4ADE80;
+}
+.vc-chip-cnt {
+    font-size: 10px;
+    font-weight: 700;
+    opacity: .8;
+    background: rgba(255,255,255,.08);
+    border-radius: 10px;
+    padding: 1px 6px;
+}
+
+/* Панель экспорта */
+.vc-export-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.vc-export-btn {
+    font-size: 11px;
+    padding: 6px 14px;
+}
+
+/* Таблица */
+.vc-table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--border-default);
+}
+.vc-table {
+    width: 100%;
+}
+.vc-card {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    letter-spacing: .03em;
+}
+.vc-geo {
+    font-size: 11px;
+    font-weight: 700;
+    color: #60A5FA;
+    background: rgba(96,165,250,.1);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+.vc-status-alive {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: #22C55E;
+    background: rgba(34,197,94,.12);
+    border-radius: 4px;
+    padding: 2px 7px;
+}
+.valid-row.selected td {
+    background: rgba(34,197,94,.04);
+}
+.valid-row:hover td {
+    background: var(--bg-hover);
+}
+
+/* Адаптив для Valid Cards */
+@media (max-width: 800px) {
+    .vc-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 500px) {
+    .vc-stats-row { grid-template-columns: 1fr 1fr; }
+    .vc-export-bar { flex-direction: column; }
 }

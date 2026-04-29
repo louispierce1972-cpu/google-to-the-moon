@@ -8091,6 +8091,7 @@ function renderParser() {
             <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>⚡ PARSE & CLEAN</button>
             <button class="pz-btn pz-btn-dim" id="parser-clear-btn">CLEAR</button>
             <button class="pz-btn pz-btn-trash" id="parser-trash-btn">🗑 TRASH (${(STATE.trashCards || []).length})</button>
+            <button class="pz-btn pz-btn-valid" id="parser-valid-btn">✅ VALID CARDS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -8197,6 +8198,12 @@ function renderParser() {
         if (overlay) overlay.classList.remove('hidden');
     });
 
+    // ── VALID CARDS BUTTON ──
+    document.getElementById('parser-valid-btn')?.addEventListener('click', () => {
+        const overlay = document.getElementById('valid-cards-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+    });
+
     // Мультивыбор фильтров: клик добавляет/убирает значение из Set (OR-логика внутри категории)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -8278,8 +8285,14 @@ function renderParser() {
     });
 
     _initTrashCardModal();
+    _initValidCardsModal();
 
-    if (hasParsed) renderParserResults();
+    // Если есть результаты Valid Cards — показываем их, иначе обычные результаты парсера
+    if (VALID_STATE.cards.length > 0) {
+        renderValidCardsResults();
+    } else if (hasParsed) {
+        renderParserResults();
+    }
 }
 
 // ──── LOAD BASE FILE (supports multiple) ────
@@ -8611,69 +8624,490 @@ function _initTrashCardModal() {
 }
 
 /**
- * Smart trash card extractor.
- * Parses checker output format: looks for DEAD/💀 and ALIVE/✅ markers.
- * If markers found: returns only DEAD card numbers.
- * If no markers: falls back to raw card number extraction (legacy behavior).
+ * Универсальный парсер строк чекера.
+ * Парсит формат: ✅/💀/❌ НОМЕР MM YY CVV - СТАТУС
+ * Ниже карты могут идти служебные строки: Status code, Система, Тип, Уровень, Код региона
+ * Возвращает массив объектов { cc, mm, yy, cvv, status, system, type, level, geo, key }
+ * status: 'alive' | 'dead' | 'invalid'
  */
-function _extractTrashCards(text) {
-    const lines = text.split(/\n/);
-    const deadCards = [];
-    let aliveCount = 0;
-    let hasMarkers = false;
+function _parseCheckerOutput(text) {
+    const lines = text.split(/\r?\n/);
+    const results = [];
+    // Ключ уникальности — полный комплект: номер+месяц+год+cvv
     const seen = new Set();
 
-    // Extract card number from a line (supports multiple formats)
+    // Регулярка для извлечения номера карты из строки (13-19 цифр)
     function extractCC(line) {
-        // Pipe format: 4537800314042786|01|29|874
+        // Формат с pipe: 4537800314042786|01|29|874
         const pipeM = line.match(/(\d{13,19})\|/);
         if (pipeM) return pipeM[1];
-        // Standalone digits: 4520880022987380 08 27 308
-        const standalone = line.match(/(?:^|\s)(\d{13,19})(?:\s|$)/);
-        if (standalone) return standalone[1];
-        // Digits with spaces/dashes: 4242 4242 4242 4242
-        const spaced = line.match(/(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{3,4})/);
-        if (spaced) return spaced[1].replace(/[\s\-]/g, '');
-        // Fallback: any 13-19 digit sequence
-        const fallback = line.match(/(\d{13,19})/);
-        return fallback ? fallback[1] : null;
+        // Обычный формат: цифры подряд
+        const m = line.match(/\b(\d{13,19})\b/);
+        return m ? m[1] : null;
     }
 
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
+    // Регулярка для MM YY CVV: ищем три числа 2, 2, 3-4 цифры подряд
+    function extractExpCvv(str) {
+        // Убираем уже найденный номер карты из строки
+        const m = str.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
+        if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
+        // Формат MM/YY CVV
+        const m2 = str.match(/\b(0[1-9]|1[0-2])\/(\d{2})\s+(\d{3,4})\b/);
+        if (m2) return { mm: m2[1], yy: m2[2], cvv: m2[3] };
+        return { mm: '', yy: '', cvv: '' };
+    }
 
-        // Check for DEAD/ALIVE markers
-        const isDead = /(?:💀|DEAD|dead|Dead|Declined|declined|DECLINED)/i.test(trimmed);
-        const isAlive = /(?:✅|ALIVE|alive|Alive|Approved|approved|APPROVED)/i.test(trimmed);
+    // Определяем статус строки
+    function getStatus(line) {
+        // ALIVE
+        if (/(?:✅|ALIVE|Approved|APPROVED)/i.test(line)) return 'alive';
+        // DEAD
+        if (/(?:💀|DEAD|Declined|DECLINED)/i.test(line)) return 'dead';
+        // INVALID
+        if (/(?:❌|INVALID|Invalid)/i.test(line)) return 'invalid';
+        return null;
+    }
 
-        if (isDead || isAlive) {
-            hasMarkers = true;
-            const cc = extractCC(trimmed);
-            if (cc && cc.length >= 13 && cc.length <= 19) {
-                if (isDead && !seen.has(cc)) {
-                    deadCards.push(cc);
-                    seen.add(cc);
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i].trim();
+        const status = getStatus(line);
+
+        if (status !== null) {
+            // Это строка с картой
+            const cc = extractCC(line);
+            if (cc) {
+                // Убираем номер карты из строки для поиска exp/cvv
+                const withoutCC = line.replace(cc, ' ');
+                const { mm, yy, cvv } = extractExpCvv(withoutCC);
+                const key = `${cc}|${mm}|${yy}|${cvv}`;
+
+                // Собираем служебные строки, следующие за картой
+                let system = '', type = '', level = '', geo = '';
+                let j = i + 1;
+                while (j < lines.length) {
+                    const next = lines[j].trim();
+                    // Если следующая строка тоже содержит статус — это новая карта
+                    if (getStatus(next) !== null && extractCC(next)) break;
+                    // Парсим служебные строки
+                    const geoM = next.match(/Код\s*региона\s*[-–:]\s*([A-Z]{2})/i);
+                    if (geoM) { geo = geoM[1].toUpperCase(); j++; continue; }
+                    const sysM = next.match(/Система\s*[-–:]\s*(.+)/i);
+                    if (sysM) { system = sysM[1].trim(); j++; continue; }
+                    const typeM = next.match(/Тип\s*[-–:]\s*(.+)/i);
+                    if (typeM) { type = typeM[1].trim(); j++; continue; }
+                    const levelM = next.match(/Уровень\s*[-–:]\s*(.+)/i);
+                    if (levelM) { level = levelM[1].trim(); j++; continue; }
+                    // Status code и другие системные строки — пропускаем
+                    if (/^Status\s*code/i.test(next) || /^\d{3,}/.test(next)) { j++; continue; }
+                    // Пустая строка — конец блока карты
+                    if (!next) break;
+                    // Неизвестная строка без статуса — пропускаем как служебную
+                    j++;
                 }
-                if (isAlive) aliveCount++;
+
+                results.push({ cc, mm, yy, cvv, status, system, type, level, geo, key });
             }
+            i = j || i + 1;
+        } else {
+            i++;
         }
     }
 
-    // Fallback: if no DEAD/ALIVE markers found, extract all card numbers (legacy)
-    if (!hasMarkers) {
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-            const cc = extractCC(trimmed);
-            if (cc && cc.length >= 13 && cc.length <= 19 && !seen.has(cc)) {
-                deadCards.push(cc);
-                seen.add(cc);
+    return results;
+}
+
+/**
+ * Исправленный экстрактор TRASH-карт.
+ * Собирает ВСЕ карты со статусами DEAD и INVALID, ничего не пропускает.
+ * Если маркеров нет — legacy-режим: все найденные номера в trash.
+ */
+function _extractTrashCards(text) {
+    const parsed = _parseCheckerOutput(text);
+    const deadCards = [];
+    let aliveCount = 0;
+    let hasMarkers = parsed.length > 0;
+    const seen = new Set();
+
+    if (hasMarkers) {
+        // Режим с маркерами: собираем только DEAD и INVALID
+        parsed.forEach(c => {
+            if (c.status === 'alive') {
+                aliveCount++;
+            } else if (c.status === 'dead' || c.status === 'invalid') {
+                const n = c.cc.replace(/[\s\-]/g, '');
+                if (!seen.has(n)) {
+                    deadCards.push(n);
+                    seen.add(n);
+                }
             }
-        }
+        });
+    } else {
+        // Legacy: нет маркеров — все найденные номера в trash
+        hasMarkers = false;
+        const lines = text.split(/\r?\n/);
+        lines.forEach(line => {
+            const m = line.trim().match(/\b(\d{13,19})\b/);
+            if (m) {
+                const n = m[1];
+                if (!seen.has(n)) {
+                    deadCards.push(n);
+                    seen.add(n);
+                }
+            }
+        });
     }
 
     return { deadCards, aliveCount, hasMarkers };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VALID CARDS — состояние и логика
+// ═══════════════════════════════════════════════════════════════════
+
+// Состояние экрана Valid Cards
+const VALID_STATE = {
+    cards: [],           // итоговый список валидных карт
+    selectedRows: new Set(), // выбранные строки (индексы)
+    selectedCountries: new Set(), // выбранные страны
+    stats: { totalValid: 0, totalTrash: 0, totalUnique: 0, skippedDupes: 0 }
+};
+
+/**
+ * Инициализирует модал VALID CARDS — обработчики событий.
+ */
+function _initValidCardsModal() {
+    const overlay = document.getElementById('valid-cards-overlay');
+    if (!overlay) return;
+
+    const textarea = document.getElementById('valid-cards-textarea');
+    const detectedEl = document.getElementById('valid-cards-detected');
+    const closeBtn = document.getElementById('valid-cards-close');
+    const cancelBtn = document.getElementById('valid-cards-cancel');
+    const processBtn = document.getElementById('valid-cards-process');
+    const fileInput = document.getElementById('valid-cards-file');
+
+    const close = () => overlay.classList.add('hidden');
+    closeBtn?.addEventListener('click', close);
+    cancelBtn?.addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // Авто-детект при вводе текста
+    const updateDetected = () => {
+        const parsed = _parseCheckerOutput(textarea.value);
+        const alive = parsed.filter(c => c.status === 'alive').length;
+        const bad = parsed.filter(c => c.status === 'dead' || c.status === 'invalid').length;
+        detectedEl.textContent = parsed.length > 0
+            ? `✅ ${alive} ALIVE · 💀/❌ ${bad} DEAD/INVALID`
+            : '0 cards detected';
+    };
+    textarea?.addEventListener('input', updateDetected);
+
+    // Загрузка .txt файла
+    fileInput?.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            textarea.value = (textarea.value ? textarea.value + '\n' : '') + ev.target.result;
+            updateDetected();
+            toast(`Loaded ${file.name}`, 'success');
+        };
+        reader.readAsText(file);
+        fileInput.value = '';
+    });
+
+    // Обработка нажатия Process
+    processBtn?.addEventListener('click', () => {
+        _processValidCards(textarea.value);
+        close();
+    });
+}
+
+/**
+ * Обрабатывает вывод чекера и показывает экран результатов Valid Cards.
+ * Логика: VALID = все ALIVE минус карты, которые хоть раз были DEAD/INVALID.
+ * Уникальность: по ключу cc|mm|yy|cvv.
+ */
+function _processValidCards(text) {
+    const parsed = _parseCheckerOutput(text);
+
+    // Шаг 1: Собираем множество "плохих" ключей (dead/invalid по полному ключу)
+    const badKeys = new Set();
+    // Также собираем плохие номера карт (для перекрёстной проверки)
+    const badNums = new Set();
+    parsed.forEach(c => {
+        if (c.status === 'dead' || c.status === 'invalid') {
+            badKeys.add(c.key);
+            badNums.add(c.cc);
+        }
+    });
+
+    // Шаг 2: Статистика по всем записям
+    const allAlive = parsed.filter(c => c.status === 'alive');
+    const allBad = parsed.filter(c => c.status === 'dead' || c.status === 'invalid');
+    const totalUnique = new Set(parsed.map(c => c.key)).size;
+    const skippedDupes = parsed.length - totalUnique;
+
+    // Шаг 3: Фильтруем ALIVE — убираем те, у кого номер хоть раз был bad
+    const seenKeys = new Set();
+    const validCards = [];
+    allAlive.forEach(c => {
+        // Если номер карты встречался как dead/invalid — исключаем
+        if (badNums.has(c.cc)) return;
+        // Исключаем дубликаты по полному ключу
+        if (seenKeys.has(c.key)) return;
+        seenKeys.add(c.key);
+        validCards.push(c);
+    });
+
+    // Обновляем состояние
+    VALID_STATE.cards = validCards;
+    VALID_STATE.selectedRows = new Set(validCards.map((_, i) => i)); // по умолч. всё выбрано
+    VALID_STATE.selectedCountries = new Set(); // пусто = все страны
+    VALID_STATE.stats = {
+        totalValid: validCards.length,
+        totalTrash: allBad.length,
+        totalUnique,
+        skippedDupes
+    };
+
+    // Переходим в Parser и показываем результаты
+    navigate('new-cards');
+    toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}`, 'success');
+    renderValidCardsResults();
+}
+
+/**
+ * Рендерит экран результатов Valid Cards внутри Parser-контейнера.
+ */
+function renderValidCardsResults() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.innerHTML = '';
+
+    const { cards, stats, selectedCountries, selectedRows } = VALID_STATE;
+
+    // Собираем карту стран
+    const countryMap = {};
+    cards.forEach(c => {
+        const geo = c.geo || 'UNKNOWN';
+        if (!countryMap[geo]) countryMap[geo] = [];
+        countryMap[geo].push(c);
+    });
+    const sortedCountries = Object.entries(countryMap).sort((a, b) => b[1].length - a[1].length);
+
+    // Определяем отображаемые карты (с учётом фильтра стран)
+    const activeCodes = selectedCountries.size > 0 ? selectedCountries : null;
+    const displayCards = activeCodes
+        ? cards.filter((c, i) => activeCodes.has(c.geo || 'UNKNOWN'))
+        : cards;
+
+    // Строки таблицы
+    const rows = displayCards.map((c, di) => {
+        const globalIdx = cards.indexOf(c);
+        const checked = selectedRows.has(globalIdx);
+        const masked = c.cc.replace(/(\d{4})(\d+)(\d{4})/, '$1 •••• $3');
+        const exp = c.mm && c.yy ? `${c.mm}/${c.yy}` : '—';
+        return `<tr class="valid-row ${checked ? 'selected' : ''}" data-idx="${globalIdx}">
+            <td><input type="checkbox" class="valid-check" data-idx="${globalIdx}" ${checked ? 'checked' : ''}></td>
+            <td class="vc-card">${masked}</td>
+            <td>${exp}</td>
+            <td>${c.cvv || '—'}</td>
+            <td style="font-size:10px;color:#818cf8">${c.system || '—'}</td>
+            <td style="font-size:10px;color:#60a5fa">${c.type || '—'}</td>
+            <td style="font-size:10px;color:#a78bfa">${c.level || '—'}</td>
+            <td><span class="vc-geo">${c.geo || 'UNKNOWN'}</span></td>
+            <td><span class="vc-status-alive">ALIVE</span></td>
+        </tr>`;
+    }).join('');
+
+    // Плитки стран
+    const countryChips = sortedCountries.map(([code, cds]) => {
+        const active = selectedCountries.has(code);
+        return `<button class="vc-country-chip ${active ? 'active' : ''}" data-country="${code}">
+            ${code} <span class="vc-chip-cnt">${cds.length}</span>
+        </button>`;
+    }).join('');
+
+    // Название вкладки для экспорта
+    const getTabTitle = () => {
+        if (selectedCountries.size === 0) return 'VALID — ALL';
+        return 'VALID — ' + [...selectedCountries].join(', ');
+    };
+
+    // Получаем финальный список для экспорта
+    const getExportList = () => {
+        // Если есть ручной выбор строк — используем его
+        const manualSelected = displayCards.filter(c => selectedRows.has(cards.indexOf(c)));
+        // Если страны выбраны и строки не выбраны вручную — все карты выбранных стран
+        if (selectedCountries.size > 0 && manualSelected.length === displayCards.length) {
+            return displayCards;
+        }
+        return manualSelected;
+    };
+
+    area.innerHTML = `
+    <div class="vc-container">
+        <!-- Заголовок и кнопка назад -->
+        <div class="vc-header">
+            <button class="pz-btn pz-btn-dim vc-back-btn" id="vc-back">← Back to Parser</button>
+            <h2 class="vc-title">✅ Valid Cards Results</h2>
+        </div>
+
+        <!-- Статистика -->
+        <div class="vc-stats-row">
+            <div class="vc-stat-card vc-stat-green">
+                <span class="vc-stat-val">${stats.totalValid}</span>
+                <span class="vc-stat-lbl">TOTAL VALID</span>
+            </div>
+            <div class="vc-stat-card vc-stat-red">
+                <span class="vc-stat-val">${stats.totalTrash}</span>
+                <span class="vc-stat-lbl">TOTAL TRASH</span>
+            </div>
+            <div class="vc-stat-card vc-stat-blue">
+                <span class="vc-stat-val">${stats.totalUnique}</span>
+                <span class="vc-stat-lbl">TOTAL UNIQUE</span>
+            </div>
+            <div class="vc-stat-card vc-stat-dim">
+                <span class="vc-stat-val">${stats.skippedDupes}</span>
+                <span class="vc-stat-lbl">SKIPPED DUPES</span>
+            </div>
+        </div>
+
+        <!-- Выбор стран -->
+        <div class="vc-countries-block">
+            <div class="vc-countries-header">
+                <span class="vc-section-label">📍 GEO FILTER</span>
+                <button class="pz-btn pz-btn-dim vc-ctrl-btn" id="vc-select-all-geo">SELECT ALL</button>
+                <button class="pz-btn pz-btn-dim vc-ctrl-btn" id="vc-clear-geo">CLEAR</button>
+            </div>
+            <div class="vc-countries-chips" id="vc-countries-chips">
+                ${countryChips}
+            </div>
+        </div>
+
+        <!-- Кнопки экспорта -->
+        <div class="vc-export-bar">
+            <button class="pz-btn pz-btn-primary vc-export-btn" id="vc-export-all">📝 EXPORT ALL TO NOTES</button>
+            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-export-selected">📝 EXPORT SELECTED TO NOTES</button>
+            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-all">📋 COPY ALL</button>
+            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-selected">📋 COPY SELECTED</button>
+        </div>
+
+        <!-- Таблица карт -->
+        <div class="vc-table-wrap">
+            <table class="data-table parser-table vc-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="vc-select-all-rows" ${selectedRows.size === displayCards.length && displayCards.length > 0 ? 'checked' : ''}></th>
+                        <th>CARD</th><th>EXP</th><th>CVV</th>
+                        <th>SYSTEM</th><th>TYPE</th><th>LEVEL</th>
+                        <th>GEO</th><th>STATUS</th>
+                    </tr>
+                </thead>
+                <tbody>${rows || '<tr><td colspan="9" style="text-align:center;color:#6b7280;padding:24px">No valid cards found</td></tr>'}</tbody>
+            </table>
+        </div>
+    </div>`;
+
+    // ── Events ──
+
+    document.getElementById('vc-back')?.addEventListener('click', () => {
+        VALID_STATE.cards = [];
+        navigate('new-cards');
+    });
+
+    // Фильтр стран — клик по чипу
+    document.querySelectorAll('.vc-country-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const code = btn.dataset.country;
+            if (VALID_STATE.selectedCountries.has(code)) {
+                VALID_STATE.selectedCountries.delete(code);
+            } else {
+                VALID_STATE.selectedCountries.add(code);
+            }
+            renderValidCardsResults();
+        });
+    });
+
+    document.getElementById('vc-select-all-geo')?.addEventListener('click', () => {
+        sortedCountries.forEach(([code]) => VALID_STATE.selectedCountries.add(code));
+        renderValidCardsResults();
+    });
+
+    document.getElementById('vc-clear-geo')?.addEventListener('click', () => {
+        VALID_STATE.selectedCountries.clear();
+        renderValidCardsResults();
+    });
+
+    // Выбор всех строк
+    document.getElementById('vc-select-all-rows')?.addEventListener('change', e => {
+        if (e.target.checked) {
+            displayCards.forEach(c => VALID_STATE.selectedRows.add(cards.indexOf(c)));
+        } else {
+            displayCards.forEach(c => VALID_STATE.selectedRows.delete(cards.indexOf(c)));
+        }
+        renderValidCardsResults();
+    });
+
+    // Чекбоксы строк
+    document.querySelectorAll('.valid-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const idx = parseInt(cb.dataset.idx);
+            if (cb.checked) VALID_STATE.selectedRows.add(idx);
+            else VALID_STATE.selectedRows.delete(idx);
+        });
+    });
+
+    // Вспомогательная функция: строим список карт для экспорта
+    const buildExportLines = (list) => list.map(c => `${c.cc} ${(c.mm||'').padStart(2,'0')} ${c.yy||''} ${c.cvv||'000'}`).join('\n');
+
+    // Вспомогательная функция: создаём вкладку Notes
+    const exportToNotes = (list, title) => {
+        if (list.length === 0) { toast('Нет карт для экспорта', 'warning'); return; }
+        const block = buildExportLines(list);
+        const newTab = {
+            id: 'tab-valid-' + Date.now(),
+            title,
+            content: block,
+            pinned: false, tag: null,
+            created: Date.now(), scrollPos: 0
+        };
+        STATE.notesTabs.unshift(newTab);
+        STATE.notesActiveTab = newTab.id;
+        save();
+        toast(`${list.length} карт → "${title}"`, 'success');
+    };
+
+    // EXPORT ALL TO NOTES
+    document.getElementById('vc-export-all')?.addEventListener('click', () => {
+        exportToNotes(displayCards, getTabTitle());
+    });
+
+    // EXPORT SELECTED TO NOTES
+    document.getElementById('vc-export-selected')?.addEventListener('click', () => {
+        const list = getExportList();
+        const selCodes = selectedCountries.size > 0 ? [...selectedCountries].join(', ') : 'ALL';
+        const hasManual = list.length < displayCards.length;
+        const title = hasManual ? `VALID — ${list.length} selected` : `VALID — ${selCodes}`;
+        exportToNotes(list, title);
+    });
+
+    // COPY ALL
+    document.getElementById('vc-copy-all')?.addEventListener('click', () => {
+        const text = buildExportLines(displayCards);
+        navigator.clipboard?.writeText(text);
+        toast(`📋 ${displayCards.length} карт скопировано`, 'success');
+    });
+
+    // COPY SELECTED
+    document.getElementById('vc-copy-selected')?.addEventListener('click', () => {
+        const list = getExportList();
+        const text = buildExportLines(list);
+        navigator.clipboard?.writeText(text);
+        toast(`📋 ${list.length} карт скопировано`, 'success');
+    });
 }
 
 // _retagParserCards removed — workspace cards are now excluded in pipeline, no tagging needed

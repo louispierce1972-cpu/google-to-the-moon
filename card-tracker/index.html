@@ -663,15 +663,15 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>ADD TRASH CARDS</h3>
-                <p class="modal-subtitle">Paste checker output or card list — auto-detects 💀 DEAD cards</p>
+                <p class="modal-subtitle">Вставь вывод чекера — собирает все 💀 DEAD и ❌ INVALID карты</p>
                 <button class="modal-close" id="trash-cards-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
             </div>
             <div class="modal-body">
                 <div class="form-group full-width">
-                    <label>Paste any text with card data</label>
-                    <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Paste checker output or card numbers...&#10;&#10;Supports formats:&#10;💀 4242424242424242 01 27 246 - DEAD&#10;✅ 5555555555554444 12 29 901 - ALIVE&#10;&#10;DEAD cards → added to trash&#10;ALIVE cards → ignored&#10;Or paste raw card numbers (no markers = all added)"></textarea>
+                    <label>Вставь вывод чекера</label>
+                    <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Вставь вывод чекера...&#10;&#10;Форматы:&#10;✅ 5218350010045025 10 27 622 - ALIVE&#10;💀 5454781003037335 10 26 011 - DEAD&#10;❌ 4692793030263482 01 26 641 - INVALID&#10;&#10;DEAD + INVALID → добавляются в trash&#10;ALIVE → игнорируются&#10;Без маркеров → все карты в trash"></textarea>
                 </div>
                 <div class="list-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                     <span id="trash-cards-detected" class="list-count-badge">0 cards detected</span>
@@ -693,6 +693,40 @@
                 <button class="btn-primary" id="trash-cards-save">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                     Add to Trash
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VALID CARDS MODAL -->
+    <div id="valid-cards-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>✅ VALID CARDS</h3>
+                <p class="modal-subtitle">Вставь вывод чекера — собирает ALIVE карты, исключая DEAD/INVALID из того же файла</p>
+                <button class="modal-close" id="valid-cards-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group full-width">
+                    <label>Вставь вывод чекера</label>
+                    <textarea id="valid-cards-textarea" class="list-textarea" rows="8" placeholder="Вставь вывод чекера...&#10;&#10;Форматы:&#10;✅ 5218350010045025 10 27 622 - ALIVE&#10;💀 5454781003037335 10 26 011 - DEAD&#10;❌ 4692793030263482 01 26 641 - INVALID&#10;&#10;Служебные строки (Status code, Система, Тип, Уровень, Код региона)&#10;автоматически привязываются к карте выше.&#10;&#10;Логика: VALID = все ALIVE минус карты,&#10;которые хотя бы раз были DEAD или INVALID."></textarea>
+                </div>
+                <div class="list-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <span id="valid-cards-detected" class="list-count-badge">0 cards detected</span>
+                    <label class="pz-btn pz-btn-dim" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
+                        📁 Load .txt
+                        <input type="file" id="valid-cards-file" accept=".txt" hidden>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <button class="btn-cancel" id="valid-cards-cancel">Cancel</button>
+                <span style="flex:1"></span>
+                <button class="btn-primary" id="valid-cards-process">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    Process Valid Cards
                 </button>
             </div>
         </div>
