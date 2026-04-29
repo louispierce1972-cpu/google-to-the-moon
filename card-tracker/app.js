@@ -8707,8 +8707,12 @@ function _parseCheckerOutput(text) {
                 }
 
                 results.push({ cc, mm, yy, cvv, status, system, type, level, geo, key });
+                // j всегда >= i+1, обновляем позицию итератора
+                i = j;
+            } else {
+                // Статус есть, но номер карты не распознан — идём дальше
+                i++;
             }
-            i = j || i + 1;
         } else {
             i++;
         }
