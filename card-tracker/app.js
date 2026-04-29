@@ -8817,6 +8817,73 @@ function _initValidCardsModal() {
         fileInput.value = '';
     });
 
+    // ✅ Mini Parser — загрузка .json (Telegram экспорт или любой JSON с сообщениями)
+    // Извлекает текст всех сообщений, добавляет в textarea и сразу показывает результаты
+    const miniParserInput = document.getElementById('valid-mini-parser-file');
+    if (miniParserInput) {
+        miniParserInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    // Поддерживаем формат Telegram: { messages: [...] } или массив сообщений
+                    const messages = Array.isArray(data) ? data : (data.messages || []);
+
+                    if (messages.length === 0) {
+                        toast(`${file.name}: нет сообщений в файле`, 'warning');
+                        return;
+                    }
+
+                    // Извлекаем текст из всех сообщений
+                    // Telegram хранит текст в поле text (строка или массив сущностей)
+                    const lines = [];
+                    messages.forEach(msg => {
+                        if (!msg) return;
+                        let text = '';
+                        if (typeof msg.text === 'string') {
+                            text = msg.text;
+                        } else if (Array.isArray(msg.text)) {
+                            // Telegram entities — берём только текстовые части
+                            text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
+                        } else if (typeof msg === 'string') {
+                            text = msg;
+                        }
+                        if (text.trim()) lines.push(text.trim());
+                    });
+
+                    if (lines.length === 0) {
+                        toast(`${file.name}: текст не найден в сообщениях`, 'warning');
+                        return;
+                    }
+
+                    const combinedText = lines.join('\n');
+
+                    // Предварительно проверяем — есть ли вообще карты с маркерами
+                    const preview = _parseCheckerOutput(combinedText);
+                    const aliveCount = preview.filter(c => c.status === 'alive').length;
+                    const badCount = preview.filter(c => c.status === 'dead' || c.status === 'invalid').length;
+
+                    if (preview.length === 0) {
+                        toast(`${file.name}: карты с маркерами ALIVE/DEAD/INVALID не найдены`, 'warning');
+                        return;
+                    }
+
+                    // Сразу обрабатываем — не добавляем в textarea, запускаем напрямую
+                    close();
+                    _processValidCards(combinedText);
+                    toast(`${file.name}: ✅ ${aliveCount} ALIVE · 💀/❌ ${badCount} DEAD/INVALID — ${messages.length} сообщений`, 'success');
+
+                } catch (err) {
+                    toast(`${file.name}: невалидный JSON — ${err.message}`, 'error');
+                }
+            };
+            reader.readAsText(file);
+            miniParserInput.value = '';
+        });
+    }
+
     // Обработка нажатия Process
     processBtn?.addEventListener('click', () => {
         _processValidCards(textarea.value);
