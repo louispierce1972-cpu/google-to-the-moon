@@ -37,7 +37,7 @@ const STATE = {
 };
 
 
-const CREDENTIALS = { username: 'admin', password: '2026' };
+const CREDENTIALS = { username: 'admin', password: 'google2026' };
 
 // ──── BIN CACHE (RustBin API) ────
 let BIN_CACHE = {};
@@ -8403,101 +8403,64 @@ function _rerunFromClean() {
     const beforeWs = cards.length;
     cards = cards.filter(c => !existingNumbers.has((c.cc || '').replace(/[\s\-]/g, '')));
     const workspaceRemoved = beforeWs - cards.length;
-    // Dedup �function _parseCheckerOutput(text) {
-    const lines = text.split(/\r?\n/);
-    const results = [];
-
-    // Извлекаем номер карты (13-19 цифр) из строки
-    function extractCC(line) {
-        // Pipe-формат: 4537800314042786|01|29|874
-        const pipeM = line.match(/(\d{13,19})\|/);
-        if (pipeM) return pipeM[1];
-        // Любая последовательность 13-19 цифр
-        const m = line.match(/(\d{13,19})/);
-        return m ? m[1] : null;
-    }
-
-    // Извлекаем MM YY CVV из строки (без номера карты)
-    function extractExpCvv(str) {
-        // Формат: MM YY CVV (пробелы)
-        const m = str.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
-        if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
-        // Формат: MM/YY CVV
-        const m2 = str.match(/\b(0[1-9]|1[0-2])\/(\d{2})\s+(\d{3,4})\b/);
-        if (m2) return { mm: m2[1], yy: m2[2], cvv: m2[3] };
-        // Pipe-формат: |MM|YY|CVV
-        const m3 = str.match(/\|(\d{2})\|(\d{2})\|(\d{3,4})/);
-        if (m3) return { mm: m3[1], yy: m3[2], cvv: m3[3] };
-        return { mm: '', yy: '', cvv: '' };
-    }
-
-    // Определяем статус строки
-    function getStatus(line) {
-        if (/(?:✅|ALIVE|Approved|APPROVED)/i.test(line)) return 'alive';
-        if (/(?:💀|DEAD|Declined|DECLINED)/i.test(line)) return 'dead';
-        if (/(?:❌|INVALID|Invalid)/i.test(line)) return 'invalid';
-        return null;
-    }
-
-    // Проверяем, является ли строка строкой с картой (статус + номер карты)
-    function isCardLine(line) {
-        return getStatus(line) !== null && extractCC(line) !== null;
-    }
-
-    // ── Проход 1: находим ИНДЕКСЫ всех строк с картами ──────────────────────
-    // Это гарантирует что ни одна карта не будет пропущена внутренней логикой
-    const cardIndices = [];
-    for (let i = 0; i < lines.length; i++) {
-        if (isCardLine(lines[i].trim())) {
-            cardIndices.push(i);
-        }
-    }
-
-    // ── Проход 2: для каждой карты собираем служебные данные ─────────────────
-    // Сканируем строки от текущей карты до следующей (или max 12 строк)
-    cardIndices.forEach((cardIdx, ci) => {
-        const line = lines[cardIdx].trim();
-        const status = getStatus(line);
-        const cc = extractCC(line);
-        if (!cc || !status) return;
-
-        // Убираем номер карты из строки для поиска exp/cvv
-        const withoutCC = line.replace(cc, ' ');
-        const { mm, yy, cvv } = extractExpCvv(withoutCC);
-        const key = `${cc}|${mm}|${yy}|${cvv}`;
-
-        // Граница сканирования служебных строк — следующая карта или max 12 строк
-        const nextCardIdx = cardIndices[ci + 1] ?? lines.length;
-        const scanEnd = Math.min(nextCardIdx, cardIdx + 12);
-
-        let system = '', type = '', level = '', geo = '';
-
-        for (let j = cardIdx + 1; j < scanEnd; j++) {
-            const svc = lines[j].trim();
-            if (!svc) continue; // пустые строки пропускаем
-
-            // Код региона (русский и английский варианты)
-            const geoM = svc.match(/(?:Код\s*региона|Region\s*code|Country\s*code|GEO)\s*[-–:]\s*([A-Za-z]{2})/i);
-            if (geoM) { geo = geoM[1].toUpperCase(); continue; }
-
-            // Платёжная система
-            const sysM = svc.match(/(?:Система|System|Network|Brand|Payment)\s*[-–:]\s*(.+)/i);
-            if (sysM) { system = sysM[1].trim().split(/\s+/)[0]; continue; }
-
-            // Тип карты
-            const typeM = svc.match(/(?:Тип|Type|Card\s*type)\s*[-–:]\s*(.+)/i);
-            if (typeM) { type = typeM[1].trim().split(/\s+/)[0]; continue; }
-
-            // Уровень / класс карты
-            const levelM = svc.match(/(?:Уровень|Level|Tier|Class|Subtype)\s*[-–:]\s*(.+)/i);
-            if (levelM) { level = levelM[1].trim().split(/\s+/)[0]; continue; }
-        }
-
-        results.push({ cc, mm, yy, cvv, status, system, type, level, geo, key });
+    // Dedup internal duplicates
+    const seen = new Set();
+    const beforeDedup = cards.length;
+    cards = cards.filter(c => {
+        const cc = (c.cc || '').replace(/[\s\-]/g, '');
+        if (seen.has(cc)) return false;
+        seen.add(cc);
+        return true;
     });
+    const dupRemoved = beforeDedup - cards.length;
 
-    return results;
-}.value = '';
+    if (PARSER_STATE._pipelineStats) {
+        PARSER_STATE._pipelineStats.compareRemoved = compareRemoved;
+        PARSER_STATE._pipelineStats.workspaceRemoved = workspaceRemoved;
+        PARSER_STATE._pipelineStats.dupRemoved = dupRemoved;
+    }
+
+    PARSER_STATE.collected = cards;
+    PARSER_STATE.selected = new Set(cards.map((_, i) => i));
+    _rebuildBinGroups();
+}
+
+function _initTrashCardModal() {
+    const overlay = document.getElementById('trash-cards-overlay');
+    if (!overlay) return;
+
+    const textarea = document.getElementById('trash-cards-textarea');
+    const detectedEl = document.getElementById('trash-cards-detected');
+    const closeBtn = document.getElementById('trash-cards-close');
+    const cancelBtn = document.getElementById('trash-cards-cancel');
+    const saveBtn = document.getElementById('trash-cards-save');
+    const fileInput = document.getElementById('trash-cards-file');
+
+    const closeModal = () => overlay.classList.add('hidden');
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    const updateDetected = () => {
+        const result = _extractTrashCards(textarea.value);
+        detectedEl.textContent = result.hasMarkers
+            ? `💀 ${result.deadCards.length} DEAD/INVALID · ✅ ${result.aliveCount} ALIVE`
+            : `${result.deadCards.length} cards detected`;
+    };
+    textarea?.addEventListener('input', updateDetected);
+
+    if (fileInput) {
+        fileInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                textarea.value = (textarea.value ? textarea.value + '\n' : '') + ev.target.result;
+                updateDetected();
+                toast(`Loaded ${file.name}`, 'success');
+            };
+            reader.readAsText(file);
+            fileInput.value = ''
         });
     }
 
