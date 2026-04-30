@@ -9433,6 +9433,47 @@ function _processPipeline(allCards, status) {
     renderParser();
 }
 
+// ──── REBUILD BIN GROUPS ────
+// Группирует PARSER_STATE.collected по БИН-коду для отображения в Parser Results
+function _rebuildBinGroups() {
+    const binMap = {};
+    PARSER_STATE.collected.forEach(c => {
+        if (!binMap[c.bin]) binMap[c.bin] = [];
+        binMap[c.bin].push(c);
+    });
+    PARSER_STATE.binGroups = Object.entries(binMap)
+        .map(([bin, cards]) => ({ bin, count: cards.length, cards }))
+        .sort((a, b) => b.count - a.count);
+}
+
+// ──── UPDATE STATS BAR ────
+// Обновляет статистику над таблицей результатов парсера
+function _updateStatsBar() {
+    const stats = PARSER_STATE._pipelineStats;
+    const bar = document.getElementById('parser-stats-bar');
+    if (!bar) return;
+    if (stats) {
+        bar.style.display = '';
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('ps-total',     stats.totalRaw        || 0);
+        set('ps-trash',     stats.trashRemoved    || 0);
+        set('ps-compared',  stats.compareRemoved  || 0);
+        set('ps-workspace', stats.workspaceRemoved || 0);
+        set('ps-dupes',     stats.dupRemoved      || 0);
+        set('ps-net',       PARSER_STATE.collected.length);
+        // TEST MODE
+        const testEl = document.getElementById('ps-test-mode');
+        if (PARSER_STATE.testMode && typeof _applyTestMode === 'function') {
+            const testCards = _applyTestMode(PARSER_STATE.collected, false);
+            if (testEl) testEl.style.display = '';
+            set('ps-test-cards', testCards.length);
+            set('ps-test-bins',  new Set(testCards.map(c => c.bin)).size);
+        } else {
+            if (testEl) testEl.style.display = 'none';
+        }
+    }
+}
+
 // ──── IMPORT TO NOTES (checker format) ────
 function _buildExportTabTitle() {
     const filters = PARSER_STATE.filters || {};
