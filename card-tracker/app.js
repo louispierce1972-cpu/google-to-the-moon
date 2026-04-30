@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -8464,7 +8464,8 @@ function _initTrashCardModal() {
         });
     }
 
-    // 💀 Mini Parser — reads JSON like main parser, extracts cards → adds to trash
+    // 💀 Mini Parser — загружает JSON, определяет формат чекера (classic/pipe/block/mixed),
+    // извлекает ТОЛЬКО trash-карты, valid-карты молча игнорирует
     const miniParserInput = document.getElementById('trash-mini-parser-file');
     if (miniParserInput) {
         miniParserInput.addEventListener('change', (e) => {
@@ -8474,40 +8475,61 @@ function _initTrashCardModal() {
             reader.onload = (ev) => {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    const cardNumbers = extractAllCardNumbersFromJSON(data); // returns Set
-
-                    if (cardNumbers.size === 0) {
-                        toast(`${file.name}: no cards found in JSON`, 'warning');
+                    // Извлекаем текст сообщений из Telegram JSON
+                    const messages = Array.isArray(data) ? data : (data.messages || []);
+                    if (messages.length === 0) {
+                        toast(`${file.name}: нет сообщений в файле`, 'warning');
                         return;
                     }
-
+                    const msgLines = [];
+                    messages.forEach(msg => {
+                        if (!msg) return;
+                        let text = '';
+                        if (typeof msg.text === 'string') { text = msg.text; }
+                        else if (Array.isArray(msg.text)) {
+                            text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
+                        }
+                        if (text.trim()) msgLines.push(text.trim());
+                    });
+                    if (msgLines.length === 0) {
+                        toast(`${file.name}: текст не найден в сообщениях`, 'warning');
+                        return;
+                    }
+                    const combinedText = msgLines.join('\n');
+                    // Запускаем мультиформатный парсер
+                    const parsed = _parseMultiFormat(combinedText);
+                    const fmtLabel = parsed.format;
+                    if (parsed.totalParsed === 0) {
+                        detectedEl.textContent = `Format: ${fmtLabel} · Ничего не распознано (${messages.length} сообщений)`;
+                        toast(`${file.name}: формат чекера не распознан`, 'warning');
+                        return;
+                    }
+                    // Дедупликация против существующего trash-листа
                     const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
                     let added = 0, dupes = 0;
-                    cardNumbers.forEach(cc => {
+                    parsed.trashCards.forEach(cc => {
                         if (!existingSet.has(cc)) {
                             STATE.trashCards.push(cc);
                             existingSet.add(cc);
                             added++;
-                        } else {
-                            dupes++;
-                        }
+                        } else { dupes++; }
                     });
-
-                    save();
-
-                    let msg = `${file.name}: +${added} trash cards`;
-                    if (dupes > 0) msg += `, ${dupes} dupes skipped`;
-                    msg += ` (${STATE.trashCards.length} total)`;
-                    toast(msg, 'success');
-
-                    // Update trash button count
-                    const trashBtn = document.getElementById('parser-trash-btn');
-                    if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
-
-                    // Update detected display
-                    detectedEl.textContent = `💀 +${added} from ${file.name} (${cardNumbers.size} parsed)`;
+                    if (added > 0) {
+                        save();
+                        const trashBtn = document.getElementById('parser-trash-btn');
+                        if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
+                        // Перезапускаем пайплайн чтобы новые trash-карты учитывались
+                        if (PARSER_STATE.rawMessages.length > 0) runParse();
+                    }
+                    // Показываем сводку
+                    let summary = `Format: ${fmtLabel} · Total: ${parsed.totalParsed} · Trash: +${added} · Valid skipped: ${parsed.validCount}`;
+                    if (dupes > 0) summary += ` · Dupes: ${dupes}`;
+                    detectedEl.textContent = summary;
+                    if (added > 0) toast(`${file.name}: +${added} trash (${fmtLabel}) · valid: ${parsed.validCount} проигнорировано`, 'success');
+                    else if (dupes > 0) toast(`${file.name}: все карты уже в trash (${dupes} дублей)`, 'info');
+                    else toast(`${file.name}: trash-карты не найдены (${parsed.validCount} valid проигнорировано)`, 'info');
                 } catch (err) {
-                    toast(`${file.name}: invalid JSON — ${err.message}`, 'error');
+                    toast(`${file.name}: ошибка — ${err.message}`, 'error');
                 }
             };
             reader.readAsText(file);
@@ -8690,40 +8712,161 @@ function _parseCheckerOutput(text) {
  * Собирает ВСЕ карты со статусами DEAD и INVALID, ничего не пропускает.
  * Если маркеров нет — legacy-режим: все найденные номера в trash.
  */
-function _extractTrashCards(text) {
-    const parsed = _parseCheckerOutput(text);
-    const deadCards = [];
-    let aliveCount = 0;
-    let hasMarkers = parsed.length > 0;
-    const seen = new Set();
+// ═══════════════════════════════════════════════════════════════════
+//  MULTI-FORMAT CHECKER PARSER — мультиформатный парсер чекера
+//  Форматы: classic (✅/💀/❌), pipe (CARD | STATUS), block (🟩/🟥)
+// ═══════════════════════════════════════════════════════════════════
 
-    if (hasMarkers) {
-        // Режим с маркерами: собираем только DEAD и INVALID
-        parsed.forEach(c => {
-            if (c.status === 'alive') {
-                aliveCount++;
-            } else if (c.status === 'dead' || c.status === 'invalid') {
-                const n = c.cc.replace(/[\s\-]/g, '');
-                if (!seen.has(n)) {
-                    deadCards.push(n);
-                    seen.add(n);
-                }
-            }
-        });
-    } else {
-        // Legacy: нет маркеров — все найденные номера в trash
-        hasMarkers = false;
-        const lines = text.split(/\r?\n/);
-        lines.forEach(line => {
+/** Ключевые слова = trash (приоритет над valid-маркерами) */
+const _TRASH_KEYWORDS = [
+    'DEAD','INVALID','DECLINED','DO NOT HONOR','DO NOT TRY AGAIN',
+    'FRAUD','SUSPECTED FRAUD','CLOSED CARD','PROCESSOR DECLINED',
+    'CARD ISSUER DECLINED','CALL ISSUER','INSUFFICIENT FUNDS',
+    'NOT HONOR','INSUFFICIENT_FUNDS'
+];
+
+/** Проверяем строку на trash-маркеры (слова + эмодзи). Trash > valid. */
+function _lineIsTrash(line) {
+    const upper = line.toUpperCase();
+    for (const kw of _TRASH_KEYWORDS) {
+        if (upper.includes(kw)) return true;
+    }
+    return /\u{1F480}|\u274C|\u26D4|\u{1F7E5}/u.test(line); // 💀❌⛔🟥
+}
+
+/** Извлекаем номер карты из строки (13-19 цифр) */
+function _extractCC(line) {
+    // pipe-формат: 4537800314042786|...
+    const pm = line.match(/(\d{13,19})\|/);
+    if (pm) return pm[1];
+    // обычный формат
+    const m = line.match(/\b(\d{13,19})\b/);
+    if (m) return m[1];
+    // без word boundary (цифры рядом с символами)
+    const m2 = line.replace(/[\s\u00A0]/g, ' ').match(/(\d{13,19})/);
+    return m2 ? m2[1] : null;
+}
+
+/**
+ * Определяем формат текста по первым 100 непустым строкам.
+ * Возвращает: 'classic' | 'pipe' | 'block' | 'mixed' | 'unknown'
+ */
+function _detectCheckerFormat(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0).slice(0, 100);
+    let classic = 0, pipe = 0, block = 0;
+    for (const l of lines) {
+        if (/^[\u2705\u{1F480}\u274C]/u.test(l) && /\b(ALIVE|DEAD|INVALID)\b/i.test(l)) classic++;
+        if (/^\d{13,19}\s*\|/.test(l)) pipe++;
+        if (/\u{1F7E9}{2,}|\u{1F7E5}{2,}/u.test(l)) block++;
+    }
+    const found = [classic > 0 && 'classic', pipe > 0 && 'pipe', block > 0 && 'block'].filter(Boolean);
+    if (found.length === 0) return 'unknown';
+    if (found.length === 1) return found[0];
+    return 'mixed';
+}
+
+/**
+ * ФОРМАТ 1 (CLASSIC): ✅/💀/❌ CARD MM YY CVV - ALIVE/DEAD/INVALID
+ */
+function _parseClassicFormat(text) {
+    const results = [];
+    for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        const hasEmoji = /^[\u2705\u{1F480}\u274C]/u.test(line);
+        const hasWord  = /\b(ALIVE|DEAD|INVALID)\b/i.test(line);
+        if (!hasEmoji && !hasWord) continue;
+        const cc = _extractCC(line);
+        if (!cc) continue;
+        const isTrash = /^[\u{1F480}\u274C]/u.test(line) || /\b(DEAD|INVALID)\b/i.test(line);
+        results.push({ cc, status: isTrash ? 'trash' : 'valid' });
+    }
+    return results;
+}
+
+/**
+ * ФОРМАТ 2 (PIPE): CARD | STATUS TEXT [emoji]
+ * Insufficient Funds ✅ → всегда trash (keyword приоритетнее ✅)
+ */
+function _parsePipeFormat(text) {
+    const results = [];
+    for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (!/^\d{13,19}\s*\|/.test(line)) continue;
+        const cc = _extractCC(line);
+        if (!cc) continue;
+        const after = line.replace(/^\d+\s*\|/, '').trim();
+        results.push({ cc, status: _lineIsTrash(after) || _lineIsTrash(line) ? 'trash' : 'valid' });
+    }
+    return results;
+}
+
+/**
+ * ФОРМАТ 3 (BLOCK): блоки 🟩🟩🟩 (valid) / 🟥🟥🟥 (trash)
+ * Первый номер карты после разделителя = карта этого блока
+ */
+function _parseBlockFormat(text) {
+    const results = [];
+    const lines = text.split(/\r?\n/);
+    let blockTrash = null;
+    let cardFound = false;
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (/\u{1F7E5}{2,}/u.test(line)) { blockTrash = true;  cardFound = false; continue; }
+        if (/\u{1F7E9}{2,}/u.test(line)) { blockTrash = false; cardFound = false; continue; }
+        if (blockTrash !== null && !cardFound) {
+            const cc = _extractCC(line);
+            if (cc) { results.push({ cc, status: blockTrash ? 'trash' : 'valid' }); cardFound = true; }
+        }
+    }
+    return results;
+}
+
+/**
+ * Главный мультиформатный парсер.
+ * Правило: если карта встречается как trash хотя бы раз — статус trash.
+ * Возвращает { format, trashCards[], validCount, totalParsed }
+ */
+function _parseMultiFormat(text) {
+    const format = _detectCheckerFormat(text);
+    let all = [];
+    if (format === 'classic' || format === 'mixed' || format === 'unknown') all = all.concat(_parseClassicFormat(text));
+    if (format === 'pipe'    || format === 'mixed') all = all.concat(_parsePipeFormat(text));
+    if (format === 'block'   || format === 'mixed') all = all.concat(_parseBlockFormat(text));
+
+    // Применяем правило приоритета: trash > valid
+    const statusMap = new Map();
+    for (const r of all) {
+        const cc = r.cc.replace(/[\s\-]/g, '');
+        if (!cc) continue;
+        if (!statusMap.has(cc) || r.status === 'trash') statusMap.set(cc, r.status);
+    }
+
+    const trashCards = [];
+    let validCount = 0;
+    statusMap.forEach((st, cc) => { if (st === 'trash') trashCards.push(cc); else validCount++; });
+
+    return { format, trashCards, validCount, totalParsed: statusMap.size };
+}
+
+function _extractTrashCards(text) {
+    // Используем мультиформатный парсер для поддержки classic/pipe/block форматов
+    const multi = _parseMultiFormat(text);
+    const deadCards = multi.trashCards;
+    const aliveCount = multi.validCount;
+    const hasMarkers = multi.totalParsed > 0;
+
+    // Legacy fallback: если формат не распознан — собираем все номера
+    if (!hasMarkers) {
+        const seen = new Set();
+        const legacy = [];
+        text.split(/\r?\n/).forEach(line => {
             const m = line.trim().match(/\b(\d{13,19})\b/);
-            if (m) {
-                const n = m[1];
-                if (!seen.has(n)) {
-                    deadCards.push(n);
-                    seen.add(n);
-                }
-            }
+            if (m && !seen.has(m[1])) { legacy.push(m[1]); seen.add(m[1]); }
         });
+        return { deadCards: legacy, aliveCount: 0, hasMarkers: false };
     }
 
     return { deadCards, aliveCount, hasMarkers };
