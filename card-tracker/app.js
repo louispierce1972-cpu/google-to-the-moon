@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -8285,6 +8285,7 @@ function renderParser() {
     });
 
     _initTrashCardModal();
+    _initTrashTabs();        // вкладки + Check My List
     _initValidCardsModal();
 
     // Если есть результаты Valid Cards — показываем их, иначе обычные результаты парсера
@@ -8617,6 +8618,238 @@ function _initTrashCardModal() {
         document.querySelector('[data-view="notes"]')?.click();
         toast(`Trash list (${cards.length} cards) opened in Notes`, 'success');
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CHECK MY LIST — проверка пользовательского списка карт
+//  против сохранённого trash-листа. Карты НЕ добавляются в trash.
+// ═══════════════════════════════════════════════════════════════════
+
+/** Состояние модуля Check My List */
+const CML_STATE = {
+    cleanCards:   [], // объекты { cardNumber, originalLine } — не в trash
+    trashMatches: [], // объекты { cardNumber, originalLine } — найдены в trash
+    stats: null       // { checked, foundTrash, clean, dupes }
+};
+
+/**
+ * Инициализирует переключение вкладок в Trash-модале
+ * и запускает _initCheckMyList().
+ */
+function _initTrashTabs() {
+    const overlay = document.getElementById('trash-cards-overlay');
+    if (!overlay) return;
+
+    const tabs    = overlay.querySelectorAll('.trash-tab');
+    const panels  = overlay.querySelectorAll('.trash-tab-panel');
+    const subtitle = document.getElementById('trash-modal-subtitle');
+    const subtitles = {
+        add:   'Вставь вывод чекера — собирает 💀 DEAD и ❌ INVALID карты',
+        check: 'Проверь свой список карт против сохранённой trash-базы'
+    };
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            // Активная вкладка
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            // Показываем нужную панель
+            panels.forEach(p => {
+                const id = p.id.replace('trash-tab-', '');
+                p.classList.toggle('hidden', id !== target);
+            });
+            // Обновляем подзаголовок
+            if (subtitle) subtitle.textContent = subtitles[target] || '';
+        });
+    });
+
+    // Инициализируем Check My List логику
+    _initCheckMyList();
+}
+
+/**
+ * Инициализирует логику вкладки "Check My List".
+ * НЕ добавляет карты в trash — только проверяет против существующего листа.
+ */
+function _initCheckMyList() {
+    const textarea     = document.getElementById('cml-textarea');
+    const checkBtn     = document.getElementById('cml-check-btn');
+    const clearBtn     = document.getElementById('cml-clear-btn');
+    const closeBtn     = document.getElementById('cml-close-btn');
+    const inputCount   = document.getElementById('cml-input-count');
+    const statsEl      = document.getElementById('cml-stats');
+    const resultsEl    = document.getElementById('cml-results');
+    const trashListEl  = document.getElementById('cml-trash-list');
+    const cleanListEl  = document.getElementById('cml-clean-list');
+    const copyTrashBtn = document.getElementById('cml-copy-trash');
+    const copyCleanBtn = document.getElementById('cml-copy-clean');
+    const exportNotes  = document.getElementById('cml-export-notes');
+    const overlay      = document.getElementById('trash-cards-overlay');
+
+    if (!textarea || !checkBtn) return;
+
+    // Закрытие через кнопку Close в этой вкладке
+    closeBtn?.addEventListener('click', () => overlay?.classList.add('hidden'));
+
+    // Счётчик строк при вводе
+    textarea.addEventListener('input', () => {
+        const lines = textarea.value.split('\n').filter(l => l.trim().match(/\d{13,19}/));
+        if (inputCount) inputCount.textContent = lines.length > 0 ? `${lines.length} lines detected` : '';
+    });
+
+    // CLEAR — очищаем textarea и результаты
+    clearBtn?.addEventListener('click', () => {
+        textarea.value = '';
+        if (inputCount) inputCount.textContent = '';
+        statsEl.style.display  = 'none';
+        resultsEl.style.display = 'none';
+        CML_STATE.cleanCards   = [];
+        CML_STATE.trashMatches = [];
+        CML_STATE.stats        = null;
+    });
+
+    // CHECK MY LIST — основная логика
+    checkBtn.addEventListener('click', () => {
+        const raw = textarea.value;
+        if (!raw.trim()) { toast('Paste your cards first', 'warning'); return; }
+
+        // Формируем trash-сет из STATE.trashCards для быстрого поиска
+        const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
+
+        const seenCC = new Set();
+        let dupes = 0;
+        const clean   = [];
+        const matched = [];
+
+        // Парсим каждую строку: ищем 13-19 цифр (номер карты)
+        const inputLines = raw.split(/\r?\n/);
+        inputLines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            const m = trimmed.match(/(\d{13,19})/);
+            if (!m) return;
+            const cardNumber = m[1];
+
+            // Дедупликация по номеру карты
+            if (seenCC.has(cardNumber)) { dupes++; return; }
+            seenCC.add(cardNumber);
+
+            // Сравниваем с trash-базой
+            const obj = { cardNumber, originalLine: trimmed };
+            if (trashSet.has(cardNumber)) {
+                matched.push(obj);
+            } else {
+                clean.push(obj);
+            }
+        });
+
+        // Сохраняем в состояние
+        CML_STATE.cleanCards   = clean;
+        CML_STATE.trashMatches = matched;
+        CML_STATE.stats = {
+            checked:    seenCC.size,
+            foundTrash: matched.length,
+            clean:      clean.length,
+            dupes
+        };
+
+        // Показываем статистику
+        _renderCMLStats();
+        _renderCMLLists();
+
+        toast(`Check complete: ${clean.length} clean, ${matched.length} trash`, 'success');
+    });
+
+    // COPY TRASH MATCHES
+    copyTrashBtn?.addEventListener('click', () => {
+        const text = CML_STATE.trashMatches.map(c => c.originalLine).join('\n');
+        if (!text) { toast('No trash matches to copy', 'info'); return; }
+        navigator.clipboard?.writeText(text);
+        toast(`Copied ${CML_STATE.trashMatches.length} trash matches`, 'success');
+    });
+
+    // COPY CLEAN
+    copyCleanBtn?.addEventListener('click', () => {
+        const text = CML_STATE.cleanCards.map(c => c.originalLine).join('\n');
+        if (!text) { toast('No clean cards to copy', 'info'); return; }
+        navigator.clipboard?.writeText(text);
+        toast(`Copied ${CML_STATE.cleanCards.length} clean cards`, 'success');
+    });
+
+    // EXPORT CLEAN TO NOTES
+    exportNotes?.addEventListener('click', () => {
+        const cards = CML_STATE.cleanCards;
+        if (!cards.length) { toast('No clean cards to export', 'info'); return; }
+        const block = cards.map(c => c.originalLine).join('\n');
+        const title = `CLEAN FROM TRASH CHECK — ${cards.length}`;
+        const newTab = {
+            id: 'tab-cml-' + Date.now(),
+            title,
+            content: block,
+            pinned: false,
+            tag: null,
+            created: Date.now(),
+            scrollPos: 0
+        };
+        STATE.notesTabs.unshift(newTab);
+        STATE.notesActiveTab = newTab.id;
+        save();
+        // Переключаемся на Notes
+        document.querySelector('[data-view="notes"]')?.click();
+        toast(`Exported ${cards.length} clean cards to Notes`, 'success');
+    });
+}
+
+/** Рендерит блок статистики Check My List */
+function _renderCMLStats() {
+    const s = CML_STATE.stats;
+    if (!s) return;
+    const statsEl = document.getElementById('cml-stats');
+    if (!statsEl) return;
+    statsEl.style.display = 'flex';
+    statsEl.innerHTML = `
+        <div class="cml-stat-item">
+            <span class="cml-stat-val val-total">${s.checked}</span>
+            <span class="cml-stat-lbl">Checked</span>
+        </div>
+        <div class="cml-stat-item">
+            <span class="cml-stat-val val-trash">${s.foundTrash}</span>
+            <span class="cml-stat-lbl">Found in Trash</span>
+        </div>
+        <div class="cml-stat-item">
+            <span class="cml-stat-val val-clean">${s.clean}</span>
+            <span class="cml-stat-lbl">Clean</span>
+        </div>
+        ${s.dupes > 0 ? `<div class="cml-stat-item">
+            <span class="cml-stat-val val-dupes">${s.dupes}</span>
+            <span class="cml-stat-lbl">Dupes skipped</span>
+        </div>` : ''}
+    `;
+}
+
+/** Рендерит два списка (trash matches и clean) */
+function _renderCMLLists() {
+    const resultsEl   = document.getElementById('cml-results');
+    const trashListEl = document.getElementById('cml-trash-list');
+    const cleanListEl = document.getElementById('cml-clean-list');
+    if (!resultsEl) return;
+
+    resultsEl.style.display = 'grid';
+
+    // Рендерим trash matches (красным)
+    if (trashListEl) {
+        trashListEl.innerHTML = CML_STATE.trashMatches.length > 0
+            ? CML_STATE.trashMatches.map(c => `<div>${c.originalLine}</div>`).join('')
+            : '<div style="opacity:0.4;font-style:italic">— none —</div>';
+    }
+
+    // Рендерим clean cards (зелёным)
+    if (cleanListEl) {
+        cleanListEl.innerHTML = CML_STATE.cleanCards.length > 0
+            ? CML_STATE.cleanCards.map(c => `<div>${c.originalLine}</div>`).join('')
+            : '<div style="opacity:0.4;font-style:italic">— none —</div>';
+    }
 }
 
 /**

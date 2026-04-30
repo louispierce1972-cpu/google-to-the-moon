@@ -11085,3 +11085,158 @@ tr.row-selected td {
     .vc-stats-row { grid-template-columns: 1fr 1fr; }
     .vc-export-bar { flex-direction: column; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TRASH MODAL — таб-система и Check My List
+═══════════════════════════════════════════════════════════════ */
+
+/* Расширенная ширина модала для Check My List */
+.modal-wide { max-width: 860px; width: 95vw; }
+
+/* Панель вкладок */
+.trash-tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    padding: 0 20px;
+    background: rgba(0,0,0,0.15);
+}
+.trash-tab {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #6b7280);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: -1px;
+}
+.trash-tab:hover { color: var(--text-secondary, #9ca3af); }
+.trash-tab.active {
+    color: #f87171;
+    border-bottom-color: #f87171;
+}
+.trash-tab[data-tab="check"].active {
+    color: #818cf8;
+    border-bottom-color: #818cf8;
+}
+
+/* Панели вкладок */
+.trash-tab-panel { display: block; }
+.trash-tab-panel.hidden { display: none !important; }
+
+/* ── Check My List: статистика ── */
+.cml-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: rgba(129,140,248,0.06);
+    border: 1px solid rgba(129,140,248,0.15);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+}
+.cml-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 70px;
+}
+.cml-stat-val {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+.cml-stat-lbl {
+    font-size: 10px;
+    color: var(--text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+}
+.cml-stat-val.val-total  { color: #818cf8; }
+.cml-stat-val.val-trash  { color: #f87171; }
+.cml-stat-val.val-clean  { color: #34d399; }
+.cml-stat-val.val-dupes  { color: #fbbf24; }
+
+/* ── Check My List: результаты (два столбца) ── */
+.cml-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-height: 280px;
+}
+.cml-col { display: flex; flex-direction: column; min-height: 0; }
+.cml-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-radius: 6px 6px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+}
+.cml-header-trash {
+    background: rgba(248,113,113,0.12);
+    border: 1px solid rgba(248,113,113,0.25);
+    color: #f87171;
+}
+.cml-header-clean {
+    background: rgba(52,211,153,0.10);
+    border: 1px solid rgba(52,211,153,0.20);
+    color: #34d399;
+}
+.cml-action-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    transition: background 0.15s, opacity 0.15s;
+    opacity: 0.8;
+}
+.cml-action-btn:hover { opacity: 1; background: rgba(255,255,255,0.07); }
+.cml-btn-export {
+    background: rgba(129,140,248,0.15);
+    border-color: #818cf8;
+    color: #818cf8;
+}
+.cml-btn-export:hover { background: rgba(129,140,248,0.25); }
+
+/* Список карт внутри столбца */
+.cml-list {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    padding: 6px 8px;
+    max-height: 220px;
+    border-radius: 0 0 6px 6px;
+    line-height: 1.7;
+}
+.cml-list-trash {
+    background: rgba(248,113,113,0.04);
+    border: 1px solid rgba(248,113,113,0.15);
+    border-top: none;
+    color: #fca5a5;
+}
+.cml-list-clean {
+    background: rgba(52,211,153,0.04);
+    border: 1px solid rgba(52,211,153,0.12);
+    border-top: none;
+    color: #6ee7b7;
+}
+.cml-list:empty::after {
+    content: '—';
+    color: var(--text-muted, #6b7280);
+    opacity: 0.5;
+}
