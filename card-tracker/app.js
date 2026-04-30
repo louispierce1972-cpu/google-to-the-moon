@@ -8092,6 +8092,7 @@ function renderParser() {
             <button class="pz-btn pz-btn-dim" id="parser-clear-btn">CLEAR</button>
             <button class="pz-btn pz-btn-trash" id="parser-trash-btn">🗑 TRASH (${(STATE.trashCards || []).length})</button>
             <button class="pz-btn pz-btn-valid" id="parser-valid-btn">✅ VALID CARDS</button>
+            <button class="pz-btn pz-btn-today" id="parser-today-btn">📅 TODAY CARDS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -8204,6 +8205,10 @@ function renderParser() {
         if (overlay) overlay.classList.remove('hidden');
     });
 
+    // ── TODAY CARDS BUTTON — дневной отчёт по картам ──
+    document.getElementById('parser-today-btn')?.addEventListener('click', () => {
+        _openTodayCardsModal();
+    });
     // Мультивыбор фильтров: клик добавляет/убирает значение из Set (OR-логика внутри категории)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -10555,5 +10560,415 @@ function initColumnResize(table, storageKey) {
 
         th.appendChild(handle);
     });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  TODAY CARDS — дневной отчёт по картам из загруженного JSON
+// ═══════════════════════════════════════════════════════════════
+
+const TC_STATE = { cards: [], dateLabel: '', fromDate: '', toDate: '' };
+
+/** Открывает и инициализирует модал TODAY CARDS */
+function _openTodayCardsModal() {
+    const overlay = document.getElementById('today-cards-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    _renderTodayShell();
+}
+
+/** Форматирует дату ISO в читаемый вид */
+function _tcFmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Рендерит шапку модала: заголовок, чипы дат, date-picker */
+function _renderTodayShell() {
+    const inner = document.getElementById('today-cards-inner');
+    if (!inner) return;
+
+    const msgs = PARSER_STATE.rawMessages || [];
+    const fileInfo = PARSER_STATE.mainFiles && PARSER_STATE.mainFiles.length > 0
+        ? PARSER_STATE.mainFiles.map(f => f.name).join(', ')
+        : 'No file loaded';
+
+    // Собираем уникальные даты из сообщений (YYYY-MM-DD)
+    const dayMap = {};
+    msgs.forEach(msg => {
+        if (!msg || !msg.date) return;
+        const d = msg.date.substring(0, 10);
+        dayMap[d] = (dayMap[d] || 0) + 1;
+    });
+    const days = Object.keys(dayMap).sort();
+    const dateRange = days.length > 0
+        ? `${_tcFmtDate(days[0])} — ${_tcFmtDate(days[days.length - 1])}`
+        : '—';
+
+    // Чипы дней
+    const chipsHtml = days.length > 0
+        ? days.map(d => {
+            const label = new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return `<button class="tc-chip" data-day="${d}">${label} <span class="tc-chip-count">${dayMap[d]}</span></button>`;
+        }).join('')
+        : '<span style="color:var(--text-muted);font-size:12px">No messages loaded — paste cards manually below</span>';
+
+    inner.innerHTML = `
+    <div class="tc-header">
+        <div>
+            <h3 class="tc-title">📅 TODAY CARDS — DAILY REPORT</h3>
+            <div class="tc-meta">📁 ${fileInfo} &nbsp;·&nbsp; ${msgs.length.toLocaleString()} messages</div>
+            <div class="tc-meta">🗓 Available: ${dateRange}</div>
+        </div>
+        <button class="modal-close" id="tc-close-btn"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+    </div>
+
+    <div class="tc-date-bar">
+        <div class="tc-chips">${chipsHtml}</div>
+        <div class="tc-range-row">
+            <label>FROM <input type="date" id="tc-from" class="tc-date-input"></label>
+            <label>TO <input type="date" id="tc-to" class="tc-date-input"></label>
+            <button class="tc-quick-btn" data-days="1">LAST DAY</button>
+            <button class="tc-quick-btn" data-days="2">LAST 2 DAYS</button>
+            <button class="tc-quick-btn" data-days="3">LAST 3 DAYS</button>
+        </div>
+    </div>
+
+    <div id="tc-report" class="tc-report"></div>`;
+
+    // Закрытие
+    document.getElementById('tc-close-btn')?.addEventListener('click', () => {
+        document.getElementById('today-cards-overlay').classList.add('hidden');
+    });
+
+    // Клик на чип дня
+    inner.querySelectorAll('.tc-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            inner.querySelectorAll('.tc-chip').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const day = btn.dataset.day;
+            _runTodayParse(day, day);
+        });
+    });
+
+    // Быстрые кнопки LAST N DAYS
+    inner.querySelectorAll('.tc-quick-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const n = parseInt(btn.dataset.days);
+            if (days.length === 0) return;
+            const lastDay = days[days.length - 1];
+            const toD = lastDay;
+            const fromIdx = Math.max(0, days.length - n);
+            const fromD = days[fromIdx];
+            document.getElementById('tc-from').value = fromD;
+            document.getElementById('tc-to').value = toD;
+            inner.querySelectorAll('.tc-chip').forEach(b => b.classList.remove('active'));
+            _runTodayParse(fromD, toD);
+        });
+    });
+
+    // Date range picker
+    const applyRange = () => {
+        const f = document.getElementById('tc-from').value;
+        const t = document.getElementById('tc-to').value;
+        if (f && t) _runTodayParse(f, t);
+    };
+    document.getElementById('tc-from')?.addEventListener('change', applyRange);
+    document.getElementById('tc-to')?.addEventListener('change', applyRange);
+
+    // Автоматически выбрать последний день если данные есть
+    if (days.length > 0) {
+        const lastChip = inner.querySelector(`.tc-chip[data-day="${days[days.length - 1]}"]`);
+        if (lastChip) lastChip.click();
+    }
+}
+
+/** Фильтрует сообщения по диапазону и запускает парсинг */
+function _runTodayParse(fromDate, toDate) {
+    const msgs = PARSER_STATE.rawMessages || [];
+    const from = new Date(fromDate + 'T00:00:00');
+    const to   = new Date(toDate   + 'T23:59:59');
+
+    const filtered = msgs.filter(msg => {
+        if (!msg || !msg.date) return false;
+        const d = new Date(msg.date);
+        return d >= from && d <= to;
+    });
+
+    // Извлекаем карты — ВСЕ (включая trash), не меняем PARSER_STATE.collected
+    const cards = extractCardsFromMessages(filtered);
+    cards.forEach(c => {
+        c.detectedGeo = detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode);
+    });
+
+    TC_STATE.cards = cards;
+    const days = (to - from) / 86400000 + 1;
+    if (fromDate === toDate) {
+        TC_STATE.dateLabel = new Date(fromDate + 'T12:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    } else {
+        TC_STATE.dateLabel = `${new Date(fromDate + 'T12:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} — ${new Date(toDate + 'T12:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+
+    _renderTodayReport(cards, TC_STATE.dateLabel, filtered.length);
+}
+
+/** Строит объект статистики */
+function _buildTodayStats(cards) {
+    const total = cards.length;
+    const bins   = new Set(cards.map(c => c.bin));
+    const geoMap = {}, typeMap = {}, levelMap = {}, sysMap = {}, bankMap = {}, hourMap = {};
+
+    cards.forEach(c => {
+        const geo   = c.detectedGeo || c.countryCode || 'Other';
+        const type  = (c.cardType || '').toUpperCase().includes('CREDIT') ? 'CREDIT'
+                    : (c.cardType || '').toUpperCase().includes('DEBIT')  ? 'DEBIT'
+                    : (c.cardType || '').toUpperCase().includes('PREPAID')? 'PREPAID'
+                    : (c.cardType || '').toUpperCase().includes('BUSINESS')? 'BUSINESS'
+                    : 'UNKNOWN';
+        const level = (c.cardType || '').toUpperCase().replace(/CREDIT|DEBIT|PREPAID|BUSINESS/g,'').trim() || 'STANDARD';
+        const sys   = getCardType(c.cc || '') || 'OTHER';
+        const bank  = c.bank || 'Unknown';
+        const hour  = c.msgDate ? new Date(c.msgDate).getHours() : -1;
+
+        geoMap[geo]   = (geoMap[geo]   || 0) + 1;
+        typeMap[type] = (typeMap[type] || 0) + 1;
+        levelMap[level]= (levelMap[level]||0)+ 1;
+        sysMap[sys]   = (sysMap[sys]   || 0) + 1;
+        bankMap[bank] = (bankMap[bank] || 0) + 1;
+        if (hour >= 0) hourMap[hour] = (hourMap[hour] || 0) + 1;
+    });
+
+    // Пиковый час
+    let peakHour = -1, peakCount = 0;
+    Object.entries(hourMap).forEach(([h, n]) => { if (n > peakCount) { peakHour = +h; peakCount = n; } });
+
+    // Активные часы
+    const activeHours = Object.keys(hourMap).length || 1;
+    const avgPerHour = Math.round(total / activeHours);
+
+    return { total, bins, geoMap, typeMap, levelMap, sysMap, bankMap, hourMap, peakHour, peakCount, avgPerHour };
+}
+
+/** GEO код → название страны */
+function _tcGeoName(code) {
+    const map = {
+        CA:'Canada',US:'United States',AU:'Australia',GB:'United Kingdom',DE:'Germany',
+        FR:'France',NL:'Netherlands',NO:'Norway',SE:'Sweden',DK:'Denmark',
+        FI:'Finland',CH:'Switzerland',AT:'Austria',IT:'Italy',ES:'Spain',
+        PL:'Poland',CZ:'Czechia',PT:'Portugal',BE:'Belgium',NZ:'New Zealand',
+        SG:'Singapore',JP:'Japan',KR:'South Korea',IE:'Ireland',IL:'Israel',
+        BR:'Brazil',MX:'Mexico',ZA:'South Africa',IN:'India',AE:'UAE'
+    };
+    return map[code] || code;
+}
+
+/** GEO код → флаг эмодзи */
+function _tcFlag(code) {
+    if (!code || code.length !== 2) return '🌐';
+    return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E0 + c.charCodeAt(0) - 65));
+}
+
+/** Прогресс-бар */
+function _tcBar(pct, color) {
+    const w = Math.round(pct / 100 * 24);
+    return `<span class="tc-bar" style="--w:${w};--c:${color}"></span>`;
+}
+
+/** Рендерит полный отчёт */
+function _renderTodayReport(cards, dateLabel, msgCount) {
+    const el = document.getElementById('tc-report');
+    if (!el) return;
+
+    if (cards.length === 0) {
+        el.innerHTML = `<div class="tc-empty">No cards found for this period</div>`;
+        return;
+    }
+
+    const s = _buildTodayStats(cards);
+
+    // ── Секция 2: страны ──
+    const geoEntries = Object.entries(s.geoMap).sort((a,b) => b[1]-a[1]);
+    const top10Geo = geoEntries.slice(0, 10);
+    const otherGeo = geoEntries.slice(10).reduce((a,[,n]) => a+n, 0);
+    const geoHtml = top10Geo.map(([code, n]) => {
+        const pct = (n/s.total*100).toFixed(1);
+        return `<div class="tc-country-row">
+            <span class="tc-flag">${_tcFlag(code)}</span>
+            <span class="tc-country-name">${_tcGeoName(code)}</span>
+            <span class="tc-country-count">${n}</span>
+            ${_tcBar(+pct,'#818cf8')}
+            <span class="tc-pct">${pct}%</span>
+        </div>`;
+    }).join('') + (otherGeo > 0 ? `<div class="tc-country-row tc-other-row">
+        <span class="tc-flag">🌐</span><span class="tc-country-name">Other ${geoEntries.length - 10} countries</span>
+        <span class="tc-country-count">${otherGeo}</span>
+        ${_tcBar(otherGeo/s.total*100,'#4b5563')}<span class="tc-pct">${(otherGeo/s.total*100).toFixed(1)}%</span>
+    </div>` : '');
+
+    // ── Секция 3: тип и уровень ──
+    const mkRows = (map, color) => Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([k,n]) => {
+        const pct = (n/s.total*100).toFixed(1);
+        return `<div class="tc-type-row"><span class="tc-type-name">${k}</span>${_tcBar(+pct,color)}<span class="tc-type-count">${n}</span><span class="tc-pct">${pct}%</span></div>`;
+    }).join('');
+
+    // ── Секция 4: платёжные системы ──
+    const sysColors = {VISA:'#2563eb',MASTERCARD:'#dc2626',AMEX:'#059669',DISCOVER:'#d97706',UNIONPAY:'#ca8a04'};
+    const sysHtml = Object.entries(s.sysMap).sort((a,b)=>b[1]-a[1]).map(([sys,n]) => {
+        const col = sysColors[sys] || '#6b7280';
+        return `<div class="tc-sys-card" style="border-color:${col}33;background:${col}11">
+            <div class="tc-sys-name" style="color:${col}">${sys}</div>
+            <div class="tc-sys-count">${n}</div>
+            <div class="tc-sys-pct">${(n/s.total*100).toFixed(1)}%</div>
+        </div>`;
+    }).join('');
+
+    // ── Секция 5: топ банков ──
+    const topBanks = Object.entries(s.bankMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const banksHtml = topBanks.map(([name,n], i) =>
+        `<tr><td class="tc-bank-rank">${i+1}</td><td class="tc-bank-name">${name}</td><td class="tc-bank-n">${n}</td><td class="tc-pct">${(n/s.total*100).toFixed(1)}%</td></tr>`
+    ).join('');
+
+    // ── Секция 6: активность по часам ──
+    const maxHourCount = Math.max(...Object.values(s.hourMap), 1);
+    const hourHtml = Array.from({length:24}, (_,h) => {
+        const n = s.hourMap[h] || 0;
+        const barW = Math.round(n/maxHourCount*20);
+        const peak = h === s.peakHour;
+        const bar = '█'.repeat(barW) + '░'.repeat(20-barW);
+        return `<div class="tc-hour-row${peak?' tc-peak':''}">
+            <span class="tc-hour-lbl">${String(h).padStart(2,'0')}:00</span>
+            <span class="tc-hour-bar">${bar}</span>
+            <span class="tc-hour-n">${n > 0 ? n+' cards' : '—'}</span>
+        </div>`;
+    }).join('');
+
+    // ── Секция 7: таблица карт ──
+    const rowsHtml = cards.map((c,i) => {
+        const cc = c.cc || '';
+        const masked = cc.length >= 10 ? cc.slice(0,6)+'••••••'+cc.slice(-4) : cc;
+        const time = c.msgDate ? new Date(c.msgDate).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
+        const sys = getCardType(cc) || '';
+        return `<tr>
+            <td><input type="checkbox" class="tc-row-cb" data-idx="${i}"></td>
+            <td class="tc-t-time">${time}</td>
+            <td class="tc-t-card">${masked}</td>
+            <td>${c.mm||''}/${c.yy||''}</td>
+            <td>${c.bin||''}</td>
+            <td>${c.detectedGeo||c.countryCode||''}</td>
+            <td class="tc-t-bank">${c.bank||''}</td>
+            <td>${c.cardType||''}</td>
+            <td>${sys}</td>
+        </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+    <!-- Кнопки действий -->
+    <div class="tc-actions">
+        <button class="tc-act-btn" id="tc-copy-report">📊 COPY REPORT</button>
+        <button class="tc-act-btn" id="tc-export-notes">📤 EXPORT ALL TO NOTES</button>
+        <button class="tc-act-btn" id="tc-copy-sel">📋 COPY SELECTED</button>
+    </div>
+
+    <!-- С1: сводка -->
+    <div class="tc-summary-cards">
+        <div class="tc-sum-card"><div class="tc-sum-val tc-green">${s.total}</div><div class="tc-sum-lbl">TOTAL CARDS</div></div>
+        <div class="tc-sum-card"><div class="tc-sum-val">${s.bins.size}</div><div class="tc-sum-lbl">UNIQUE BINs</div></div>
+        <div class="tc-sum-card"><div class="tc-sum-val">${s.avgPerHour}</div><div class="tc-sum-lbl">AVG / HOUR</div></div>
+        <div class="tc-sum-card"><div class="tc-sum-val tc-peak-val">${s.peakHour>=0?String(s.peakHour).padStart(2,'0')+':00':'—'}</div><div class="tc-sum-lbl">PEAK HOUR ${s.peakCount>0?'('+s.peakCount+')':''}</div></div>
+    </div>
+
+    <!-- С2: страны -->
+    <div class="tc-section"><div class="tc-section-title">🌍 CARDS BY COUNTRY</div><div class="tc-countries">${geoHtml}</div></div>
+
+    <!-- С3: тип и уровень -->
+    <div class="tc-section tc-two-col">
+        <div><div class="tc-section-title">💳 BY TYPE</div>${mkRows(s.typeMap,'#34d399')}</div>
+        <div><div class="tc-section-title">🏆 BY LEVEL</div>${mkRows(s.levelMap,'#fbbf24')}</div>
+    </div>
+
+    <!-- С4: платёжные системы -->
+    <div class="tc-section"><div class="tc-section-title">💰 BY PAYMENT SYSTEM</div><div class="tc-sys-row">${sysHtml}</div></div>
+
+    <!-- С5: топ банков -->
+    <div class="tc-section"><div class="tc-section-title">🏦 TOP BANKS</div>
+        <table class="tc-banks-table"><thead><tr><th>#</th><th>Bank</th><th>Cards</th><th>%</th></tr></thead><tbody>${banksHtml}</tbody></table>
+    </div>
+
+    <!-- С6: активность по часам -->
+    <div class="tc-section"><div class="tc-section-title">⏰ HOURLY ACTIVITY</div><div class="tc-hours">${hourHtml}</div></div>
+
+    <!-- С7: таблица карт -->
+    <div class="tc-section">
+        <div class="tc-section-title">📋 ALL CARDS <span style="font-size:11px;font-weight:400;color:var(--text-muted)">${cards.length} total</span>
+            <label style="margin-left:auto;font-size:11px;cursor:pointer"><input type="checkbox" id="tc-select-all"> SELECT ALL</label>
+        </div>
+        <div class="tc-table-wrap">
+            <table class="tc-cards-table">
+                <thead><tr><th></th><th>TIME</th><th>CARD</th><th>EXP</th><th>BIN</th><th>GEO</th><th>BANK</th><th>TYPE</th><th>SYS</th></tr></thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    </div>`;
+
+    // Select All
+    document.getElementById('tc-select-all')?.addEventListener('change', e => {
+        document.querySelectorAll('.tc-row-cb').forEach(cb => cb.checked = e.target.checked);
+    });
+
+    // COPY REPORT
+    document.getElementById('tc-copy-report')?.addEventListener('click', () => {
+        const txt = _buildTodayTextReport(s, dateLabel);
+        navigator.clipboard?.writeText(txt);
+        toast('Report copied to clipboard', 'success');
+    });
+
+    // EXPORT ALL TO NOTES
+    document.getElementById('tc-export-notes')?.addEventListener('click', () => {
+        const lines = cards.map(c => `${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}`);
+        const title = `REPORT ${dateLabel} — ${cards.length} cards`;
+        STATE.notesTabs.unshift({ id:'tab-tc-'+Date.now(), title, content:lines.join('\n'), pinned:false, tag:null, created:Date.now(), scrollPos:0 });
+        STATE.notesActiveTab = STATE.notesTabs[0].id;
+        save();
+        document.querySelector('[data-view="notes"]')?.click();
+        document.getElementById('today-cards-overlay')?.classList.add('hidden');
+        toast(`Exported ${cards.length} cards to Notes`, 'success');
+    });
+
+    // COPY SELECTED
+    document.getElementById('tc-copy-sel')?.addEventListener('click', () => {
+        const selected = [...document.querySelectorAll('.tc-row-cb:checked')].map(cb => {
+            const c = cards[+cb.dataset.idx];
+            return c ? `${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}` : '';
+        }).filter(Boolean);
+        if (!selected.length) { toast('No rows selected', 'warning'); return; }
+        navigator.clipboard?.writeText(selected.join('\n'));
+        toast(`Copied ${selected.length} cards`, 'success');
+    });
+}
+
+/** Формирует текстовый отчёт для команды (Telegram-формат) */
+function _buildTodayTextReport(s, dateLabel) {
+    const ln = '━'.repeat(27);
+    const pct = n => (n/s.total*100).toFixed(1)+'%';
+    const geoEntries = Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]);
+    const topGeo = geoEntries.slice(0,6);
+    const otherGeoN = geoEntries.slice(6).reduce((a,[,n])=>a+n,0);
+
+    let out = `📊 DAILY REPORT — ${dateLabel}\n${ln}\n`;
+    out += `💳 Total Cards: ${s.total}\n`;
+    out += `🔢 Unique BINs: ${s.bins.size}\n`;
+    if (s.peakHour >= 0) out += `⏰ Peak Hour: ${String(s.peakHour).padStart(2,'0')}:00-${String(s.peakHour+1).padStart(2,'0')}:00 (${s.peakCount} cards)\n`;
+    out += `\n🌍 BY COUNTRY:\n`;
+    topGeo.forEach(([code,n]) => { out += `${_tcFlag(code)} ${_tcGeoName(code)} — ${n} (${pct(n)})\n`; });
+    if (otherGeoN > 0) out += `🌐 Other — ${otherGeoN} (${pct(otherGeoN)})\n`;
+    out += `\n💳 BY TYPE:\n`;
+    Object.entries(s.typeMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n]) => { out += `${k} — ${n} (${pct(n)})\n`; });
+    out += `\n🏆 BY LEVEL:\n`;
+    Object.entries(s.levelMap).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([k,n]) => { out += `${k} — ${n} (${pct(n)})\n`; });
+    out += `\n💰 BY SYSTEM:\n`;
+    Object.entries(s.sysMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n]) => { out += `${k} — ${n} (${pct(n)})\n`; });
+    out += ln;
+    return out;
 }
 

@@ -11240,3 +11240,93 @@ tr.row-selected td {
     color: var(--text-muted, #6b7280);
     opacity: 0.5;
 }
+
+/* ═══════════════════════════════════════════════
+   TODAY CARDS MODAL — Daily Report
+═══════════════════════════════════════════════ */
+.modal-xl { max-width: 1200px; width: 90vw; max-height: 90vh; overflow-y: auto; }
+.pz-btn-today { background: linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; border: none; }
+.pz-btn-today:hover { background: linear-gradient(135deg,#4338ca,#6d28d9); }
+
+.tc-header { display:flex; justify-content:space-between; align-items:flex-start; padding:20px 24px 12px; border-bottom:1px solid rgba(255,255,255,0.07); }
+.tc-title  { font-size:18px; font-weight:700; color:#e2e8f0; margin:0 0 4px; }
+.tc-meta   { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+/* Дата-бар */
+.tc-date-bar   { padding:14px 24px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; flex-direction:column; gap:10px; }
+.tc-chips      { display:flex; gap:8px; flex-wrap:wrap; }
+.tc-chip       { padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:var(--text-secondary); font-size:11px; cursor:pointer; transition:all 0.2s; }
+.tc-chip:hover { border-color:#818cf8; color:#818cf8; }
+.tc-chip.active{ background:rgba(129,140,248,0.18); border-color:#818cf8; color:#c7d2fe; }
+.tc-chip-count { font-weight:700; }
+.tc-range-row  { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.tc-date-input { background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#e2e8f0; font-size:11px; padding:4px 8px; }
+.tc-quick-btn  { padding:4px 10px; font-size:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:var(--text-secondary); cursor:pointer; }
+.tc-quick-btn:hover { border-color:#818cf8; color:#818cf8; }
+
+/* Кнопки действий */
+.tc-actions  { display:flex; gap:8px; flex-wrap:wrap; padding:14px 24px 0; }
+.tc-act-btn  { padding:7px 14px; border-radius:7px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#e2e8f0; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.tc-act-btn:hover { border-color:#818cf8; background:rgba(129,140,248,0.12); }
+
+/* Контент отчёта */
+.tc-report  { padding:16px 24px 24px; }
+.tc-section { margin-top:20px; }
+.tc-section-title { font-size:12px; font-weight:700; letter-spacing:0.06em; color:#94a3b8; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.tc-two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.tc-empty   { text-align:center; color:var(--text-muted); padding:40px; }
+
+/* Сводка */
+.tc-summary-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:16px; }
+.tc-sum-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:16px; text-align:center; }
+.tc-sum-val  { font-size:42px; font-weight:800; line-height:1; }
+.tc-sum-lbl  { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-top:6px; }
+.tc-green    { color:#34d399; }
+.tc-peak-val { color:#f59e0b; }
+
+/* Страны */
+.tc-country-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
+.tc-flag        { font-size:16px; width:22px; }
+.tc-country-name{ flex:1; color:#e2e8f0; }
+.tc-country-count{ font-weight:700; color:#e2e8f0; min-width:36px; text-align:right; }
+.tc-other-row   { opacity:0.6; }
+.tc-pct         { font-size:10px; color:var(--text-muted); min-width:38px; text-align:right; }
+.tc-bar         { display:inline-block; width:calc(var(--w)*8px); height:6px; background:var(--c); border-radius:3px; flex-shrink:0; }
+
+/* Тип/Уровень */
+.tc-type-row    { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
+.tc-type-name   { width:90px; color:#e2e8f0; }
+.tc-type-count  { font-weight:700; min-width:32px; text-align:right; }
+
+/* Системы */
+.tc-sys-row  { display:flex; gap:10px; flex-wrap:wrap; }
+.tc-sys-card { border-radius:8px; padding:12px 16px; border:1px solid; min-width:100px; text-align:center; }
+.tc-sys-name { font-size:10px; font-weight:700; letter-spacing:0.06em; }
+.tc-sys-count{ font-size:28px; font-weight:800; color:#e2e8f0; }
+.tc-sys-pct  { font-size:10px; color:var(--text-muted); }
+
+/* Банки */
+.tc-banks-table { width:100%; border-collapse:collapse; font-size:12px; }
+.tc-banks-table th { text-align:left; padding:4px 8px; color:var(--text-muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.08); }
+.tc-banks-table td { padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.tc-bank-rank { color:var(--text-muted); width:24px; }
+.tc-bank-name { color:#e2e8f0; }
+.tc-bank-n    { font-weight:700; text-align:right; }
+
+/* Часовая активность */
+.tc-hours    { font-family:'JetBrains Mono','Fira Code',monospace; font-size:11px; }
+.tc-hour-row { display:flex; gap:8px; padding:2px 0; color:#94a3b8; }
+.tc-hour-lbl { width:38px; flex-shrink:0; }
+.tc-hour-bar { color:#4b5563; flex:1; }
+.tc-hour-n   { min-width:60px; }
+.tc-peak .tc-hour-bar { color:#f59e0b; }
+.tc-peak .tc-hour-lbl,.tc-peak .tc-hour-n { color:#fbbf24; font-weight:700; }
+
+/* Таблица карт */
+.tc-table-wrap  { max-height:380px; overflow-y:auto; border:1px solid rgba(255,255,255,0.07); border-radius:8px; }
+.tc-cards-table { width:100%; border-collapse:collapse; font-size:11px; }
+.tc-cards-table th { position:sticky; top:0; background:#1e2030; padding:6px 8px; text-align:left; color:var(--text-muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); }
+.tc-cards-table td { padding:4px 8px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.tc-t-card { font-family:monospace; color:#818cf8; }
+.tc-t-time { color:var(--text-muted); }
+.tc-t-bank { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
