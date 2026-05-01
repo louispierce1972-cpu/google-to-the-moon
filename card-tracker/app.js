@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -1576,1167 +1576,379 @@ function _anShowDetail(bin, data, prevData) {
 
 window.renderMerchants = renderMerchants;
 
-// ── Log results storage (persistent across re-renders) ──
-if (!STATE._logResults) STATE._logResults = [];
+// ═══════════════════════════════════════════
+//   MERCHANT — новый 3-зонный интерфейс
+// ═══════════════════════════════════════════
 
+// Палитра цветов для кнопок Зоны 1
+const _MR_COLORS = ['#e53e3e','#dd6b20','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8','#e67e22'];
+
+// ── Загрузка/сохранение кнопок ──
+function _mLoad(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
+function _mSave(key, arr) { localStorage.setItem(key, JSON.stringify(arr)); }
+
+// ── Копирование в буфер ──
+function _mCopy(text, label) {
+    if (!text) { toast('Nothing to copy', 'warning'); return; }
+    navigator.clipboard.writeText(text).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+    });
+    toast('Copied: ' + (label || text).slice(0, 40), 'success');
+}
+
+// ── Escape HTML ──
+function _mEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Цвет-аватар из строки ──
+function _mStrColor(s) {
+    let h = 0; for (let i=0;i<s.length;i++) h=s.charCodeAt(i)+((h<<5)-h);
+    return `hsl(${Math.abs(h)%360},50%,32%)`;
+}
+
+// ── Флаг страны по ISO-коду ──
+function _mFlag(code) {
+    const m={US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',UK:'🇬🇧',AU:'🇦🇺',DE:'🇩🇪',FR:'🇫🇷',IT:'🇮🇹',ES:'🇪🇸',NL:'🇳🇱',PL:'🇵🇱',RU:'🇷🇺',UA:'🇺🇦',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',CN:'🇨🇳',SG:'🇸🇬',SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',PT:'🇵🇹',CZ:'🇨🇿',TR:'🇹🇷',AE:'🇦🇪',ZA:'🇿🇦'};
+    return m[(code||'').toUpperCase()] || code;
+}
+
+// ── Контекстное меню ──
+function _mCtx(x, y, items) {
+    document.getElementById('_mr_ctx')?.remove();
+    const menu = document.createElement('div');
+    menu.id = '_mr_ctx'; menu.className = 'mr-ctx-menu';
+    menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:9999`;
+    items.forEach(item => {
+        const b = document.createElement('button');
+        b.className = 'mr-ctx-item'; b.textContent = item.label;
+        b.addEventListener('click', e => { e.stopPropagation(); menu.remove(); item.fn(); });
+        menu.appendChild(b);
+    });
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
+}
+
+// ── Закрыть модал ──
+function _mrClose() { document.getElementById('mr-modal')?.classList.add('hidden'); }
+
+// ── Открыть универсальный модал ──
+function _mrOpen(title, body) {
+    document.getElementById('mr-modal-title').textContent = title;
+    document.getElementById('mr-modal-body').innerHTML = body;
+    document.getElementById('mr-modal').classList.remove('hidden');
+    document.getElementById('mr-modal-close')?.addEventListener('click', _mrClose);
+    document.getElementById('mr-modal')?.addEventListener('click', e => { if(e.target.id==='mr-modal') _mrClose(); });
+}
+
+// ────────────────────────────────────────
+//  ГЛАВНАЯ ФУНКЦИЯ РЕНДЕРА
+// ────────────────────────────────────────
 function renderMerchants() {
     const area = document.getElementById('content-area');
-    const bar = document.getElementById('stats-bar');
+    const bar  = document.getElementById('stats-bar');
     if (bar) bar.innerHTML = '';
 
-    STATE.merchants.forEach(m => { if (!m.links) m.links = []; if (!m.tags) m.tags = []; });
+    STATE.merchants.forEach(m => { if(!m.links) m.links=[]; if(!m.tags) m.tags=[]; });
 
-    // ═══ COL 1: Merchant list ═══
-    let listHtml = '';
+    const mainBtns   = _mLoad('merchantMainButtons');
+    const amtBtns    = _mLoad('merchantAmountButtons');
+
+    // ── ЗОНА 1: быстрые кнопки копирования ──
+    let z1 = '<div class="mr-zone1">';
+    mainBtns.forEach((b,i) => {
+        const c = _MR_COLORS[i % _MR_COLORS.length];
+        z1 += `<button class="mr-qbtn" data-idx="${i}" data-text="${_mEsc(b.text)}" style="background:${c}" title="${_mEsc(b.text)}">${_mEsc(b.name)}</button>`;
+    });
+    z1 += `<button class="mr-icon-btn" id="mr-settings-btn" title="Settings">⚙️</button>`;
+    z1 += `<button class="mr-add-btn" id="mr-add-qbtn">+</button>`;
+    z1 += '</div>';
+
+    // ── ЗОНА 2: BIN-поиск + диапазоны сумм ──
+    let z2amts = '';
+    amtBtns.forEach((b,i) => {
+        z2amts += `<button class="mr-amt-btn" data-idx="${i}" data-min="${b.min}" data-max="${b.max}">${b.min}-${b.max}</button>`;
+    });
+    z2amts += `<button class="mr-add-btn" id="mr-add-amt">+</button>`;
+
+    const z2 = `<div class="mr-zone2">
+        <div class="mr-bin-wrap">
+            <input id="mr-bin-inp" class="mr-bin-inp" placeholder="BIN..." maxlength="8" autocomplete="off">
+            <button class="mr-bin-btn" id="mr-bin-go">🔍</button>
+        </div>
+        <div class="mr-amt-wrap">${z2amts}</div>
+        <div class="mr-bin-res hidden" id="mr-bin-res"></div>
+    </div>`;
+
+    // ── ЗОНА 3: карточки мерчантов ──
+    let cards = '';
     STATE.merchants.forEach(m => {
-        const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
-        const uniqueBins = [...new Set(bins.map(b => b.bin))].length;
-        const totalCnt = bins.reduce((s, b) => s + (b.cnt || 1), 0);
-        listHtml += `<div class="fc-item" data-id="${m.id}">
-            <span class="fc-item-name">${m.name}</span>
-            <span class="fc-item-meta">${uniqueBins}·${totalCnt}</span>
+        const flag   = m.country ? `<span class="mr-card-flag">${_mFlag(m.country)}</span>` : '';
+        const logo   = m.logo
+            ? `<img src="${m.logo}" class="mr-card-logo" alt="">`
+            : `<div class="mr-card-av" style="background:${_mStrColor(m.name)}">${m.name.charAt(0).toUpperCase()}</div>`;
+        const nvLbl  = m.nvAmount ? `NV — ${_mEsc(m.nvAmount)}` : 'PUSH';
+        cards += `<div class="mr-card" data-id="${m.id}">
+            <div class="mr-card-top">${flag}${logo}<div class="mr-card-name">${_mEsc(m.name)}</div></div>
+            <div class="mr-card-btns">
+                <button class="mr-card-copy" data-text="${_mEsc(m.copyText||'')}" title="${_mEsc(m.copyText||'')}">Copy</button>
+                <button class="mr-card-push" data-text="${_mEsc(m.pushText||'')}" title="${_mEsc(m.pushText||'')}"><span>${nvLbl}</span></button>
+            </div>
+            <input class="mr-card-note" data-id="${m.id}" placeholder="Note..." value="${_mEsc(m.note||'')}" autocomplete="off">
         </div>`;
     });
-    if (!STATE.merchants.length) listHtml = '<div class="fc-empty">No merchants</div>';
+    cards += `<button class="mr-card mr-card-add" id="mr-add-merch">＋<br><span>Add</span></button>`;
 
-    // ═══ COL 3: BIN RESULTS (persistent from searches) ═══
-    let col3Head = '<span class="fc-col-title">BIN RESULTS</span>';
-    if (STATE._logResults.length > 0) {
-        col3Head += `<button class="fc-ctx-btn fc-ctx-del" id="fc-clear-results" title="Clear all results" style="margin-left:auto">Clear All</button>`;
-    }
-    let col3Content = '';
-    if (STATE._logResults.length > 0) {
-        STATE._logResults.forEach((res, idx) => {
-            col3Content += `<div class="fc-log-result-block" data-idx="${idx}">
-                <div class="fc-log-result-head">
-                    <span class="fc-log-result-label">Log #${idx + 1} — BIN: ${res.bins.join(', ')}</span>
-                    <button class="fc-log-result-del" data-idx="${idx}" title="Remove this result">✕</button>
-                </div>
-                ${res.binHtml}
-            </div>`;
-        });
-    } else {
-        col3Content = '<div class="fc-empty">Search results will appear here</div>';
-    }
+    const z3 = `<div class="mr-zone3"><div class="mr-lane">${cards}</div></div>`;
 
-    // ═══ COL 4: PARSED DATA (persistent from searches) ═══
-    let col4Content = '';
-    if (STATE._logResults.length > 0) {
-        STATE._logResults.forEach((res, idx) => {
-            if (res.parsedHtml) {
-                col4Content += `<div class="fc-log-parsed-block" data-idx="${idx}">
-                    <div class="fc-log-result-head">
-                        <span class="fc-log-result-label">Log #${idx + 1}</span>
-                        <button class="fc-log-parsed-del" data-idx="${idx}" title="Remove">✕</button>
-                    </div>
-                    ${res.parsedHtml}
-                </div>`;
-            }
-        });
-    }
-    if (!col4Content) col4Content = '<div class="fc-empty">Parsed data will appear here</div>';
-
-    // ═══ POPUP MODAL ═══
-    const popupHtml = `
-    <div class="mf-modal-overlay hidden" id="mf-modal">
-        <div class="mf-modal">
-            <div class="mf-modal-head">
-                <span class="mf-modal-title" id="mf-modal-title">Add</span>
-                <button class="mf-icon-btn mf-modal-close" id="mf-modal-close">✕</button>
-            </div>
-            <div class="mf-modal-body" id="mf-modal-body"></div>
+    // ── МОДАЛ ──
+    const modal = `<div class="mr-modal-overlay hidden" id="mr-modal">
+        <div class="mr-modal-box">
+            <div class="mr-modal-hd"><span id="mr-modal-title"></span><button id="mr-modal-close">✕</button></div>
+            <div id="mr-modal-body"></div>
         </div>
     </div>`;
 
-    // ═══ RENDER: 4-COLUMN FINDER ═══
-    area.innerHTML = `
-    <div class="fc-finder">
-        <div class="fc-col fc-col-merchants">
-            <div class="fc-col-head">
-                <span class="fc-col-title">MERCHANTS</span>
-                <button class="fc-btn-plus" id="fc-add-merch">+</button>
-            </div>
-            <div id="fc-add-form" class="fc-add-form hidden">
-                <input type="text" id="fc-merch-name" class="fc-input" placeholder="Name..." autocomplete="off">
-                <button class="fc-btn-ok" id="fc-merch-save">OK</button>
-            </div>
-            <div class="fc-scroll" id="fc-list">${listHtml}</div>
-        </div>
-        <div class="fc-col fc-col-log fc-col-log-split">
-            <div class="fc-col-head"><span class="fc-col-title">LOG ANALYSIS</span></div>
-            <div class="fc-log-split-container">
-                <!-- LEFT: Log Parser -->
-                <div class="fc-log-left">
-                    <textarea id="fc-textarea" class="fc-textarea" placeholder="Paste log here, then click SEARCH..."></textarea>
-                    <button class="fc-btn-search" id="fc-search-btn">SEARCH</button>
-                </div>
-                <!-- RIGHT: Parsed Data + Billing Generator -->
-                <div class="fc-log-right">
-                    <!-- Card info from parsed log (top) -->
-                    <div class="fc-card-info" id="fc-card-info">
-                        <div class="fc-card-row mf-copy-field" data-copy="" id="ci-card"><span class="fc-card-label">💳</span> <span class="fc-card-val">—</span></div>
-                        <div class="fc-card-row mf-copy-field" data-copy="" id="ci-exp"><span class="fc-card-label">📅</span> <span class="fc-card-val">—</span></div>
-                        <div class="fc-card-row mf-copy-field" data-copy="" id="ci-cvv"><span class="fc-card-label">🔐</span> <span class="fc-card-val">—</span></div>
-                        <div class="fc-card-row" id="ci-bininfo" style="font-size:11px;opacity:0.6;padding-top:2px"><span class="fc-card-val" style="font-size:11px">—</span></div>
-                    </div>
-                    <div class="fc-divider"></div>
-                    <!-- Billing info (from log or generated) -->
-                    <div class="fc-billing-info" id="fc-billing-info">
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-name"><span class="fc-billing-lbl">Name:</span> <span class="fc-billing-val fc-billing-name">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-address"><span class="fc-billing-lbl">Address:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-city"><span class="fc-billing-lbl">City:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-zip"><span class="fc-billing-lbl">ZIP:</span> <span class="fc-billing-val">—</span></div>
-                        <div class="fc-billing-row mf-copy-field" data-copy="" id="bi-phone"><span class="fc-billing-lbl">Phone:</span> <span class="fc-billing-val">—</span></div>
-                    </div>
-                    <div class="fc-divider"></div>
-                    <!-- Country selector + Generate (bottom) -->
-                    <div class="fc-country-select">
-                        <select id="fc-country" class="fc-select">
-                            <option value="US">🇺🇸 US</option>
-                            <option value="UK">🇬🇧 UK</option>
-                            <option value="CA">🇨🇦 CA</option>
-                            <option value="AU">🇦🇺 AU</option>
-                        </select>
-                        <button class="fc-btn-generate" id="fc-generate-btn" title="Generate random billing info for selected country">GENERATE BILLING</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="fc-col fc-col-results" id="fc-col-results">
-            <div class="fc-col-head fc-col-head-ctx">${col3Head}</div>
-            <div class="fc-scroll" id="fc-results">${col3Content}</div>
-        </div>
-    </div>
-    ${popupHtml}`;
-
-    // ═══ EVENTS ═══
-
-    // Add merchant
-    document.getElementById('fc-add-merch').addEventListener('click', () => {
-        const form = document.getElementById('fc-add-form');
-        form.classList.toggle('hidden');
-        if (!form.classList.contains('hidden')) { document.getElementById('fc-merch-name').value = ''; document.getElementById('fc-merch-name').focus(); }
-    });
-    document.getElementById('fc-merch-save').addEventListener('click', _mtSaveMerchant);
-    document.getElementById('fc-merch-name').addEventListener('keydown', e => {
-        if (e.key === 'Enter') _mtSaveMerchant();
-        if (e.key === 'Escape') document.getElementById('fc-add-form').classList.add('hidden');
-    });
-
-    // Single click = highlight, Double click = open merchant popup form
-    document.querySelectorAll('.fc-item').forEach(el => {
-        el.addEventListener('click', () => {
-            document.querySelectorAll('.fc-item').forEach(x => x.classList.remove('fc-item-active'));
-            el.classList.add('fc-item-active');
-        });
-        el.addEventListener('dblclick', () => {
-            _openMerchantPopup(el.dataset.id);
-        });
-    });
-
-    // ── Log results: delete individual ──
-    document.querySelectorAll('.fc-log-result-del, .fc-log-parsed-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.idx);
-            STATE._logResults.splice(idx, 1);
-            renderMerchants();
-        });
-    });
-
-    // ── Clear All results ──
-    document.getElementById('fc-clear-results')?.addEventListener('click', () => {
-        STATE._logResults = [];
-        renderMerchants();
-        toast('Results cleared', 'info');
-    });
-
-    // ── Link BIN to merchant buttons (from search results) ──
-    document.querySelectorAll('.fc-link-to-merch').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const bin = btn.dataset.bin;
-            const merchId = btn.dataset.merchId;
-            const m = STATE.merchants.find(x => x.id === merchId);
-            if (!bin || !merchId || !m) return;
-            _addBinToMerchant(bin, '', merchId, '');
-            toast(`BIN ${bin} linked to "${m.name}"`, 'success');
-            renderMerchants();
-        });
-    });
-
-    // ── Wire up copy-on-click in Col 4 ──
-    document.querySelectorAll('.mf-copy-field').forEach(el => {
-        el.addEventListener('click', () => {
-            const val = el.dataset.copy;
-            if (!val) return;
-            navigator.clipboard.writeText(val).then(() => {
-                toast('Copied: ' + val, 'success');
-                el.classList.add('mf-copied');
-                setTimeout(() => el.classList.remove('mf-copied'), 800);
-            }).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = val; document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                toast('Copied: ' + val, 'success');
-            });
-        });
-    });
-
-    // ── Wire up link copy buttons in Col 3 ──
-    document.querySelectorAll('.fc-link-copy').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const url = btn.dataset.url;
-            navigator.clipboard.writeText(url).then(() => {
-                toast('Copied: ' + url, 'success');
-                btn.textContent = '✓';
-                setTimeout(() => btn.textContent = '📋', 800);
-            }).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = url; document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                toast('Copied: ' + url, 'success');
-            });
-        });
-    });
-
-    // Search (only on button click or Ctrl+Enter)
-    document.getElementById('fc-search-btn').addEventListener('click', _mtSearch);
-    document.getElementById('fc-textarea').addEventListener('keydown', e => {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _mtSearch(); }
-    });
-
-    // Generate Random Billing Info (only replaces billing, keeps card info)
-    document.getElementById('fc-generate-btn')?.addEventListener('click', _generateRandomBilling);
-
-    // Modal close
-    document.getElementById('mf-modal-close')?.addEventListener('click', _mfCloseModal);
-    document.getElementById('mf-modal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'mf-modal') _mfCloseModal();
-    });
-
-    // ═══ RESTORE parsed fields after render ═══
-    if (STATE._lastParsedFields) {
-        _updateParsedInfo(STATE._lastParsedFields);
-    }
+    area.innerHTML = z1 + z2 + z3 + modal;
+    _mrBind(mainBtns, amtBtns);
 }
 
-// ═══ MERCHANT POPUP FORM (dblclick) ═══
-function _openMerchantPopup(merchantId) {
-    const m = STATE.merchants.find(x => x.id === merchantId);
-    if (!m) return;
-    if (!m.links) m.links = [];
-    if (!m.tags) m.tags = [];
+// ────────────────────────────────────────
+//  ПРИВЯЗКА СОБЫТИЙ
+// ────────────────────────────────────────
+function _mrBind(mainBtns, amtBtns) {
 
-    const mBins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
-    const uBins = [...new Set(mBins.map(b => b.bin))].length;
-
-    // Tags HTML
-    const tagsHtml = m.tags.map((t, i) =>
-        `<span class="fc-tag">${t} <button class="fc-tag-x mfp-tag-del" data-idx="${i}">✕</button></span>`
-    ).join('') || '<span class="fc-muted">No tags</span>';
-
-    // Links HTML
-    let linksHtml = '';
-    m.links.forEach((l, i) => {
-        linksHtml += `<div class="fc-data-row">
-            <a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>
-            <div class="fc-row-actions" style="opacity:1">
-                <button class="fc-row-btn mfp-link-edit" data-idx="${i}" title="Edit">✏️</button>
-                <button class="fc-row-btn mfp-link-del" data-idx="${i}" title="Delete">✕</button>
-            </div>
-        </div>`;
-    });
-    if (!linksHtml) linksHtml = '<span class="fc-muted">No links</span>';
-
-    // BINs HTML — compact table
-    let binsHtml = '';
-    if (mBins.length > 0) {
-        const byBin = {};
-        mBins.forEach(b => { if (!byBin[b.bin]) byBin[b.bin] = []; byBin[b.bin].push(b); });
-        binsHtml = `<div class="mfp-bin-table">
-            <div class="mfp-bin-row mfp-bin-header">
-                <span class="mfp-bin-col-bin">BIN</span>
-                <span class="mfp-bin-col-amt">Amount</span>
-                <span class="mfp-bin-col-cur">Cur</span>
-                <span class="mfp-bin-col-cnt">Cnt</span>
-                <span class="mfp-bin-col-act"></span>
-            </div>`;
-        Object.entries(byBin).forEach(([bin, entries]) => {
-            const amt = entries[0].amount || '—';
-            const cur = entries[0].currency || '—';
-            const cnt = entries.reduce((sum, e) => sum + (e.cnt || 1), 0);
-            binsHtml += `<div class="mfp-bin-row">
-                <span class="mfp-bin-col-bin mfp-bin-val">${bin}</span>
-                <span class="mfp-bin-col-amt mfp-amt-val">${amt}</span>
-                <span class="mfp-bin-col-cur">${cur}</span>
-                <span class="mfp-bin-col-cnt">${cnt}x</span>
-                <span class="mfp-bin-col-act"><button class="fc-row-btn mfp-bin-del" data-bin-id="${entries[0].id}" title="Delete">✕</button></span>
-            </div>`;
-        });
-        binsHtml += `</div>`;
-    } else {
-        binsHtml = '<span class="fc-muted">No BINs</span>';
-    }
-
-    const bodyHtml = `
-        <div class="mfp-merch-form">
-            <!-- TAGS -->
-            <div class="fc-card-section">
-                <div class="fc-card-section-head">
-                    <span class="fc-card-section-title">🏷️ TAGS</span>
-                    <button class="fc-card-add-btn" id="mfp-add-tag">+ Tag</button>
-                </div>
-                <div id="mfp-tag-form" class="fc-inline-form hidden">
-                    <input type="text" id="mfp-tag-input" class="mf-input mf-input-sm" placeholder="Tag..." autocomplete="off">
-                    <button class="mf-btn-ok" id="mfp-tag-save">OK</button>
-                </div>
-                <div class="fc-tags-list" id="mfp-tags">${tagsHtml}</div>
-            </div>
-            <!-- LINKS -->
-            <div class="fc-card-section">
-                <div class="fc-card-section-head">
-                    <span class="fc-card-section-title">🔗 LINKS</span>
-                    <button class="fc-card-add-btn" id="mfp-add-link">+ Link</button>
-                </div>
-                <div id="mfp-link-form" class="fc-inline-form hidden">
-                    <input type="text" id="mfp-link-label" class="mf-input mf-input-sm" placeholder="Label" autocomplete="off">
-                    <input type="text" id="mfp-link-url" class="mf-input" placeholder="https://..." autocomplete="off">
-                    <button class="mf-btn-ok" id="mfp-link-save">OK</button>
-                </div>
-                <div id="mfp-links">${linksHtml}</div>
-            </div>
-            <!-- BINs -->
-            <div class="fc-card-section">
-                <div class="fc-card-section-head">
-                    <span class="fc-card-section-title">💳 BINs <span class="fc-muted">(${uBins} unique · ${mBins.length} total)</span></span>
-                    <button class="fc-card-add-btn" id="mfp-add-bin">+ BIN</button>
-                </div>
-                <div id="mfp-bin-form" class="fc-inline-form hidden">
-                    <input type="text" id="mfp-bin-input" class="mf-input mf-input-sm" placeholder="BIN (6)" maxlength="6" autocomplete="off">
-                    <input type="text" id="mfp-bin-amount" class="mf-input mf-input-sm" placeholder="Amount" autocomplete="off">
-                    <input type="text" id="mfp-bin-currency" class="mf-input" style="max-width:50px" placeholder="EUR" maxlength="3" autocomplete="off">
-                    <button class="mf-btn-ok" id="mfp-bin-save">OK</button>
-                </div>
-                <div id="mfp-bin-bulk-form" class="fc-inline-form hidden">
-                    <textarea id="mfp-bin-bulk" class="mf-modal-textarea" rows="3" placeholder="412650 - 1,269.00 EUR&#10;450553, 424242"></textarea>
-                    <button class="mf-btn-ok mf-btn-wide" id="mfp-bin-bulk-save">+ Add All</button>
-                </div>
-                <div id="mfp-bins">${binsHtml}</div>
-            </div>
-            <!-- Actions -->
-            <div style="display:flex;gap:6px;margin-top:8px">
-                <button class="fc-ctx-btn fc-ctx-edit" id="mfp-rename" style="flex:1">✏️ Rename</button>
-                <button class="fc-ctx-btn fc-ctx-del" id="mfp-delete" style="flex:1">🗑️ Delete</button>
-            </div>
-        </div>`;
-
-    _mfOpenModal(m.name, bodyHtml);
-
-    // ── Wire events inside popup ──
-    // Tag add
-    document.getElementById('mfp-add-tag')?.addEventListener('click', () => {
-        document.getElementById('mfp-tag-form').classList.toggle('hidden');
-        document.getElementById('mfp-tag-input').focus();
-    });
-    document.getElementById('mfp-tag-save')?.addEventListener('click', () => {
-        const tag = document.getElementById('mfp-tag-input').value.trim();
-        if (!tag) return;
-        m.tags = m.tags || [];
-        if (!m.tags.includes(tag)) { m.tags.push(tag); save(); }
-        _mfCloseModal(); _openMerchantPopup(merchantId);
-        toast(`Tag "${tag}" added`, 'success');
-    });
-    document.getElementById('mfp-tag-input')?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('mfp-tag-save').click();
-    });
-    document.querySelectorAll('.mfp-tag-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-            m.tags.splice(parseInt(btn.dataset.idx), 1);
-            save(); _mfCloseModal(); _openMerchantPopup(merchantId);
+    // Зона 1: клики по быстрым кнопкам
+    document.querySelectorAll('.mr-qbtn').forEach(b => {
+        b.addEventListener('click', () => _mCopy(b.dataset.text, b.dataset.text));
+        b.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            const i = parseInt(b.dataset.idx);
+            _mCtx(e.clientX, e.clientY, [
+                { label: '✏️ Edit',   fn: () => _mrEditQBtn(i, mainBtns) },
+                { label: '🗑️ Delete', fn: () => { mainBtns.splice(i,1); _mSave('merchantMainButtons', mainBtns); renderMerchants(); } }
+            ]);
         });
     });
 
-    // Link add
-    document.getElementById('mfp-add-link')?.addEventListener('click', () => {
-        document.getElementById('mfp-link-form').classList.toggle('hidden');
-        document.getElementById('mfp-link-label').focus();
-    });
-    document.getElementById('mfp-link-save')?.addEventListener('click', () => {
-        const label = document.getElementById('mfp-link-label').value.trim();
-        const url = document.getElementById('mfp-link-url').value.trim();
-        if (!url) { toast('Enter URL', 'warning'); return; }
-        m.links.push({ label: label || url, url: url.startsWith('http') ? url : 'https://' + url });
-        save(); toast('Link added', 'success');
-        _mfCloseModal(); _openMerchantPopup(merchantId);
-    });
-    document.getElementById('mfp-link-url')?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('mfp-link-save').click();
-    });
-    document.querySelectorAll('.mfp-link-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-            m.links.splice(parseInt(btn.dataset.idx), 1);
-            save(); toast('Link removed', 'info');
-            _mfCloseModal(); _openMerchantPopup(merchantId);
-        });
-    });
-    document.querySelectorAll('.mfp-link-edit').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.idx);
-            const link = m.links[idx];
-            if (!link) return;
-            const row = btn.closest('.fc-data-row');
-            row.innerHTML = `
-                <input type="text" id="mfp-el-label" class="mf-input mf-input-sm" value="${link.label || ''}" placeholder="Label" autocomplete="off" style="max-width:100px">
-                <input type="text" id="mfp-el-url" class="mf-input" value="${link.url || ''}" placeholder="https://..." autocomplete="off">
-                <button class="mf-btn-ok" id="mfp-el-save">Save</button>`;
-            document.getElementById('mfp-el-label').focus();
-            document.getElementById('mfp-el-save').addEventListener('click', () => {
-                const nl = document.getElementById('mfp-el-label').value.trim();
-                const nu = document.getElementById('mfp-el-url').value.trim();
-                if (!nu) { toast('Enter URL', 'warning'); return; }
-                m.links[idx] = { label: nl || nu, url: nu.startsWith('http') ? nu : 'https://' + nu };
-                save(); toast('Link updated', 'success');
-                _mfCloseModal(); _openMerchantPopup(merchantId);
-            });
-        });
-    });
+    // Зона 1: добавить кнопку
+    document.getElementById('mr-add-qbtn')?.addEventListener('click', () => _mrQBtnModal(-1, mainBtns));
 
-    // BIN add
-    document.getElementById('mfp-add-bin')?.addEventListener('click', () => {
-        const form = document.getElementById('mfp-bin-form');
-        const bulkForm = document.getElementById('mfp-bin-bulk-form');
-        const isOpen = !form.classList.contains('hidden');
-        form.classList.toggle('hidden');
-        bulkForm.classList.toggle('hidden');
-        if (!isOpen) document.getElementById('mfp-bin-input').focus();
-    });
-    document.getElementById('mfp-bin-save')?.addEventListener('click', () => {
-        const bin = document.getElementById('mfp-bin-input').value.replace(/\D/g, '').slice(0, 6);
-        const amount = document.getElementById('mfp-bin-amount').value.trim();
-        const currency = (document.getElementById('mfp-bin-currency')?.value || '').trim().toUpperCase();
-        if (bin.length < 4) { toast('BIN must be 4-6 digits', 'warning'); return; }
-        _addBinToMerchant(bin.padEnd(6, '0'), amount, m.id, currency);
-        toast('BIN added', 'success');
-        _mfCloseModal(); _openMerchantPopup(merchantId);
-    });
-    document.getElementById('mfp-bin-input')?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('mfp-bin-save').click();
-    });
-    document.getElementById('mfp-bin-bulk-save')?.addEventListener('click', () => {
-        const raw = document.getElementById('mfp-bin-bulk').value.trim();
-        if (!raw) { toast('Paste BIN data', 'warning'); return; }
-        const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l);
-        const parsed = [];
-        lines.forEach(line => {
-            // Format: 412650 - 1,269.00 EUR  or  412650 - 949,00 USD  or  412650
-            const richMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,\s]+?)\s+([A-Za-z]{3})\s*$/);
-            if (richMatch) {
-                parsed.push({ bin: richMatch[1].padEnd(6, '0'), amount: richMatch[2].trim(), currency: richMatch[3].toUpperCase() });
-                return;
-            }
-            // Format: 412650 - 1,269.00  (no currency)
-            const amtMatch = line.match(/^(\d{4,6})\s*[-–—]\s*([\d.,]+)\s*$/);
-            if (amtMatch) {
-                parsed.push({ bin: amtMatch[1].padEnd(6, '0'), amount: amtMatch[2].trim(), currency: '' });
-                return;
-            }
-            // Plain BIN(s)
-            const digits = line.match(/\d{4,}/g);
-            if (digits) digits.forEach(d => parsed.push({ bin: d.slice(0, 6).padEnd(6, '0'), amount: '', currency: '' }));
-        });
-        if (!parsed.length) { toast('No valid BINs found', 'warning'); return; }
-        parsed.forEach(p => _addBinToMerchant(p.bin, p.amount, m.id, p.currency));
-        save(); toast(`${parsed.length} BINs processed`, 'success');
-        _mfCloseModal(); _openMerchantPopup(merchantId);
-    });
-    document.querySelectorAll('.mfp-bin-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-            STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== btn.dataset.binId);
-            save(); toast('BIN removed', 'info');
-            _mfCloseModal(); _openMerchantPopup(merchantId);
-        });
-    });
+    // Зона 1: настройки
+    document.getElementById('mr-settings-btn')?.addEventListener('click', () => _mrSettingsModal(mainBtns, amtBtns));
 
-    // Rename
-    document.getElementById('mfp-rename')?.addEventListener('click', () => {
-        const oldName = m.name;
-        const nameInput = prompt('Rename merchant:', oldName);
-        if (nameInput && nameInput.trim() && nameInput.trim() !== oldName) {
-            m.name = nameInput.trim(); save();
-            toast(`Renamed to "${m.name}"`, 'success');
-            _mfCloseModal(); renderMerchants();
-        }
-    });
-
-    // Delete
-    document.getElementById('mfp-delete')?.addEventListener('click', () => {
-        _mfCloseModal();
-        _mtDeleteMerchant(m.id);
-    });
-}
-
-// ── Modal helpers ──
-function _mfOpenModal(title, bodyHtml) {
-    const modal = document.getElementById('mf-modal');
-    document.getElementById('mf-modal-title').textContent = title;
-    document.getElementById('mf-modal-body').innerHTML = bodyHtml;
-    modal.classList.remove('hidden');
-}
-function _mfCloseModal() {
-    document.getElementById('mf-modal')?.classList.add('hidden');
-}
-
-// ══════════ CRUD HELPERS ══════════
-
-function _mtSaveMerchant() {
-    const inp = document.getElementById('fc-merch-name');
-    const name = inp.value.trim();
-    if (!name) { toast('Enter merchant name', 'warning'); return; }
-    STATE.merchants.push({ id: 'merch-' + Date.now(), name: name, links: [] });
-    save();
-    toast(`Merchant "${name}" added`, 'success');
-    renderMerchants();
-}
-
-function _mtEditMerchant(id) {
-    const m = STATE.merchants.find(x => x.id === id);
-    if (!m) return;
-    const row = document.querySelector(`.mt-merch-row[data-id="${id}"]`);
-    if (!row) return;
-    const nameEl = row.querySelector('.mt-merch-name');
-    const oldName = m.name;
-    nameEl.innerHTML = `<input type="text" class="mt-input mt-inline-edit" value="${oldName}" data-id="${id}">`;
-    const input = nameEl.querySelector('input');
-    input.focus();
-    input.select();
-
-    const finish = (save_it) => {
-        if (save_it) {
-            const newName = input.value.trim();
-            if (newName && newName !== oldName) {
-                m.name = newName;
-                save();
-                toast(`Renamed to "${newName}"`, 'success');
-            }
-        }
-        renderMerchants();
+    // Зона 2: поиск BIN
+    const doBinSearch = () => {
+        const q = (document.getElementById('mr-bin-inp')?.value||'').replace(/\D/g,'').slice(0,6);
+        const el = document.getElementById('mr-bin-res');
+        if (!q||q.length<4) { toast('Min 4 digits', 'warning'); return; }
+        const hits = STATE.merchantBins.filter(b => b.bin.startsWith(q));
+        el.classList.remove('hidden');
+        if (!hits.length) { el.innerHTML=`<span style="opacity:.5">BIN ${q} — not linked</span>`; return; }
+        const byM = {};
+        hits.forEach(b => { if(!byM[b.merchant_id]) byM[b.merchant_id]=[]; byM[b.merchant_id].push(b); });
+        el.innerHTML = Object.entries(byM).map(([mId,es]) => {
+            const m = STATE.merchants.find(x=>x.id===mId);
+            const amts = es.map(e=>e.amount?(e.amount+(e.currency?' '+e.currency:'')):null).filter(Boolean);
+            return `<div class="mr-bin-row"><strong>${m?_mEsc(m.name):'Unknown'}</strong> — ${es.length}x${amts.length?' · '+amts.slice(0,3).join(', '):''}${m&&m.links&&m.links.length?` <a href="${m.links[0].url}" target="_blank" class="mr-bin-link">${_mEsc(m.links[0].label||m.links[0].url)}</a>`:''}`;
+        }).join('');
     };
+    document.getElementById('mr-bin-go')?.addEventListener('click', doBinSearch);
+    document.getElementById('mr-bin-inp')?.addEventListener('keydown', e => { if(e.key==='Enter') doBinSearch(); });
 
-    input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') finish(true);
-        if (e.key === 'Escape') finish(false);
-    });
-    input.addEventListener('blur', () => finish(true));
-}
-
-function _mtDeleteMerchant(id) {
-    const m = STATE.merchants.find(x => x.id === id);
-    if (!m) return;
-    const binCount = STATE.merchantBins.filter(b => b.merchant_id === id).length;
-    if (!confirm(`Delete "${m.name}" and its ${binCount} BINs?`)) return;
-    STATE.merchants = STATE.merchants.filter(x => x.id !== id);
-    STATE.merchantBins = STATE.merchantBins.filter(b => b.merchant_id !== id);
-    save();
-    toast(`Merchant "${m.name}" deleted`, 'info');
-    renderMerchants();
-}
-
-function _addBinToMerchant(bin, amount, merchantId, currency) {
-    // Check if this BIN already exists for this merchant
-    const existing = STATE.merchantBins.find(b => b.bin === bin && b.merchant_id === merchantId);
-    if (existing) {
-        existing.cnt = (existing.cnt || 1) + 1;
-        if (amount) existing.amount = amount;
-        if (currency) existing.currency = currency;
-        save();
-        return;
-    }
-    const bank = BIN_CACHE[bin] ? (BIN_CACHE[bin].bank || '') : '';
-    STATE.merchantBins.push({
-        id: 'mbin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-        bin: bin,
-        amount: amount || '',
-        currency: currency || '',
-        cnt: 1,
-        merchant_id: merchantId,
-        bank: bank,
-        date: Date.now()
-    });
-    save();
-}
-
-// ── Parse amount from various formats ──
-// Handles: 1,269.00 | 1.269,00 | 2637,99 | 3,436.99 | 1.898,00
-function _parseAmount(str) {
-    if (!str) return 0;
-    str = str.trim();
-    // Detect format: if last separator is comma and has 1-2 digits after → European (comma = decimal)
-    // If last separator is dot and has 1-2 digits after → US (dot = decimal)
-    const lastComma = str.lastIndexOf(',');
-    const lastDot = str.lastIndexOf('.');
-
-    if (lastComma > lastDot) {
-        // Comma is the decimal separator (European): 1.269,00
-        const clean = str.replace(/\./g, '').replace(',', '.');
-        return parseFloat(clean) || 0;
-    } else if (lastDot > lastComma) {
-        // Dot is the decimal separator (US): 1,269.00
-        const clean = str.replace(/,/g, '');
-        return parseFloat(clean) || 0;
-    } else {
-        // No separator or same position
-        const clean = str.replace(/[^\d.]/g, '');
-        return parseFloat(clean) || 0;
-    }
-}
-
-// ══════════ ENHANCED SEARCH ══════════
-
-// ══════════ LOG FIELD PARSER ══════════
-function _parseLogFields(text) {
-    const f = {};
-    const lines = text.split(/\n/);
-
-    // ── CC Number ──
-    const ccPat = [
-        /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN|New Card)\s*[:\[\(]?\s*([0-9\s\-]{13,25})/i,
-        /\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})\b/
-    ];
-    for (const p of ccPat) {
-        const m = text.match(p);
-        if (m) { f.cc = m[1].replace(/[\s\-]/g, ''); break; }
-    }
-    if (!f.cc) {
-        const plain = text.match(/\b(\d{13,19})\b/);
-        if (plain) f.cc = plain[1];
-    }
-
-    // ── Validity / Expiry ──
-    const valPat = [
-        /(?:Validity|Expiry|Exp|Exp\.?\s*Date|Valid\s*Thru)[:\s]*(\d{1,2})\s*[\/\|\-]\s*(\d{2,4})/i,
-        /(?:Validity|Expiry|Exp)[:\s]*(\d{2})(\d{2})/i
-    ];
-    for (const p of valPat) {
-        const m = text.match(p);
-        if (m) { f.expMonth = m[1].padStart(2, '0'); f.expYear = m[2].length === 4 ? m[2].slice(-2) : m[2]; break; }
-    }
-    // fallback: CC line with date parts — "4242424242424242|12|26|874"
-    if (!f.expMonth && f.cc) {
-        const pipePat = text.match(new RegExp(f.cc.replace(/(.)/g, '$1[\\s\\-]?').slice(0, -5) + '[\\|\\s]+?(\\d{1,2})[\\|\\s]+?(\\d{2,4})'));
-        if (pipePat) { f.expMonth = pipePat[1].padStart(2, '0'); f.expYear = pipePat[2].length === 4 ? pipePat[2].slice(-2) : pipePat[2]; }
-    }
-
-    // ── CVV ──
-    const cvvM = text.match(/(?:CVV|CVC|CVV2|CVC2|Security\s*Code)[:\s]*(\d{3,4})/i);
-    if (cvvM) f.cvv = cvvM[1];
-    // fallback from pipe format: CC|MM|YY|CVV
-    if (!f.cvv && f.cc) {
-        const pipeAll = text.match(/\d{13,19}\s*[\|]\s*\d{1,2}\s*[\|]\s*\d{2,4}\s*[\|]\s*(\d{3,4})/);
-        if (pipeAll) f.cvv = pipeAll[1];
-    }
-
-    // ── Holder / Name ──
-    const holderM = text.match(/(?:Holder|Cardholder|Name|Full\s*Name|Card\s*Holder)[:\s]*(.+)/i);
-    if (holderM) f.holder = holderM[1].trim().replace(/\s+/g, ' ');
-
-    // ── Email ──
-    const emailM = text.match(/(?:Email|E-mail|Mail)[:\s]*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i)
-        || text.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
-    if (emailM) f.email = emailM[1];
-
-    // ── Phone ──
-    const phoneM = text.match(/(?:Phone|Tel|Mobile|Cell)[:\s]*([\+]?[\d\s\-\(\)]{7,20})/i);
-    if (phoneM) f.phone = phoneM[1].trim();
-
-    // ── Address / Billing ──
-    const addrM = text.match(/(?:Billing|Address|Street|Addr)[:\s]*(.+)/i);
-    if (addrM) f.address = addrM[1].trim();
-
-    // ── ZIP ──
-    const zipM = text.match(/(?:ZIP|Zip\s*Code|Postal|Post\s*Code)[:\s]*(\d{3,10})/i);
-    if (zipM) f.zip = zipM[1];
-
-    // ── Price / Amount ──
-    const priceM = text.match(/(?:Price|Amount|Total|Sum|Charge)[:\s]*[\$€£]?\s*([\d.,]+)/i);
-    if (priceM) f.price = priceM[1];
-
-    // ── Bank ──
-    const bankM = text.match(/(?:Bank|Issuer)[:\s]*(.+)/i);
-    if (bankM) f.bank = bankM[1].trim();
-
-    // ── Card Type ──
-    const typeM = text.match(/(?:Card\s*Type|Type)[:\s]*(.+)/i);
-    if (typeM) f.cardType = typeM[1].trim();
-
-    // ── IP ──
-    const ipM = text.match(/(?:IP|IP\s*Address)[:\s]*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
-    if (ipM) f.ip = ipM[1];
-
-    // ── User Agent ──
-    const uaM = text.match(/(?:User[\s\-]?Agent|UA)[:\s]*(.+)/i);
-    if (uaM) f.userAgent = uaM[1].trim();
-
-    // BIN
-    if (f.cc && f.cc.length >= 6) f.bin = f.cc.slice(0, 6);
-
-    return f;
-}
-
-// ══════════ SEARCH / LOG ANALYSIS ══════════
-function _mtSearch() {
-    const textarea = document.getElementById('fc-textarea');
-    const text = textarea.value.trim();
-
-    if (!text) { toast('Paste card data first', 'warning'); return; }
-
-    // ── Parse log fields ──
-    const fields = _parseLogFields(text);
-
-    // Extract ALL amounts from log
-    const allAmounts = [];
-    const amountPatterns = [
-        /(?:Price|Amount|Total|Sum|Charge)[:\s]*\$?\s*([\d.,]+)/gi,
-        /\$([\d.,]+)/g
-    ];
-    for (const pat of amountPatterns) {
-        let m;
-        while ((m = pat.exec(text)) !== null) {
-            const val = _parseAmount(m[1]);
-            if (val > 0 && !allAmounts.includes(val.toString())) allAmounts.push(val.toString());
-        }
-    }
-
-    // ── BIN extraction ──
-    let bins = [];
-    if (fields.bin) bins.push(fields.bin);
-
-    const ccPatterns = [
-        /(?:CC|Card|Card\s*Number|Card\s*#|CC\s*#|PAN)[:\s]+([0-9\s\-]{13,25})/gi,
-        /(?:CC|Card)[:\s]*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{2,4})/gi,
-    ];
-    for (const pat of ccPatterns) {
-        let match;
-        while ((match = pat.exec(text)) !== null) {
-            const cardNum = match[1].replace(/[\s\-]/g, '');
-            if (cardNum.length >= 13 && cardNum.length <= 19 && /^\d+$/.test(cardNum)) {
-                bins.push(cardNum.slice(0, 6));
-            }
-        }
-    }
-    if (bins.length === 0) {
-        const cardMatches = text.match(/\b\d{13,19}\b/g) || [];
-        cardMatches.forEach(c => bins.push(c.slice(0, 6)));
-    }
-    bins = [...new Set(bins)];
-
-    if (bins.length === 0) {
-        toast('No valid card numbers found', 'warning');
-        return;
-    }
-
-    // ═══ Build PARSED DATA HTML ═══
-    let parsedHtml = '';
-    const hasFields = fields.cc || fields.holder || fields.email || fields.phone || fields.address || fields.zip;
-    if (hasFields) {
-        const copyAttr = (val) => val ? `class="mf-copy-field" data-copy="${val.replace(/"/g, '&quot;')}" title="Click to copy"` : '';
-
-        if (fields.cc) {
-            const fullCC = fields.cc + (fields.expMonth ? ' ' + fields.expMonth + '/' + (fields.expYear || '') : '') + (fields.cvv ? ' ' + fields.cvv : '');
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">💳</span><span ${copyAttr(fullCC)} class="mf-copy-field mf-field-cc">${fields.cc}</span></div>`;
-        }
-        if (fields.expMonth) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📅</span><span ${copyAttr(fields.expMonth + '/' + (fields.expYear || ''))}>${fields.expMonth}/${fields.expYear || '??'}</span></div>`;
-        }
-        if (fields.cvv) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🔒</span><span ${copyAttr(fields.cvv)}>${fields.cvv}</span></div>`;
-        }
-        if (fields.holder) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">👤</span><span ${copyAttr(fields.holder)}>${fields.holder}</span></div>`;
-        }
-        if (fields.email) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📧</span><span ${copyAttr(fields.email)}>${fields.email}</span></div>`;
-        }
-        if (fields.phone) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📱</span><span ${copyAttr(fields.phone)}>${fields.phone}</span></div>`;
-        }
-        if (fields.address) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🏠</span><span ${copyAttr(fields.address)}>${fields.address}</span></div>`;
-        }
-        if (fields.zip) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">📮</span><span ${copyAttr(fields.zip)}>${fields.zip}</span></div>`;
-        }
-        if (fields.bank) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🏦</span><span ${copyAttr(fields.bank)}>${fields.bank}</span></div>`;
-        }
-        if (fields.cardType) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">💎</span><span ${copyAttr(fields.cardType)}>${fields.cardType}</span></div>`;
-        }
-        if (fields.ip) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🌐</span><span ${copyAttr(fields.ip)}>${fields.ip}</span></div>`;
-        }
-        if (fields.userAgent) {
-            parsedHtml += `<div class="mf-field"><span class="mf-field-icon">🖥</span><span ${copyAttr(fields.userAgent)} style="font-size:10px">${fields.userAgent.slice(0, 60)}${fields.userAgent.length > 60 ? '…' : ''}</span></div>`;
-        }
-    }
-
-    // ═══ Build BIN RESULTS HTML ═══
-    let binHtml = '';
-    bins.forEach(bin => {
-        const matches = STATE.merchantBins.filter(b => b.bin === bin);
-        const bankInfo = BIN_CACHE[bin] ? BIN_CACHE[bin] : null;
-
-        // BIN label with bank/type/country from cache
-        let binLabel = `BIN: <strong>${bin}</strong>`;
-        const network = getCardType(bin + '0000000000');
-        if (network) binLabel += ` <span class="fc-bin-network" style="color:#8b5cf6;font-size:11px">${network}</span>`;
-        if (bankInfo && !bankInfo.error) {
-            const parts = [];
-            if (bankInfo.type) parts.push(bankInfo.type);
-            if (bankInfo.bank) parts.push(bankInfo.bank);
-            if (bankInfo.country) parts.push(bankInfo.country);
-            if (parts.length > 0) binLabel += ` <span style="color:#666;font-size:11px">· ${parts.join(' · ')}</span>`;
-        }
-
-        binHtml += `<div class="mt-result-block">`;
-        binHtml += `<div class="mt-result-bin">${binLabel}</div>`;
-
-        // Group by merchant
-        const byMerchant = {};
-        matches.forEach(b => {
-            const mId = b.merchant_id;
-            if (!byMerchant[mId]) byMerchant[mId] = { entries: [], name: '' };
-            byMerchant[mId].entries.push(b);
-            const m = STATE.merchants.find(x => x.id === mId);
-            if (m) byMerchant[mId].name = m.name;
+    // Зона 2: кнопки диапазонов
+    document.querySelectorAll('.mr-amt-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            const val = Math.floor(Math.random()*(parseInt(b.dataset.max)-parseInt(b.dataset.min)+1))+parseInt(b.dataset.min);
+            _mCopy(String(val), String(val));
         });
+        b.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            const i = parseInt(b.dataset.idx);
+            _mCtx(e.clientX, e.clientY, [
+                { label: '✏️ Edit',   fn: () => _mrAmtModal(i, amtBtns) },
+                { label: '🗑️ Delete', fn: () => { amtBtns.splice(i,1); _mSave('merchantAmountButtons', amtBtns); renderMerchants(); } }
+            ]);
+        });
+    });
 
-        if (Object.keys(byMerchant).length > 0) {
-            Object.entries(byMerchant).forEach(([mId, data]) => {
-                const m = STATE.merchants.find(x => x.id === mId);
-                const links = m && m.links ? m.links : [];
+    // Зона 2: добавить диапазон
+    document.getElementById('mr-add-amt')?.addEventListener('click', () => _mrAmtModal(-1, amtBtns));
 
-                binHtml += `<div class="mt-result-merchant-block">`;
-                binHtml += `<div class="mt-result-row"><span class="mt-col-merchant">${data.name}</span> — <strong>${data.entries.length}</strong> transactions</div>`;
+    // Зона 3: Copy/Push
+    document.querySelectorAll('.mr-card-copy').forEach(b => {
+        b.addEventListener('click', e => { e.stopPropagation(); _mCopy(b.dataset.text, b.dataset.text); });
+    });
+    document.querySelectorAll('.mr-card-push').forEach(b => {
+        b.addEventListener('click', e => { e.stopPropagation(); _mCopy(b.dataset.text, b.dataset.text); });
+    });
 
-                binHtml += `<div class="fc-tx-list">`;
-                data.entries.forEach(entry => {
-                    const amt = entry.amount || '—';
-                    const cur = entry.currency || '';
-                    binHtml += `<div class="fc-tx-item">`;
-                    binHtml += `<span class="fc-tx-amt">${amt}</span>`;
-                    if (cur) binHtml += `<span class="fc-tx-cur">${cur}</span>`;
-                    binHtml += `</div>`;
-                });
-                binHtml += `</div>`;
+    // Зона 3: Note автосохранение
+    document.querySelectorAll('.mr-card-note').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const m = STATE.merchants.find(x=>x.id===inp.dataset.id);
+            if(m) { m.note=inp.value; save(); }
+        });
+        inp.addEventListener('click', e => e.stopPropagation());
+    });
 
-                if (links.length > 0) {
-                    binHtml += `<div class="fc-links-row">`;
-                    links.forEach(l => {
-                        binHtml += `<span class="fc-link-group">`;
-                        binHtml += `<a href="${l.url}" target="_blank" rel="noopener" class="fc-link-tag">${l.label || l.url}</a>`;
-                        binHtml += `<button class="fc-link-copy" data-url="${l.url.replace(/"/g, '&quot;')}" title="Copy link">📋</button>`;
-                        binHtml += `</span>`;
-                    });
-                    binHtml += `</div>`;
-                }
-                binHtml += `</div>`;
-            });
+    // Зона 3: двойной клик — редактировать
+    document.querySelectorAll('.mr-card[data-id]').forEach(card => {
+        card.addEventListener('dblclick', () => _mrMerchModal(card.dataset.id));
+    });
+
+    // Зона 3: добавить мерчанта
+    document.getElementById('mr-add-merch')?.addEventListener('click', () => _mrMerchModal(null));
+}
+
+// ────────────────────────────────────────
+//  МОДАЛЫ
+// ────────────────────────────────────────
+
+// Быстрая кнопка — добавить/редактировать
+function _mrQBtnModal(idx, btns) {
+    const b = idx>=0 ? btns[idx] : {};
+    _mrOpen(idx>=0?'Edit Button':'Add Button', `
+        <div class="mr-form-g">
+            <div class="mr-form-r"><label>Name</label><input class="mr-fi" data-field="name" value="${_mEsc(b.name||'')}" placeholder="Button label" autocomplete="off"></div>
+            <div class="mr-form-r"><label>Text to copy</label><input class="mr-fi" data-field="text" value="${_mEsc(b.text||'')}" placeholder="URL or text..." autocomplete="off"></div>
+            <div class="mr-modal-ft"><button class="mr-btn-c" id="mr-modal-cancel">Cancel</button><button class="mr-btn-s" id="mr-modal-save">Save</button></div>
+        </div>`);
+    document.getElementById('mr-modal-save').addEventListener('click', () => {
+        const d={}; document.querySelectorAll('#mr-modal-body [data-field]').forEach(e=>{d[e.dataset.field]=e.value.trim();});
+        if(!d.name||!d.text) { toast('Fill all fields','warning'); return; }
+        if(idx>=0) btns[idx]={name:d.name,text:d.text};
+        else btns.push({name:d.name,text:d.text});
+        _mSave('merchantMainButtons',btns); _mrClose(); renderMerchants();
+    });
+    document.getElementById('mr-modal-cancel').addEventListener('click', _mrClose);
+}
+function _mrEditQBtn(i, btns) { _mrQBtnModal(i, btns); }
+
+// Диапазон сумм — добавить/редактировать
+function _mrAmtModal(idx, btns) {
+    const b = idx>=0 ? btns[idx] : {};
+    _mrOpen(idx>=0?'Edit Range':'Add Range', `
+        <div class="mr-form-g">
+            <div class="mr-form-r"><label>Min</label><input class="mr-fi" data-field="min" type="number" value="${b.min||''}" placeholder="400" autocomplete="off"></div>
+            <div class="mr-form-r"><label>Max</label><input class="mr-fi" data-field="max" type="number" value="${b.max||''}" placeholder="600" autocomplete="off"></div>
+            <div class="mr-modal-ft"><button class="mr-btn-c" id="mr-modal-cancel">Cancel</button><button class="mr-btn-s" id="mr-modal-save">Save</button></div>
+        </div>`);
+    document.getElementById('mr-modal-save').addEventListener('click', () => {
+        const d={}; document.querySelectorAll('#mr-modal-body [data-field]').forEach(e=>{d[e.dataset.field]=e.value;});
+        const mn=parseInt(d.min), mx=parseInt(d.max);
+        if(isNaN(mn)||isNaN(mx)||mn>=mx) { toast('Invalid range','warning'); return; }
+        if(idx>=0) btns[idx]={min:mn,max:mx};
+        else btns.push({min:mn,max:mx});
+        _mSave('merchantAmountButtons',btns); _mrClose(); renderMerchants();
+    });
+    document.getElementById('mr-modal-cancel').addEventListener('click', _mrClose);
+}
+
+// Настройки — список всех кнопок
+function _mrSettingsModal(mainBtns, amtBtns) {
+    let html = '<div class="mr-form-g">';
+    html += '<div class="mr-settings-section">Quick Copy Buttons</div>';
+    if(!mainBtns.length) html += '<div class="mr-settings-empty">No buttons yet</div>';
+    mainBtns.forEach((b,i) => {
+        const c = _MR_COLORS[i%_MR_COLORS.length];
+        html += `<div class="mr-settings-row">
+            <span class="mr-settings-chip" style="background:${c}">${_mEsc(b.name)}</span>
+            <span class="mr-settings-text">${_mEsc(b.text)}</span>
+            <button class="mr-st-edit" data-type="q" data-idx="${i}">✏️</button>
+            <button class="mr-st-del" data-type="q" data-idx="${i}">✕</button></div>`;
+    });
+    html += '<div class="mr-settings-section" style="margin-top:12px">Amount Ranges</div>';
+    if(!amtBtns.length) html += '<div class="mr-settings-empty">No ranges yet</div>';
+    amtBtns.forEach((b,i) => {
+        html += `<div class="mr-settings-row">
+            <span class="mr-settings-chip" style="background:#b7791f">${b.min}-${b.max}</span>
+            <span class="mr-settings-text"></span>
+            <button class="mr-st-edit" data-type="a" data-idx="${i}">✏️</button>
+            <button class="mr-st-del" data-type="a" data-idx="${i}">✕</button></div>`;
+    });
+    html += `<div class="mr-modal-ft"><button class="mr-btn-c" id="mr-modal-cancel">Close</button></div></div>`;
+    _mrOpen('⚙️ Settings', html);
+    document.getElementById('mr-modal-cancel').addEventListener('click', _mrClose);
+    document.querySelectorAll('.mr-st-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const i=parseInt(btn.dataset.idx);
+            _mrClose();
+            if(btn.dataset.type==='q') _mrQBtnModal(i, mainBtns);
+            else _mrAmtModal(i, amtBtns);
+        });
+    });
+    document.querySelectorAll('.mr-st-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const i=parseInt(btn.dataset.idx);
+            if(btn.dataset.type==='q') { mainBtns.splice(i,1); _mSave('merchantMainButtons',mainBtns); }
+            else { amtBtns.splice(i,1); _mSave('merchantAmountButtons',amtBtns); }
+            _mrClose(); renderMerchants();
+        });
+    });
+}
+
+// Мерчант — добавить/редактировать
+function _mrMerchModal(id) {
+    const m = id ? STATE.merchants.find(x=>x.id===id) : null;
+    let logoB64 = '';
+    const title = m ? m.name : 'Add Merchant';
+    const html = `<div class="mr-form-g">
+        <div class="mr-form-r"><label>Name *</label><input class="mr-fi" data-field="name" value="${_mEsc(m?m.name:'')}" placeholder="Amazon" autocomplete="off"></div>
+        <div class="mr-form-r"><label>Country (ISO)</label><input class="mr-fi" data-field="country" value="${_mEsc(m?m.country:'')}" placeholder="US" maxlength="2" style="max-width:70px" autocomplete="off"></div>
+        <div class="mr-form-r"><label>Logo (URL or upload)</label>
+            <input class="mr-fi" data-field="logoUrl" value="${_mEsc(m&&m.logo&&!m.logo.startsWith('data:')?m.logo:'')}" placeholder="https://..." autocomplete="off">
+            <input type="file" id="mr-logo-file" accept="image/*" style="margin-top:4px;font-size:11px;color:#888">
+        </div>
+        <div class="mr-form-r"><label>Copy Text</label><input class="mr-fi" data-field="copyText" value="${_mEsc(m?m.copyText||'':'')}" placeholder="Text for blue Copy button" autocomplete="off"></div>
+        <div class="mr-form-r"><label>Push Text</label><input class="mr-fi" data-field="pushText" value="${_mEsc(m?m.pushText||'':'')}" placeholder="Text for yellow PUSH button" autocomplete="off"></div>
+        <div class="mr-form-r"><label>NV Amount (optional)</label><input class="mr-fi" data-field="nvAmount" value="${_mEsc(m?m.nvAmount||'':'')}" placeholder="e.g. 1100 EUR" autocomplete="off"></div>
+        <div class="mr-modal-ft">
+            ${m?'<button class="mr-btn-del" id="mr-merch-del">🗑️ Delete</button>':''}
+            <button class="mr-btn-c" id="mr-modal-cancel">Cancel</button>
+            <button class="mr-btn-s" id="mr-modal-save">${m?'Save':'Add'}</button>
+        </div>
+    </div>`;
+    _mrOpen(title, html);
+
+    // Загрузка логотипа
+    document.getElementById('mr-logo-file')?.addEventListener('change', e => {
+        const f=e.target.files[0]; if(!f) return;
+        const r=new FileReader(); r.onload=ev=>{logoB64=ev.target.result;}; r.readAsDataURL(f);
+    });
+
+    document.getElementById('mr-modal-save').addEventListener('click', () => {
+        const d={}; document.querySelectorAll('#mr-modal-body [data-field]').forEach(e=>{d[e.dataset.field]=e.value.trim();});
+        if(!d.name) { toast('Name required','warning'); return; }
+        const logo = logoB64 || d.logoUrl || (m?m.logo:'');
+        if(m) {
+            m.name=d.name; m.country=(d.country||'').toUpperCase();
+            m.logo=logo; m.copyText=d.copyText; m.pushText=d.pushText; m.nvAmount=d.nvAmount;
+            save(); toast('Saved','success');
         } else {
-            // "Link to merchant" buttons for each merchant
-            let linkBtns = '';
-            if (STATE.merchants.length > 0) {
-                linkBtns = `<div class="fc-link-merchant-row" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">`;
-                STATE.merchants.forEach(m => {
-                    linkBtns += `<button class="fc-link-to-merch" data-bin="${bin}" data-merch-id="${m.id}" style="font-size:11px;padding:3px 8px;background:#1a1a2e;border:1px solid #333;border-radius:4px;color:#8b5cf6;cursor:pointer" title="Link BIN ${bin} to ${m.name}">+ ${m.name}</button>`;
-                });
-                linkBtns += `</div>`;
-            }
-            binHtml += `<div class="mt-no-data" style="color:#666;opacity:0.8">Not linked to any merchant</div>${linkBtns}`;
+            STATE.merchants.push({ id:'merch-'+Date.now(), name:d.name, country:(d.country||'').toUpperCase(),
+                logo:logo, copyText:d.copyText, pushText:d.pushText, nvAmount:d.nvAmount,
+                note:'', links:[], tags:[] });
+            save(); toast(`"${d.name}" added`,'success');
         }
-
-        binHtml += `</div>`;
+        _mrClose(); renderMerchants();
     });
-
-    // ═══ SAVE to persistent array ═══
-    STATE._logResults.push({
-        bins: bins,
-        binHtml: binHtml,
-        parsedHtml: parsedHtml,
-        timestamp: Date.now()
+    document.getElementById('mr-modal-cancel').addEventListener('click', _mrClose);
+    document.getElementById('mr-merch-del')?.addEventListener('click', () => {
+        if(!confirm(`Delete "${m.name}"?`)) return;
+        STATE.merchants = STATE.merchants.filter(x=>x.id!==id);
+        STATE.merchantBins = STATE.merchantBins.filter(b=>b.merchant_id!==id);
+        save(); toast('Deleted','info'); _mrClose(); renderMerchants();
     });
-
-    // Clear textarea after successful search to prevent duplicates
-    textarea.value = '';
-
-    // ═══ Auto-lookup BIN info from RustBin API ═══
-    bins.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin); });
-
-    // ═══ SAVE parsed fields to STATE for persistence ═══
-    STATE._lastParsedFields = fields;
-
-    // Re-render to show results (will restore parsed fields)
-    renderMerchants();
-    toast(`Found ${bins.length} BIN(s)`, 'success');
 }
 
-// ═══ UPDATE PARSED INFO (right panel) ═══
-function _updateParsedInfo(fields) {
-    // Update card info
-    const setCardField = (id, val) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const valSpan = el.querySelector('.fc-card-val');
-        if (valSpan) valSpan.textContent = val || '—';
-        el.dataset.copy = val || '';
-    };
+// Legacy-совместимость
+window.openMerchant = function() {};
+window.deleteMerchant = function(id) { STATE.merchants=STATE.merchants.filter(x=>x.id!==id); STATE.merchantBins=STATE.merchantBins.filter(b=>b.merchant_id!==id); save(); renderMerchants(); };
+window.deleteMerchBin = function(id) { STATE.merchantBins=STATE.merchantBins.filter(b=>b.id!==id); save(); };
 
-    const cc = fields.cc || '';
-    const exp = (fields.expMonth && fields.expYear) ? `${fields.expMonth}/${fields.expYear}` : (fields.expMonth || '');
 
-    setCardField('ci-card', cc);
-    setCardField('ci-exp', exp);
-    setCardField('ci-cvv', fields.cvv || '');
 
-    // Show card type/network + BIN info
-    const binInfoEl = document.getElementById('ci-bininfo');
-    if (binInfoEl && cc) {
-        const network = getCardType(cc);
-        const bin6 = cc.slice(0, 6);
-        const cached = BIN_CACHE[bin6];
-        let infoStr = network || '';
-        if (cached && !cached.error) {
-            if (cached.type) infoStr += (infoStr ? ' · ' : '') + cached.type;
-            if (cached.bank) infoStr += (infoStr ? ' · ' : '') + cached.bank;
-            if (cached.country) infoStr += (infoStr ? ' · ' : '') + cached.country;
-        }
-        const valSpan = binInfoEl.querySelector('.fc-card-val');
-        if (valSpan) valSpan.textContent = infoStr || '—';
-    }
-
-    // Update billing info from log (if available)
-    const setBillingField = (id, val) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const valSpan = el.querySelector('.fc-billing-val');
-        if (valSpan) valSpan.textContent = val || '—';
-        el.dataset.copy = val || '';
-    };
-
-    // Fill billing from parsed log data
-    const fullName = fields.holder || '—';
-    const address = fields.address || '—';
-    const city = fields.city || '—';
-    const zip = fields.zip || '—';
-    const phone = fields.phone || '—';
-
-    setBillingField('bi-name', fullName);
-    setBillingField('bi-address', address);
-    setBillingField('bi-city', city);
-    setBillingField('bi-zip', zip);
-    setBillingField('bi-phone', phone);
-}
-
-// ═══ RANDOM BILLING GENERATOR (Multi-country) ═══
-const BILLING_DATA = {
-    US: {
-        firstNames: ['James', 'Michael', 'Robert', 'David', 'William', 'John', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Susan', 'Jessica', 'Sarah', 'Karen', 'Lisa'],
-        lastNames: ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Thompson', 'White'],
-        streets: ['Main St', 'Oak Ave', 'Maple Dr', 'Cedar Ln', 'Pine St', 'Elm St', 'Washington Ave', 'Park Blvd', 'Lake Dr', 'Hill Rd'],
-        cities: [
-            { city: 'New York', state: 'NY', zip: '10001' },
-            { city: 'Los Angeles', state: 'CA', zip: '90001' },
-            { city: 'Chicago', state: 'IL', zip: '60601' },
-            { city: 'Houston', state: 'TX', zip: '77001' },
-            { city: 'Phoenix', state: 'AZ', zip: '85001' },
-            { city: 'Miami', state: 'FL', zip: '33101' },
-            { city: 'Seattle', state: 'WA', zip: '98101' },
-            { city: 'Denver', state: 'CO', zip: '80201' },
-            { city: 'Boston', state: 'MA', zip: '02101' },
-            { city: 'Las Vegas', state: 'NV', zip: '89101' }
-        ],
-        phoneFormat: (r) => `+1-${r(200, 999)}-${r(200, 999)}-${r(1000, 9999)}`
-    },
-    UK: {
-        firstNames: ['Oliver', 'George', 'Harry', 'Jack', 'Jacob', 'Noah', 'Charlie', 'Olivia', 'Amelia', 'Emily', 'Isla', 'Ava', 'Sophie', 'Grace', 'Mia'],
-        lastNames: ['Smith', 'Jones', 'Williams', 'Taylor', 'Brown', 'Davies', 'Evans', 'Wilson', 'Thomas', 'Roberts', 'Johnson', 'Lewis', 'Walker', 'Robinson', 'Wood'],
-        streets: ['High Street', 'Station Road', 'Church Lane', 'Mill Road', 'Park Avenue', 'Victoria Road', 'Manor Way', 'Kings Road', 'Queens Drive', 'London Road'],
-        cities: [
-            { city: 'London', state: 'England', zip: 'SW1A' },
-            { city: 'Manchester', state: 'England', zip: 'M1' },
-            { city: 'Birmingham', state: 'England', zip: 'B1' },
-            { city: 'Leeds', state: 'England', zip: 'LS1' },
-            { city: 'Liverpool', state: 'England', zip: 'L1' },
-            { city: 'Edinburgh', state: 'Scotland', zip: 'EH1' },
-            { city: 'Glasgow', state: 'Scotland', zip: 'G1' },
-            { city: 'Bristol', state: 'England', zip: 'BS1' }
-        ],
-        phoneFormat: (r) => `+44 ${r(7000, 7999)} ${r(100000, 999999)}`
-    },
-    CA: {
-        firstNames: ['Liam', 'Noah', 'William', 'James', 'Oliver', 'Emma', 'Olivia', 'Charlotte', 'Amelia', 'Sophia', 'Benjamin', 'Lucas', 'Henry', 'Alexander', 'Mason'],
-        lastNames: ['Smith', 'Brown', 'Tremblay', 'Martin', 'Roy', 'Wilson', 'Macdonald', 'Gagnon', 'Johnson', 'Taylor', 'Campbell', 'Anderson', 'Lee', 'Jones', 'Williams'],
-        streets: ['Maple Street', 'Oak Avenue', 'Cedar Drive', 'Pine Road', 'Birch Lane', 'Willow Way', 'Spruce Street', 'Elm Avenue', 'Aspen Drive', 'Poplar Road'],
-        cities: [
-            { city: 'Toronto', state: 'ON', zip: 'M5H' },
-            { city: 'Montreal', state: 'QC', zip: 'H2Y' },
-            { city: 'Vancouver', state: 'BC', zip: 'V6C' },
-            { city: 'Calgary', state: 'AB', zip: 'T2P' },
-            { city: 'Edmonton', state: 'AB', zip: 'T5J' },
-            { city: 'Ottawa', state: 'ON', zip: 'K1P' },
-            { city: 'Winnipeg', state: 'MB', zip: 'R3C' }
-        ],
-        phoneFormat: (r) => `+1-${r(200, 999)}-${r(200, 999)}-${r(1000, 9999)}`
-    },
-    AU: {
-        firstNames: ['Oliver', 'Noah', 'Jack', 'William', 'Leo', 'Charlotte', 'Olivia', 'Amelia', 'Isla', 'Mia', 'Lucas', 'Henry', 'Ethan', 'James', 'Alexander'],
-        lastNames: ['Smith', 'Jones', 'Williams', 'Brown', 'Wilson', 'Taylor', 'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Garcia', 'Martinez'],
-        streets: ['High Street', 'George Street', 'William Street', 'Queen Street', 'King Street', 'Beach Road', 'Park Avenue', 'Church Street', 'Victoria Street', 'Albert Road'],
-        cities: [
-            { city: 'Sydney', state: 'NSW', zip: '2000' },
-            { city: 'Melbourne', state: 'VIC', zip: '3000' },
-            { city: 'Brisbane', state: 'QLD', zip: '4000' },
-            { city: 'Perth', state: 'WA', zip: '6000' },
-            { city: 'Adelaide', state: 'SA', zip: '5000' },
-            { city: 'Gold Coast', state: 'QLD', zip: '4217' },
-            { city: 'Canberra', state: 'ACT', zip: '2600' }
-        ],
-        phoneFormat: (r) => `+61 4${r(00, 99)} ${r(100, 999)} ${r(100, 999)}`
-    }
-};
-
-// Store current billing for copy all
-let _currentBilling = null;
-
-function _generateRandomBilling() {
-    const country = document.getElementById('fc-country')?.value || 'US';
-    const data = BILLING_DATA[country];
-
-    const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const randNum = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-    const firstName = rand(data.firstNames);
-    const lastName = rand(data.lastNames);
-    const fullName = `${firstName} ${lastName}`;
-    const streetNum = randNum(1, 999);
-    const street = rand(data.streets);
-    const address = `${streetNum} ${street}`;
-    const loc = rand(data.cities);
-    const zip = loc.zip + (country === 'UK' ? ` ${randNum(1, 9)}${String.fromCharCode(65 + randNum(0, 25))}${String.fromCharCode(65 + randNum(0, 25))}` : randNum(10, 99).toString());
-    const phone = data.phoneFormat(randNum);
-    const cityState = `${loc.city}, ${loc.state}`;
-
-    // Store for copy all
-    _currentBilling = { fullName, address, cityState, zip, phone, country };
-
-    // Update billing info fields
-    const setField = (id, val) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const valSpan = el.querySelector('.fc-billing-val');
-        if (valSpan) valSpan.textContent = val || '—';
-        el.dataset.copy = val || '';
-    };
-
-    setField('bi-name', fullName);
-    setField('bi-address', address);
-    setField('bi-city', cityState);
-    setField('bi-zip', zip);
-    setField('bi-phone', phone);
-
-    toast(`Generated ${country} billing`, 'success');
-}
-
-// ═══ COPY ALL BILLING ═══
-// ══════════ QUICK SEARCH ══════════
-
-function _mtQuickSearch(query) {
-    const resultsDiv = document.getElementById('mt-results');
-    if (!resultsDiv) return;
-    const q = query.toUpperCase();
-    const qDigits = query.replace(/\D/g, '');
-
-    let html = '';
-    let found = false;
-
-    // Search by BIN
-    if (qDigits.length >= 4) {
-        const binPrefix = qDigits.slice(0, 6);
-        const matches = STATE.merchantBins.filter(b => b.bin.startsWith(binPrefix));
-
-        if (matches.length > 0) {
-            found = true;
-            const byBin = {};
-            matches.forEach(b => {
-                if (!byBin[b.bin]) byBin[b.bin] = [];
-                byBin[b.bin].push(b);
-            });
-
-            Object.entries(byBin).forEach(([bin, entries]) => {
-                const bankInfo = BIN_CACHE[bin];
-                const bankName = bankInfo ? (bankInfo.bank || '—') : (entries[0].bank || '—');
-                html += `<div class="mt-result-block">`;
-                html += `<div class="mt-result-bin">BIN: <strong>${bin}</strong>`;
-                if (bankName !== '—') html += ` <span class="mt-result-bank">🏦 ${bankName}</span>`;
-                html += `</div>`;
-
-                const byMerch = {};
-                entries.forEach(e => {
-                    if (!byMerch[e.merchant_id]) byMerch[e.merchant_id] = [];
-                    byMerch[e.merchant_id].push(e);
-                });
-                Object.entries(byMerch).forEach(([mId, es]) => {
-                    const m = STATE.merchants.find(x => x.id === mId);
-                    const last = es[es.length - 1];
-                    html += `<div class="mt-result-row"><span class="mt-col-merchant">${m ? m.name : 'Unknown'}</span> — Used: <strong>${es.length}</strong>`;
-                    if (last.amount) html += ` — Last: <span class="mt-col-amount">$${last.amount}</span>`;
-                    html += `</div>`;
-                    if (m && m.links && m.links.length > 0) {
-                        html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
-                    }
-                });
-                html += `</div>`;
-            });
-        }
-    }
-
-    // Search by merchant name
-    STATE.merchants.forEach(m => {
-        if (m.name.toUpperCase().includes(q)) {
-            found = true;
-            const bins = STATE.merchantBins.filter(b => b.merchant_id === m.id);
-            const uniqueBins = [...new Set(bins.map(b => b.bin))];
-            html += `<div class="mt-result-block">`;
-            html += `<div class="mt-result-bin"><span class="mt-col-merchant">${m.name}</span> — ${uniqueBins.length} BINs · ${bins.length} uses</div>`;
-            uniqueBins.slice(0, 10).forEach(bin => {
-                const count = bins.filter(b => b.bin === bin).length;
-                const last = bins.filter(b => b.bin === bin).pop();
-                const bankInfo = BIN_CACHE[bin];
-                const bankName = bankInfo ? (bankInfo.bank || '') : '';
-                html += `<div class="mt-result-row">BIN: <strong>${bin}</strong>${bankName ? ' · 🏦 ' + bankName : ''} — ${count}x${last && last.amount ? ' · $' + last.amount : ''}</div>`;
-            });
-            if (m.links && m.links.length > 0) {
-                html += `<div class="mt-result-links">${m.links.map(l => `<a href="${l.url}" target="_blank" class="mt-link-badge-sm">[${l.label}]</a>`).join('')}</div>`;
-            }
-            html += `</div>`;
-        }
-    });
-
-    if (!found) {
-        html = `<div class="mt-no-data">No results for "${query}"</div>`;
-    }
-
-    resultsDiv.innerHTML = html;
-}
-
-// Legacy compat
-window.openMerchant = function () { };
-window.deleteMerchant = function (id) { _mtDeleteMerchant(id); };
-window.deleteMerchBin = function (id) {
-    STATE.merchantBins = STATE.merchantBins.filter(b => b.id !== id);
-    save();
-};
-
-// ═══════════════════════════════════════════
 //        TASKS — WEEKLY PLANNER + HABITS
 // ═══════════════════════════════════════════
 
@@ -8291,6 +7503,7 @@ function renderParser() {
 
     _initTrashCardModal();
     _initTrashTabs();        // вкладки + Check My List
+    _initTodayCardsModal(); // мини-парсер TODAY CARDS
     _initValidCardsModal();
 
     // Если есть результаты Valid Cards — показываем их, иначе обычные результаты парсера
@@ -10564,411 +9777,418 @@ function initColumnResize(table, storageKey) {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  TODAY CARDS — дневной отчёт по картам из загруженного JSON
+//  TODAY CARDS — простой мини-парсер, аналог TRASH
+//  Открывает модал с textarea/файлом, парсит, показывает отчёт.
+//  Полностью независим от PARSER_STATE и основного пайплайна.
 // ═══════════════════════════════════════════════════════════════
 
-const TC_STATE = { cards: [], dateLabel: '', fromDate: '', toDate: '' };
+/** Состояние Today Cards мини-парсера */
+const TC = {
+    cards:     [],   // спарсенные карты
+    dateLabel: '',   // метка даты для заголовка отчёта
+    rawText:   '',   // последний вставленный текст
+};
 
-/** Открывает и инициализирует модал TODAY CARDS */
+/** Открывает модал Today Cards */
 function _openTodayCardsModal() {
-    const overlay = document.getElementById('today-cards-overlay');
+    const ov = document.getElementById('today-cards-overlay');
+    if (!ov) return;
+    ov.classList.remove('hidden');
+    // Устанавливаем сегодняшнюю дату по умолчанию
+    const dp = document.getElementById('tc-date');
+    if (dp && !dp.value) {
+        dp.value = new Date().toISOString().slice(0,10);
+    }
+    _tcUpdateDetected();
+}
+
+/** Считает карты в textarea и обновляет счётчик */
+function _tcUpdateDetected() {
+    const ta = document.getElementById('tc-textarea');
+    const badge = document.getElementById('tc-detected');
+    if (!ta || !badge) return;
+    const matches = (ta.value.match(/\b\d{13,19}\b/g) || []);
+    badge.textContent = matches.length + ' cards detected';
+}
+
+/**
+ * Инициализирует все обработчики модала Today Cards.
+ * Вызывается один раз при рендере Parser.
+ */
+function _initTodayCardsModal() {
+    const overlay  = document.getElementById('today-cards-overlay');
     if (!overlay) return;
-    overlay.classList.remove('hidden');
-    _renderTodayShell();
-}
 
-/** Форматирует дату ISO в читаемый вид */
-function _tcFmtDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-/** Рендерит шапку модала: заголовок, чипы дат, date-picker */
-function _renderTodayShell() {
-    const inner = document.getElementById('today-cards-inner');
-    if (!inner) return;
-
-    const msgs = PARSER_STATE.rawMessages || [];
-    const fileInfo = PARSER_STATE.mainFiles && PARSER_STATE.mainFiles.length > 0
-        ? PARSER_STATE.mainFiles.map(f => f.name).join(', ')
-        : 'No file loaded';
-
-    // Собираем уникальные даты из сообщений (YYYY-MM-DD)
-    const dayMap = {};
-    msgs.forEach(msg => {
-        if (!msg || !msg.date) return;
-        const d = msg.date.substring(0, 10);
-        dayMap[d] = (dayMap[d] || 0) + 1;
-    });
-    const days = Object.keys(dayMap).sort();
-    const dateRange = days.length > 0
-        ? `${_tcFmtDate(days[0])} — ${_tcFmtDate(days[days.length - 1])}`
-        : '—';
-
-    // Чипы дней
-    const chipsHtml = days.length > 0
-        ? days.map(d => {
-            const label = new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            return `<button class="tc-chip" data-day="${d}">${label} <span class="tc-chip-count">${dayMap[d]}</span></button>`;
-        }).join('')
-        : '<span style="color:var(--text-muted);font-size:12px">No messages loaded — paste cards manually below</span>';
-
-    inner.innerHTML = `
-    <div class="tc-header">
-        <div>
-            <h3 class="tc-title">📅 TODAY CARDS — DAILY REPORT</h3>
-            <div class="tc-meta">📁 ${fileInfo} &nbsp;·&nbsp; ${msgs.length.toLocaleString()} messages</div>
-            <div class="tc-meta">🗓 Available: ${dateRange}</div>
-        </div>
-        <button class="modal-close" id="tc-close-btn"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
-    </div>
-
-    <div class="tc-date-bar">
-        <div class="tc-chips">${chipsHtml}</div>
-        <div class="tc-range-row">
-            <label>FROM <input type="date" id="tc-from" class="tc-date-input"></label>
-            <label>TO <input type="date" id="tc-to" class="tc-date-input"></label>
-            <button class="tc-quick-btn" data-days="1">LAST DAY</button>
-            <button class="tc-quick-btn" data-days="2">LAST 2 DAYS</button>
-            <button class="tc-quick-btn" data-days="3">LAST 3 DAYS</button>
-        </div>
-    </div>
-
-    <div id="tc-report" class="tc-report"></div>`;
+    const ta        = document.getElementById('tc-textarea');
+    const fileInput = document.getElementById('tc-file');
+    const parseBtn  = document.getElementById('tc-parse-btn');
+    const clearBtn  = document.getElementById('tc-clear-btn');
+    const closeBtn  = document.getElementById('tc-close-btn');
+    const cancelBtn = document.getElementById('tc-cancel-btn');
 
     // Закрытие
-    document.getElementById('tc-close-btn')?.addEventListener('click', () => {
-        document.getElementById('today-cards-overlay').classList.add('hidden');
+    const closeModal = () => overlay.classList.add('hidden');
+    closeBtn?.addEventListener('click',  closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    // Счётчик при вводе
+    ta?.addEventListener('input', _tcUpdateDetected);
+
+    // CLEAR
+    clearBtn?.addEventListener('click', () => {
+        if (ta) ta.value = '';
+        document.getElementById('tc-detected').textContent = '0 cards detected';
+        document.getElementById('tc-results').style.display = 'none';
+        TC.cards = [];
     });
 
-    // Клик на чип дня
-    inner.querySelectorAll('.tc-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-            inner.querySelectorAll('.tc-chip').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const day = btn.dataset.day;
-            _runTodayParse(day, day);
-        });
+    // Загрузка файла (.json или .txt)
+    fileInput?.addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const content = ev.target.result;
+            try {
+                // Пробуем распарсить как Telegram JSON
+                const obj = JSON.parse(content);
+                const msgs = Array.isArray(obj) ? obj
+                           : (Array.isArray(obj.messages) ? obj.messages : []);
+                // Флаттеним текст из сообщений
+                const text = msgs.map(m => {
+                    if (typeof m.text === 'string') return m.text;
+                    if (Array.isArray(m.text)) return m.text.map(t => typeof t === 'string' ? t : (t.text||'')).join('');
+                    return '';
+                }).join('\n');
+                if (ta) ta.value = text;
+                // Если есть поле date — пробуем подставить дату из первого сообщения
+                const firstDate = msgs.find(m => m.date)?.date;
+                if (firstDate) {
+                    const dp = document.getElementById('tc-date');
+                    if (dp && !dp.value) dp.value = firstDate.slice(0,10);
+                }
+            } catch {
+                // Текстовый файл
+                if (ta) ta.value = content;
+            }
+            _tcUpdateDetected();
+            fileInput.value = '';
+        };
+        reader.readAsText(f);
     });
 
-    // Быстрые кнопки LAST N DAYS
-    inner.querySelectorAll('.tc-quick-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const n = parseInt(btn.dataset.days);
-            if (days.length === 0) return;
-            const lastDay = days[days.length - 1];
-            const toD = lastDay;
-            const fromIdx = Math.max(0, days.length - n);
-            const fromD = days[fromIdx];
-            document.getElementById('tc-from').value = fromD;
-            document.getElementById('tc-to').value = toD;
-            inner.querySelectorAll('.tc-chip').forEach(b => b.classList.remove('active'));
-            _runTodayParse(fromD, toD);
-        });
-    });
-
-    // Date range picker
-    const applyRange = () => {
-        const f = document.getElementById('tc-from').value;
-        const t = document.getElementById('tc-to').value;
-        if (f && t) _runTodayParse(f, t);
-    };
-    document.getElementById('tc-from')?.addEventListener('change', applyRange);
-    document.getElementById('tc-to')?.addEventListener('change', applyRange);
-
-    // Автоматически выбрать последний день если данные есть
-    if (days.length > 0) {
-        const lastChip = inner.querySelector(`.tc-chip[data-day="${days[days.length - 1]}"]`);
-        if (lastChip) lastChip.click();
-    }
+    // PARSE
+    parseBtn?.addEventListener('click', _tcRunParse);
 }
 
-/** Фильтрует сообщения по диапазону и запускает парсинг */
-function _runTodayParse(fromDate, toDate) {
-    const msgs = PARSER_STATE.rawMessages || [];
-    const from = new Date(fromDate + 'T00:00:00');
-    const to   = new Date(toDate   + 'T23:59:59');
+/** Запускает парсинг вставленного текста */
+function _tcRunParse() {
+    const ta = document.getElementById('tc-textarea');
+    const dp = document.getElementById('tc-date');
+    const text = ta?.value || '';
 
-    const filtered = msgs.filter(msg => {
-        if (!msg || !msg.date) return false;
-        const d = new Date(msg.date);
-        return d >= from && d <= to;
-    });
-
-    // Извлекаем карты — ВСЕ (включая trash), не меняем PARSER_STATE.collected
-    const cards = extractCardsFromMessages(filtered);
-    cards.forEach(c => {
-        c.detectedGeo = detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode);
-    });
-
-    TC_STATE.cards = cards;
-    const days = (to - from) / 86400000 + 1;
-    if (fromDate === toDate) {
-        TC_STATE.dateLabel = new Date(fromDate + 'T12:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-    } else {
-        TC_STATE.dateLabel = `${new Date(fromDate + 'T12:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} — ${new Date(toDate + 'T12:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-    }
-
-    _renderTodayReport(cards, TC_STATE.dateLabel, filtered.length);
-}
-
-/** Строит объект статистики */
-function _buildTodayStats(cards) {
-    const total = cards.length;
-    const bins   = new Set(cards.map(c => c.bin));
-    const geoMap = {}, typeMap = {}, levelMap = {}, sysMap = {}, bankMap = {}, hourMap = {};
-
-    cards.forEach(c => {
-        const geo   = c.detectedGeo || c.countryCode || 'Other';
-        const type  = (c.cardType || '').toUpperCase().includes('CREDIT') ? 'CREDIT'
-                    : (c.cardType || '').toUpperCase().includes('DEBIT')  ? 'DEBIT'
-                    : (c.cardType || '').toUpperCase().includes('PREPAID')? 'PREPAID'
-                    : (c.cardType || '').toUpperCase().includes('BUSINESS')? 'BUSINESS'
-                    : 'UNKNOWN';
-        const level = (c.cardType || '').toUpperCase().replace(/CREDIT|DEBIT|PREPAID|BUSINESS/g,'').trim() || 'STANDARD';
-        const sys   = getCardType(c.cc || '') || 'OTHER';
-        const bank  = c.bank || 'Unknown';
-        const hour  = c.msgDate ? new Date(c.msgDate).getHours() : -1;
-
-        geoMap[geo]   = (geoMap[geo]   || 0) + 1;
-        typeMap[type] = (typeMap[type] || 0) + 1;
-        levelMap[level]= (levelMap[level]||0)+ 1;
-        sysMap[sys]   = (sysMap[sys]   || 0) + 1;
-        bankMap[bank] = (bankMap[bank] || 0) + 1;
-        if (hour >= 0) hourMap[hour] = (hourMap[hour] || 0) + 1;
-    });
-
-    // Пиковый час
-    let peakHour = -1, peakCount = 0;
-    Object.entries(hourMap).forEach(([h, n]) => { if (n > peakCount) { peakHour = +h; peakCount = n; } });
-
-    // Активные часы
-    const activeHours = Object.keys(hourMap).length || 1;
-    const avgPerHour = Math.round(total / activeHours);
-
-    return { total, bins, geoMap, typeMap, levelMap, sysMap, bankMap, hourMap, peakHour, peakCount, avgPerHour };
-}
-
-/** GEO код → название страны */
-function _tcGeoName(code) {
-    const map = {
-        CA:'Canada',US:'United States',AU:'Australia',GB:'United Kingdom',DE:'Germany',
-        FR:'France',NL:'Netherlands',NO:'Norway',SE:'Sweden',DK:'Denmark',
-        FI:'Finland',CH:'Switzerland',AT:'Austria',IT:'Italy',ES:'Spain',
-        PL:'Poland',CZ:'Czechia',PT:'Portugal',BE:'Belgium',NZ:'New Zealand',
-        SG:'Singapore',JP:'Japan',KR:'South Korea',IE:'Ireland',IL:'Israel',
-        BR:'Brazil',MX:'Mexico',ZA:'South Africa',IN:'India',AE:'UAE'
-    };
-    return map[code] || code;
-}
-
-/** GEO код → флаг эмодзи */
-function _tcFlag(code) {
-    if (!code || code.length !== 2) return '🌐';
-    return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E0 + c.charCodeAt(0) - 65));
-}
-
-/** Прогресс-бар */
-function _tcBar(pct, color) {
-    const w = Math.round(pct / 100 * 24);
-    return `<span class="tc-bar" style="--w:${w};--c:${color}"></span>`;
-}
-
-/** Рендерит полный отчёт */
-function _renderTodayReport(cards, dateLabel, msgCount) {
-    const el = document.getElementById('tc-report');
-    if (!el) return;
-
-    if (cards.length === 0) {
-        el.innerHTML = `<div class="tc-empty">No cards found for this period</div>`;
+    if (!text.trim()) {
+        toast('Paste checker results or load a file first', 'warning');
         return;
     }
 
-    const s = _buildTodayStats(cards);
+    // Дата для метки отчёта (не фильтрует — только метка)
+    const dateVal = dp?.value || '';
+    if (dateVal) {
+        TC.dateLabel = new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US',
+            { day: 'numeric', month: 'short', year: 'numeric' });
+    } else {
+        TC.dateLabel = new Date().toLocaleDateString('en-US',
+            { day: 'numeric', month: 'short', year: 'numeric' });
+    }
 
-    // ── Секция 2: страны ──
-    const geoEntries = Object.entries(s.geoMap).sort((a,b) => b[1]-a[1]);
-    const top10Geo = geoEntries.slice(0, 10);
-    const otherGeo = geoEntries.slice(10).reduce((a,[,n]) => a+n, 0);
-    const geoHtml = top10Geo.map(([code, n]) => {
-        const pct = (n/s.total*100).toFixed(1);
-        return `<div class="tc-country-row">
-            <span class="tc-flag">${_tcFlag(code)}</span>
-            <span class="tc-country-name">${_tcGeoName(code)}</span>
-            <span class="tc-country-count">${n}</span>
-            ${_tcBar(+pct,'#818cf8')}
-            <span class="tc-pct">${pct}%</span>
-        </div>`;
-    }).join('') + (otherGeo > 0 ? `<div class="tc-country-row tc-other-row">
-        <span class="tc-flag">🌐</span><span class="tc-country-name">Other ${geoEntries.length - 10} countries</span>
-        <span class="tc-country-count">${otherGeo}</span>
-        ${_tcBar(otherGeo/s.total*100,'#4b5563')}<span class="tc-pct">${(otherGeo/s.total*100).toFixed(1)}%</span>
-    </div>` : '');
+    // Извлекаем карты из текста
+    // Используем _parseCheckerOutput для структурированного формата
+    // При отсутствии маркеров — берём все найденные номера
+    const parsed = _parseCheckerOutput(text);
+    let cards = [];
 
-    // ── Секция 3: тип и уровень ──
-    const mkRows = (map, color) => Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([k,n]) => {
-        const pct = (n/s.total*100).toFixed(1);
-        return `<div class="tc-type-row"><span class="tc-type-name">${k}</span>${_tcBar(+pct,color)}<span class="tc-type-count">${n}</span><span class="tc-pct">${pct}%</span></div>`;
-    }).join('');
+    if (parsed.length > 0) {
+        // Структурированный формат — берём ВСЕ статусы (alive+dead+invalid)
+        cards = parsed.map(p => ({
+            cc:       p.cc,
+            mm:       p.mm,
+            yy:       p.yy,
+            cvv:      p.cvv,
+            status:   p.status,
+            bin:      p.cc.slice(0,6),
+            cardType: p.level || p.type || '',
+            bank:     p.bank || '',
+            country:  p.geo  || '',
+            detectedGeo: p.geo || '',
+            msgDate:  null,
+        }));
+    } else {
+        // Нет маркеров — парсим все номера из текста
+        const seen = new Set();
+        text.split(/\r?\n/).forEach(line => {
+            const m = line.match(/\b(\d{13,19})\b/);
+            if (!m) return;
+            const cc = m[1];
+            if (seen.has(cc)) return;
+            seen.add(cc);
+            // Пробуем извлечь MM YY CVV
+            const rest = line.replace(cc, '');
+            const dates = rest.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
+            cards.push({
+                cc, bin: cc.slice(0,6),
+                mm: dates?.[1] || '',
+                yy: dates?.[2] || '',
+                cvv: dates?.[3] || '',
+                status: 'unknown',
+                cardType: '', bank: '', country: '', detectedGeo: '', msgDate: null,
+            });
+        });
+    }
 
-    // ── Секция 4: платёжные системы ──
-    const sysColors = {VISA:'#2563eb',MASTERCARD:'#dc2626',AMEX:'#059669',DISCOVER:'#d97706',UNIONPAY:'#ca8a04'};
-    const sysHtml = Object.entries(s.sysMap).sort((a,b)=>b[1]-a[1]).map(([sys,n]) => {
-        const col = sysColors[sys] || '#6b7280';
-        return `<div class="tc-sys-card" style="border-color:${col}33;background:${col}11">
-            <div class="tc-sys-name" style="color:${col}">${sys}</div>
-            <div class="tc-sys-count">${n}</div>
-            <div class="tc-sys-pct">${(n/s.total*100).toFixed(1)}%</div>
-        </div>`;
-    }).join('');
+    TC.cards = cards;
+    TC.rawText = text;
 
-    // ── Секция 5: топ банков ──
-    const topBanks = Object.entries(s.bankMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    const banksHtml = topBanks.map(([name,n], i) =>
-        `<tr><td class="tc-bank-rank">${i+1}</td><td class="tc-bank-name">${name}</td><td class="tc-bank-n">${n}</td><td class="tc-pct">${(n/s.total*100).toFixed(1)}%</td></tr>`
-    ).join('');
+    if (cards.length === 0) {
+        toast('No cards found in the pasted text', 'warning');
+        return;
+    }
 
-    // ── Секция 6: активность по часам ──
-    const maxHourCount = Math.max(...Object.values(s.hourMap), 1);
-    const hourHtml = Array.from({length:24}, (_,h) => {
-        const n = s.hourMap[h] || 0;
-        const barW = Math.round(n/maxHourCount*20);
-        const peak = h === s.peakHour;
-        const bar = '█'.repeat(barW) + '░'.repeat(20-barW);
-        return `<div class="tc-hour-row${peak?' tc-peak':''}">
-            <span class="tc-hour-lbl">${String(h).padStart(2,'0')}:00</span>
-            <span class="tc-hour-bar">${bar}</span>
-            <span class="tc-hour-n">${n > 0 ? n+' cards' : '—'}</span>
-        </div>`;
-    }).join('');
+    _tcRenderResults(cards);
+    toast(`Parsed: ${cards.length} cards`, 'success');
+}
 
-    // ── Секция 7: таблица карт ──
-    const rowsHtml = cards.map((c,i) => {
-        const cc = c.cc || '';
-        const masked = cc.length >= 10 ? cc.slice(0,6)+'••••••'+cc.slice(-4) : cc;
-        const time = c.msgDate ? new Date(c.msgDate).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
-        const sys = getCardType(cc) || '';
+/** Строит статистику по массиву карт */
+function _tcStats(cards) {
+    const total = cards.length;
+    const geoMap = {}, typeMap = {}, levelMap = {}, sysMap = {}, bankMap = {}, statusMap = {};
+
+    cards.forEach(c => {
+        const geo    = (c.detectedGeo || c.country || 'Other').toUpperCase().slice(0,2) || 'Other';
+        const rawType = (c.cardType || '').toUpperCase();
+        const type   = rawType.includes('CREDIT')  ? 'CREDIT'
+                     : rawType.includes('DEBIT')   ? 'DEBIT'
+                     : rawType.includes('PREPAID') ? 'PREPAID'
+                     : rawType.includes('BUSINESS')? 'BUSINESS'
+                     : 'UNKNOWN';
+        const level  = rawType.replace(/CREDIT|DEBIT|PREPAID|BUSINESS/g,'').trim() || 'STANDARD';
+        const sys    = (typeof getCardType === 'function' ? getCardType(c.cc||'') : '') || 'OTHER';
+        const bank   = c.bank || 'Unknown';
+        const status = c.status || 'unknown';
+
+        geoMap[geo]     = (geoMap[geo]     || 0) + 1;
+        typeMap[type]   = (typeMap[type]   || 0) + 1;
+        levelMap[level] = (levelMap[level] || 0) + 1;
+        sysMap[sys]     = (sysMap[sys]     || 0) + 1;
+        bankMap[bank]   = (bankMap[bank]   || 0) + 1;
+        statusMap[status]=(statusMap[status]||0)+ 1;
+    });
+
+    return { total, geoMap, typeMap, levelMap, sysMap, bankMap, statusMap };
+}
+
+/** GEO код → название */
+function _tcGeoName(code) {
+    const M = {CA:'Canada',US:'United States',AU:'Australia',GB:'United Kingdom',
+        DE:'Germany',FR:'France',NL:'Netherlands',NO:'Norway',SE:'Sweden',
+        DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',IT:'Italy',
+        ES:'Spain',PL:'Poland',CZ:'Czechia',PT:'Portugal',BE:'Belgium',
+        NZ:'New Zealand',SG:'Singapore',JP:'Japan',KR:'South Korea',
+        IE:'Ireland',IL:'Israel',BR:'Brazil',MX:'Mexico',ZA:'South Africa',
+        IN:'India',AE:'UAE',TR:'Turkey',UA:'Ukraine',RU:'Russia'};
+    return M[code] || code;
+}
+
+/** GEO → флаг эмодзи */
+function _tcFlag(code) {
+    if (!code || code.length !== 2) return '🌐';
+    return String.fromCodePoint(...[...code.toUpperCase()].map(c=>0x1F1E0+c.charCodeAt(0)-65));
+}
+
+/** Текстовый Telegram-отчёт */
+function _tcTextReport(s) {
+    const pct = n => (n/s.total*100).toFixed(1)+'%';
+    const sep = '━'.repeat(27);
+    let out = `📊 DAILY REPORT — ${TC.dateLabel}\n${sep}\n`;
+    out += `💳 Total Cards: ${s.total}\n`;
+
+    // Статус (если есть)
+    const alive = s.statusMap['alive'] || 0;
+    const dead  = s.statusMap['dead']  || 0;
+    const inv   = s.statusMap['invalid']||0;
+    if (alive||dead||inv) out += `✅ Alive: ${alive}  💀 Dead: ${dead}  ❌ Invalid: ${inv}\n`;
+
+    out += `\n🌍 BY COUNTRY:\n`;
+    Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([code,n])=>{
+        out += `${_tcFlag(code)} ${_tcGeoName(code)} — ${n} (${pct(n)})\n`;
+    });
+
+    out += `\n💳 BY TYPE:\n`;
+    Object.entries(s.typeMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
+        out += `${k} — ${n} (${pct(n)})\n`;
+    });
+
+    out += `\n💰 BY SYSTEM:\n`;
+    Object.entries(s.sysMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
+        out += `${k} — ${n} (${pct(n)})\n`;
+    });
+
+    out += `\n🏆 BY LEVEL:\n`;
+    Object.entries(s.levelMap).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([k,n])=>{
+        out += `${k} — ${n} (${pct(n)})\n`;
+    });
+    out += sep;
+    return out;
+}
+
+/** Рендерит результаты в блок #tc-results */
+function _tcRenderResults(cards) {
+    const el = document.getElementById('tc-results');
+    if (!el) return;
+    el.style.display = 'block';
+
+    const s = _tcStats(cards);
+    const pct = n => (n/s.total*100).toFixed(1);
+
+    // Прогресс-бар
+    const bar = (p,col) => {
+        const w = Math.round(+p/100*16);
+        return `<span class="tcr-bar" style="--w:${w};--c:${col}"></span>`;
+    };
+
+    // Секция с рядами
+    const mkRows = (map,col) => Object.entries(map).sort((a,b)=>b[1]-a[1])
+        .map(([k,n])=>`<div class="tcr-row">
+            <span class="tcr-lbl">${k}</span>
+            ${bar(pct(n),col)}
+            <span class="tcr-n">${n}</span>
+            <span class="tcr-pct">${pct(n)}%</span>
+        </div>`).join('');
+
+    // Страны
+    const geoEntries = Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]);
+    const geoRows = geoEntries.slice(0,10).map(([code,n])=>`<div class="tcr-row">
+        <span class="tcr-flag">${_tcFlag(code)}</span>
+        <span class="tcr-lbl">${_tcGeoName(code)}</span>
+        ${bar(pct(n),'#818cf8')}
+        <span class="tcr-n">${n}</span>
+        <span class="tcr-pct">${pct(n)}%</span>
+    </div>`).join('');
+
+    // Таблица карт
+    const rows = cards.map((c,i)=>{
+        const cc = c.cc||'';
+        const masked = cc.length>=10 ? cc.slice(0,6)+'••••'+cc.slice(-4) : cc;
+        const statusBadge = c.status==='alive'?'<span class="tcr-alive">✅</span>'
+            : c.status==='dead'?'<span class="tcr-dead">💀</span>'
+            : c.status==='invalid'?'<span class="tcr-inv">❌</span>':'';
         return `<tr>
             <td><input type="checkbox" class="tc-row-cb" data-idx="${i}"></td>
-            <td class="tc-t-time">${time}</td>
-            <td class="tc-t-card">${masked}</td>
+            <td>${statusBadge}</td>
+            <td class="tcr-card">${masked}</td>
             <td>${c.mm||''}/${c.yy||''}</td>
+            <td>${c.cvv||''}</td>
             <td>${c.bin||''}</td>
-            <td>${c.detectedGeo||c.countryCode||''}</td>
-            <td class="tc-t-bank">${c.bank||''}</td>
+            <td>${c.detectedGeo||c.country||''}</td>
+            <td class="tcr-bank">${c.bank||''}</td>
             <td>${c.cardType||''}</td>
-            <td>${sys}</td>
         </tr>`;
     }).join('');
 
     el.innerHTML = `
     <!-- Кнопки действий -->
-    <div class="tc-actions">
-        <button class="tc-act-btn" id="tc-copy-report">📊 COPY REPORT</button>
-        <button class="tc-act-btn" id="tc-export-notes">📤 EXPORT ALL TO NOTES</button>
-        <button class="tc-act-btn" id="tc-copy-sel">📋 COPY SELECTED</button>
+    <div class="tcr-actions">
+        <button class="pz-btn pz-btn-dim" id="tc-copy-report">📊 COPY REPORT</button>
+        <button class="pz-btn pz-btn-dim" id="tc-export-all">📤 EXPORT ALL TO NOTES</button>
+        <button class="pz-btn pz-btn-dim" id="tc-export-sel">📋 EXPORT SELECTED TO NOTES</button>
+        <button class="pz-btn pz-btn-dim" id="tc-copy-all">📋 COPY ALL</button>
     </div>
 
-    <!-- С1: сводка -->
-    <div class="tc-summary-cards">
-        <div class="tc-sum-card"><div class="tc-sum-val tc-green">${s.total}</div><div class="tc-sum-lbl">TOTAL CARDS</div></div>
-        <div class="tc-sum-card"><div class="tc-sum-val">${s.bins.size}</div><div class="tc-sum-lbl">UNIQUE BINs</div></div>
-        <div class="tc-sum-card"><div class="tc-sum-val">${s.avgPerHour}</div><div class="tc-sum-lbl">AVG / HOUR</div></div>
-        <div class="tc-sum-card"><div class="tc-sum-val tc-peak-val">${s.peakHour>=0?String(s.peakHour).padStart(2,'0')+':00':'—'}</div><div class="tc-sum-lbl">PEAK HOUR ${s.peakCount>0?'('+s.peakCount+')':''}</div></div>
+    <!-- Сводка -->
+    <div class="tcr-summary">
+        <div class="tcr-total"><span class="tcr-total-n">${s.total}</span><span class="tcr-total-lbl">TOTAL CARDS</span></div>
+        ${s.statusMap['alive']?`<div class="tcr-chip tcr-alive-chip">✅ Alive: ${s.statusMap['alive']}</div>`:''}
+        ${s.statusMap['dead'] ?`<div class="tcr-chip tcr-dead-chip">💀 Dead: ${s.statusMap['dead']}</div>` :''}
+        ${s.statusMap['invalid']?`<div class="tcr-chip tcr-inv-chip">❌ Invalid: ${s.statusMap['invalid']}</div>`:''}
     </div>
 
-    <!-- С2: страны -->
-    <div class="tc-section"><div class="tc-section-title">🌍 CARDS BY COUNTRY</div><div class="tc-countries">${geoHtml}</div></div>
-
-    <!-- С3: тип и уровень -->
-    <div class="tc-section tc-two-col">
-        <div><div class="tc-section-title">💳 BY TYPE</div>${mkRows(s.typeMap,'#34d399')}</div>
-        <div><div class="tc-section-title">🏆 BY LEVEL</div>${mkRows(s.levelMap,'#fbbf24')}</div>
-    </div>
-
-    <!-- С4: платёжные системы -->
-    <div class="tc-section"><div class="tc-section-title">💰 BY PAYMENT SYSTEM</div><div class="tc-sys-row">${sysHtml}</div></div>
-
-    <!-- С5: топ банков -->
-    <div class="tc-section"><div class="tc-section-title">🏦 TOP BANKS</div>
-        <table class="tc-banks-table"><thead><tr><th>#</th><th>Bank</th><th>Cards</th><th>%</th></tr></thead><tbody>${banksHtml}</tbody></table>
-    </div>
-
-    <!-- С6: активность по часам -->
-    <div class="tc-section"><div class="tc-section-title">⏰ HOURLY ACTIVITY</div><div class="tc-hours">${hourHtml}</div></div>
-
-    <!-- С7: таблица карт -->
-    <div class="tc-section">
-        <div class="tc-section-title">📋 ALL CARDS <span style="font-size:11px;font-weight:400;color:var(--text-muted)">${cards.length} total</span>
-            <label style="margin-left:auto;font-size:11px;cursor:pointer"><input type="checkbox" id="tc-select-all"> SELECT ALL</label>
+    <!-- Секции статистики -->
+    <div class="tcr-grid">
+        <div class="tcr-section">
+            <div class="tcr-section-title">🌍 BY COUNTRY</div>${geoRows}
         </div>
-        <div class="tc-table-wrap">
-            <table class="tc-cards-table">
-                <thead><tr><th></th><th>TIME</th><th>CARD</th><th>EXP</th><th>BIN</th><th>GEO</th><th>BANK</th><th>TYPE</th><th>SYS</th></tr></thead>
-                <tbody>${rowsHtml}</tbody>
+        <div class="tcr-section">
+            <div class="tcr-section-title">💳 BY TYPE</div>${mkRows(s.typeMap,'#34d399')}
+            <div class="tcr-section-title" style="margin-top:12px">💰 BY SYSTEM</div>${mkRows(s.sysMap,'#60a5fa')}
+            <div class="tcr-section-title" style="margin-top:12px">🏆 BY LEVEL</div>${mkRows(s.levelMap,'#fbbf24')}
+            <div class="tcr-section-title" style="margin-top:12px">🏦 TOP BANKS</div>
+            ${Object.entries(s.bankMap).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,n],i)=>
+                `<div class="tcr-row"><span class="tcr-rank">${i+1}</span><span class="tcr-lbl">${k}</span><span class="tcr-n">${n}</span><span class="tcr-pct">${pct(n)}%</span></div>`
+            ).join('')}
+        </div>
+    </div>
+
+    <!-- Таблица карт -->
+    <div class="tcr-table-section">
+        <div class="tcr-section-title">
+            📋 ALL CARDS
+            <label style="margin-left:auto;font-size:11px;cursor:pointer;font-weight:400">
+                <input type="checkbox" id="tc-select-all"> SELECT ALL
+            </label>
+        </div>
+        <div class="tcr-table-wrap">
+            <table class="tcr-table">
+                <thead><tr><th></th><th>ST</th><th>CARD</th><th>EXP</th><th>CVV</th><th>BIN</th><th>GEO</th><th>BANK</th><th>TYPE</th></tr></thead>
+                <tbody>${rows}</tbody>
             </table>
         </div>
     </div>`;
 
-    // Select All
-    document.getElementById('tc-select-all')?.addEventListener('change', e => {
-        document.querySelectorAll('.tc-row-cb').forEach(cb => cb.checked = e.target.checked);
+    // SELECT ALL
+    document.getElementById('tc-select-all')?.addEventListener('change', e=>{
+        document.querySelectorAll('.tc-row-cb').forEach(cb=>cb.checked=e.target.checked);
     });
 
     // COPY REPORT
-    document.getElementById('tc-copy-report')?.addEventListener('click', () => {
-        const txt = _buildTodayTextReport(s, dateLabel);
-        navigator.clipboard?.writeText(txt);
+    document.getElementById('tc-copy-report')?.addEventListener('click', ()=>{
+        navigator.clipboard?.writeText(_tcTextReport(s));
         toast('Report copied to clipboard', 'success');
     });
 
     // EXPORT ALL TO NOTES
-    document.getElementById('tc-export-notes')?.addEventListener('click', () => {
-        const lines = cards.map(c => `${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}`);
-        const title = `REPORT ${dateLabel} — ${cards.length} cards`;
-        STATE.notesTabs.unshift({ id:'tab-tc-'+Date.now(), title, content:lines.join('\n'), pinned:false, tag:null, created:Date.now(), scrollPos:0 });
+    document.getElementById('tc-export-all')?.addEventListener('click', ()=>{
+        const lines = TC.cards.map(c=>`${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}`);
+        const title = `REPORT ${TC.dateLabel} — ${lines.length} cards`;
+        STATE.notesTabs.unshift({id:'tab-tc-'+Date.now(),title,content:lines.join('\n'),pinned:false,tag:null,created:Date.now(),scrollPos:0});
         STATE.notesActiveTab = STATE.notesTabs[0].id;
         save();
         document.querySelector('[data-view="notes"]')?.click();
         document.getElementById('today-cards-overlay')?.classList.add('hidden');
-        toast(`Exported ${cards.length} cards to Notes`, 'success');
+        toast(`Exported ${lines.length} cards to Notes`, 'success');
     });
 
-    // COPY SELECTED
-    document.getElementById('tc-copy-sel')?.addEventListener('click', () => {
-        const selected = [...document.querySelectorAll('.tc-row-cb:checked')].map(cb => {
-            const c = cards[+cb.dataset.idx];
+    // EXPORT SELECTED TO NOTES
+    document.getElementById('tc-export-sel')?.addEventListener('click', ()=>{
+        const sel = [...document.querySelectorAll('.tc-row-cb:checked')].map(cb=>{
+            const c = TC.cards[+cb.dataset.idx];
             return c ? `${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}` : '';
         }).filter(Boolean);
-        if (!selected.length) { toast('No rows selected', 'warning'); return; }
-        navigator.clipboard?.writeText(selected.join('\n'));
-        toast(`Copied ${selected.length} cards`, 'success');
+        if (!sel.length) { toast('No rows selected', 'warning'); return; }
+        const title = `SELECTED ${TC.dateLabel} — ${sel.length} cards`;
+        STATE.notesTabs.unshift({id:'tab-tcs-'+Date.now(),title,content:sel.join('\n'),pinned:false,tag:null,created:Date.now(),scrollPos:0});
+        STATE.notesActiveTab = STATE.notesTabs[0].id;
+        save();
+        document.querySelector('[data-view="notes"]')?.click();
+        document.getElementById('today-cards-overlay')?.classList.add('hidden');
+        toast(`Exported ${sel.length} selected cards to Notes`, 'success');
     });
-}
 
-/** Формирует текстовый отчёт для команды (Telegram-формат) */
-function _buildTodayTextReport(s, dateLabel) {
-    const ln = '━'.repeat(27);
-    const pct = n => (n/s.total*100).toFixed(1)+'%';
-    const geoEntries = Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]);
-    const topGeo = geoEntries.slice(0,6);
-    const otherGeoN = geoEntries.slice(6).reduce((a,[,n])=>a+n,0);
-
-    let out = `📊 DAILY REPORT — ${dateLabel}\n${ln}\n`;
-    out += `💳 Total Cards: ${s.total}\n`;
-    out += `🔢 Unique BINs: ${s.bins.size}\n`;
-    if (s.peakHour >= 0) out += `⏰ Peak Hour: ${String(s.peakHour).padStart(2,'0')}:00-${String(s.peakHour+1).padStart(2,'0')}:00 (${s.peakCount} cards)\n`;
-    out += `\n🌍 BY COUNTRY:\n`;
-    topGeo.forEach(([code,n]) => { out += `${_tcFlag(code)} ${_tcGeoName(code)} — ${n} (${pct(n)})\n`; });
-    if (otherGeoN > 0) out += `🌐 Other — ${otherGeoN} (${pct(otherGeoN)})\n`;
-    out += `\n💳 BY TYPE:\n`;
-    Object.entries(s.typeMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n]) => { out += `${k} — ${n} (${pct(n)})\n`; });
-    out += `\n🏆 BY LEVEL:\n`;
-    Object.entries(s.levelMap).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([k,n]) => { out += `${k} — ${n} (${pct(n)})\n`; });
-    out += `\n💰 BY SYSTEM:\n`;
-    Object.entries(s.sysMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n]) => { out += `${k} — ${n} (${pct(n)})\n`; });
-    out += ln;
-    return out;
+    // COPY ALL
+    document.getElementById('tc-copy-all')?.addEventListener('click', ()=>{
+        const txt = TC.cards.map(c=>`${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}`).join('\n');
+        navigator.clipboard?.writeText(txt);
+        toast(`Copied ${TC.cards.length} cards`, 'success');
+    });
 }
 
