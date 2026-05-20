@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -6716,6 +6716,7 @@ const GEN_DOCS = [
     { id: 'au-vic', country: 'AU', cat: 'DRIVER LICENSE', name: 'Victoria', icon: '🚗', active: false },
     { id: 'au-pp', country: 'AU', cat: 'PASSPORT', name: 'Australian Passport', icon: '📘', active: false },
     { id: 'de-dl', country: 'DE', cat: 'DRIVER LICENSE', name: 'Germany DL', icon: '🚗', active: false },
+    { id: 'jp-tepco', country: 'JP', cat: 'UTILITY BILLS', name: 'TEPCO Electricity', icon: '⚡', active: true },
 ];
 
 const GEN_COUNTRIES = [
@@ -6723,6 +6724,7 @@ const GEN_COUNTRIES = [
     { code: 'CA', name: 'Canada', flag: '🇨🇦' },
     { code: 'AU', name: 'Australia', flag: '🇦🇺' },
     { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+    { code: 'JP', name: 'Japan', flag: '🇯🇵' },
 ];
 
 let _genState = { docId: 'ca-dl', sex: 'M', result: null };
@@ -7001,6 +7003,137 @@ function generateRogersBill(sex, tpl) {
     };
 }
 
+/* ═══ TEPCO ELECTRICITY BILL (JAPAN) ═══ */
+const _JP_LAST_NAMES = ['TANAKA','SUZUKI','TAKAHASHI','WATANABE','ITO','YAMAMOTO','NAKAMURA','KOBAYASHI','KATO','YOSHIDA','YAMADA','SASAKI','YAMAGUCHI','MATSUMOTO','INOUE','KIMURA','SHIMIZU','HAYASHI','SAITO','SAKAI'];
+const _JP_MALE_FIRST = ['TAKESHI','HIROSHI','KENJI','DAISUKE','YUSUKE','MASASHI','KAZUKI','RYOTA','SHOTA','HISANORI','TARO','AKIRA','SATOSHI','NAOKI','KENICHI','TAKUMI','YUTO','REN','HARUKI','SORA'];
+const _JP_FEMALE_FIRST = ['YUKI','SAKURA','HANA','MISAKI','AYAKA','HARUKA','MOMOKA','AIKO','NANAMI','YUNA','RIN','MIYU','KOKORO','HINATA','MEI','AOI','RIKO','SAKI','MANA','NANA'];
+const _JP_TOKYO_WARDS = [
+    { ward: 'SHIBUYA', zip: '150' },
+    { ward: 'SHINJUKU', zip: '160' },
+    { ward: 'MINATO', zip: '105' },
+    { ward: 'CHIYODA', zip: '100' },
+    { ward: 'SETAGAYA', zip: '154' },
+    { ward: 'MEGURO', zip: '152' },
+    { ward: 'SHINAGAWA', zip: '140' },
+    { ward: 'TOSHIMA', zip: '170' },
+    { ward: 'NAKANO', zip: '164' },
+    { ward: 'SUGINAMI', zip: '166' },
+    { ward: 'NERIMA', zip: '176' },
+    { ward: 'ITABASHI', zip: '173' },
+    { ward: 'BUNKYO', zip: '112' },
+    { ward: 'TAITO', zip: '110' },
+    { ward: 'SUMIDA', zip: '130' },
+    { ward: 'KOTO', zip: '135' },
+    { ward: 'OTA', zip: '143' },
+];
+const _JP_STREET_NAMES = ['DOGENZAKA','KABUKICHO','ROPPONGI','AZABU','AKASAKA','YOYOGI','EBISU','DAIKANYAMA','JIYUGAOKA','SHIMOKITAZAWA','AOYAMA','GINZA','NIHONBASHI','KANDA','UENO'];
+
+function generateTEPCOBill(sex, tpl) {
+    /* ── Parse holder and address from template ── */
+    const holderRaw = tpl.holder || '';
+    const billingRaw = tpl.billing || '';
+
+    let customerName;
+    if (holderRaw) {
+        customerName = holderRaw.toUpperCase();
+    } else {
+        const ln = _rPick(_JP_LAST_NAMES);
+        const fn = sex === 'F' ? _rPick(_JP_FEMALE_FIRST) : _rPick(_JP_MALE_FIRST);
+        customerName = `${fn} ${ln}`;
+    }
+
+    let address;
+    if (billingRaw) {
+        address = billingRaw.toUpperCase();
+    } else {
+        const loc = _rPick(_JP_TOKYO_WARDS);
+        const chome = _rInt(1, 5);
+        const banchi = _rInt(1, 30);
+        const go = _rInt(1, 10);
+        const street = _rPick(_JP_STREET_NAMES);
+        address = `${chome} CHOME-${banchi}-${go} ${street}, ${loc.ward}, TOKYO, ${loc.zip}-00${_rInt(10, 99)}, JAPAN`;
+    }
+
+    /* ── Random data ── */
+    const accountNum = _rDigits(8);
+    const invoiceNum = _rInt(100, 999);
+
+    // Dates
+    const now = new Date();
+    const stmtDate = new Date(now.getTime() - _rInt(1, 15) * 86400000);
+    const dueDate = new Date(stmtDate.getTime() + 30 * 86400000);
+    const chargesDueDate = new Date(stmtDate.getTime() + 18 * 86400000);
+    const meterDate = new Date(stmtDate.getTime() - _rInt(30, 60) * 86400000);
+
+    const fmtDate = (d) => `${_pad2(d.getDate())}/${_pad2(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`;
+    const fmtDateSlash = (d) => `${_pad2(d.getDate())}/${_pad2(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`;
+
+    // Amounts (in yen)
+    const energyCharges = _rInt(4000, 12000);
+    const taxes = _rInt(150, 800);
+    const currentEnergy = _rInt(3000, 10000);
+    const currentTotal = energyCharges + taxes + currentEnergy;
+    const prevBalance = _rInt(0, 5000);
+    const paymentAmount = prevBalance; // paid previous balance
+    const balanceFwd = 0;
+    const totalDue = currentTotal;
+    const totalAfterDue = totalDue + _rInt(100, 500);
+    const totalPayment = totalDue + _rInt(200, 600);
+
+    // Usage kWh
+    const usageKwh = (_rInt(10000, 50000) / 100).toFixed(2);
+
+    return {
+        title: 'TEPCO Electricity Bill',
+        sections: [{
+            name: 'HEADER (TOP RIGHT)', copyLabel: 'Copy Header',
+            fields: [
+                { label: 'TOTAL AMOUNT DUE', value: `¥${totalDue.toLocaleString()}` },
+                { label: 'AMOUNT DUE PAY AFTER DUE DATE', value: `¥${totalAfterDue.toLocaleString()}` },
+            ]
+        }, {
+            name: 'ACCOUNT INFO', copyLabel: 'Copy Account',
+            fields: [
+                { label: 'ACCOUNT #', value: accountNum },
+                { label: 'INVOICE', value: String(invoiceNum) },
+                { label: 'NAME', value: customerName },
+                { label: 'ADDRESS', value: address },
+            ]
+        }, {
+            name: 'STATEMENT DETAILS', copyLabel: 'Copy Statement',
+            fields: [
+                { label: 'STATEMENT DATE', value: fmtDate(stmtDate) },
+                { label: 'DUE DATE', value: fmtDate(dueDate) },
+                { label: 'CUSTOMER NAME', value: customerName },
+                { label: 'ACCOUNT NUMBER', value: accountNum },
+                { label: 'INVOICE NUMBER', value: String(invoiceNum) },
+                { label: 'TOTAL PAYMENT', value: `¥${totalPayment.toLocaleString()}` },
+            ]
+        }, {
+            name: 'ACCOUNT SUMMARY', copyLabel: 'Copy Summary',
+            fields: [
+                { label: 'PREVIOUS BALANCE', value: `¥${prevBalance.toLocaleString()}` },
+                { label: 'PAYMENT AMOUNT – THANK YOU', value: `¥${paymentAmount.toLocaleString()}` },
+                { label: 'BALANCE FORWARD', value: `¥${balanceFwd.toFixed(2)}` },
+                { label: 'CURRENT AMOUNT ENERGY CHARGES', value: `¥${currentEnergy.toLocaleString()}` },
+                { label: 'ENERGY CHARGES', value: `¥${energyCharges.toLocaleString()}` },
+                { label: 'TAXES AND FEES', value: `¥${taxes.toLocaleString()}` },
+                { label: 'CURRENT CHARGES DUE BY', value: `${fmtDateSlash(chargesDueDate)} → ¥${currentTotal.toLocaleString()}` },
+            ]
+        }, {
+            name: 'ACCOUNT DETAILS (TABLE)', copyLabel: 'Copy Details',
+            fields: [
+                { label: 'METER READING', value: 'Standard' },
+                { label: 'USAGE (kWh)', value: usageKwh },
+                { label: 'TYPE', value: 'Ordinary' },
+                { label: 'DATE', value: fmtDateSlash(meterDate) },
+                { label: 'ACCOUNT #', value: accountNum },
+                { label: 'INVOICE #', value: String(invoiceNum) },
+            ]
+        }]
+    };
+}
+
 /* ═══ DISPATCH ═══ */
 function generateDocument(docId, sex, templateText) {
     const tpl = _parseTemplate(templateText);
@@ -7010,6 +7143,7 @@ function generateDocument(docId, sex, templateText) {
         case 'bc-dl': return generateBCDL(sex, tpl);
         case 'ca-pp': return generateCanadianPassport(sex, tpl);
         case 'rogers': return generateRogersBill(sex, tpl);
+        case 'jp-tepco': return generateTEPCOBill(sex, tpl);
         default: return null;
     }
 }
