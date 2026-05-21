@@ -838,7 +838,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -1573,6 +1573,324 @@ function _anShowDetail(bin, data, prevData) {
 
 
 
+// ═══════════════════════════════════════════
+//   CHECKER — Formatter Utility (Proxy / BIN / Card / IP)
+// ═══════════════════════════════════════════
+
+const _CK = {
+    mode: 'proxy',      // proxy | bin | card | ip
+    proxyProto: 'socks5', // socks5 | http | https
+    input: '',
+    output: '',
+    history: []          // last 10 operations
+};
+
+function _ckParseProxy(text, proto) {
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const results = [];
+    for (const line of lines) {
+        // Formats: user:pass@host:port  OR  host:port:user:pass  OR  host:port
+        let cleaned = line.replace(/^(socks5|socks4|http|https):\/\//i, '');
+        if (cleaned.includes('@')) {
+            // user:pass@host:port
+            results.push(`${proto}://${cleaned}`);
+        } else {
+            // host:port:user:pass OR host:port
+            const parts = cleaned.split(':');
+            if (parts.length === 4) {
+                // host:port:user:pass → user:pass@host:port
+                results.push(`${proto}://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`);
+            } else if (parts.length === 2) {
+                results.push(`${proto}://${parts[0]}:${parts[1]}`);
+            } else {
+                results.push(`${proto}://${cleaned}`);
+            }
+        }
+    }
+    return results;
+}
+
+function _ckParseBin(text) {
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const bins = new Set();
+    for (const line of lines) {
+        // Extract card numbers: 13-19 digit sequences
+        const matches = line.match(/\b\d{13,19}\b/g);
+        if (matches) {
+            matches.forEach(m => {
+                const bin = m.replace(/[\s\-]/g, '').slice(0, 6);
+                if (bin.length === 6) bins.add(bin);
+            });
+            continue;
+        }
+        // Also try pipe-separated: 4242424242424242|11|26|777
+        const pipeMatch = line.match(/(\d{13,19})/);
+        if (pipeMatch) {
+            const bin = pipeMatch[1].slice(0, 6);
+            if (bin.length === 6) bins.add(bin);
+        }
+    }
+    return [...bins].map(b => `/bin ${b}`);
+}
+
+function _ckParseCard(text) {
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const cards = [];
+    for (const line of lines) {
+        // Try pipe format: 4242424242424242|11|26|777
+        const pipeMatch = line.match(/(\d{13,19})\|(\d{1,2})\|(\d{2,4})\|(\d{3,4})/);
+        if (pipeMatch) {
+            const [, num, mm, yy, cvv] = pipeMatch;
+            const year = yy.length === 4 ? yy.slice(2) : yy;
+            cards.push(`${num} ${mm.padStart(2, '0')} ${year} ${cvv}`);
+            continue;
+        }
+        // Try space/mixed format: 4242424242424242 11 26 777 or with extra data
+        const spaceMatch = line.match(/(\d{13,19})[\s\|]+(\d{1,2})[\s\|]+(\d{2,4})[\s\|]+(\d{3,4})/);
+        if (spaceMatch) {
+            const [, num, mm, yy, cvv] = spaceMatch;
+            const year = yy.length === 4 ? yy.slice(2) : yy;
+            cards.push(`${num} ${mm.padStart(2, '0')} ${year} ${cvv}`);
+            continue;
+        }
+        // Try colon format: 4242424242424242:11:26:777
+        const colonMatch = line.match(/(\d{13,19}):(\d{1,2}):(\d{2,4}):(\d{3,4})/);
+        if (colonMatch) {
+            const [, num, mm, yy, cvv] = colonMatch;
+            const year = yy.length === 4 ? yy.slice(2) : yy;
+            cards.push(`${num} ${mm.padStart(2, '0')} ${year} ${cvv}`);
+        }
+    }
+    return cards;
+}
+
+function _ckParseIP(text) {
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const ips = new Set();
+    for (const line of lines) {
+        // Extract IPv4 addresses
+        const matches = line.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g);
+        if (matches) {
+            matches.forEach(ip => ips.add(ip));
+        }
+    }
+    return [...ips].map(ip => `/ip ${ip}`);
+}
+
+function _ckProcess() {
+    const input = _CK.input;
+    if (!input.trim()) { _CK.output = ''; return; }
+
+    let result = [];
+    switch (_CK.mode) {
+        case 'proxy':
+            result = _ckParseProxy(input, _CK.proxyProto);
+            break;
+        case 'bin':
+            result = _ckParseBin(input);
+            break;
+        case 'card':
+            result = _ckParseCard(input);
+            break;
+        case 'ip':
+            result = _ckParseIP(input);
+            break;
+    }
+    _CK.output = result.join('\n');
+
+    // Save to history
+    if (result.length > 0) {
+        _CK.history.unshift({
+            mode: _CK.mode,
+            count: result.length,
+            time: new Date().toLocaleTimeString(),
+            preview: result.slice(0, 2).join(', ')
+        });
+        if (_CK.history.length > 10) _CK.history.pop();
+    }
+}
+
+function renderChecker() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP' };
+    const modePlaceholders = {
+        proxy: 'user:pass@proxy.example.com:10000\nuser:pass@proxy.example.com:10001\nuser:pass@proxy.example.com:10002\n\nFormats accepted:\n• user:pass@host:port\n• host:port:user:pass\n• host:port',
+        bin: 'Paste card logs — BINs will be extracted automatically\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111 05 26 456\n\nOutput: /bin 424242',
+        card: 'Paste card logs in any format:\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111:05:26:456\n\nOutput: 4242424242424242 11 26 777',
+        ip: 'Paste text containing IP addresses:\n\n192.168.1.1\nProxy: 56.233.33.4:8080\nServer at 10.0.0.1 responded\n\nOutput: /ip 192.168.1.1'
+    };
+
+    // Count output lines
+    const outLines = _CK.output ? _CK.output.split('\n').filter(Boolean).length : 0;
+
+    area.innerHTML = `
+    <div class="ck-container">
+        <div class="ck-header">
+            <div class="ck-title">
+                <span class="ck-icon">⚡</span>
+                <span>FORMAT CHECKER</span>
+            </div>
+            <div class="ck-modes">
+                ${Object.keys(modeIcons).map(m => `
+                    <button class="ck-mode-btn ${_CK.mode === m ? 'active' : ''}" data-mode="${m}">
+                        <span class="ck-mode-icon">${modeIcons[m]}</span>
+                        <span class="ck-mode-label">${modeLabels[m]}</span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+
+        ${_CK.mode === 'proxy' ? `
+        <div class="ck-proto-bar">
+            <span class="ck-proto-label">Protocol:</span>
+            <button class="ck-proto-btn ${_CK.proxyProto === 'socks5' ? 'active' : ''}" data-proto="socks5">SOCKS5</button>
+            <button class="ck-proto-btn ${_CK.proxyProto === 'http' ? 'active' : ''}" data-proto="http">HTTP</button>
+            <button class="ck-proto-btn ${_CK.proxyProto === 'https' ? 'active' : ''}" data-proto="https">HTTPS</button>
+        </div>
+        ` : ''}
+
+        <div class="ck-workspace">
+            <div class="ck-panel ck-input-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">${modeIcons[_CK.mode]} INPUT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count" id="ck-input-count">0 lines</span>
+                        <button class="ck-action-btn" id="ck-paste-btn" title="Paste from clipboard">📋 Paste</button>
+                        <button class="ck-action-btn ck-btn-danger" id="ck-clear-btn" title="Clear input">✕</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea" id="ck-input" placeholder="${modePlaceholders[_CK.mode]}">${_CK.input || ''}</textarea>
+            </div>
+
+            <div class="ck-center-actions">
+                <button class="ck-convert-btn" id="ck-convert-btn">
+                    <span class="ck-convert-arrow">→</span>
+                    <span class="ck-convert-text">FORMAT</span>
+                </button>
+            </div>
+
+            <div class="ck-panel ck-output-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">📤 OUTPUT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${outLines > 0 ? 'ck-count-active' : ''}" id="ck-output-count">${outLines} results</span>
+                        <button class="ck-action-btn ck-btn-copy" id="ck-copy-btn" title="Copy output" ${!outLines ? 'disabled' : ''}>📋 Copy</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea ck-output-text" id="ck-output" readonly placeholder="Formatted output will appear here...">${_CK.output || ''}</textarea>
+            </div>
+        </div>
+
+        ${_CK.history.length > 0 ? `
+        <div class="ck-history">
+            <div class="ck-history-title">Recent Operations</div>
+            <div class="ck-history-items">
+                ${_CK.history.map(h => `
+                    <div class="ck-history-item">
+                        <span class="ck-history-icon">${modeIcons[h.mode]}</span>
+                        <span class="ck-history-mode">${modeLabels[h.mode]}</span>
+                        <span class="ck-history-count">${h.count} items</span>
+                        <span class="ck-history-time">${h.time}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+    </div>
+    `;
+
+    // ── Bind events ──
+
+    // Mode buttons
+    area.querySelectorAll('.ck-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _CK.mode = btn.dataset.mode;
+            _CK.output = '';
+            renderChecker();
+        });
+    });
+
+    // Protocol buttons (proxy mode)
+    area.querySelectorAll('.ck-proto-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _CK.proxyProto = btn.dataset.proto;
+            // Re-process if there's input
+            if (_CK.input.trim()) {
+                _ckProcess();
+            }
+            renderChecker();
+        });
+    });
+
+    // Input textarea
+    const inputEl = document.getElementById('ck-input');
+    inputEl?.addEventListener('input', () => {
+        _CK.input = inputEl.value;
+        const lines = inputEl.value.split('\n').filter(l => l.trim()).length;
+        document.getElementById('ck-input-count').textContent = `${lines} lines`;
+    });
+
+    // Paste button
+    document.getElementById('ck-paste-btn')?.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            _CK.input = text;
+            inputEl.value = text;
+            const lines = text.split('\n').filter(l => l.trim()).length;
+            document.getElementById('ck-input-count').textContent = `${lines} lines`;
+            toast('Pasted from clipboard', 'success');
+        } catch {
+            toast('Clipboard access denied', 'error');
+        }
+    });
+
+    // Clear button
+    document.getElementById('ck-clear-btn')?.addEventListener('click', () => {
+        _CK.input = '';
+        _CK.output = '';
+        renderChecker();
+    });
+
+    // Convert button
+    document.getElementById('ck-convert-btn')?.addEventListener('click', () => {
+        if (!_CK.input.trim()) {
+            toast('Paste data first', 'error');
+            return;
+        }
+        _ckProcess();
+        renderChecker();
+        const outCount = _CK.output.split('\n').filter(Boolean).length;
+        toast(`Formatted ${outCount} items`, 'success');
+    });
+
+    // Copy button
+    document.getElementById('ck-copy-btn')?.addEventListener('click', () => {
+        if (!_CK.output) return;
+        navigator.clipboard.writeText(_CK.output).then(() => {
+            toast('Copied to clipboard!', 'success');
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = _CK.output;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            toast('Copied to clipboard!', 'success');
+        });
+    });
+
+    // Update input line count
+    if (inputEl && _CK.input) {
+        const lines = _CK.input.split('\n').filter(l => l.trim()).length;
+        document.getElementById('ck-input-count').textContent = `${lines} lines`;
+    }
+}
 
 function renderContent() {
     const area = document.getElementById('content-area');
@@ -1586,6 +1904,12 @@ function renderContent() {
 
     if (STATE.currentView === 'new-cards') {
         renderParser();
+        footer.style.display = 'none';
+        return;
+    }
+
+    if (STATE.currentView === 'checker') {
+        renderChecker();
         footer.style.display = 'none';
         return;
     }
