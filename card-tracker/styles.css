@@ -352,6 +352,12 @@ textarea {
     flex-shrink: 0
 }
 
+.tn-country-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .tn-country {
     background: var(--bg-primary);
     color: var(--text-primary);
@@ -362,6 +368,25 @@ textarea {
     font-family: var(--font-sans);
     cursor: pointer;
     outline: none
+}
+
+.tn-country-del {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    opacity: 0.4;
+    transition: all 100ms;
+    line-height: 1;
+}
+
+.tn-country-del:hover {
+    opacity: 1;
+    color: #EF4444;
+    background: rgba(239, 68, 68, 0.1);
 }
 
 .tn-tabs {
@@ -3455,34 +3480,62 @@ tr {
 }
 
 /* ═══════ V/S COUNTERS ═══════ */
-.vs-counter {
-    font-size: 12px;
+.doc-vs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: none;
+    font-size: 9px;
+    font-weight: 800;
     cursor: pointer;
-    padding: 2px 5px;
-    border-radius: var(--r-xs);
-    transition: all var(--t-fast);
+    transition: all 80ms;
     user-select: none;
-    display: inline-block;
-    min-width: 16px;
-    text-align: center;
+    min-width: 28px;
+    justify-content: center;
     font-variant-numeric: tabular-nums;
-    font-weight: var(--fw-semi)
 }
 
-.vs-counter[data-vs="v"] {
-    color: var(--green)
+.doc-vs-btn.vs-v {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22C55E;
 }
 
-.vs-counter[data-vs="s"] {
-    color: var(--red)
+.doc-vs-btn.vs-v:hover {
+    background: rgba(34, 197, 94, 0.25);
 }
 
-.vs-counter:hover {
-    background: rgba(255, 255, 255, 0.06)
+.doc-vs-btn.vs-s {
+    background: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
 }
 
-.vs-counter:active {
-    transform: scale(0.9)
+.doc-vs-btn.vs-s:hover {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+.doc-vs-btn:active {
+    transform: scale(0.9);
+}
+
+.doc-vs-btn .vs-label {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+.doc-vs-btn .vs-num {
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.vs-counters {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 60px;
+    justify-content: center;
 }
 
 /* ═══════ SORTABLE HEADERS ═══════ */
@@ -3521,17 +3574,6 @@ tr {
     color: var(--text-muted)
 }
 
-/* ═══════ V/S SEPARATOR ═══════ */
-.vs-separator {
-    font-size: 12px;
-    color: var(--text-dim);
-    padding: 0 1px
-}
-
-.vs-counters {
-    min-width: 50px;
-    justify-content: center
-}
 
 /* ═══════ TYPE BADGE (empty state) ═══════ */
 .doc-type-badge.none {
@@ -4204,11 +4246,6 @@ body.modal-open {
     color: #EF4444
 }
 
-/* V/S counters */
-.vs-counter {
-    cursor: pointer;
-    user-select: none
-}
 
 /* ═══════ NEW ROW HIGHLIGHT ═══════ */
 @keyframes rowHighlight {

@@ -719,6 +719,9 @@ function renderTopNav() {
         sel.value = STATE.currentCountry || (STATE.countries[0]?.id || '');
         if (!prev) sel.value = STATE.currentCountry;
     }
+    // Country delete button
+    const delBtn = document.getElementById('tn-country-del');
+    if (delBtn) delBtn.onclick = () => _confirmDeleteCountry(STATE.currentCountry);
     document.querySelectorAll('.tn-tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.view === STATE.currentView);
     });
@@ -914,7 +917,7 @@ function renderStats() {
     const cards = getFilteredCards();
     const s = getCardStats(cards);
     // Кнопка копирования — маленькая иконка 📋 рядом со счётчиком
-    const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Копировать карты в буфер">📋</button>`;
+    const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Copy cards to clipboard">📋</button>`;
     bar.innerHTML = `
         <div class="stat-card total"><span class="stat-label">Total</span><span class="stat-value">${s.total}</span>${copyBtn('total')}</div>
         <div class="stat-card card-add"><span class="stat-label">A</span><span class="stat-value">${s.cardAdd}</span>${copyBtn('cardAdd')}</div>
@@ -1100,7 +1103,7 @@ function _runCheckBase() {
 
     const rawText = input.value.trim();
     if (!rawText) {
-        toast('Вставьте карты для проверки', 'info');
+        toast('Paste cards to check', 'info');
         return;
     }
 
@@ -1109,7 +1112,7 @@ function _runCheckBase() {
     const parsed = lines.map(_parseCardLine).filter(Boolean);
 
     if (parsed.length === 0) {
-        toast('Не найдено валидных номеров карт', 'info');
+        toast('No valid card numbers found', 'info');
         return;
     }
 
@@ -1192,7 +1195,7 @@ function _runCheckBase() {
     document.getElementById('cb-copy-clean')?.addEventListener('click', () => _copyCheckBaseCards('clean'));
     document.getElementById('cb-copy-trash')?.addEventListener('click', () => _copyCheckBaseCards('trash'));
 
-    toast(`Проверено: ${totalChecked} | Trash: ${foundInTrash} | Clean: ${cleanCount}`, foundInTrash > 0 ? 'warning' : 'success');
+    toast(`Checked: ${totalChecked} | Trash: ${foundInTrash} | Clean: ${cleanCount}`, foundInTrash > 0 ? 'warning' : 'success');
 }
 
 // Маскировка номера карты для отображения (показываем первые 6 и последние 4)
@@ -1205,7 +1208,7 @@ function _maskCardNum(num) {
 function _copyCheckBaseCards(type) {
     const cards = type === 'clean' ? _checkBaseResults.clean : _checkBaseResults.trash;
     if (cards.length === 0) {
-        toast('Нет карт для копирования', 'info');
+        toast('No cards to copy', 'info');
         return;
     }
 
@@ -2276,21 +2279,13 @@ window._toggleDocDrawer = function (docId, rowEl) {
     }
 
     const doc = STATE.docs.find(d => d.id === docId);
-    if (!doc || !doc.cardIds || doc.cardIds.length === 0) return;
+    if (!doc) return;
 
-    const linkedCards = doc.cardIds.map(cid => STATE.cards.find(c => c.id === cid)).filter(Boolean);
-    if (linkedCards.length === 0) return;
-
-    const rowsHtml = linkedCards.map(c => {
-        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        return `<div class="drawer-row">
-            <span class="drawer-flag">${flag}</span>
-            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
-            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
-            <span class="drawer-status">${_drawerStatusHtml(c)}</span>
-            <span class="drawer-date">${c.date || '—'}</span>
-        </div>`;
-    }).join('');
+    const country = STATE.countries.find(c => c.id === doc.country);
+    const flag = country?.flag || '';
+    const geoCode = doc.country === 'canada' ? 'CA' : doc.country === 'usa' ? 'US' : (doc.country || '').slice(0, 2).toUpperCase();
+    const statusText = (doc.verified || 0) > 0 ? 'Verified' : (doc.suspended || 0) > 0 ? 'Suspended' : 'Waiting';
+    const statusColor = statusText === 'Verified' ? '#22C55E' : statusText === 'Suspended' ? '#EF4444' : '#FBBF24';
 
     const colCount = rowEl.children.length;
     const drawerTr = document.createElement('tr');
@@ -2299,10 +2294,18 @@ window._toggleDocDrawer = function (docId, rowEl) {
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
             <div class="drawer-top-bar">
-                <div class="drawer-header">👤 ${linkedCards.length} cards linked to ${doc.fullName}</div>
+                <div class="drawer-header">📄 Document Details</div>
                 <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
             </div>
-            ${rowsHtml}
+            <div class="drawer-row" style="gap:20px">
+                <span><b>Name:</b> ${flag} ${doc.fullName}</span>
+                <span><b>Type:</b> ${doc.type && doc.type !== '-' ? doc.type : '—'}</span>
+                <span><b>Geo:</b> ${geoCode}</span>
+                <span><b>Status:</b> <span style="color:${statusColor}">${statusText}</span></span>
+                <span><b>Cards:</b> ${(doc.cardIds || []).length}</span>
+                <span><b>Date:</b> ${doc.date || '—'}</span>
+            </div>
+            ${doc.notes ? `<div class="drawer-row" style="color:var(--text-muted)"><b>Notes:</b> ${doc.notes}</div>` : ''}
         </div>
     </td>`;
     rowEl.after(drawerTr);
@@ -2359,10 +2362,9 @@ function renderDocs() {
             <td><span class="geo-badge">${geoCode}</span></td>
             <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
             <td>
-                <div class="status-btns vs-counters" onclick="event.stopPropagation()">
-                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;">${d.verified || 0}</span>
-                    <span class="vs-separator">|</span>
-                    <span class="vs-counter" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;">${d.suspended || 0}</span>
+                <div class="vs-counters" onclick="event.stopPropagation()">
+                    <button class="doc-vs-btn vs-v" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;"><span class="vs-label">V</span><span class="vs-num">${d.verified || 0}</span></button>
+                    <button class="doc-vs-btn vs-s" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;"><span class="vs-label">S</span><span class="vs-num">${d.suspended || 0}</span></button>
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
@@ -2916,18 +2918,60 @@ window.expandCountry = function (id) {
 };
 
 window.deleteCountry = function (id) {
-    if (['canada', 'usa'].includes(id)) return; // Cannot delete default countries
     const country = STATE.countries.find(c => c.id === id);
     if (!country) return;
-    if (!confirm(`Delete "${country.name}" and all its cards/docs?`)) return;
     STATE.cards = STATE.cards.filter(c => c.country !== id);
     STATE.docs = STATE.docs.filter(d => d.country !== id);
+    STATE.trash = STATE.trash.filter(c => c.country !== id);
     STATE.countries = STATE.countries.filter(c => c.id !== id);
     save();
-    if (STATE.currentCountry === id) navigate('cards', 'canada');
-    else renderAll();
+    if (STATE.currentCountry === id) {
+        const next = STATE.countries[0]?.id || 'canada';
+        navigate('cards', next);
+    } else {
+        renderAll();
+    }
     toast(`Country "${country.name}" deleted`, 'info');
 };
+
+function _confirmDeleteCountry(id) {
+    const country = STATE.countries.find(c => c.id === id);
+    if (!country) return;
+    const cardCount = STATE.cards.filter(c => c.country === id).length;
+    const docCount = STATE.docs.filter(d => d.country === id).length;
+
+    document.getElementById('confirm-del-country')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'confirm-del-country';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Delete country?</h3>
+                <button class="modal-close" id="cdc-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding:16px 20px">
+                <p style="margin:0 0 8px;font-size:13px;color:var(--text-secondary)">You are about to delete <b>${country.flag} ${country.name}</b>.</p>
+                <p style="margin:0 0 8px;font-size:12px;color:var(--text-muted)">This will permanently remove <b>${cardCount}</b> cards and <b>${docCount}</b> documents inside this country.</p>
+                <p style="margin:0;font-size:11px;color:var(--red)">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="cdc-cancel">Cancel</button>
+                <button class="btn-primary" id="cdc-delete" style="background:#EF4444;color:#fff">Delete</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    document.getElementById('cdc-close').onclick = close;
+    document.getElementById('cdc-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.getElementById('cdc-delete').onclick = () => {
+        close();
+        deleteCountry(id);
+    };
+}
 
 
 
@@ -3678,7 +3722,7 @@ window.incrementDocV = function (docId) {
     if (!doc) return;
     doc.verified = (doc.verified || 0) + 1;
     save();
-    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="v"]`);
+    const el = document.querySelector(`.doc-vs-btn[data-doc-id="${docId}"][data-vs="v"] .vs-num`);
     if (el) el.textContent = doc.verified;
     updateDocStatsBar();
 };
@@ -3688,7 +3732,7 @@ window.incrementDocS = function (docId) {
     if (!doc) return;
     doc.suspended = (doc.suspended || 0) + 1;
     save();
-    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="s"]`);
+    const el = document.querySelector(`.doc-vs-btn[data-doc-id="${docId}"][data-vs="s"] .vs-num`);
     if (el) el.textContent = doc.suspended;
     updateDocStatsBar();
 };
@@ -3698,7 +3742,7 @@ window.decrementDocV = function (docId) {
     if (!doc) return;
     doc.verified = Math.max(0, (doc.verified || 0) - 1);
     save();
-    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="v"]`);
+    const el = document.querySelector(`.doc-vs-btn[data-doc-id="${docId}"][data-vs="v"] .vs-num`);
     if (el) el.textContent = doc.verified;
     updateDocStatsBar();
 };
@@ -3708,7 +3752,7 @@ window.decrementDocS = function (docId) {
     if (!doc) return;
     doc.suspended = Math.max(0, (doc.suspended || 0) - 1);
     save();
-    const el = document.querySelector(`.vs-counter[data-doc-id="${docId}"][data-vs="s"]`);
+    const el = document.querySelector(`.doc-vs-btn[data-doc-id="${docId}"][data-vs="s"] .vs-num`);
     if (el) el.textContent = doc.suspended;
     updateDocStatsBar();
 };
@@ -3937,7 +3981,7 @@ function openAddCardOnlyModal() {
         <div class="modal modal-sm">
             <div class="modal-header">
                 <h3>ADD CARD — ALL CARDS ONLY</h3>
-                <p class="modal-subtitle">Карта добавляется только в All Cards. Workspace и Documents не затрагиваются.</p>
+                <p class="modal-subtitle">This card will be added to All Cards only. Workspace and Documents are not affected.</p>
                 <button class="modal-close" id="ac-only-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
@@ -3975,7 +4019,7 @@ function openAddCardOnlyModal() {
                 <div class="form-row">
                     <div class="form-group full-width">
                         <label>Notes</label>
-                        <input type="text" id="ac-only-notes" placeholder="Заметка (необязательно)...">
+                        <input type="text" id="ac-only-notes" placeholder="Notes (optional)...">
                     </div>
                 </div>
             </div>
@@ -4014,14 +4058,14 @@ function openAddCardOnlyModal() {
         const notes   = document.getElementById('ac-only-notes').value.trim();
 
         if (cardNum.length < 13 || !month || !year || !cvv) {
-            toast('Заполните все обязательные поля', 'error');
+            toast('Fill in all required fields', 'error');
             return;
         }
 
         // Проверка дублей в STATE.cards
         const exists = STATE.cards.some(c => c.cardNumber.replace(/[\s\-]/g, '') === cardNum);
         if (exists) {
-            toast('Эта карта уже существует', 'warning');
+            toast('This card already exists', 'warning');
             return;
         }
 
@@ -4044,7 +4088,7 @@ function openAddCardOnlyModal() {
         save();
         close();
         renderAll();
-        toast('Карта добавлена в All Cards', 'success');
+        toast('Card added to All Cards', 'success');
     };
 
     // Фокус на поле карты
