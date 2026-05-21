@@ -2174,7 +2174,7 @@ function renderAllCards() {
         const rowNum = idx + 1;
 
         return `
-        <tr class="ac-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}" data-id="${c.id}" data-cardnum="${cardNum}" onclick="_toggleAllCardsDrawer('${cardNum}', this)">
+        <tr class="ac-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}" data-id="${c.id}" data-cardnum="${cardNum}">
             <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
             <td>
                 <div class="card-cell">
@@ -2185,6 +2185,16 @@ function renderAllCards() {
             <td class="bin-cell">${bin}</td>
             <td class="use-cell" style="${getUseColor(useCount)}">${useCount}x</td>
             <td class="use-cell" style="${getUseColor(binUseCount)}">${binUseCount}</td>
+            <td>
+                <div class="status-btns">
+                    <span class="status-btn btn-a ${c.cardAdd ? 'active' : ''}">A</span>
+                    <span class="status-btn btn-r ${c.runAds ? 'active' : ''}">R</span>
+                    <span class="status-btn btn-v ${c.verified ? 'active' : ''}">V</span>
+                    <span class="status-btn btn-d ${c.docReady ? 'active' : ''}">D</span>
+                    <span class="status-btn btn-w ${c.waterBill ? 'active' : ''}">W</span>
+                    <span class="status-btn btn-m ${c.minic ? 'active' : ''}">M</span>
+                </div>
+            </td>
             <td class="date-cell">${lastDate}</td>
         </tr>`;
     }).join('');
@@ -2203,6 +2213,7 @@ function renderAllCards() {
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
                     <th class="sortable" data-sort="status">Use ${sortIcon('status')}</th>
                     <th>BIN Use</th>
+                    <th>Status</th>
                     <th class="sortable" data-sort="date">Last ${sortIcon('date')}</th>
                 </tr>
             </thead>
@@ -2230,87 +2241,11 @@ function renderAllCards() {
 }
 
 // All Cards detail drawer toggle
-window._toggleAllCardsDrawer = function (cardNum, rowEl) {
-    const existing = document.querySelector('.expand-drawer');
-    if (existing) {
-        const wasForSame = existing.dataset.key === 'ac:' + cardNum;
-        existing.remove();
-        if (wasForSame) return;
-    }
+// All Cards drawer removed — no expand on click
+window._toggleAllCardsDrawer = function () {};
 
-    const matches = STATE.cards.filter(c => c.cardNumber.replace(/\s/g, '') === cardNum);
-    if (matches.length === 0) return;
-
-    const rowsHtml = matches.map(c => {
-        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
-        return `<div class="drawer-row">
-            <span class="drawer-flag">${flag}</span>
-            <span class="drawer-name">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</span>
-            <span class="drawer-card">${maskCard(c.cardNumber)}</span>
-            <span class="drawer-status">${_drawerStatusHtml(c)}</span>
-            <span class="drawer-date">${c.date || '—'}</span>
-        </div>`;
-    }).join('');
-
-    const colCount = rowEl.children.length;
-    const drawerTr = document.createElement('tr');
-    drawerTr.className = 'expand-drawer';
-    drawerTr.dataset.key = 'ac:' + cardNum;
-    drawerTr.innerHTML = `<td colspan="${colCount}">
-        <div class="drawer-content">
-            <div class="drawer-top-bar">
-                <div class="drawer-header">📇 ${matches.length} records with this card</div>
-                <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
-            </div>
-            ${rowsHtml}
-        </div>
-    </td>`;
-    rowEl.after(drawerTr);
-    _enableDrawerScroll(drawerTr);
-};
-
-// Documents detail drawer toggle
-window._toggleDocDrawer = function (docId, rowEl) {
-    const existing = document.querySelector('.expand-drawer');
-    if (existing) {
-        const wasForSame = existing.dataset.key === 'doc:' + docId;
-        existing.remove();
-        if (wasForSame) return;
-    }
-
-    const doc = STATE.docs.find(d => d.id === docId);
-    if (!doc) return;
-
-    const country = STATE.countries.find(c => c.id === doc.country);
-    const flag = country?.flag || '';
-    const geoCode = doc.country === 'canada' ? 'CA' : doc.country === 'usa' ? 'US' : (doc.country || '').slice(0, 2).toUpperCase();
-    const statusText = (doc.verified || 0) > 0 ? 'Verified' : (doc.suspended || 0) > 0 ? 'Suspended' : 'Waiting';
-    const statusColor = statusText === 'Verified' ? '#22C55E' : statusText === 'Suspended' ? '#EF4444' : '#FBBF24';
-
-    const colCount = rowEl.children.length;
-    const drawerTr = document.createElement('tr');
-    drawerTr.className = 'expand-drawer';
-    drawerTr.dataset.key = 'doc:' + docId;
-    drawerTr.innerHTML = `<td colspan="${colCount}">
-        <div class="drawer-content">
-            <div class="drawer-top-bar">
-                <div class="drawer-header">📄 Document Details</div>
-                <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
-            </div>
-            <div class="drawer-row" style="gap:20px">
-                <span><b>Name:</b> ${flag} ${doc.fullName}</span>
-                <span><b>Type:</b> ${doc.type && doc.type !== '-' ? doc.type : '—'}</span>
-                <span><b>Geo:</b> ${geoCode}</span>
-                <span><b>Status:</b> <span style="color:${statusColor}">${statusText}</span></span>
-                <span><b>Cards:</b> ${(doc.cardIds || []).length}</span>
-                <span><b>Date:</b> ${doc.date || '—'}</span>
-            </div>
-            ${doc.notes ? `<div class="drawer-row" style="color:var(--text-muted)"><b>Notes:</b> ${doc.notes}</div>` : ''}
-        </div>
-    </td>`;
-    rowEl.after(drawerTr);
-    _enableDrawerScroll(drawerTr);
-};
+// Documents drawer removed — no expand on click
+window._toggleDocDrawer = function () {};
 
 function renderDocs() {
     const area = document.getElementById('content-area');
@@ -2346,7 +2281,7 @@ function renderDocs() {
             ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
             : '';
         return `
-        <tr class="doc-row ${_selectedCards.has(d.id) ? 'row-selected' : ''}" data-id="${d.id}" onclick="_toggleDocDrawer('${d.id}', this)">
+        <tr class="doc-row ${_selectedCards.has(d.id) ? 'row-selected' : ''}" data-id="${d.id}">
             <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${d.id}" ${_selectedCards.has(d.id) ? 'checked' : ''} onchange="toggleCardSelect('${d.id}', this.checked)"></label></td>
             <td>
                 <div class="card-cell">
