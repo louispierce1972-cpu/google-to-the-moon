@@ -393,8 +393,8 @@ function ensureDoc(card) {
     }
 }
 
-// ──── УДАЛЕНИЕ ССЫЛКИ НА КАРТУ ИЗ ДОКУМЕНТОВ ────
-// При удалении карты из Workspace нужно убрать её id из doc.cardIds
+// (translated)
+// When deleting card from Workspace, remove its id from doc.cardIds
 function removeCardFromDocs(cardId) {
     STATE.docs.forEach(doc => {
         if (!doc.cardIds) return;
@@ -489,7 +489,7 @@ function getFilteredCards() {
     let cards = [];
     switch (STATE.currentView) {
         case 'cards':
-            // Исключаем standaloneCard — только для All Cards, не Workspace
+            // Exclude standaloneCard — only in All Cards, not Workspace
             cards = STATE.cards.filter(c => c.country === STATE.currentCountry && !c.standaloneCard);
             break;
         case 'my-card':
@@ -539,7 +539,7 @@ function getFilteredCards() {
             cards = [...STATE.trash];
             break;
         default:
-            // Исключаем standaloneCard — они только для All Cards, не Workspace
+            // Exclude standaloneCard — only in All Cards, not Workspace
             cards = STATE.cards.filter(c => c.country === STATE.currentCountry && !c.standaloneCard);
     }
 
@@ -550,7 +550,7 @@ function getFilteredCards() {
         STATE.cards.forEach(c => {
             const num = c.cardNumber.replace(/\s/g, '');
             cardUsageMap[num] = (cardUsageMap[num] || 0) + 1;
-            // Нормализуем: trim() убирает лишние пробелы если surname пустой
+            // (translated)
             const fullName = (c.name + ' ' + c.surname).trim().toUpperCase();
             if (fullName) nameUsageMap[fullName] = (nameUsageMap[fullName] || 0) + 1;
         });
@@ -641,7 +641,7 @@ function getCardStats(cards) {
 }
 
 function getMyCardStats() {
-    // Исключаем standaloneCard — они не отображаются в Workspace
+    // Exclude standaloneCard — not displayed in Workspace
     const all = STATE.cards.filter(c => !c.standaloneCard);
     const bins = {};
     all.forEach(c => {
@@ -661,10 +661,10 @@ function getMyCardStats() {
 }
 
 function getDocStats(docs) {
-    // Подсчёт суммарных verified и suspended по всем документам
+    // (translated)
     const totalV = docs.reduce((sum, d) => sum + (d.verified || 0), 0);
     const totalS = docs.reduce((sum, d) => sum + (d.suspended || 0), 0);
-    // Waiting — документы у которых нет ни одного V и ни одного S (ещё не обработаны)
+    // (translated)
     const waiting = docs.filter(d => (d.verified || 0) === 0 && (d.suspended || 0) === 0).length;
     return {
         total: docs.length,
@@ -674,8 +674,8 @@ function getDocStats(docs) {
     };
 }
 
-// ──── ОБНОВЛЕНИЕ СТАТИСТИКИ ДОКУМЕНТОВ ────
-// Пересчитывает и обновляет счётчики TOTAL/VERIFIED/FAILED/WAITING в шапке
+// (translated)
+// (translated)
 function updateDocStats() {
     const bar = document.getElementById('stats-bar');
     if (!bar) return;
@@ -863,9 +863,9 @@ function renderStats() {
         const cards = getFilteredCards();
         const totalUse = cards.reduce((s, c) => s + (c._cardUsage || 1), 0);
         const avgUse = cards.length > 0 ? (totalUse / cards.length).toFixed(1) : '0';
-        // Уникальные BIN
+        // (translated)
         const uniqueBins = new Set(cards.map(c => getBin(c.cardNumber))).size;
-        // Карты, добавленные только в All Cards (без Workspace)
+        // Cards only in All Cards (not Workspace)
         const standaloneCount = STATE.cards.filter(c => c.standaloneCard).length;
         const standaloneStatHtml = standaloneCount > 0
             ? `<div class="stat-card minic"><span class="stat-label">Cards Only</span><span class="stat-value">${standaloneCount}</span></div>`
@@ -894,7 +894,7 @@ function renderStats() {
         return;
     }
 
-    // ── Trash view — специальная секция со счётчиками и кнопкой CHECK BASE ──
+    // (translated)
     if (STATE.currentView === 'trash') {
         const trashDeleted = (STATE.trash || []).length;
         const trashParser = (STATE.trashCards || []).length;
@@ -908,7 +908,7 @@ function renderStats() {
                 <span class="stat-value" style="font-size:18px">🔍</span>
             </div>
         `;
-        // Клик по карточке CHECK BASE открывает модал
+        // (translated)
         document.getElementById('check-base-open')?.addEventListener('click', _openCheckBase);
         return;
     }
@@ -916,7 +916,7 @@ function renderStats() {
     // Cards view (country / favorites / active / trash)
     const cards = getFilteredCards();
     const s = getCardStats(cards);
-    // Кнопка копирования — маленькая иконка 📋 рядом со счётчиком
+    // (translated)
     const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Copy cards to clipboard">📋</button>`;
     bar.innerHTML = `
         <div class="stat-card total"><span class="stat-label">Total</span><span class="stat-value">${s.total}</span>${copyBtn('total')}</div>
@@ -928,7 +928,7 @@ function renderStats() {
         <div class="stat-card minic"><span class="stat-label">M</span><span class="stat-value">${s.minic}</span>${copyBtn('minic')}</div>
     `;
 
-    // Обработчики кликов на кнопки копирования
+    // (translated)
     bar.querySelectorAll('.stat-copy-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -938,11 +938,11 @@ function renderStats() {
 }
 
 // ══════════════════════════════════════
-//  КОПИРОВАНИЕ КАРТ ПО СТАТУСУ
-//  Формат: НОМЕР МЕСЯЦ ГОД CVV (каждая на отдельной строке)
+// (translated)
+// Format: NUMBER MM YY CVV
 // ══════════════════════════════════════
 function _copyStatCards(filter, cards) {
-    // Фильтрация карт по статусу
+    // (translated)
     let filtered = [];
     switch (filter) {
         case 'total':
@@ -975,7 +975,7 @@ function _copyStatCards(filter, cards) {
         return;
     }
 
-    // Формируем строки: НОМЕР_КАРТЫ МЕСЯЦ ГОД CVV
+    // Build lines: number MM YY CVV
     const lines = filtered.map(c => {
         const num = (c.cardNumber || '').replace(/[\s\-]/g, '');
         const mm = (c.month || c.mm || '').toString().padStart(2, '0');
@@ -984,11 +984,11 @@ function _copyStatCards(filter, cards) {
         return `${num} ${mm} ${yy} ${cvv}`;
     }).join('\n');
 
-    // Копирование в буфер обмена
+    // (translated)
     navigator.clipboard.writeText(lines).then(() => {
         toast(`Copied ${filtered.length} cards`, 'success');
     }).catch(() => {
-        // Fallback для старых браузеров
+        // (translated)
         const ta = document.createElement('textarea');
         ta.value = lines;
         document.body.appendChild(ta);
@@ -1001,36 +1001,36 @@ function _copyStatCards(filter, cards) {
 
 
 // ══════════════════════════════════════
-//  CHECK BASE — Проверка карт против Trash
-//  Сравнивает вставленные карты с STATE.trash + STATE.trashCards
+// (translated)
+// (translated)
 // ══════════════════════════════════════
 
-// Хранилище последних результатов проверки
+// (translated)
 let _checkBaseResults = { clean: [], trash: [] };
 
-// Открытие модала Check Base
+// (translated)
 function _openCheckBase() {
     const overlay = document.getElementById('check-base-overlay');
     if (!overlay) return;
     overlay.classList.remove('hidden');
-    // Очищаем предыдущие данные
+    // Clear previous results
     const input = document.getElementById('check-base-input');
     if (input) input.value = '';
     const results = document.getElementById('check-base-results');
     if (results) { results.innerHTML = ''; results.classList.add('hidden'); }
-    // Фокус на textarea
+    // (translated)
     setTimeout(() => input?.focus(), 100);
-    // Навешиваем обработчики
+    // (translated)
     _initCheckBaseHandlers();
 }
 
-// Закрытие модала Check Base
+// (translated)
 function _closeCheckBase() {
     const overlay = document.getElementById('check-base-overlay');
     if (overlay) overlay.classList.add('hidden');
 }
 
-// Инициализация обработчиков (вызывается при каждом открытии)
+// (translated)
 let _checkBaseHandlersReady = false;
 function _initCheckBaseHandlers() {
     if (_checkBaseHandlersReady) return;
@@ -1039,29 +1039,29 @@ function _initCheckBaseHandlers() {
     document.getElementById('check-base-close')?.addEventListener('click', _closeCheckBase);
     document.getElementById('check-base-cancel')?.addEventListener('click', _closeCheckBase);
     document.getElementById('check-base-run')?.addEventListener('click', _runCheckBase);
-    // Закрытие по клику на оверлей
+    // (translated)
     document.getElementById('check-base-overlay')?.addEventListener('click', (e) => {
         if (e.target.id === 'check-base-overlay') _closeCheckBase();
     });
 }
 
-// Извлечение номера карты из строки (первые 13-19 цифр)
+// (translated)
 function _extractCardNumber(line) {
-    // Убираем все нецифровые символы кроме пробелов и разделителей
+    // Remove items from array
     const digits = line.replace(/[\s\-\.]/g, '').match(/\d{13,19}/);
     return digits ? digits[0] : null;
 }
 
-// Парсинг полной строки карты (извлекаем номер + MM + YY + CVV если есть)
+// (translated)
 function _parseCardLine(line) {
     const trimmed = line.trim();
     if (!trimmed) return null;
 
-    // Пробуем разные форматы разделителей: пробел, |, :, ;, /
-    // Формат: НОМЕР МЕСЯЦ ГОД CVV (или НОМЕР|MM|YY|CVV и т.д.)
+    // (translated)
+    // Format: NUMBER MM YY CVV
     const parts = trimmed.split(/[\s|:;]+/);
 
-    // Ищем номер карты (13-19 цифр)
+    // Find card number (13-19 digits)
     let cardNum = null;
     let mm = '';
     let yy = '';
@@ -1071,7 +1071,7 @@ function _parseCardLine(line) {
         const clean = parts[i].replace(/[\-\.]/g, '');
         if (!cardNum && /^\d{13,19}$/.test(clean)) {
             cardNum = clean;
-            // Следующие части — MM, YY, CVV
+            // (translated)
             if (parts[i + 1] && /^\d{1,2}$/.test(parts[i + 1])) mm = parts[i + 1].padStart(2, '0');
             if (parts[i + 2] && /^\d{2,4}$/.test(parts[i + 2])) {
                 yy = parts[i + 2];
@@ -1082,7 +1082,7 @@ function _parseCardLine(line) {
         }
     }
 
-    // Fallback: просто извлечь первые 13-19 цифр из строки
+    // (translated)
     if (!cardNum) {
         const allDigits = trimmed.replace(/\D/g, '');
         if (allDigits.length >= 13) {
@@ -1095,7 +1095,7 @@ function _parseCardLine(line) {
     return { num: cardNum, mm, yy, cvv, raw: trimmed };
 }
 
-// Основная функция проверки
+// Main check function
 function _runCheckBase() {
     const input = document.getElementById('check-base-input');
     const resultsDiv = document.getElementById('check-base-results');
@@ -1107,7 +1107,7 @@ function _runCheckBase() {
         return;
     }
 
-    // Парсим введённые строки
+    // Parse input
     const lines = rawText.split('\n').filter(l => l.trim());
     const parsed = lines.map(_parseCardLine).filter(Boolean);
 
@@ -1116,24 +1116,24 @@ function _runCheckBase() {
         return;
     }
 
-    // Собираем полный Trash Set (номера без пробелов/дефисов)
-    // 1. STATE.trash — удалённые workspace-карты (объекты с .cardNumber)
-    // 2. STATE.trashCards — номера из парсера (массив строк)
+    // (translated)
+    // (translated)
+    // (translated)
     const trashSet = new Set();
 
-    // Добавляем номера из удалённых карт
+    // (translated)
     (STATE.trash || []).forEach(c => {
         const n = (c.cardNumber || '').replace(/[\s\-]/g, '');
         if (n) trashSet.add(n);
     });
 
-    // Добавляем номера из парсерного мусора
+    // (translated)
     (STATE.trashCards || []).forEach(n => {
         const clean = (n || '').replace(/[\s\-]/g, '');
         if (clean) trashSet.add(clean);
     });
 
-    // Сравнение: разделяем на TRASH и CLEAN
+    // (translated)
     const trashMatches = [];
     const cleanCards = [];
 
@@ -1146,10 +1146,10 @@ function _runCheckBase() {
         }
     });
 
-    // Сохраняем результаты для копирования
+    // Save results and render
     _checkBaseResults = { clean: cleanCards, trash: trashMatches };
 
-    // Отображаем результаты
+    // (translated)
     const totalChecked = parsed.length;
     const foundInTrash = trashMatches.length;
     const cleanCount = cleanCards.length;
@@ -1162,13 +1162,13 @@ function _runCheckBase() {
         </div>
     `;
 
-    // Кнопки копирования
+    // (translated)
     html += `<div class="cb-copy-actions">
         <button class="cb-copy-btn cb-copy-clean" id="cb-copy-clean" ${cleanCount === 0 ? 'disabled' : ''}>📋 COPY CLEAN (${cleanCount})</button>
         <button class="cb-copy-btn cb-copy-trash" id="cb-copy-trash" ${foundInTrash === 0 ? 'disabled' : ''}>📋 COPY TRASH (${foundInTrash})</button>
     </div>`;
 
-    // Список TRASH MATCHES
+    // (translated)
     if (foundInTrash > 0) {
         html += `<div class="cb-section">
             <div class="cb-section-title cb-title-trash">🗑 TRASH MATCHES (${foundInTrash})</div>
@@ -1178,7 +1178,7 @@ function _runCheckBase() {
         </div>`;
     }
 
-    // Список CLEAN CARDS
+    // (translated)
     if (cleanCount > 0) {
         html += `<div class="cb-section">
             <div class="cb-section-title cb-title-clean">✅ CLEAN CARDS (${cleanCount})</div>
@@ -1191,20 +1191,20 @@ function _runCheckBase() {
     resultsDiv.innerHTML = html;
     resultsDiv.classList.remove('hidden');
 
-    // Обработчики кнопок копирования
+    // (translated)
     document.getElementById('cb-copy-clean')?.addEventListener('click', () => _copyCheckBaseCards('clean'));
     document.getElementById('cb-copy-trash')?.addEventListener('click', () => _copyCheckBaseCards('trash'));
 
     toast(`Checked: ${totalChecked} | Trash: ${foundInTrash} | Clean: ${cleanCount}`, foundInTrash > 0 ? 'warning' : 'success');
 }
 
-// Маскировка номера карты для отображения (показываем первые 6 и последние 4)
+// Mask card number for display
 function _maskCardNum(num) {
     if (num.length < 10) return num;
     return num.slice(0, 6) + '••••' + num.slice(-4);
 }
 
-// Копирование результатов Check Base в буфер
+// (translated)
 function _copyCheckBaseCards(type) {
     const cards = type === 'clean' ? _checkBaseResults.clean : _checkBaseResults.trash;
     if (cards.length === 0) {
@@ -1212,7 +1212,7 @@ function _copyCheckBaseCards(type) {
         return;
     }
 
-    // Формат: НОМЕР ММ ГГ CVV
+    // Format: NUMBER MM YY CVV
     const lines = cards.map(c => {
         const parts = [c.num];
         if (c.mm) parts.push(c.mm);
@@ -1977,8 +1977,8 @@ function renderContent() {
         const cardUsageBadge = (c._cardUsage && c._cardUsage > 1)
             ? `<span class="usage-badge usage-card" onclick="event.stopPropagation(); _showCardDrawer('${c.cardNumber.replace(/\s/g, '')}', this)" title="Card used ${c._cardUsage} times">📇${c._cardUsage}</span>`
             : '';
-        // trim() нормализует имя (убирает лишние пробелы если surname пустой)
-        // — ключ должен совпадать с фильтром в _showNameDrawer
+        // (translated)
+        // (translated)
         const _nameTrimmed = (c.name + ' ' + c.surname).trim().toUpperCase();
         const _nameEsc = _nameTrimmed.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         const nameUsageBadge = (!isAllCards && c._nameUsage && c._nameUsage > 1)
@@ -2154,7 +2154,7 @@ function renderAllCards() {
         return 'color: var(--red)';
     };
 
-    // Считаем сколько раз каждый BIN встречается по всем картам
+    // Count how many times each BIN appears across all cards
     const binUsageMap = {};
     STATE.cards.forEach(c => {
         const b = getBin(c.cardNumber);
@@ -2170,7 +2170,7 @@ function renderAllCards() {
         const binUseCount = binUsageMap[bin] || 1;
         const lastDate = c._lastDate || c.date || '—';
         const cardNum = c.cardNumber.replace(/\s/g, '');
-        // Нумерация начинается с 1 для каждой страницы
+        // Numbering starts at 1 for each page
         const rowNum = idx + 1;
 
         return `
@@ -3027,7 +3027,7 @@ window.permanentDelete = function (id) {
 
 // ═══════ EXPAND DRAWERS ═══════
 
-// После завершения анимации — добавляем класс drawer-open для скролла
+// (translated)
 function _enableDrawerScroll(drawerTr) {
     const content = drawerTr.querySelector('.drawer-content');
     if (!content) return;
@@ -3055,11 +3055,11 @@ window._showCardDrawer = function (cardNum, el) {
         if (wasForSame) return;
     }
 
-    // Фильтр: строгое совпадение по номеру карты
+    // Filter: strict match by card number
     const matches = STATE.cards.filter(c => c.cardNumber.replace(/[\s\-]/g, '') === cardNum);
     if (matches.length <= 1) return;
 
-    // Карта одна для всех — показываем разные ИМЕНА крупно
+    // Card is the same — show different NAMES prominently
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
         const fullName = (c.name + ' ' + c.surname).trim().toUpperCase() || '—';
@@ -3081,7 +3081,7 @@ window._showCardDrawer = function (cardNum, el) {
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
             <div class="drawer-top-bar">
-                <div class="drawer-header">📇 ${matches.length} записей с картой <span style="font-family:monospace;opacity:0.7">${maskCard(cardNum)}</span></div>
+                <div class="drawer-header">📇 ${matches.length} records with card <span style="font-family:monospace;opacity:0.7">${maskCard(cardNum)}</span></div>
                 <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
             </div>
             ${rowsHtml}
@@ -3099,14 +3099,14 @@ window._showNameDrawer = function (fullName, el) {
         if (wasForSame) return;
     }
 
-    // Нормализация: trim() убирает лишние пробелы (например если surname = '')
+    // Normalization: trim() removes extra spaces (e.g. if surname = '')
     const normalizedName = fullName.trim().toUpperCase();
     const matches = STATE.cards.filter(c =>
         (c.name + ' ' + c.surname).trim().toUpperCase() === normalizedName
     );
     if (matches.length <= 1) return;
 
-    // Имя одно для всех — показываем разные КАРТЫ крупно
+    // Name is the same — show different CARDS prominently
     const rowsHtml = matches.map(c => {
         const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
         const bin = getBin(c.cardNumber);
@@ -3130,7 +3130,7 @@ window._showNameDrawer = function (fullName, el) {
     drawerTr.innerHTML = `<td colspan="${colCount}">
         <div class="drawer-content">
             <div class="drawer-top-bar">
-                <div class="drawer-header">👤 ${matches.length} карт на имя <span style="color:var(--accent);font-weight:600">${normalizedName}</span></div>
+                <div class="drawer-header">👤 ${matches.length} cards for <span style="color:var(--accent);font-weight:600">${normalizedName}</span></div>
                 <button class="drawer-close-btn" onclick="this.closest('.expand-drawer').remove()">✕</button>
             </div>
             ${rowsHtml}
@@ -3225,7 +3225,7 @@ function bulkDeleteCards() {
     const ids = [..._selectedCards];
     const cards = STATE.cards.filter(c => ids.includes(c.id));
     if (cards.length === 0) return;
-    // Удаляем ссылки на карты из документов перед удалением
+    // (translated)
     ids.forEach(id => removeCardFromDocs(id));
     STATE.trash.push(...cards);
     STATE.cards = STATE.cards.filter(c => !ids.includes(c.id));
@@ -3288,7 +3288,7 @@ function handleCardMenuAction(action) {
             break;
         }
         case 'delete':
-            // Удаляем cardId из массива doc.cardIds связанного документа
+            // (translated)
             removeCardFromDocs(card.id);
             STATE.cards = STATE.cards.filter(c => c.id !== card.id);
             STATE.trash.push({ ...card, deletedAt: todayStr() });
@@ -3576,7 +3576,7 @@ function updateStatsInPlace() {
     const bar = document.getElementById('stats-bar');
     if (!bar) return;
 
-    // Документы — обновляем TOTAL/VERIFIED/FAILED/WAITING
+    // (translated)
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         updateDocStats();
         return;
@@ -3646,8 +3646,8 @@ function updateSidebarBadges() {
 }
 
 // ──── DOC V/S COUNTERS ────
-// ──── ОБЁРТКА ДЛЯ ОБНОВЛЕНИЯ СТАТИСТИКИ ДОКУМЕНТОВ ────
-// Вызывается после каждого изменения V/S счётчика
+// (translated)
+// (translated)
 function updateDocStatsBar() {
     updateDocStats();
 }
@@ -3824,8 +3824,8 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
             const name = parts[0] || '';
             const surname = parts.slice(1).join(' ') || '';
 
-            // Документ добавляется напрямую в Documents — без создания записи
-            // в STATE.cards. cardIds пустой, use = 0 (нет привязанных карт).
+            // (translated)
+            // (translated)
             STATE.docs.push({
                 id: genId(),
                 fullName,
@@ -3837,8 +3837,8 @@ document.getElementById('doc-modal-save').addEventListener('click', () => {
                 suspended: 0,
                 docStatus: 'new',
                 preview: previewBase64 || '',
-                cardIds: [],   // Пустой массив — нет привязанных карт
-                use: 0,        // 0 — документ standalone, не связан с картами
+                cardIds: [],   // (translated)
+                use: 0,        // (translated)
                 country,
                 date: dateStr,
             });
@@ -3874,10 +3874,10 @@ const modalOverlay = document.getElementById('modal-overlay');
 const editOverlay = document.getElementById('edit-modal-overlay');
 
 document.getElementById('add-card-btn').addEventListener('click', () => {
-    // Документы — открываем модал документов
+    // (translated)
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         openDocModal();
-    // All Cards — открываем модал только для карты (без Workspace и Documents)
+    // (translated)
     } else if (STATE.currentView === 'all-cards') {
         openAddCardOnlyModal();
     } else {
@@ -3904,9 +3904,9 @@ function openAddModal() {
     modalOverlay.classList.remove('hidden');
 }
 
-// ──── МОДАЛ: ДОБАВИТЬ КАРТУ ТОЛЬКО В ALL CARDS (без Workspace и Documents) ────
+// (translated)
 function openAddCardOnlyModal() {
-    // Удаляем старый модал если уже открыт
+    // (translated)
     document.getElementById('ac-only-modal')?.remove();
 
     const overlay = document.createElement('div');
@@ -3974,16 +3974,16 @@ function openAddCardOnlyModal() {
     document.getElementById('ac-only-cancel').onclick = close;
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
-    // Форматирование номера карты + определение типа
+    // (translated)
     document.getElementById('ac-only-card').addEventListener('input', function () {
         this.value = formatCardInput(this.value);
         document.getElementById('ac-only-badge').textContent = getCardType(this.value);
     });
 
-    // Закрытие по Escape
+    // Close on Escape
     overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 
-    // Сохранение
+    // Save
     document.getElementById('ac-only-save').onclick = () => {
         const cardNum = document.getElementById('ac-only-card').value.replace(/\s/g, '');
         const month   = document.getElementById('ac-only-month').value.trim();
@@ -3997,14 +3997,14 @@ function openAddCardOnlyModal() {
             return;
         }
 
-        // Проверка дублей в STATE.cards
+        // (translated)
         const exists = STATE.cards.some(c => c.cardNumber.replace(/[\s\-]/g, '') === cardNum);
         if (exists) {
             toast('This card already exists', 'warning');
             return;
         }
 
-        // Добавляем карту с флагом standaloneCard — НЕ попадает в Workspace и Documents
+        // (translated)
         const card = {
             id: genId(),
             name: '', surname: '',
@@ -4013,7 +4013,7 @@ function openAddCardOnlyModal() {
             cardType: getCardType(cardNum),
             amount: 0, notes,
             country,
-            standaloneCard: true,   // Флаг: только All Cards
+            standaloneCard: true,   // Flag: All Cards only
             cardAdd: false, runAds: false, verified: false,
             suspended: false, starred: false,
             date: todayStr(),
@@ -4026,7 +4026,7 @@ function openAddCardOnlyModal() {
         toast('Card added to All Cards', 'success');
     };
 
-    // Фокус на поле карты
+    // (translated)
     setTimeout(() => document.getElementById('ac-only-card')?.focus(), 80);
 }
 
@@ -5427,13 +5427,13 @@ let PARSER_STATE = {
     statusFilter: 'ALL',
     _compareSet: null,
     _pipelineStats: null, // {totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved}
-    // TEST MODE: режим тестирования уникальных БИНов с ротацией карт
+    // (translated)
     testMode: false,
-    // Мультивыбор: filterTypes, filterClasses, filterPaymentSystems — множества (Set) для OR-логики внутри категории
+    // (translated)
     filters: { bins: '', country: '', bank: '', minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() }
 };
 
-// ──── TEST MODE: Загрузка/сохранение индексов ротации БИНов ────
+// (translated)
 function _loadBinRotationIndex() {
     try {
         const raw = localStorage.getItem('binRotationIndex');
@@ -5444,18 +5444,18 @@ function _loadBinRotationIndex() {
 function _saveBinRotationIndex(index) {
     try {
         localStorage.setItem('binRotationIndex', JSON.stringify(index));
-    } catch { /* quota exceeded — игнорируем */ }
+    } catch { /* (translated)
 }
 
 /**
- * Применяет TEST MODE к списку карт: оставляет по одной карте на уникальный БИН,
- * используя ротацию — при каждом вызове с advance=true сдвигает индекс на 1.
- * @param {Array} cards — отфильтрованный список карт
- * @param {boolean} advance — если true, увеличиваем индекс ротации (при клике на TEST MODE)
- * @returns {Array} — массив карт, по одной на каждый уникальный БИН
+ * (translated)
+ * (translated)
+ * @param {Array} cards - filtered card list
+ * (translated)
+ * @returns {Array} - array of cards, one per unique BIN
  */
 function _applyTestMode(cards, advance) {
-    // Группируем карты по БИНу (первые 6 цифр)
+    // (translated)
     const binMap = {};
     cards.forEach(c => {
         const bin = (c.bin || (c.cc || '').replace(/[\s\-]/g, '').slice(0, 6));
@@ -5463,23 +5463,23 @@ function _applyTestMode(cards, advance) {
         binMap[bin].push(c);
     });
 
-    // Загружаем текущие индексы ротации
+    // (translated)
     const rotationIndex = _loadBinRotationIndex();
 
-    // Для каждого БИНа выбираем карту по текущему индексу
+    // (translated)
     const result = [];
     Object.entries(binMap).forEach(([bin, binCards]) => {
         let idx = rotationIndex[bin] || 0;
-        // Нормализуем индекс если он вышел за границы массива
+        // (translated)
         if (idx >= binCards.length) idx = 0;
         result.push(binCards[idx]);
-        // Если advance=true, сдвигаем индекс для следующего использования
+        // (translated)
         if (advance) {
             rotationIndex[bin] = (idx + 1) % binCards.length;
         }
     });
 
-    // Сохраняем обновлённые индексы ротации в localStorage
+    // Save results and render
     if (advance) {
         _saveBinRotationIndex(rotationIndex);
     }
@@ -5829,40 +5829,40 @@ function renderParser() {
                     <input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}">
                 </div>
             </div>
-            <!-- Многоуровневая система фильтрации карт -->
+            <!-- Filtering system -->
             <div class="parser-filter-levels" id="parser-filter-levels">
-                <!-- Уровень 1 — Тип карты (мультивыбор: можно выбрать несколько одновременно) -->
+                <!-- Level 1 — Card Type -->
                 <div class="parser-filter-level">
-                    <span class="parser-filter-level-label">ТИП</span>
+                    <span class="parser-filter-level-label">TYPE</span>
                     <div class="parser-filter-level-btns">
                         ${['CREDIT','DEBIT','PREPAID','BUSINESS'].map(t =>
                             `<button class="parser-level-btn${PARSER_STATE.filters.filterTypes.has(t) ? ' active' : ''}" data-filter-type="${t}">${t}</button>`
                         ).join('')}
                     </div>
                 </div>
-                <!-- Уровень 2 — Класс карты (мультивыбор) -->
+                <!-- Level 2 — Card Class -->
                 <div class="parser-filter-level">
-                    <span class="parser-filter-level-label">КЛАСС</span>
+                    <span class="parser-filter-level-label">CLASS</span>
                     <div class="parser-filter-level-btns">
                         ${['CLASSIC','STANDARD','GOLD','PLATINUM','TITANIUM','SIGNATURE','WORLD','WORLD_ELITE','INFINITE','BLACK','ELECTRON','MAESTRO'].map(t =>
                             `<button class="parser-level-btn${PARSER_STATE.filters.filterClasses.has(t) ? ' active' : ''}" data-filter-class="${t}">${t.replace('_',' ')}</button>`
                         ).join('')}
                     </div>
                 </div>
-                <!-- Уровень 3 — Платёжная система (мультивыбор, без MIR) -->
+                <!-- Level 3 — Payment Network -->
                 <div class="parser-filter-level">
-                    <span class="parser-filter-level-label">СИСТЕМА</span>
+                    <span class="parser-filter-level-label">NETWORK</span>
                     <div class="parser-filter-level-btns">
                         ${['VISA','MASTERCARD','AMEX','DISCOVER','UNIONPAY'].map(t =>
                             `<button class="parser-level-btn${PARSER_STATE.filters.filterPaymentSystems.has(t) ? ' active' : ''}" data-filter-network="${t}">${t}</button>`
                         ).join('')}
                     </div>
                 </div>
-                <!-- Кнопки управления фильтрами (СБРОС и TEST MODE) -->
+                <!-- Filter actions (Reset and TEST MODE) -->
                 <div class="parser-filter-actions-row">
-                    <button class="parser-filter-reset-btn" id="parser-filter-reset" title="Сбросить все фильтры">⟲ СБРОС</button>
-                    <!-- TEST MODE: режим тестирования уникальных БИНов с ротацией -->
-                    <button class="parser-test-mode-btn${PARSER_STATE.testMode ? ' active' : ''}" id="parser-test-mode" title="Test Mode: по одной карте на каждый уникальный БИН с ротацией">🧪 TEST MODE</button>
+                    <button class="parser-filter-reset-btn" id="parser-filter-reset" title="Reset all filters">⟲ Reset</button>
+                    <!-- TEST MODE: unique BIN rotation testing -->
+                    <button class="parser-test-mode-btn${PARSER_STATE.testMode ? ' active' : ''}" id="parser-test-mode" title="Test Mode: one card per unique BIN with rotation">🧪 TEST MODE</button>
                 </div>
         </div>
 
@@ -5966,7 +5966,7 @@ function renderParser() {
         PARSER_STATE.statusFilter = 'ALL';
         PARSER_STATE._compareSet = null;
         PARSER_STATE._pipelineStats = null;
-        // Сбрасываем TEST MODE при очистке парсера
+        // (translated)
         PARSER_STATE.testMode = false;
         localStorage.removeItem('ct_parser_base');
         renderParser();
@@ -5985,15 +5985,15 @@ function renderParser() {
         if (overlay) overlay.classList.remove('hidden');
     });
 
-    // ── TODAY CARDS BUTTON — дневной отчёт по картам ──
+    // (translated)
     document.getElementById('parser-today-btn')?.addEventListener('click', () => {
         _openTodayCardsModal();
     });
-    // Мультивыбор фильтров: клик добавляет/убирает значение из Set (OR-логика внутри категории)
+    // (translated)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
         btn.addEventListener('click', () => {
             const val = btn.dataset.filterType;
-            // Переключение: если уже выбрано — снимаем, иначе — добавляем
+            // (translated)
             if (PARSER_STATE.filters.filterTypes.has(val)) {
                 PARSER_STATE.filters.filterTypes.delete(val);
                 btn.classList.remove('active');
@@ -6030,51 +6030,51 @@ function renderParser() {
             _saveParserFilters();
         });
     });
-    // Кнопка СБРОС — снимает все выбранные фильтры во всех трёх категориях
+    // (translated)
     document.getElementById('parser-filter-reset')?.addEventListener('click', () => {
         PARSER_STATE.filters.filterTypes.clear();
         PARSER_STATE.filters.filterClasses.clear();
         PARSER_STATE.filters.filterPaymentSystems.clear();
         document.querySelectorAll('.parser-level-btn').forEach(b => b.classList.remove('active'));
-        // Также деактивируем TEST MODE при сбросе
+        // (translated)
         PARSER_STATE.testMode = false;
         const tmBtn = document.getElementById('parser-test-mode');
         if (tmBtn) tmBtn.classList.remove('active');
         _saveParserFilters();
-        toast('Фильтры сброшены', 'info');
+        toast('Filters reset', 'info');
     });
     
-    // Сохранение фильтров при вводе в текстовые поля
+    // Save filters on text field input
     ['parser-bins', 'parser-country', 'parser-bank', 'parser-min-expiry'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', _saveParserFilters);
     });
 
-    // TEST MODE — toggle-кнопка: режим тестирования уникальных БИНов с ротацией
+    // (translated)
     document.getElementById('parser-test-mode')?.addEventListener('click', () => {
         PARSER_STATE.testMode = !PARSER_STATE.testMode;
         const btn = document.getElementById('parser-test-mode');
         if (btn) btn.classList.toggle('active', PARSER_STATE.testMode);
 
         if (PARSER_STATE.testMode && PARSER_STATE.collected.length > 0) {
-            // При каждом клике сдвигаем ротацию (advance=true)
+            // On each click advance rotation (advance=true)
             _applyTestMode(PARSER_STATE.collected, true);
-            toast('🧪 TEST MODE: ротация БИНов обновлена', 'info');
+            toast('🧪 TEST MODE: BIN rotation updated', 'info');
         } else if (!PARSER_STATE.testMode) {
-            toast('TEST MODE выключен', 'info');
+            toast('TEST MODE disabled', 'info');
         }
 
-        // Перерисовываем результаты с учётом TEST MODE
+        // Re-render results with TEST MODE applied
         if (PARSER_STATE.collected.length > 0) {
             renderParserResults();
         }
     });
 
     _initTrashCardModal();
-    _initTrashTabs();        // вкладки + Check My List
-    _initTodayCardsModal(); // мини-парсер TODAY CARDS
+    _initTrashTabs();        // (translated)
+    _initTodayCardsModal(); // (translated)
     _initValidCardsModal();
 
-    // Если есть результаты Valid Cards — показываем их, иначе обычные результаты парсера
+    // (translated)
     if (VALID_STATE.cards.length > 0) {
         renderValidCardsResults();
     } else if (hasParsed) {
@@ -6251,8 +6251,8 @@ function _initTrashCardModal() {
         });
     }
 
-    // 💀 Mini Parser — загружает JSON, определяет формат чекера (classic/pipe/block/mixed),
-    // извлекает ТОЛЬКО trash-карты, valid-карты молча игнорирует
+    // (translated)
+    // (translated)
     const miniParserInput = document.getElementById('trash-mini-parser-file');
     if (miniParserInput) {
         miniParserInput.addEventListener('change', (e) => {
@@ -6262,10 +6262,10 @@ function _initTrashCardModal() {
             reader.onload = (ev) => {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    // Извлекаем текст сообщений из Telegram JSON
+                    // Extract message text from Telegram JSON
                     const messages = Array.isArray(data) ? data : (data.messages || []);
                     if (messages.length === 0) {
-                        toast(`${file.name}: нет сообщений в файле`, 'warning');
+                        toast(`${file.name}: no messages found in file`, 'warning');
                         return;
                     }
                     const msgLines = [];
@@ -6279,19 +6279,19 @@ function _initTrashCardModal() {
                         if (text.trim()) msgLines.push(text.trim());
                     });
                     if (msgLines.length === 0) {
-                        toast(`${file.name}: текст не найден в сообщениях`, 'warning');
+                        toast(`${file.name}: no text found in messages`, 'warning');
                         return;
                     }
                     const combinedText = msgLines.join('\n');
-                    // Запускаем мультиформатный парсер
+                    // Run multiformat parser
                     const parsed = _parseMultiFormat(combinedText);
                     const fmtLabel = parsed.format;
                     if (parsed.totalParsed === 0) {
-                        detectedEl.textContent = `Format: ${fmtLabel} · Ничего не распознано (${messages.length} сообщений)`;
-                        toast(`${file.name}: формат чекера не распознан`, 'warning');
+                        detectedEl.textContent = `Format: ${fmtLabel} · Nothing recognized (${messages.length} messages)`;
+                        toast(`${file.name}: checker format not recognized`, 'warning');
                         return;
                     }
-                    // Дедупликация против существующего trash-листа
+                    // Deduplicate against existing trash list
                     const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
                     let added = 0, dupes = 0;
                     parsed.trashCards.forEach(cc => {
@@ -6305,18 +6305,18 @@ function _initTrashCardModal() {
                         save();
                         const trashBtn = document.getElementById('parser-trash-btn');
                         if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
-                        // Перезапускаем пайплайн чтобы новые trash-карты учитывались
+                        // Restart pipeline to account for new trash cards
                         if (PARSER_STATE.rawMessages.length > 0) runParse();
                     }
-                    // Показываем сводку
+                    // Show summary
                     let summary = `Format: ${fmtLabel} · Total: ${parsed.totalParsed} · Trash: +${added} · Valid skipped: ${parsed.validCount}`;
                     if (dupes > 0) summary += ` · Dupes: ${dupes}`;
                     detectedEl.textContent = summary;
-                    if (added > 0) toast(`${file.name}: +${added} trash (${fmtLabel}) · valid: ${parsed.validCount} проигнорировано`, 'success');
-                    else if (dupes > 0) toast(`${file.name}: все карты уже в trash (${dupes} дублей)`, 'info');
-                    else toast(`${file.name}: trash-карты не найдены (${parsed.validCount} valid проигнорировано)`, 'info');
+                    if (added > 0) toast(`${file.name}: +${added} trash (${fmtLabel}) · valid: ${parsed.validCount} skipped`, 'success');
+                    else if (dupes > 0) toast(`${file.name}: all cards already in trash (${dupes} dupes)`, 'info');
+                    else toast(`${file.name}: no trash cards found (${parsed.validCount} valid skipped)`, 'info');
                 } catch (err) {
-                    toast(`${file.name}: ошибка — ${err.message}`, 'error');
+                    toast(`${file.name}: error — ${err.message}`, 'error');
                 }
             };
             reader.readAsText(file);
@@ -6407,20 +6407,20 @@ function _initTrashCardModal() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  CHECK MY LIST — проверка пользовательского списка карт
-//  против сохранённого trash-листа. Карты НЕ добавляются в trash.
+// (translated)
+// (translated)
 // ═══════════════════════════════════════════════════════════════════
 
-/** Состояние модуля Check My List */
+/* (translated)
 const CML_STATE = {
-    cleanCards:   [], // объекты { cardNumber, originalLine } — не в trash
-    trashMatches: [], // объекты { cardNumber, originalLine } — найдены в trash
+    cleanCards:   [], // (translated)
+    trashMatches: [], // (translated)
     stats: null       // { checked, foundTrash, clean, dupes }
 };
 
 /**
- * Инициализирует переключение вкладок в Trash-модале
- * и запускает _initCheckMyList().
+ * (translated)
+ * (translated)
  */
 function _initTrashTabs() {
     const overlay = document.getElementById('trash-cards-overlay');
@@ -6430,33 +6430,33 @@ function _initTrashTabs() {
     const panels  = overlay.querySelectorAll('.trash-tab-panel');
     const subtitle = document.getElementById('trash-modal-subtitle');
     const subtitles = {
-        add:   'Вставь вывод чекера — собирает 💀 DEAD и ❌ INVALID карты',
-        check: 'Проверь свой список карт против сохранённой trash-базы'
+        add:   'Paste checker output — collects 💀 DEAD and ❌ INVALID cards',
+        check: 'Check your card list against the saved trash database'
     };
 
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const target = tab.dataset.tab;
-            // Активная вкладка
+            // Active tab
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            // Показываем нужную панель
+            // (translated)
             panels.forEach(p => {
                 const id = p.id.replace('trash-tab-', '');
                 p.classList.toggle('hidden', id !== target);
             });
-            // Обновляем подзаголовок
+            // (translated)
             if (subtitle) subtitle.textContent = subtitles[target] || '';
         });
     });
 
-    // Инициализируем Check My List логику
+    // (translated)
     _initCheckMyList();
 }
 
 /**
- * Инициализирует логику вкладки "Check My List".
- * НЕ добавляет карты в trash — только проверяет против существующего листа.
+ * (translated)
+ * (translated)
  */
 function _initCheckMyList() {
     const textarea     = document.getElementById('cml-textarea');
@@ -6475,16 +6475,16 @@ function _initCheckMyList() {
 
     if (!textarea || !checkBtn) return;
 
-    // Закрытие через кнопку Close в этой вкладке
+    // (translated)
     closeBtn?.addEventListener('click', () => overlay?.classList.add('hidden'));
 
-    // Счётчик строк при вводе
+    // (translated)
     textarea.addEventListener('input', () => {
         const lines = textarea.value.split('\n').filter(l => l.trim().match(/\d{13,19}/));
         if (inputCount) inputCount.textContent = lines.length > 0 ? `${lines.length} lines detected` : '';
     });
 
-    // CLEAR — очищаем textarea и результаты
+    // (translated)
     clearBtn?.addEventListener('click', () => {
         textarea.value = '';
         if (inputCount) inputCount.textContent = '';
@@ -6495,12 +6495,12 @@ function _initCheckMyList() {
         CML_STATE.stats        = null;
     });
 
-    // CHECK MY LIST — основная логика
+    // (translated)
     checkBtn.addEventListener('click', () => {
         const raw = textarea.value;
         if (!raw.trim()) { toast('Paste your cards first', 'warning'); return; }
 
-        // Формируем trash-сет из STATE.trashCards для быстрого поиска
+        // (translated)
         const trashSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
 
         const seenCC = new Set();
@@ -6508,7 +6508,7 @@ function _initCheckMyList() {
         const clean   = [];
         const matched = [];
 
-        // Парсим каждую строку: ищем 13-19 цифр (номер карты)
+        // (translated)
         const inputLines = raw.split(/\r?\n/);
         inputLines.forEach(line => {
             const trimmed = line.trim();
@@ -6517,11 +6517,11 @@ function _initCheckMyList() {
             if (!m) return;
             const cardNumber = m[1];
 
-            // Дедупликация по номеру карты
+            // (translated)
             if (seenCC.has(cardNumber)) { dupes++; return; }
             seenCC.add(cardNumber);
 
-            // Сравниваем с trash-базой
+            // (translated)
             const obj = { cardNumber, originalLine: trimmed };
             if (trashSet.has(cardNumber)) {
                 matched.push(obj);
@@ -6530,7 +6530,7 @@ function _initCheckMyList() {
             }
         });
 
-        // Сохраняем в состояние
+        // Save results and render
         CML_STATE.cleanCards   = clean;
         CML_STATE.trashMatches = matched;
         CML_STATE.stats = {
@@ -6540,7 +6540,7 @@ function _initCheckMyList() {
             dupes
         };
 
-        // Показываем статистику
+        // (translated)
         _renderCMLStats();
         _renderCMLLists();
 
@@ -6581,13 +6581,13 @@ function _initCheckMyList() {
         STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
         save();
-        // Переключаемся на Notes
+        // (translated)
         document.querySelector('[data-view="notes"]')?.click();
         toast(`Exported ${cards.length} clean cards to Notes`, 'success');
     });
 }
 
-/** Рендерит блок статистики Check My List */
+/* (translated)
 function _renderCMLStats() {
     const s = CML_STATE.stats;
     if (!s) return;
@@ -6614,7 +6614,7 @@ function _renderCMLStats() {
     `;
 }
 
-/** Рендерит два списка (trash matches и clean) */
+/* (translated)
 function _renderCMLLists() {
     const resultsEl   = document.getElementById('cml-results');
     const trashListEl = document.getElementById('cml-trash-list');
@@ -6623,14 +6623,14 @@ function _renderCMLLists() {
 
     resultsEl.style.display = 'grid';
 
-    // Рендерим trash matches (красным)
+    // (translated)
     if (trashListEl) {
         trashListEl.innerHTML = CML_STATE.trashMatches.length > 0
             ? CML_STATE.trashMatches.map(c => `<div>${c.originalLine}</div>`).join('')
             : '<div style="opacity:0.4;font-style:italic">— none —</div>';
     }
 
-    // Рендерим clean cards (зелёным)
+    // (translated)
     if (cleanListEl) {
         cleanListEl.innerHTML = CML_STATE.cleanCards.length > 0
             ? CML_STATE.cleanCards.map(c => `<div>${c.originalLine}</div>`).join('')
@@ -6639,17 +6639,17 @@ function _renderCMLLists() {
 }
 
 /**
- * Универсальный парсер строк чекера.
- * Парсит формат: ✅/💀/❌ НОМЕР MM YY CVV - СТАТУС
- * Ниже карты могут идти служебные строки: Status code, Система, Тип, Уровень, Код региона
- * Возвращает массив объектов { cc, mm, yy, cvv, status, system, type, level, geo, key }
+ * (translated)
+ * (translated)
+ * (translated)
+ * (translated)
  * status: 'alive' | 'dead' | 'invalid'
  */
 function _parseCheckerOutput(text) {
     const lines = text.split(/\r?\n/);
     const results = [];
 
-    // Извлекаем номер карты (13-19 цифр) из строки
+    // Extract card number
     function extractCC(line) {
         const pipeM = line.match(/(\d{13,19})\|/);
         if (pipeM) return pipeM[1];
@@ -6657,7 +6657,7 @@ function _parseCheckerOutput(text) {
         return m ? m[1] : null;
     }
 
-    // Извлекаем MM YY CVV
+    // Extract card number
     function extractExpCvv(str) {
         const m = str.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
         if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
@@ -6668,7 +6668,7 @@ function _parseCheckerOutput(text) {
         return { mm: '', yy: '', cvv: '' };
     }
 
-    // Определяем статус строки по маркерам
+    // (translated)
     function getStatus(line) {
         if (/(?:✅|ALIVE|Approved|APPROVED)/i.test(line)) return 'alive';
         if (/(?:💀|DEAD|Declined|DECLINED)/i.test(line)) return 'dead';
@@ -6676,8 +6676,8 @@ function _parseCheckerOutput(text) {
         return null;
     }
 
-    // ── Проход 1: находим индексы ВСЕХ строк с картами ──────────────
-    // Линейный скан — ни одна карта не может быть пропущена вложенной логикой
+    // (translated)
+    // (translated)
     const cardIndices = [];
     for (let i = 0; i < lines.length; i++) {
         const t = lines[i].trim();
@@ -6686,8 +6686,8 @@ function _parseCheckerOutput(text) {
         }
     }
 
-    // ── Проход 2: для каждой карты собираем данные и служебные строки ─
-    // Служебные строки ищем между текущей картой и следующей (max 15 строк)
+    // (translated)
+    // (translated)
     cardIndices.forEach((cardIdx, ci) => {
         const line = lines[cardIdx].trim();
         const status = getStatus(line);
@@ -6698,7 +6698,7 @@ function _parseCheckerOutput(text) {
         const { mm, yy, cvv } = extractExpCvv(withoutCC);
         const key = `${cc}|${mm}|${yy}|${cvv}`;
 
-        // Граница: до следующей карты или max 15 строк
+        // (translated)
         const nextCardIdx = (cardIndices[ci + 1] !== undefined) ? cardIndices[ci + 1] : lines.length;
         const scanEnd = Math.min(nextCardIdx, cardIdx + 15);
 
@@ -6706,16 +6706,16 @@ function _parseCheckerOutput(text) {
         for (let j = cardIdx + 1; j < scanEnd; j++) {
             const svc = lines[j].trim();
             if (!svc) continue;
-            // Код региона — русский и английский варианты
-            const geoM = svc.match(/(?:Код\s*региона|Region\s*code|Country\s*code|GEO|Country)\s*[-–:]\s*([A-Za-z]{2})\b/i);
+            // (translated)
+            const geoM = svc.match(/(?:Код\s* (translated)
             if (geoM) { geo = geoM[1].toUpperCase(); continue; }
-            // Платёжная система
+            // (translated)
             const sysM = svc.match(/(?:Система|System|Network|Brand|Payment\s*system)\s*[-–:]\s*(\S+)/i);
             if (sysM) { system = sysM[1].trim(); continue; }
-            // Тип карты
+            // (translated)
             const typeM = svc.match(/(?:Тип|Type|Card\s*type)\s*[-–:]\s*(\S+)/i);
             if (typeM) { type = typeM[1].trim(); continue; }
-            // Уровень / класс
+            // (translated)
             const levelM = svc.match(/(?:Уровень|Level|Tier|Class|Subtype)\s*[-–:]\s*(\S+)/i);
             if (levelM) { level = levelM[1].trim(); continue; }
         }
@@ -6727,16 +6727,16 @@ function _parseCheckerOutput(text) {
 }
 
 /**
- * Исправленный экстрактор TRASH-карт.
- * Собирает ВСЕ карты со статусами DEAD и INVALID, ничего не пропускает.
- * Если маркеров нет — legacy-режим: все найденные номера в trash.
+ * (translated)
+ * (translated)
+ * (translated)
  */
 // ═══════════════════════════════════════════════════════════════════
-//  MULTI-FORMAT CHECKER PARSER — мультиформатный парсер чекера
-//  Форматы: classic (✅/💀/❌), pipe (CARD | STATUS), block (🟩/🟥)
+// (translated)
+// (translated)
 // ═══════════════════════════════════════════════════════════════════
 
-/** Ключевые слова = trash (приоритет над valid-маркерами) */
+/* (translated)
 const _TRASH_KEYWORDS = [
     'DEAD','INVALID','DECLINED','DO NOT HONOR','DO NOT TRY AGAIN',
     'FRAUD','SUSPECTED FRAUD','CLOSED CARD','PROCESSOR DECLINED',
@@ -6744,7 +6744,7 @@ const _TRASH_KEYWORDS = [
     'NOT HONOR','INSUFFICIENT_FUNDS'
 ];
 
-/** Проверяем строку на trash-маркеры (слова + эмодзи). Trash > valid. */
+/* (translated)
 function _lineIsTrash(line) {
     const upper = line.toUpperCase();
     for (const kw of _TRASH_KEYWORDS) {
@@ -6753,22 +6753,22 @@ function _lineIsTrash(line) {
     return /\u{1F480}|\u274C|\u26D4|\u{1F7E5}/u.test(line); // 💀❌⛔🟥
 }
 
-/** Извлекаем номер карты из строки (13-19 цифр) */
+/* (translated)
 function _extractCC(line) {
-    // pipe-формат: 4537800314042786|...
+    // (translated)
     const pm = line.match(/(\d{13,19})\|/);
     if (pm) return pm[1];
-    // обычный формат
+    // (translated)
     const m = line.match(/\b(\d{13,19})\b/);
     if (m) return m[1];
-    // без word boundary (цифры рядом с символами)
+    // (translated)
     const m2 = line.replace(/[\s\u00A0]/g, ' ').match(/(\d{13,19})/);
     return m2 ? m2[1] : null;
 }
 
 /**
- * Определяем формат текста по первым 100 непустым строкам.
- * Возвращает: 'classic' | 'pipe' | 'block' | 'mixed' | 'unknown'
+ * (translated)
+ * (translated)
  */
 function _detectCheckerFormat(text) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0).slice(0, 100);
@@ -6785,7 +6785,7 @@ function _detectCheckerFormat(text) {
 }
 
 /**
- * ФОРМАТ 1 (CLASSIC): ✅/💀/❌ CARD MM YY CVV - ALIVE/DEAD/INVALID
+ * (translated)
  */
 function _parseClassicFormat(text) {
     const results = [];
@@ -6804,8 +6804,8 @@ function _parseClassicFormat(text) {
 }
 
 /**
- * ФОРМАТ 2 (PIPE): CARD | STATUS TEXT [emoji]
- * Insufficient Funds ✅ → всегда trash (keyword приоритетнее ✅)
+ * (translated)
+ * (translated)
  */
 function _parsePipeFormat(text) {
     const results = [];
@@ -6822,8 +6822,8 @@ function _parsePipeFormat(text) {
 }
 
 /**
- * ФОРМАТ 3 (BLOCK): блоки 🟩🟩🟩 (valid) / 🟥🟥🟥 (trash)
- * Первый номер карты после разделителя = карта этого блока
+ * (translated)
+ * (translated)
  */
 function _parseBlockFormat(text) {
     const results = [];
@@ -6844,9 +6844,9 @@ function _parseBlockFormat(text) {
 }
 
 /**
- * Главный мультиформатный парсер.
- * Правило: если карта встречается как trash хотя бы раз — статус trash.
- * Возвращает { format, trashCards[], validCount, totalParsed }
+ * (translated)
+ * (translated)
+ * (translated)
  */
 function _parseMultiFormat(text) {
     const format = _detectCheckerFormat(text);
@@ -6855,7 +6855,7 @@ function _parseMultiFormat(text) {
     if (format === 'pipe'    || format === 'mixed') all = all.concat(_parsePipeFormat(text));
     if (format === 'block'   || format === 'mixed') all = all.concat(_parseBlockFormat(text));
 
-    // Применяем правило приоритета: trash > valid
+    // (translated)
     const statusMap = new Map();
     for (const r of all) {
         const cc = r.cc.replace(/[\s\-]/g, '');
@@ -6871,13 +6871,13 @@ function _parseMultiFormat(text) {
 }
 
 function _extractTrashCards(text) {
-    // Используем мультиформатный парсер для поддержки classic/pipe/block форматов
+    // (translated)
     const multi = _parseMultiFormat(text);
     const deadCards = multi.trashCards;
     const aliveCount = multi.validCount;
     const hasMarkers = multi.totalParsed > 0;
 
-    // Legacy fallback: если формат не распознан — собираем все номера
+    // (translated)
     if (!hasMarkers) {
         const seen = new Set();
         const legacy = [];
@@ -6892,19 +6892,19 @@ function _extractTrashCards(text) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  VALID CARDS — состояние и логика
+// (translated)
 // ═══════════════════════════════════════════════════════════════════
 
-// Состояние экрана Valid Cards
+// (translated)
 const VALID_STATE = {
-    cards: [],           // итоговый список валидных карт
-    selectedRows: new Set(), // выбранные строки (индексы)
-    selectedCountries: new Set(), // выбранные страны
+    cards: [],           // (translated)
+    selectedRows: new Set(), // (translated)
+    selectedCountries: new Set(), // (translated)
     stats: { totalValid: 0, totalTrash: 0, totalUnique: 0, skippedDupes: 0 }
 };
 
 /**
- * Инициализирует модал VALID CARDS — обработчики событий.
+ * (translated)
  */
 function _initValidCardsModal() {
     const overlay = document.getElementById('valid-cards-overlay');
@@ -6922,7 +6922,7 @@ function _initValidCardsModal() {
     cancelBtn?.addEventListener('click', close);
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
-    // Авто-детект при вводе текста
+    // (translated)
     const updateDetected = () => {
         const parsed = _parseCheckerOutput(textarea.value);
         const alive = parsed.filter(c => c.status === 'alive').length;
@@ -6933,7 +6933,7 @@ function _initValidCardsModal() {
     };
     textarea?.addEventListener('input', updateDetected);
 
-    // Загрузка .txt файла
+    // (translated)
     fileInput?.addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -6947,8 +6947,8 @@ function _initValidCardsModal() {
         fileInput.value = '';
     });
 
-    // ✅ Mini Parser — загрузка .json (Telegram экспорт или любой JSON с сообщениями)
-    // Извлекает текст всех сообщений, добавляет в textarea и сразу показывает результаты
+    // (translated)
+    // (translated)
     const miniParserInput = document.getElementById('valid-mini-parser-file');
     if (miniParserInput) {
         miniParserInput.addEventListener('change', e => {
@@ -6958,16 +6958,16 @@ function _initValidCardsModal() {
             reader.onload = ev => {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    // Поддерживаем формат Telegram: { messages: [...] } или массив сообщений
+                    // Support Telegram format: { messages: [...] } or array of messages
                     const messages = Array.isArray(data) ? data : (data.messages || []);
 
                     if (messages.length === 0) {
-                        toast(`${file.name}: нет сообщений в файле`, 'warning');
+                        toast(`${file.name}: no messages found in file`, 'warning');
                         return;
                     }
 
-                    // Извлекаем текст из всех сообщений
-                    // Telegram хранит текст в поле text (строка или массив сущностей)
+                    // Extract text from all messages
+                    // Telegram stores text in text field (string or entity array)
                     const lines = [];
                     messages.forEach(msg => {
                         if (!msg) return;
@@ -6975,7 +6975,7 @@ function _initValidCardsModal() {
                         if (typeof msg.text === 'string') {
                             text = msg.text;
                         } else if (Array.isArray(msg.text)) {
-                            // Telegram entities — берём только текстовые части
+                            // Telegram entities — take only text parts
                             text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
                         } else if (typeof msg === 'string') {
                             text = msg;
@@ -6984,29 +6984,29 @@ function _initValidCardsModal() {
                     });
 
                     if (lines.length === 0) {
-                        toast(`${file.name}: текст не найден в сообщениях`, 'warning');
+                        toast(`${file.name}: no text found in messages`, 'warning');
                         return;
                     }
 
                     const combinedText = lines.join('\n');
 
-                    // Предварительно проверяем — есть ли вообще карты с маркерами
+                    // Preliminary check — are there any cards with markers
                     const preview = _parseCheckerOutput(combinedText);
                     const aliveCount = preview.filter(c => c.status === 'alive').length;
                     const badCount = preview.filter(c => c.status === 'dead' || c.status === 'invalid').length;
 
                     if (preview.length === 0) {
-                        toast(`${file.name}: карты с маркерами ALIVE/DEAD/INVALID не найдены`, 'warning');
+                        toast(`${file.name}: no cards with ALIVE/DEAD/INVALID markers found`, 'warning');
                         return;
                     }
 
-                    // Сразу обрабатываем — не добавляем в textarea, запускаем напрямую
+                    // Process immediately — skip textarea, run directly
                     close();
                     _processValidCards(combinedText);
-                    toast(`${file.name}: ✅ ${aliveCount} ALIVE · 💀/❌ ${badCount} DEAD/INVALID — ${messages.length} сообщений`, 'success');
+                    toast(`${file.name}: ✅ ${aliveCount} ALIVE · 💀/❌ ${badCount} DEAD/INVALID — ${messages.length} messages`, 'success');
 
                 } catch (err) {
-                    toast(`${file.name}: невалидный JSON — ${err.message}`, 'error');
+                    toast(`${file.name}: invalid JSON — ${err.message}`, 'error');
                 }
             };
             reader.readAsText(file);
@@ -7014,7 +7014,7 @@ function _initValidCardsModal() {
         });
     }
 
-    // Обработка нажатия Process
+    // (translated)
     processBtn?.addEventListener('click', () => {
         _processValidCards(textarea.value);
         close();
@@ -7022,16 +7022,16 @@ function _initValidCardsModal() {
 }
 
 /**
- * Обрабатывает вывод чекера и показывает экран результатов Valid Cards.
- * Логика: VALID = все ALIVE минус карты, которые хоть раз были DEAD/INVALID.
- * Уникальность: по ключу cc|mm|yy|cvv.
+ * (translated)
+ * (translated)
+ * (translated)
  */
 function _processValidCards(text) {
     const parsed = _parseCheckerOutput(text);
 
-    // Шаг 1: Собираем множество "плохих" ключей (dead/invalid по полному ключу)
+    // (translated)
     const badKeys = new Set();
-    // Также собираем плохие номера карт (для перекрёстной проверки)
+    // (translated)
     const badNums = new Set();
     parsed.forEach(c => {
         if (c.status === 'dead' || c.status === 'invalid') {
@@ -7040,28 +7040,28 @@ function _processValidCards(text) {
         }
     });
 
-    // Шаг 2: Статистика по всем записям
+    // (translated)
     const allAlive = parsed.filter(c => c.status === 'alive');
     const allBad = parsed.filter(c => c.status === 'dead' || c.status === 'invalid');
     const totalUnique = new Set(parsed.map(c => c.key)).size;
     const skippedDupes = parsed.length - totalUnique;
 
-    // Шаг 3: Фильтруем ALIVE — убираем те, у кого номер хоть раз был bad
+    // (translated)
     const seenKeys = new Set();
     const validCards = [];
     allAlive.forEach(c => {
-        // Если номер карты встречался как dead/invalid — исключаем
+        // (translated)
         if (badNums.has(c.cc)) return;
-        // Исключаем дубликаты по полному ключу
+        // (translated)
         if (seenKeys.has(c.key)) return;
         seenKeys.add(c.key);
         validCards.push(c);
     });
 
-    // Обновляем состояние
+    // (translated)
     VALID_STATE.cards = validCards;
-    VALID_STATE.selectedRows = new Set(validCards.map((_, i) => i)); // по умолч. всё выбрано
-    VALID_STATE.selectedCountries = new Set(); // пусто = все страны
+    VALID_STATE.selectedRows = new Set(validCards.map((_, i) => i)); // (translated)
+    VALID_STATE.selectedCountries = new Set(); // (translated)
     VALID_STATE.stats = {
         totalValid: validCards.length,
         totalTrash: allBad.length,
@@ -7069,14 +7069,14 @@ function _processValidCards(text) {
         skippedDupes
     };
 
-    // Переходим в Parser и показываем результаты
+    // (translated)
     navigate('new-cards');
     toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}`, 'success');
     renderValidCardsResults();
 }
 
 /**
- * Рендерит экран результатов Valid Cards внутри Parser-контейнера.
+ * (translated)
  */
 function renderValidCardsResults() {
     const area = document.getElementById('content-area');
@@ -7085,7 +7085,7 @@ function renderValidCardsResults() {
 
     const { cards, stats, selectedCountries, selectedRows } = VALID_STATE;
 
-    // Собираем карту стран
+    // (translated)
     const countryMap = {};
     cards.forEach(c => {
         const geo = c.geo || 'UNKNOWN';
@@ -7094,13 +7094,13 @@ function renderValidCardsResults() {
     });
     const sortedCountries = Object.entries(countryMap).sort((a, b) => b[1].length - a[1].length);
 
-    // Определяем отображаемые карты (с учётом фильтра стран)
+    // (translated)
     const activeCodes = selectedCountries.size > 0 ? selectedCountries : null;
     const displayCards = activeCodes
         ? cards.filter((c, i) => activeCodes.has(c.geo || 'UNKNOWN'))
         : cards;
 
-    // Строки таблицы
+    // (translated)
     const rows = displayCards.map((c, di) => {
         const globalIdx = cards.indexOf(c);
         const checked = selectedRows.has(globalIdx);
@@ -7119,7 +7119,7 @@ function renderValidCardsResults() {
         </tr>`;
     }).join('');
 
-    // Плитки стран
+    // (translated)
     const countryChips = sortedCountries.map(([code, cds]) => {
         const active = selectedCountries.has(code);
         return `<button class="vc-country-chip ${active ? 'active' : ''}" data-country="${code}">
@@ -7127,17 +7127,17 @@ function renderValidCardsResults() {
         </button>`;
     }).join('');
 
-    // Название вкладки для экспорта
+    // (translated)
     const getTabTitle = () => {
         if (selectedCountries.size === 0) return 'VALID — ALL';
         return 'VALID — ' + [...selectedCountries].join(', ');
     };
 
-    // Получаем финальный список для экспорта
+    // (translated)
     const getExportList = () => {
-        // Если есть ручной выбор строк — используем его
+        // (translated)
         const manualSelected = displayCards.filter(c => selectedRows.has(cards.indexOf(c)));
-        // Если страны выбраны и строки не выбраны вручную — все карты выбранных стран
+        // (translated)
         if (selectedCountries.size > 0 && manualSelected.length === displayCards.length) {
             return displayCards;
         }
@@ -7146,13 +7146,13 @@ function renderValidCardsResults() {
 
     area.innerHTML = `
     <div class="vc-container">
-        <!-- Заголовок и кнопка назад -->
+        <!-- (comment) -->
         <div class="vc-header">
             <button class="pz-btn pz-btn-dim vc-back-btn" id="vc-back">← Back to Parser</button>
             <h2 class="vc-title">✅ Valid Cards Results</h2>
         </div>
 
-        <!-- Статистика -->
+        <!-- (comment) -->
         <div class="vc-stats-row">
             <div class="vc-stat-card vc-stat-green">
                 <span class="vc-stat-val">${stats.totalValid}</span>
@@ -7172,7 +7172,7 @@ function renderValidCardsResults() {
             </div>
         </div>
 
-        <!-- Выбор стран -->
+        <!-- (comment) -->
         <div class="vc-countries-block">
             <div class="vc-countries-header">
                 <span class="vc-section-label">📍 GEO FILTER</span>
@@ -7184,7 +7184,7 @@ function renderValidCardsResults() {
             </div>
         </div>
 
-        <!-- Кнопки экспорта -->
+        <!-- (comment) -->
         <div class="vc-export-bar">
             <button class="pz-btn pz-btn-primary vc-export-btn" id="vc-export-all">📝 EXPORT ALL TO NOTES</button>
             <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-export-selected">📝 EXPORT SELECTED TO NOTES</button>
@@ -7192,7 +7192,7 @@ function renderValidCardsResults() {
             <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-selected">📋 COPY SELECTED</button>
         </div>
 
-        <!-- Таблица карт -->
+        <!-- (comment) -->
         <div class="vc-table-wrap">
             <table class="data-table parser-table vc-table">
                 <thead>
@@ -7215,7 +7215,7 @@ function renderValidCardsResults() {
         navigate('new-cards');
     });
 
-    // Фильтр стран — клик по чипу
+    // (translated)
     document.querySelectorAll('.vc-country-chip').forEach(btn => {
         btn.addEventListener('click', () => {
             const code = btn.dataset.country;
@@ -7238,7 +7238,7 @@ function renderValidCardsResults() {
         renderValidCardsResults();
     });
 
-    // Выбор всех строк
+    // (translated)
     document.getElementById('vc-select-all-rows')?.addEventListener('change', e => {
         if (e.target.checked) {
             displayCards.forEach(c => VALID_STATE.selectedRows.add(cards.indexOf(c)));
@@ -7248,7 +7248,7 @@ function renderValidCardsResults() {
         renderValidCardsResults();
     });
 
-    // Чекбоксы строк
+    // (translated)
     document.querySelectorAll('.valid-check').forEach(cb => {
         cb.addEventListener('change', () => {
             const idx = parseInt(cb.dataset.idx);
@@ -7257,12 +7257,12 @@ function renderValidCardsResults() {
         });
     });
 
-    // Вспомогательная функция: строим список карт для экспорта
+    // Helper function: build card list for export
     const buildExportLines = (list) => list.map(c => `${c.cc} ${(c.mm||'').padStart(2,'0')} ${c.yy||''} ${c.cvv||'000'}`).join('\n');
 
-    // Вспомогательная функция: создаём вкладку Notes
+    // Helper function: create Notes tab
     const exportToNotes = (list, title) => {
-        if (list.length === 0) { toast('Нет карт для экспорта', 'warning'); return; }
+        if (list.length === 0) { toast('No cards to export', 'warning'); return; }
         const block = buildExportLines(list);
         const newTab = {
             id: 'tab-valid-' + Date.now(),
@@ -7274,7 +7274,7 @@ function renderValidCardsResults() {
         STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
         save();
-        toast(`${list.length} карт → "${title}"`, 'success');
+        toast(`${list.length} cards → "${title}"`, 'success');
     };
 
     // EXPORT ALL TO NOTES
@@ -7295,7 +7295,7 @@ function renderValidCardsResults() {
     document.getElementById('vc-copy-all')?.addEventListener('click', () => {
         const text = buildExportLines(displayCards);
         navigator.clipboard?.writeText(text);
-        toast(`📋 ${displayCards.length} карт скопировано`, 'success');
+        toast(`📋 ${displayCards.length} cards copied`, 'success');
     });
 
     // COPY SELECTED
@@ -7303,7 +7303,7 @@ function renderValidCardsResults() {
         const list = getExportList();
         const text = buildExportLines(list);
         navigator.clipboard?.writeText(text);
-        toast(`📋 ${list.length} карт скопировано`, 'success');
+        toast(`📋 ${list.length} cards copied`, 'success');
     });
 }
 
@@ -7329,11 +7329,11 @@ function runParse() {
     const minExpEl = document.getElementById('parser-min-expiry');
     const minExpRaw = minExpEl ? minExpEl.value.trim() : '';
 
-    // Чтение мультивыбранных фильтров из состояния (Set для каждой категории)
+    // (translated)
     const filterTypes = PARSER_STATE.filters.filterTypes;
     const filterClasses = PARSER_STATE.filters.filterClasses;
     const filterPaymentSystems = PARSER_STATE.filters.filterPaymentSystems;
-    // Совместимость: преобразуем в массивы для старых полей
+    // (translated)
     const activeTypes = filterTypes.size > 0 ? [...filterTypes].map(t => t.toLowerCase()) : [];
     const activeNetworks = filterPaymentSystems.size > 0 ? [...filterPaymentSystems] : [];
     PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
@@ -7341,9 +7341,9 @@ function runParse() {
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode) }));
 
-    // Фильтрация по BIN
+    // (translated)
     if (binFilters.length > 0) allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
-    // Фильтрация по стране
+    // (translated)
     if (countryFilter) {
         const codes = countryFilter.split(/[\s,;]+/).map(s => s.toUpperCase().trim()).filter(Boolean);
         allCards = allCards.filter(c => {
@@ -7353,10 +7353,10 @@ function runParse() {
             return codes.some(code => resolvedGeo === code || resolvedGeo.startsWith(code));
         });
     }
-    // Фильтрация по банку
+    // (translated)
     if (bankFilter) allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
 
-    // Фильтрация по минимальной дате истечения (MM/YY → оставляем карты >= этой даты)
+    // (translated)
     if (minExpRaw) {
         const expMatch = minExpRaw.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
         if (expMatch) {
@@ -7364,36 +7364,36 @@ function runParse() {
             allCards = allCards.filter(c => {
                 const cmm = parseInt(c.mm) || 0;
                 const cyy = parseInt(c.yy) || 0;
-                if (!cmm || !cyy) return true; // оставляем карты без данных об экспирации
+                if (!cmm || !cyy) return true; // (translated)
                 return (cyy * 100 + cmm) >= minVal;
             });
         }
     }
 
-    // Мультивыбор Уровень 1 — Тип карты (OR-логика: показываем карты, если тип совпадает с ЛЮБЫМ из выбранных)
+    // (translated)
     if (filterTypes.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             const ct = (info?.type || c.cardType || '').toUpperCase();
-            // Проверяем, содержит ли тип карты хотя бы одно из выбранных значений
+            // Validate card data
             return [...filterTypes].some(ft => ct.includes(ft));
         });
     }
-    // Мультивыбор Уровень 2 — Класс карты (OR-логика)
+    // (translated)
     if (filterClasses.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             const level = (info?.level || '').toUpperCase().replace(/\s+/g, '_');
-            // Проверяем, совпадает ли класс карты с хотя бы одним из выбранных
+            // Validate card data
             return [...filterClasses].some(fc => level.includes(fc) || level === fc);
         });
     }
-    // Мультивыбор Уровень 3 — Платёжная система (OR-логика)
+    // (translated)
     if (filterPaymentSystems.size > 0) {
         allCards = allCards.filter(c => {
             const network = getCardType(c.cc || '');
             const brand = (BIN_CACHE[c.bin]?.brand || '').toUpperCase();
-            // Проверяем, совпадает ли система с хотя бы одной из выбранных
+            // Validate card data
             return [...filterPaymentSystems].some(fps => network === fps || brand.includes(fps));
         });
     }
@@ -7453,7 +7453,7 @@ function _processPipeline(allCards, status) {
 }
 
 // ──── REBUILD BIN GROUPS ────
-// Группирует PARSER_STATE.collected по БИН-коду для отображения в Parser Results
+// (translated)
 function _rebuildBinGroups() {
     const binMap = {};
     PARSER_STATE.collected.forEach(c => {
@@ -7466,7 +7466,7 @@ function _rebuildBinGroups() {
 }
 
 // ──── UPDATE STATS BAR ────
-// Обновляет статистику над таблицей результатов парсера
+// (translated)
 function _updateStatsBar() {
     const stats = PARSER_STATE._pipelineStats;
     const bar = document.getElementById('parser-stats-bar');
@@ -7497,18 +7497,18 @@ function _updateStatsBar() {
 function _buildExportTabTitle() {
     const filters = PARSER_STATE.filters || {};
     const parts = [];
-    // Тип карты (мультивыбор)
+    // (translated)
     if (filters.filterTypes && filters.filterTypes.size > 0) {
         parts.push([...filters.filterTypes].join('+'));
     } else if (filters.activeTypes && filters.activeTypes.length > 0) {
         const typeNames = { credit: 'Credit Card', debit: 'Debit Card', prepaid: 'Prepaid' };
         parts.push(filters.activeTypes.map(t => typeNames[t] || t).join(', '));
     }
-    // Класс карты (мультивыбор)
+    // (translated)
     if (filters.filterClasses && filters.filterClasses.size > 0) {
         parts.push([...filters.filterClasses].map(c => c.replace('_', ' ')).join('+'));
     }
-    // Платёжная система (мультивыбор)
+    // (translated)
     if (filters.filterPaymentSystems && filters.filterPaymentSystems.size > 0) {
         parts.push([...filters.filterPaymentSystems].join('+'));
     } else if (filters.activeNetworks && filters.activeNetworks.length > 0) {
@@ -7528,7 +7528,7 @@ function _buildExportTabTitle() {
         parts.push(filters.bank);
     }
     if (parts.length === 0) return 'Export ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    // TEST MODE: добавляем маркер TEST в заголовок экспорта
+    // (translated)
     const prefix = PARSER_STATE.testMode ? '🧪 TEST — ' : '';
     return prefix + parts.join(' — ');
 }
@@ -7537,13 +7537,13 @@ function importToProject() {
     let list = PARSER_STATE.collected;
     if (list.length === 0) { toast('No cards to import', 'warning'); return; }
 
-    // TEST MODE: экспортируем только уникальные БИНы с текущей ротацией
+    // (translated)
     if (PARSER_STATE.testMode) {
         list = _applyTestMode(list, false);
     }
 
     const lines = [];
-    // В TEST MODE экспортируем все карты из отфильтрованного списка, без TEST MODE — только выбранные
+    // (translated)
     if (PARSER_STATE.testMode) {
         list.forEach(c => {
             const cc = (c.cc || '').replace(/\s/g, '');
@@ -7614,20 +7614,20 @@ function renderParserResults(geoFilter) {
     const activeGeo = geoFilter || '';
     let displayList = activeGeo ? list.filter(c => (c.detectedGeo || '').toUpperCase() === activeGeo) : list;
 
-    // TEST MODE: применяем дедупликацию по БИНам с ротацией (после всех фильтров)
+    // (translated)
     let testModeActive = PARSER_STATE.testMode;
     let testModeCards = 0;
     let testModeBins = 0;
     if (testModeActive) {
-        // advance=false — не сдвигаем ротацию при перерисовке (сдвиг только при клике)
+        // (translated)
         displayList = _applyTestMode(displayList, false);
         testModeCards = displayList.length;
-        // Считаем уникальные БИНы
+        // Count results
         const uniqueBins = new Set(displayList.map(c => c.bin));
         testModeBins = uniqueBins.size;
     }
 
-    // Обновляем статистику TEST MODE в stats bar
+    // (translated)
     const testStatEl = document.getElementById('ps-test-mode');
     if (testStatEl) {
         testStatEl.style.display = testModeActive ? 'inline' : 'none';
@@ -7645,14 +7645,14 @@ function renderParserResults(geoFilter) {
     if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin] || 0) - (binCounts[a.bin] || 0));
     else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin] || 0) - (binCounts[b.bin] || 0));
 
-    // Summary (учитываем TEST MODE в отображении)
+    // (translated)
     const displayCount = displayList.length;
     const summaryHtml = `<div class="parser-summary">
         <span class="ps-item">Clean: <strong>${list.length}</strong></span>
         ${testModeActive ? `<span class="ps-item" style="color:#60a5fa">🧪 Test Mode: <strong>${testModeCards}</strong> cards (<strong>${testModeBins}</strong> BINs)</span>` : ''}
     </div>`;
 
-    // Import button (показываем количество с учётом TEST MODE)
+    // (translated)
     const importHtml = `<div class="parser-action-bar">
         <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${displayCount})</button>
     </div>`;
@@ -8345,24 +8345,24 @@ function initColumnResize(table, storageKey) {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  TODAY CARDS — простой мини-парсер, аналог TRASH
-//  Открывает модал с textarea/файлом, парсит, показывает отчёт.
-//  Полностью независим от PARSER_STATE и основного пайплайна.
+// (translated)
+// (translated)
+// (translated)
 // ═══════════════════════════════════════════════════════════════
 
-/** Состояние Today Cards мини-парсера */
+/** Today Cards mini-parser state */
 const TC = {
-    cards:     [],   // спарсенные карты
-    dateLabel: '',   // метка даты для заголовка отчёта
-    rawText:   '',   // последний вставленный текст
+    cards:     [],   // parsed cards
+    dateLabel: '',   // date label for report header
+    rawText:   '',   // last pasted text
 };
 
-/** Открывает модал Today Cards */
+/** Open Today Cards modal */
 function _openTodayCardsModal() {
     const ov = document.getElementById('today-cards-overlay');
     if (!ov) return;
     ov.classList.remove('hidden');
-    // Устанавливаем сегодняшнюю дату по умолчанию
+    // (translated)
     const dp = document.getElementById('tc-date');
     if (dp && !dp.value) {
         dp.value = new Date().toISOString().slice(0,10);
@@ -8370,7 +8370,7 @@ function _openTodayCardsModal() {
     _tcUpdateDetected();
 }
 
-/** Считает карты в textarea и обновляет счётчик */
+/* (translated)
 function _tcUpdateDetected() {
     const ta = document.getElementById('tc-textarea');
     const badge = document.getElementById('tc-detected');
@@ -8380,8 +8380,8 @@ function _tcUpdateDetected() {
 }
 
 /**
- * Инициализирует все обработчики модала Today Cards.
- * Вызывается один раз при рендере Parser.
+ * (translated)
+ * (translated)
  */
 function _initTodayCardsModal() {
     const overlay  = document.getElementById('today-cards-overlay');
@@ -8394,13 +8394,13 @@ function _initTodayCardsModal() {
     const closeBtn  = document.getElementById('tc-close-btn');
     const cancelBtn = document.getElementById('tc-cancel-btn');
 
-    // Закрытие
+    // (translated)
     const closeModal = () => overlay.classList.add('hidden');
     closeBtn?.addEventListener('click',  closeModal);
     cancelBtn?.addEventListener('click', closeModal);
     overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
-    // Счётчик при вводе
+    // (translated)
     ta?.addEventListener('input', _tcUpdateDetected);
 
     // CLEAR
@@ -8411,7 +8411,7 @@ function _initTodayCardsModal() {
         TC.cards = [];
     });
 
-    // Загрузка файла (.json или .txt)
+    // (translated)
     fileInput?.addEventListener('change', e => {
         const f = e.target.files[0];
         if (!f) return;
@@ -8419,25 +8419,25 @@ function _initTodayCardsModal() {
         reader.onload = ev => {
             const content = ev.target.result;
             try {
-                // Пробуем распарсить как Telegram JSON
+                // (translated)
                 const obj = JSON.parse(content);
                 const msgs = Array.isArray(obj) ? obj
                            : (Array.isArray(obj.messages) ? obj.messages : []);
-                // Флаттеним текст из сообщений
+                // (translated)
                 const text = msgs.map(m => {
                     if (typeof m.text === 'string') return m.text;
                     if (Array.isArray(m.text)) return m.text.map(t => typeof t === 'string' ? t : (t.text||'')).join('');
                     return '';
                 }).join('\n');
                 if (ta) ta.value = text;
-                // Если есть поле date — пробуем подставить дату из первого сообщения
+                // (translated)
                 const firstDate = msgs.find(m => m.date)?.date;
                 if (firstDate) {
                     const dp = document.getElementById('tc-date');
                     if (dp && !dp.value) dp.value = firstDate.slice(0,10);
                 }
             } catch {
-                // Текстовый файл
+                // (translated)
                 if (ta) ta.value = content;
             }
             _tcUpdateDetected();
@@ -8450,7 +8450,7 @@ function _initTodayCardsModal() {
     parseBtn?.addEventListener('click', _tcRunParse);
 }
 
-/** Запускает парсинг вставленного текста */
+/* (translated)
 function _tcRunParse() {
     const ta = document.getElementById('tc-textarea');
     const dp = document.getElementById('tc-date');
@@ -8461,7 +8461,7 @@ function _tcRunParse() {
         return;
     }
 
-    // Дата для метки отчёта (не фильтрует — только метка)
+    // (translated)
     const dateVal = dp?.value || '';
     if (dateVal) {
         TC.dateLabel = new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US',
@@ -8471,14 +8471,14 @@ function _tcRunParse() {
             { day: 'numeric', month: 'short', year: 'numeric' });
     }
 
-    // Извлекаем карты из текста
-    // Используем _parseCheckerOutput для структурированного формата
-    // При отсутствии маркеров — берём все найденные номера
+    // Extract card number
+    // (translated)
+    // (translated)
     const parsed = _parseCheckerOutput(text);
     let cards = [];
 
     if (parsed.length > 0) {
-        // Структурированный формат — берём ВСЕ статусы (alive+dead+invalid)
+        // (translated)
         cards = parsed.map(p => ({
             cc:       p.cc,
             mm:       p.mm,
@@ -8493,7 +8493,7 @@ function _tcRunParse() {
             msgDate:  null,
         }));
     } else {
-        // Нет маркеров — парсим все номера из текста
+        // (translated)
         const seen = new Set();
         text.split(/\r?\n/).forEach(line => {
             const m = line.match(/\b(\d{13,19})\b/);
@@ -8501,7 +8501,7 @@ function _tcRunParse() {
             const cc = m[1];
             if (seen.has(cc)) return;
             seen.add(cc);
-            // Пробуем извлечь MM YY CVV
+            // (translated)
             const rest = line.replace(cc, '');
             const dates = rest.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
             cards.push({
@@ -8527,7 +8527,7 @@ function _tcRunParse() {
     toast(`Parsed: ${cards.length} cards`, 'success');
 }
 
-/** Строит статистику по массиву карт */
+/* (translated)
 function _tcStats(cards) {
     const total = cards.length;
     const geoMap = {}, typeMap = {}, levelMap = {}, sysMap = {}, bankMap = {}, statusMap = {};
@@ -8556,7 +8556,7 @@ function _tcStats(cards) {
     return { total, geoMap, typeMap, levelMap, sysMap, bankMap, statusMap };
 }
 
-/** GEO код → название */
+/* (translated)
 function _tcGeoName(code) {
     const M = {CA:'Canada',US:'United States',AU:'Australia',GB:'United Kingdom',
         DE:'Germany',FR:'France',NL:'Netherlands',NO:'Norway',SE:'Sweden',
@@ -8568,20 +8568,20 @@ function _tcGeoName(code) {
     return M[code] || code;
 }
 
-/** GEO → флаг эмодзи */
+/* (translated)
 function _tcFlag(code) {
     if (!code || code.length !== 2) return '🌐';
     return String.fromCodePoint(...[...code.toUpperCase()].map(c=>0x1F1E0+c.charCodeAt(0)-65));
 }
 
-/** Текстовый Telegram-отчёт */
+/* (translated)
 function _tcTextReport(s) {
     const pct = n => (n/s.total*100).toFixed(1)+'%';
     const sep = '━'.repeat(27);
     let out = `📊 DAILY REPORT — ${TC.dateLabel}\n${sep}\n`;
     out += `💳 Total Cards: ${s.total}\n`;
 
-    // Статус (если есть)
+    // (translated)
     const alive = s.statusMap['alive'] || 0;
     const dead  = s.statusMap['dead']  || 0;
     const inv   = s.statusMap['invalid']||0;
@@ -8610,7 +8610,7 @@ function _tcTextReport(s) {
     return out;
 }
 
-/** Рендерит результаты в блок #tc-results */
+/* (translated)
 function _tcRenderResults(cards) {
     const el = document.getElementById('tc-results');
     if (!el) return;
@@ -8619,13 +8619,13 @@ function _tcRenderResults(cards) {
     const s = _tcStats(cards);
     const pct = n => (n/s.total*100).toFixed(1);
 
-    // Прогресс-бар
+    // (translated)
     const bar = (p,col) => {
         const w = Math.round(+p/100*16);
         return `<span class="tcr-bar" style="--w:${w};--c:${col}"></span>`;
     };
 
-    // Секция с рядами
+    // (translated)
     const mkRows = (map,col) => Object.entries(map).sort((a,b)=>b[1]-a[1])
         .map(([k,n])=>`<div class="tcr-row">
             <span class="tcr-lbl">${k}</span>
@@ -8634,7 +8634,7 @@ function _tcRenderResults(cards) {
             <span class="tcr-pct">${pct(n)}%</span>
         </div>`).join('');
 
-    // Страны
+    // (translated)
     const geoEntries = Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]);
     const geoRows = geoEntries.slice(0,10).map(([code,n])=>`<div class="tcr-row">
         <span class="tcr-flag">${_tcFlag(code)}</span>
@@ -8644,7 +8644,7 @@ function _tcRenderResults(cards) {
         <span class="tcr-pct">${pct(n)}%</span>
     </div>`).join('');
 
-    // Таблица карт
+    // (translated)
     const rows = cards.map((c,i)=>{
         const cc = c.cc||'';
         const masked = cc.length>=10 ? cc.slice(0,6)+'••••'+cc.slice(-4) : cc;
@@ -8665,7 +8665,7 @@ function _tcRenderResults(cards) {
     }).join('');
 
     el.innerHTML = `
-    <!-- Кнопки действий -->
+    <!-- (comment) -->
     <div class="tcr-actions">
         <button class="pz-btn pz-btn-dim" id="tc-copy-report">📊 COPY REPORT</button>
         <button class="pz-btn pz-btn-dim" id="tc-export-all">📤 EXPORT ALL TO NOTES</button>
@@ -8673,7 +8673,7 @@ function _tcRenderResults(cards) {
         <button class="pz-btn pz-btn-dim" id="tc-copy-all">📋 COPY ALL</button>
     </div>
 
-    <!-- Сводка -->
+    <!-- (comment) -->
     <div class="tcr-summary">
         <div class="tcr-total"><span class="tcr-total-n">${s.total}</span><span class="tcr-total-lbl">TOTAL CARDS</span></div>
         ${s.statusMap['alive']?`<div class="tcr-chip tcr-alive-chip">✅ Alive: ${s.statusMap['alive']}</div>`:''}
@@ -8681,7 +8681,7 @@ function _tcRenderResults(cards) {
         ${s.statusMap['invalid']?`<div class="tcr-chip tcr-inv-chip">❌ Invalid: ${s.statusMap['invalid']}</div>`:''}
     </div>
 
-    <!-- Секции статистики -->
+    <!-- (comment) -->
     <div class="tcr-grid">
         <div class="tcr-section">
             <div class="tcr-section-title">🌍 BY COUNTRY</div>${geoRows}
@@ -8697,7 +8697,7 @@ function _tcRenderResults(cards) {
         </div>
     </div>
 
-    <!-- Таблица карт -->
+    <!-- (comment) -->
     <div class="tcr-table-section">
         <div class="tcr-section-title">
             📋 ALL CARDS

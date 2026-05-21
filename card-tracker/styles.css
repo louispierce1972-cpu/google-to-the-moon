@@ -7370,17 +7370,32 @@ tr.row-selected td {
 }
 
 /* ═══════ ALL CARDS AGGREGATE TABLE ═══════ */
+.ac-table {
+    table-layout: auto;
+}
+
 .ac-table th {
     white-space: nowrap;
 }
 
 .ac-row {
-    cursor: pointer;
     transition: background .12s;
 }
 
 .ac-row:hover {
     background: rgba(255, 255, 255, .04);
+}
+
+/* Status column in All Cards — read-only, left-aligned */
+.ac-row .status-btns {
+    justify-content: flex-start;
+    gap: 2px;
+    flex-wrap: nowrap;
+}
+
+.ac-row .status-btn {
+    cursor: default;
+    pointer-events: none;
 }
 
 .ac-names-cell {
@@ -7392,7 +7407,6 @@ tr.row-selected td {
 }
 
 .doc-row {
-    cursor: pointer;
     transition: background .12s;
 }
 
