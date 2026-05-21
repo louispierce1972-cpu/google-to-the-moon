@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -631,12 +631,12 @@ function getFilteredDocs() {
 function getCardStats(cards) {
     return {
         total: cards.length,
-        verified: cards.filter(c => c.verified).length,
-        suspended: cards.filter(c => c.suspended).length,
         cardAdd: cards.filter(c => c.cardAdd).length,
         runAds: cards.filter(c => c.runAds).length,
+        verified: cards.filter(c => c.verified).length,
+        docReady: cards.filter(c => c.docReady).length,
+        waterBill: cards.filter(c => c.waterBill).length,
         minic: cards.filter(c => c.minic).length,
-        active: cards.filter(c => c.starred).length,
     };
 }
 
@@ -868,10 +868,10 @@ function renderStats() {
             ? `<div class="stat-card minic"><span class="stat-label">Cards Only</span><span class="stat-value">${standaloneCount}</span></div>`
             : '';
         bar.innerHTML = `
-            <div class="stat-card total"><span class="stat-label">Unique Cards</span><span class="stat-value">${cards.length}</span></div>
-            <div class="stat-card card-add"><span class="stat-label">Total Use</span><span class="stat-value">${totalUse}</span></div>
-            <div class="stat-card run-ads"><span class="stat-label">Avg Use</span><span class="stat-value">${avgUse}</span></div>
-            <div class="stat-card top-bins"><span class="stat-label">Unique BINs</span><span class="stat-value">${uniqueBins}</span></div>
+            <div class="stat-card total"><span class="stat-label">Cards</span><span class="stat-value">${cards.length}</span></div>
+            <div class="stat-card card-add"><span class="stat-label">Use</span><span class="stat-value">${totalUse}</span></div>
+            <div class="stat-card run-ads"><span class="stat-label">Avg</span><span class="stat-value">${avgUse}</span></div>
+            <div class="stat-card top-bins"><span class="stat-label">BINs</span><span class="stat-value">${uniqueBins}</span></div>
             ${standaloneStatHtml}
         `;
         return;
@@ -917,11 +917,12 @@ function renderStats() {
     const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Копировать карты в буфер">📋</button>`;
     bar.innerHTML = `
         <div class="stat-card total"><span class="stat-label">Total</span><span class="stat-value">${s.total}</span>${copyBtn('total')}</div>
-        <div class="stat-card verified"><span class="stat-label">Verified</span><span class="stat-value">${s.verified}</span>${copyBtn('verified')}</div>
-        <div class="stat-card suspended"><span class="stat-label">Suspended</span><span class="stat-value">${s.suspended}</span>${copyBtn('suspended')}</div>
-        <div class="stat-card card-add"><span class="stat-label">Card Add</span><span class="stat-value">${s.cardAdd}</span>${copyBtn('cardAdd')}</div>
-        <div class="stat-card run-ads"><span class="stat-label">Run Ads</span><span class="stat-value">${s.runAds}</span>${copyBtn('runAds')}</div>
-        <div class="stat-card active-stat"><span class="stat-label">Active</span><span class="stat-value">${s.active}</span>${copyBtn('active')}</div>
+        <div class="stat-card card-add"><span class="stat-label">A</span><span class="stat-value">${s.cardAdd}</span>${copyBtn('cardAdd')}</div>
+        <div class="stat-card run-ads"><span class="stat-label">R</span><span class="stat-value">${s.runAds}</span>${copyBtn('runAds')}</div>
+        <div class="stat-card verified"><span class="stat-label">V</span><span class="stat-value">${s.verified}</span>${copyBtn('verified')}</div>
+        <div class="stat-card doc-status"><span class="stat-label">D</span><span class="stat-value">${s.docReady}</span>${copyBtn('docReady')}</div>
+        <div class="stat-card water-bill"><span class="stat-label">W</span><span class="stat-value">${s.waterBill}</span>${copyBtn('waterBill')}</div>
+        <div class="stat-card minic"><span class="stat-label">M</span><span class="stat-value">${s.minic}</span>${copyBtn('minic')}</div>
     `;
 
     // Обработчики кликов на кнопки копирования
@@ -944,20 +945,23 @@ function _copyStatCards(filter, cards) {
         case 'total':
             filtered = cards;
             break;
-        case 'verified':
-            filtered = cards.filter(c => c.verified);
-            break;
-        case 'suspended':
-            filtered = cards.filter(c => c.suspended);
-            break;
         case 'cardAdd':
             filtered = cards.filter(c => c.cardAdd);
             break;
         case 'runAds':
             filtered = cards.filter(c => c.runAds);
             break;
-        case 'active':
-            filtered = cards.filter(c => c.starred);
+        case 'verified':
+            filtered = cards.filter(c => c.verified);
+            break;
+        case 'docReady':
+            filtered = cards.filter(c => c.docReady);
+            break;
+        case 'waterBill':
+            filtered = cards.filter(c => c.waterBill);
+            break;
+        case 'minic':
+            filtered = cards.filter(c => c.minic);
             break;
         default:
             filtered = cards;
@@ -1700,6 +1704,8 @@ function renderContent() {
                         <button class="status-btn btn-a ${c.cardAdd ? 'active' : ''}" onclick="toggleStatus('${c.id}','cardAdd')" title="Card Add">A</button>
                         <button class="status-btn btn-r ${c.runAds ? 'active' : ''}" onclick="toggleStatus('${c.id}','runAds')" title="Run Ads">R</button>
                         <button class="status-btn btn-v ${c.verified ? 'active' : ''}" onclick="toggleStatus('${c.id}','verified')" title="Verify">V</button>
+                        <button class="status-btn btn-d ${c.docReady ? 'active' : ''}" onclick="toggleStatus('${c.id}','docReady')" title="Documents">D</button>
+                        <button class="status-btn btn-w ${c.waterBill ? 'active' : ''}" onclick="toggleStatus('${c.id}','waterBill')" title="Water Bill">W</button>
                         <button class="status-btn btn-m ${c.minic ? 'active' : ''}" onclick="toggleStatus('${c.id}','minic')" title="Minic">M</button>
                     </div>
                 `}
@@ -1841,8 +1847,8 @@ function renderAllCards() {
         const rowNum = idx + 1;
 
         return `
-        <tr class="ac-row" data-cardnum="${cardNum}" onclick="_toggleAllCardsDrawer('${cardNum}', this)">
-            <td class="td-num">${rowNum}</td>
+        <tr class="ac-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}" data-id="${c.id}" data-cardnum="${cardNum}" onclick="_toggleAllCardsDrawer('${cardNum}', this)">
+            <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
             <td>
                 <div class="card-cell">
                     <span class="card-name"><span class="flag">${flag}</span> ${maskCard(c.cardNumber)}</span>
@@ -1865,7 +1871,7 @@ function renderAllCards() {
         <table class="data-table ac-table">
             <thead>
                 <tr>
-                    <th class="td-num">#</th>
+                    <th><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
                     <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
                     <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
                     <th class="sortable" data-sort="status">Use ${sortIcon('status')}</th>
@@ -2013,8 +2019,8 @@ function renderDocs() {
             ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
             : '';
         return `
-        <tr class="doc-row" onclick="_toggleDocDrawer('${d.id}', this)">
-            <td class="td-num">${i + 1}</td>
+        <tr class="doc-row ${_selectedCards.has(d.id) ? 'row-selected' : ''}" data-id="${d.id}" onclick="_toggleDocDrawer('${d.id}', this)">
+            <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${d.id}" ${_selectedCards.has(d.id) ? 'checked' : ''} onchange="toggleCardSelect('${d.id}', this.checked)"></label></td>
             <td>
                 <div class="card-cell">
                     <span class="card-name">
@@ -2049,7 +2055,7 @@ function renderDocs() {
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
                     <th class="sortable-doc" data-sort="name">Name ${docSortIcon('name')}</th>
                     <th class="sortable-doc" data-sort="notes">Notes ${docSortIcon('notes')}</th>
                     <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
@@ -2678,10 +2684,14 @@ window.toggleStatus = function (id, field) {
             const btnA = row.querySelector('.status-btn.btn-a');
             const btnR = row.querySelector('.status-btn.btn-r');
             const btnV = row.querySelector('.status-btn.btn-v');
+            const btnD = row.querySelector('.status-btn.btn-d');
+            const btnW = row.querySelector('.status-btn.btn-w');
             const btnM = row.querySelector('.status-btn.btn-m');
             if (btnA) btnA.classList.toggle('active', card.cardAdd);
             if (btnR) btnR.classList.toggle('active', card.runAds);
             if (btnV) btnV.classList.toggle('active', card.verified);
+            if (btnD) btnD.classList.toggle('active', card.docReady);
+            if (btnW) btnW.classList.toggle('active', card.waterBill);
             if (btnM) btnM.classList.toggle('active', card.minic);
         }
 
@@ -2689,7 +2699,7 @@ window.toggleStatus = function (id, field) {
         updateStatsInPlace();
         updateSidebarBadges();
 
-        const labels = { cardAdd: 'Card Add', runAds: 'Run Ads', verified: 'Verified', minic: 'Minic' };
+        const labels = { cardAdd: 'Card Add', runAds: 'Run Ads', verified: 'Verified', docReady: 'Documents', waterBill: 'Water Bill', minic: 'Minic' };
         toast(`${labels[field]}: ${card[field] ? 'ON' : 'OFF'}`, card[field] ? 'success' : 'info');
     }
 };
@@ -2723,12 +2733,13 @@ function _enableDrawerScroll(drawerTr) {
     }, { once: true });
 }
 
-// Статусы A R V M в том же стиле, что и в основной таблице (без onclick)
 function _drawerStatusHtml(c) {
     return `<div class="status-btns">
         <span class="status-btn btn-a ${c.cardAdd ? 'active' : ''}">A</span>
         <span class="status-btn btn-r ${c.runAds ? 'active' : ''}">R</span>
         <span class="status-btn btn-v ${c.verified ? 'active' : ''}">V</span>
+        <span class="status-btn btn-d ${c.docReady ? 'active' : ''}">D</span>
+        <span class="status-btn btn-w ${c.waterBill ? 'active' : ''}">W</span>
         <span class="status-btn btn-m ${c.minic ? 'active' : ''}">M</span>
     </div>`;
 }
@@ -3281,13 +3292,14 @@ function updateStatsInPlace() {
         const cards = getFilteredCards();
         const s = getCardStats(cards);
         const statCards = bar.querySelectorAll('.stat-card');
-        if (statCards.length >= 6) {
+        if (statCards.length >= 7) {
             statCards[0].querySelector('.stat-value').textContent = s.total;
-            statCards[1].querySelector('.stat-value').textContent = s.verified;
-            statCards[2].querySelector('.stat-value').textContent = s.suspended;
-            statCards[3].querySelector('.stat-value').textContent = s.cardAdd;
-            statCards[4].querySelector('.stat-value').textContent = s.runAds;
-            statCards[5].querySelector('.stat-value').textContent = s.active;
+            statCards[1].querySelector('.stat-value').textContent = s.cardAdd;
+            statCards[2].querySelector('.stat-value').textContent = s.runAds;
+            statCards[3].querySelector('.stat-value').textContent = s.verified;
+            statCards[4].querySelector('.stat-value').textContent = s.docReady;
+            statCards[5].querySelector('.stat-value').textContent = s.waterBill;
+            statCards[6].querySelector('.stat-value').textContent = s.minic;
         }
     }
 }

@@ -1705,9 +1705,9 @@ textarea {
 /* ═══════ STATS BAR ═══════ */
 .stats-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 6px;
-    padding: 6px 8px;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 4px;
+    padding: 4px 8px;
     background: var(--bg-primary)
 }
 
@@ -1715,7 +1715,7 @@ textarea {
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
     border-radius: 3px;
-    padding: 6px 10px;
+    padding: 4px 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1778,20 +1778,20 @@ textarea {
 }
 
 .stat-label {
-    font-size: var(--fs-xs);
+    font-size: 8px;
     font-weight: var(--fw-bold);
     letter-spacing: var(--ls-wider);
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: var(--sp-1)
+    margin-bottom: 2px
 }
 
 .stat-value {
-    font-size: 26px;
+    font-size: 18px;
     font-weight: var(--fw-black);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
-    line-height: var(--lh-tight)
+    line-height: 1.1
 }
 
 /* Stat value colors matching reference */
@@ -2249,6 +2249,28 @@ textarea {
     color: var(--text-dim);
 }
 
+/* D = documents: green ON */
+.status-btn.btn-d.active {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22C55E;
+    opacity: 1;
+}
+
+.status-btn.btn-d:not(.active) {
+    color: var(--text-dim);
+}
+
+/* W = water bill: green ON */
+.status-btn.btn-w.active {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22C55E;
+    opacity: 1;
+}
+
+.status-btn.btn-w:not(.active) {
+    color: var(--text-dim);
+}
+
 /* Stat card minic */
 .stat-card.minic {
     border-top: 2px solid #38BDF8;
@@ -2256,6 +2278,24 @@ textarea {
 
 .stat-card.minic .stat-value {
     color: #38BDF8;
+}
+
+/* Stat card doc-status (D) */
+.stat-card.doc-status::before {
+    background: linear-gradient(90deg, #a78bfa, #8b5cf6)
+}
+
+.stat-card.doc-status .stat-value {
+    color: #a78bfa;
+}
+
+/* Stat card water-bill (W) */
+.stat-card.water-bill::before {
+    background: linear-gradient(90deg, #2dd4bf, #14b8a6)
+}
+
+.stat-card.water-bill .stat-value {
+    color: #2dd4bf;
 }
 
 /* Analytics M tag + cell */
