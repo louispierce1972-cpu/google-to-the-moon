@@ -1758,22 +1758,33 @@ const _EX_TZ = {
 };
 
 async function _exParse(addr) {
-    const url = 'http://localhost:3777/geocode?q=' + encodeURIComponent(addr);
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    if (!d || !d.length) throw new Error('Address not found');
-    const o = d[0], a = o.address || {};
-    const st = [];
-    if (a.house_number) st.push(a.house_number);
-    if (a.road) st.push(a.road);
-    return {
-        lat: parseFloat(o.lat), lng: parseFloat(o.lon),
-        country: a.country || '—', cc: (a.country_code || '').toUpperCase(),
-        state: a.state || a.province || a.region || '—',
-        city: a.city || a.town || a.village || a.municipality || '—',
-        zip: a.postcode || '—', street: st.join(' ') || '—',
-    };
+    // Try direct Nominatim first, then proxy fallback
+    const q = encodeURIComponent(addr);
+    const urls = [
+        'https://nominatim.openstreetmap.org/search?q=' + q + '&format=json&addressdetails=1&limit=1&accept-language=en',
+        'http://localhost:3777/geocode?q=' + q,
+    ];
+    let lastErr = 'Address not found';
+    for (const url of urls) {
+        try {
+            const r = await fetch(url);
+            if (!r.ok) { lastErr = 'HTTP ' + r.status; continue; }
+            const d = await r.json();
+            if (!d || !d.length) { lastErr = 'Address not found'; continue; }
+            const o = d[0], a = o.address || {};
+            const st = [];
+            if (a.house_number) st.push(a.house_number);
+            if (a.road) st.push(a.road);
+            return {
+                lat: parseFloat(o.lat), lng: parseFloat(o.lon),
+                country: a.country || '—', cc: (a.country_code || '').toUpperCase(),
+                state: a.state || a.province || a.region || '—',
+                city: a.city || a.town || a.village || a.municipality || '—',
+                zip: a.postcode || '—', street: st.join(' ') || '—',
+            };
+        } catch (e) { lastErr = e.message; }
+    }
+    throw new Error(lastErr);
 }
 
 function _exTZ(lng, cc) {

@@ -22,7 +22,7 @@ const server = http.createServer((req, res) => {
         const q = req.url.replace('/geocode?', '');
         const geoUrl = 'https://nominatim.openstreetmap.org/search?' + q + '&format=json&addressdetails=1&limit=1&accept-language=en';
         console.log('[GEO] ' + geoUrl);
-        https.get(geoUrl, { headers: { 'User-Agent': 'CardTrackerApp/1.0 (contact@example.com)' } }, (geoRes) => {
+        https.get(geoUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36' } }, (geoRes) => {
             let data = '';
             geoRes.on('data', c => data += c);
             geoRes.on('end', () => {
