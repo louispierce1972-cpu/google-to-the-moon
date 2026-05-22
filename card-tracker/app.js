@@ -1725,338 +1725,324 @@ function _ckProcess() {
 }
 
 // ═══════════════════════════════════════════
-//   EXIF MODE — Camera DB, Geocoding, Rendering
+//   EXIF MODE — Compact Address-to-Metadata
 // ═══════════════════════════════════════════
 
 const _EXIF_CAMERAS = [
-    { make: 'Google',    model: 'Pixel 9 Pro' },
-    { make: 'Google',    model: 'Pixel 9' },
-    { make: 'Google',    model: 'Pixel 8 Pro' },
-    { make: 'Google',    model: 'Pixel 8a' },
-    { make: 'Google',    model: 'Pixel 7 Pro' },
-    { make: 'Apple',     model: 'iPhone 16 Pro Max' },
-    { make: 'Apple',     model: 'iPhone 16 Pro' },
-    { make: 'Apple',     model: 'iPhone 15 Pro Max' },
-    { make: 'Apple',     model: 'iPhone 15 Pro' },
-    { make: 'Apple',     model: 'iPhone 14 Pro' },
-    { make: 'samsung',   model: 'SM-S928B' },
-    { make: 'samsung',   model: 'SM-S926B' },
-    { make: 'samsung',   model: 'SM-S921B' },
-    { make: 'samsung',   model: 'SM-S918B' },
-    { make: 'Xiaomi',    model: '2311DRK48C' },
-    { make: 'OnePlus',   model: 'CPH2581' },
-    { make: 'HUAWEI',    model: 'ALN-AL80' },
-    { make: 'Sony',      model: 'XQ-DQ72' },
-    { make: 'Canon',     model: 'Canon EOS R6 Mark II' },
-    { make: 'NIKON CORPORATION', model: 'NIKON Z6 III' },
-    { make: 'SONY',      model: 'ILCE-7M4' },
+    { make: 'Apple',   model: 'iPhone 16 Pro Max' },
+    { make: 'Apple',   model: 'iPhone 16 Pro' },
+    { make: 'Apple',   model: 'iPhone 15 Pro Max' },
+    { make: 'Apple',   model: 'iPhone 15 Pro' },
+    { make: 'Apple',   model: 'iPhone 14 Pro' },
+    { make: 'Apple',   model: 'iPhone 14' },
+    { make: 'Google',  model: 'Pixel 9 Pro' },
+    { make: 'Google',  model: 'Pixel 9' },
+    { make: 'Google',  model: 'Pixel 8 Pro' },
+    { make: 'Google',  model: 'Pixel 8' },
+    { make: 'Google',  model: 'Pixel 7 Pro' },
+    { make: 'samsung', model: 'SM-S928B' },   // Galaxy S24 Ultra
+    { make: 'samsung', model: 'SM-S926B' },   // Galaxy S24+
+    { make: 'samsung', model: 'SM-S921B' },   // Galaxy S24
+    { make: 'samsung', model: 'SM-S918B' },   // Galaxy S23 Ultra
+    { make: 'samsung', model: 'SM-S911B' },   // Galaxy S23
+    { make: 'Xiaomi',  model: '2311DRK48C' }, // Xiaomi 14 Pro
+    { make: 'Xiaomi',  model: '23127PN0CG' }, // Xiaomi 14
+    { make: 'Xiaomi',  model: '2210132C' },   // Xiaomi 13 Pro
+    { make: 'OnePlus', model: 'CPH2581' },    // OnePlus 12
+    { make: 'OnePlus', model: 'CPH2449' },    // OnePlus 11
+];
+// Friendly names for display in dropdown
+const _EXIF_CAM_NAMES = [
+    'Apple — iPhone 16 Pro Max', 'Apple — iPhone 16 Pro',
+    'Apple — iPhone 15 Pro Max', 'Apple — iPhone 15 Pro',
+    'Apple — iPhone 14 Pro', 'Apple — iPhone 14',
+    'Google — Pixel 9 Pro', 'Google — Pixel 9',
+    'Google — Pixel 8 Pro', 'Google — Pixel 8', 'Google — Pixel 7 Pro',
+    'Samsung — Galaxy S24 Ultra', 'Samsung — Galaxy S24+',
+    'Samsung — Galaxy S24', 'Samsung — Galaxy S23 Ultra', 'Samsung — Galaxy S23',
+    'Xiaomi — 14 Pro', 'Xiaomi — 14', 'Xiaomi — 13 Pro',
+    'OnePlus — 12', 'OnePlus — 11',
 ];
 
-// Timezone map for country-based estimation
-const _EXIF_TZ_MAP = {
-    US: lng => lng < -135 ? 'America/Anchorage' : lng < -115 ? 'America/Los_Angeles' : lng < -100 ? 'America/Denver' : lng < -85 ? 'America/Chicago' : 'America/New_York',
-    CA: lng => lng < -120 ? 'America/Los_Angeles' : lng < -100 ? 'America/Denver' : lng < -80 ? 'America/Chicago' : 'America/New_York',
-    JP: () => 'Asia/Tokyo', KR: () => 'Asia/Seoul', CN: () => 'Asia/Shanghai',
-    HK: () => 'Asia/Hong_Kong', SG: () => 'Asia/Singapore', TH: () => 'Asia/Bangkok',
-    VN: () => 'Asia/Ho_Chi_Minh', ID: () => 'Asia/Jakarta', IN: () => 'Asia/Kolkata',
-    PK: () => 'Asia/Karachi', AE: () => 'Asia/Dubai', RU: () => 'Europe/Moscow',
-    GB: () => 'Europe/London', DE: () => 'Europe/Berlin', FR: () => 'Europe/Paris',
-    AU: () => 'Australia/Sydney', NZ: () => 'Pacific/Auckland', BR: () => 'America/Sao_Paulo',
+const _EXIF_TZ = {
+    US: lng => lng < -135 ? ['America/Anchorage',-9] : lng < -115 ? ['America/Los_Angeles',-8] : lng < -100 ? ['America/Denver',-7] : lng < -85 ? ['America/Chicago',-6] : ['America/New_York',-5],
+    CA: lng => lng < -120 ? ['America/Los_Angeles',-8] : lng < -100 ? ['America/Denver',-7] : lng < -80 ? ['America/Chicago',-6] : ['America/New_York',-5],
+    JP: () => ['Asia/Tokyo',9], KR: () => ['Asia/Seoul',9], CN: () => ['Asia/Shanghai',8],
+    HK: () => ['Asia/Hong_Kong',8], SG: () => ['Asia/Singapore',8], TH: () => ['Asia/Bangkok',7],
+    VN: () => ['Asia/Ho_Chi_Minh',7], ID: () => ['Asia/Jakarta',7], IN: () => ['Asia/Kolkata',5.5],
+    PK: () => ['Asia/Karachi',5], AE: () => ['Asia/Dubai',4], RU: () => ['Europe/Moscow',3],
+    GB: () => ['Europe/London',0], DE: () => ['Europe/Berlin',1], FR: () => ['Europe/Paris',1],
+    AU: () => ['Australia/Sydney',10], NZ: () => ['Pacific/Auckland',12], BR: () => ['America/Sao_Paulo',-3],
+    MX: () => ['America/Mexico_City',-6], PH: () => ['Asia/Manila',8], MY: () => ['Asia/Kuala_Lumpur',8],
+    IT: () => ['Europe/Rome',1], ES: () => ['Europe/Madrid',1], NL: () => ['Europe/Amsterdam',1],
 };
-const _EXIF_TZ_OFFSETS = {
-    'America/Anchorage':-9,'America/Los_Angeles':-8,'America/Denver':-7,
-    'America/Chicago':-6,'America/New_York':-5,'America/Halifax':-4,
-    'America/Sao_Paulo':-3,'Europe/London':0,'Europe/Berlin':1,'Europe/Paris':1,
-    'Europe/Moscow':3,'Asia/Dubai':4,'Asia/Karachi':5,'Asia/Kolkata':5.5,
-    'Asia/Bangkok':7,'Asia/Ho_Chi_Minh':7,'Asia/Jakarta':7,'Asia/Shanghai':8,
-    'Asia/Hong_Kong':8,'Asia/Singapore':8,'Asia/Tokyo':9,'Asia/Seoul':9,
-    'Australia/Sydney':10,'Pacific/Auckland':12,
-};
+
+// ── Geocoding with multi-attempt fallback ──
 
 async function _exifGeocode(address) {
     const ex = _CK.exif;
-    if (ex.cache.has(address)) return ex.cache.get(address);
+    if (ex.cache.has(address)) return { ...ex.cache.get(address), matchedBy: 'Cache' };
+
+    // Parse address parts for fallback attempts
+    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+
+    const attempts = [
+        { q: address, label: 'Full Address' },
+    ];
+    if (parts.length >= 3) {
+        // street + city + state
+        attempts.push({ q: parts.slice(0, 3).join(', '), label: 'Street + City + State' });
+        // city + state + zip (last 3 parts)
+        attempts.push({ q: parts.slice(-3).join(', '), label: 'City + State + ZIP' });
+    }
+    // ZIP only (last part, digits only)
+    const lastPart = parts[parts.length - 1] || '';
+    const zipMatch = lastPart.match(/[\d-]{3,10}/);
+    if (zipMatch) attempts.push({ q: zipMatch[0], label: 'ZIP Only' });
+
+    let lastErr = 'Address not found';
+    for (const attempt of attempts) {
+        try {
+            const result = await _exifFetch(attempt.q);
+            result.matchedBy = attempt.label;
+            ex.cache.set(address, result);
+            return result;
+        } catch (e) { lastErr = e.message; }
+    }
+    throw new Error(lastErr);
+}
+
+async function _exifFetch(q) {
     const url = 'https://nominatim.openstreetmap.org/search?q='
-        + encodeURIComponent(address) + '&format=json&addressdetails=1&limit=1';
+        + encodeURIComponent(q) + '&format=json&addressdetails=1&limit=1&accept-language=en';
     const res = await fetch(url, { headers: { 'User-Agent': 'CardTrackerExif/1.0' } });
-    if (!res.ok) throw new Error('Geocoding failed: HTTP ' + res.status);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (!data || !data.length) throw new Error('Address not found');
+    if (!data || !data.length) throw new Error('Not found');
     const r = data[0], a = r.address || {};
-    const streetParts = [];
-    if (a.house_number) streetParts.push(a.house_number);
-    if (a.road) streetParts.push(a.road);
-    const result = {
+    const st = [];
+    if (a.house_number) st.push(a.house_number);
+    if (a.road) st.push(a.road);
+    return {
         lat: parseFloat(r.lat), lng: parseFloat(r.lon),
         country: a.country || (a.country_code || '').toUpperCase() || '—',
         cc: (a.country_code || '').toUpperCase(),
         state: a.state || a.province || a.region || '—',
         city: a.city || a.town || a.village || a.municipality || '—',
-        zip: a.postcode || '—',
-        street: streetParts.join(', ') || '—',
+        zip: a.postcode || '—', street: st.join(' ') || '—',
     };
-    ex.cache.set(address, result);
-    return result;
 }
 
-function _exifGetTimezone(lat, lng, cc) {
-    const fn = _EXIF_TZ_MAP[cc];
-    const tzName = fn ? fn(lng) : null;
-    const offset = tzName ? (_EXIF_TZ_OFFSETS[tzName] ?? Math.round(lng / 15)) : Math.round(lng / 15);
-    const name = tzName || ('UTC' + _exifFmtOffset(offset));
-    return { name, utcOffset: offset, utcOffsetStr: _exifFmtOffset(offset) };
+function _exifTZ(lat, lng, cc) {
+    const fn = _EXIF_TZ[cc];
+    const [name, offset] = fn ? fn(lng) : ['UTC' + _exifOff(Math.round(lng/15)), Math.round(lng/15)];
+    return { name, offset, str: _exifOff(offset) };
 }
 
-function _exifFmtOffset(o) {
-    const s = o >= 0 ? '+' : '-', abs = Math.abs(o);
-    return s + String(Math.floor(abs)).padStart(2,'0') + ':' + String(Math.round((abs % 1) * 60)).padStart(2,'0');
+function _exifOff(o) {
+    const s = o >= 0 ? '+' : '-', a = Math.abs(o);
+    return s + String(Math.floor(a)).padStart(2,'0') + ':' + String(Math.round((a%1)*60)).padStart(2,'0');
 }
 
-function _exifDecToDMS(dec) {
-    const abs = Math.abs(dec), deg = Math.floor(abs), mFull = (abs - deg) * 60;
-    return { deg, minDecimal: mFull.toFixed(7) };
+function _exifDMS(dec) {
+    const a = Math.abs(dec), d = Math.floor(a), m = (a - d) * 60;
+    return d + '° ' + m.toFixed(7) + "'";
 }
 
-function _exifFmtDMS(dec) {
-    const { deg, minDecimal } = _exifDecToDMS(dec);
-    return deg + '° ' + minDecimal + "'";
-}
-
-function _exifFmtDate(d) {
-    if (!d) return '—';
+function _exifDate(d) {
+    if (!d) return '';
     return d.getFullYear() + ':' + String(d.getMonth()+1).padStart(2,'0') + ':'
         + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0')
         + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
 }
 
-function _exifFmtGPSTime(d) {
-    if (!d) return '—';
+function _exifGPSTime(d) {
+    if (!d) return '';
     return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0')
         + ':' + String(d.getUTCSeconds()).padStart(2,'0');
 }
 
-function _exifRandomCamera() {
-    _CK.exif.cam = { ..._EXIF_CAMERAS[Math.floor(Math.random() * _EXIF_CAMERAS.length)] };
-}
+// ── Render EXIF panel (compact) ──
 
-function _exifSetNow() {
-    _CK.exif.dt = new Date();
-}
-
-// Build the EXIF panel HTML (called from renderChecker template)
 function _ckRenderExifPanel() {
     const ex = _CK.exif;
-    const geo = ex.geo, tz = ex.tz, cam = ex.cam, dt = ex.dt;
-    const hasResult = !!(geo && tz);
+    const g = ex.geo, tz = ex.tz, cam = ex.cam, dt = ex.dt;
+    const ok = !!(g && tz);
 
-    // Camera selector options
-    const camOptions = _EXIF_CAMERAS.map((c, i) => {
+    const camOpts = _EXIF_CAMERAS.map((c, i) => {
         const sel = cam && cam.make === c.make && cam.model === c.model ? 'selected' : '';
-        return `<option value="${i}" ${sel}>${c.make} — ${c.model}</option>`;
+        return `<option value="${i}" ${sel}>${_EXIF_CAM_NAMES[i]}</option>`;
     }).join('');
 
-    // DateTime input value
     let dtVal = '';
     if (dt) {
-        const y=dt.getFullYear(), mo=String(dt.getMonth()+1).padStart(2,'0'),
-              dy=String(dt.getDate()).padStart(2,'0'), hh=String(dt.getHours()).padStart(2,'0'),
-              mm=String(dt.getMinutes()).padStart(2,'0'), ss=String(dt.getSeconds()).padStart(2,'0');
-        dtVal = `${y}-${mo}-${dy}T${hh}:${mm}:${ss}`;
+        dtVal = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-'
+            + String(dt.getDate()).padStart(2,'0') + 'T' + String(dt.getHours()).padStart(2,'0')
+            + ':' + String(dt.getMinutes()).padStart(2,'0') + ':' + String(dt.getSeconds()).padStart(2,'0');
     }
 
-    // EXIF + GPS output fields
-    let exifRows = '', gpsRows = '';
-    if (hasResult && cam && dt) {
-        const exDate = _exifFmtDate(dt);
-        const exifFields = [
-            ['Camera Manufacturer', cam.make],
-            ['Camera Model', cam.model],
-            ['Date Time', exDate],
-            ['Date Time Original', exDate],
-            ['Date Time Digitized', exDate],
-        ];
-        exifRows = exifFields.map(([n,v],i) =>
-            `<div class="ck-exif-row"><span class="ck-exif-label">${n}</span><input class="ck-exif-val" id="exf-${i}" value="${v}" onfocus="this.select()"></div>`
-        ).join('');
+    // Helper: editable row with copy button
+    const R = (label, id, val, cls) =>
+        `<div class="ex-row"><span class="ex-lbl">${label}</span><input class="ex-val ${cls||''}" id="${id}" value="${val||''}" onfocus="this.select()"><button class="ex-cp" onclick="_exCopy('${id}')" title="Copy">📋</button></div>`;
 
-        const latRef = geo.lat >= 0 ? 'North latitude' : 'South latitude';
-        const lngRef = geo.lng >= 0 ? 'East longitude' : 'West longitude';
-        const gpsFields = [
-            ['LatitudeRef', latRef],
-            ['Latitude', _exifFmtDMS(geo.lat)],
-            ['LongitudeRef', lngRef],
-            ['Longitude', _exifFmtDMS(Math.abs(geo.lng))],
-            ['GPS Time', _exifFmtGPSTime(dt)],
-        ];
-        gpsRows = gpsFields.map(([n,v],i) =>
-            `<div class="ck-exif-row"><span class="ck-exif-label">${n}</span><input class="ck-exif-val ck-exif-val-gps" id="gps-${i}" value="${v}" onfocus="this.select()"></div>`
-        ).join('');
-    }
+    let body = '';
+    if (ok && cam && dt) {
+        const latRef = g.lat >= 0 ? 'North' : 'South';
+        const lngRef = g.lng >= 0 ? 'East' : 'West';
+        const latRefFull = g.lat >= 0 ? 'North latitude' : 'South latitude';
+        const lngRefFull = g.lng >= 0 ? 'East longitude' : 'West longitude';
+        const ed = _exifDate(dt);
 
-    // Location info
-    let locHtml = '';
-    if (hasResult) {
-        const latDir = geo.lat >= 0 ? 'North' : 'South';
-        const lngDir = geo.lng >= 0 ? 'East' : 'West';
-        const latCls = geo.lat >= 0 ? 'ck-dir-n' : 'ck-dir-s';
-        const lngCls = geo.lng >= 0 ? 'ck-dir-e' : 'ck-dir-w';
-        locHtml = `
-        <div class="ck-exif-section">
-            <div class="ck-exif-section-title">🌍 LOCATION</div>
-            <div class="ck-exif-loc-grid">
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Country</span><span class="ck-exif-loc-val">${geo.country}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">State</span><span class="ck-exif-loc-val">${geo.state}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">City</span><span class="ck-exif-loc-val">${geo.city}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">ZIP</span><span class="ck-exif-loc-val">${geo.zip}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Street</span><span class="ck-exif-loc-val">${geo.street}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Lat</span><span class="ck-exif-loc-val" style="color:var(--green)">${geo.lat.toFixed(7)}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Lng</span><span class="ck-exif-loc-val" style="color:var(--green)">${geo.lng.toFixed(7)}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Direction</span><span class="ck-exif-loc-val"><span class="${latCls}">${latDir}</span> / <span class="${lngCls}">${lngDir}</span></span></div>
+        body = `
+        <div class="ex-grid">
+            <div class="ex-block">
+                <div class="ex-block-title">🌍 LOCATION ${g.matchedBy ? `<span class="ex-match">Matched: ${g.matchedBy}</span>` : ''}</div>
+                ${R('Country', 'ex-country', g.country)}
+                ${R('State', 'ex-state', g.state)}
+                ${R('City', 'ex-city', g.city)}
+                ${R('ZIP', 'ex-zip', g.zip)}
+                ${R('Street', 'ex-street', g.street)}
+            </div>
+            <div class="ex-block">
+                <div class="ex-block-title">📡 GPS <button class="ex-cp-block" onclick="_exCopyGPS()">Copy GPS</button></div>
+                ${R('Lat (dec)', 'ex-latdec', g.lat.toFixed(7), 'ex-green')}
+                ${R('Lng (dec)', 'ex-lngdec', g.lng.toFixed(7), 'ex-green')}
+                ${R('Lat (DMS)', 'ex-latdms', _exifDMS(g.lat), 'ex-cyan')}
+                ${R('Lng (DMS)', 'ex-lngdms', _exifDMS(Math.abs(g.lng)), 'ex-cyan')}
+                ${R('LatitudeRef', 'ex-latref', latRefFull, 'ex-cyan')}
+                ${R('LongitudeRef', 'ex-lngref', lngRefFull, 'ex-cyan')}
+                ${R('Direction', 'ex-dir', latRef + ' / ' + lngRef)}
+                ${R('GPS Time', 'ex-gpstime', _exifGPSTime(dt), 'ex-cyan')}
+            </div>
+            <div class="ex-block">
+                <div class="ex-block-title">🕐 TIME</div>
+                ${R('Timezone', 'ex-tz', tz.name, 'ex-amber')}
+                ${R('UTC Offset', 'ex-utc', 'UTC ' + tz.str, 'ex-amber')}
+                ${R('Local Time', 'ex-local', String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0') + ':' + String(dt.getSeconds()).padStart(2,'0'), 'ex-amber')}
+            </div>
+            <div class="ex-block">
+                <div class="ex-block-title">📱 DEVICE</div>
+                <div class="ex-cam-row">
+                    <select class="ex-cam-sel" id="exif-cam-select">${camOpts}</select>
+                    <button class="ck-action-btn" id="exif-random-btn">🎲</button>
+                    <input type="datetime-local" class="ex-dt" id="exif-dt-input" value="${dtVal}" step="1">
+                    <button class="ck-action-btn" id="exif-now-btn">⏱</button>
+                </div>
+            </div>
+            <div class="ex-block">
+                <div class="ex-block-title">🏷️ EXIF <button class="ex-cp-block" onclick="_exCopyEXIF()">Copy EXIF</button></div>
+                ${R('Manufacturer', 'ex-make', cam.make)}
+                ${R('Model', 'ex-model', cam.model)}
+                ${R('DateTime', 'ex-dt0', ed, 'ex-green')}
+                ${R('DateTimeOriginal', 'ex-dt1', ed, 'ex-green')}
+                ${R('DateTimeDigitized', 'ex-dt2', ed, 'ex-green')}
             </div>
         </div>
-        <div class="ck-exif-section">
-            <div class="ck-exif-section-title">🕐 TIMEZONE</div>
-            <div class="ck-exif-loc-grid">
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Timezone</span><span class="ck-exif-loc-val" style="color:var(--cyan)">${tz.name}</span></div>
-                <div class="ck-exif-loc"><span class="ck-exif-loc-label">UTC Offset</span><span class="ck-exif-loc-val" style="color:var(--cyan)">UTC ${tz.utcOffsetStr}</span></div>
-            </div>
+        <div class="ex-footer">
+            <button class="ck-action-btn ck-btn-copy" onclick="_exCopyAll()">📋 Copy All</button>
+            <button class="ck-action-btn" onclick="_exCopyToolCmd()">📄 ExifTool CMD</button>
         </div>`;
+    } else if (!ex.loading && !ex.error) {
+        body = '<div class="ck-exif-empty">Paste an address and click Parse</div>';
     }
 
     return `
-        <div class="ck-exif-addr-bar">
-            <input type="text" class="ck-exif-addr-input" id="exif-addr-input"
-                   placeholder="Paste address: 2323 NE 181st Ave, Portland, OR 97230"
-                   value="${ex._lastAddr || ''}" autocomplete="off" spellcheck="false">
-            <button class="ck-action-btn ck-btn-copy" id="exif-parse-btn" ${ex.loading ? 'disabled' : ''}>
-                ${ex.loading ? '⏳' : '⚡'} Parse
-            </button>
-        </div>
-        ${ex.error ? `<div class="ck-exif-error">✗ ${ex.error}</div>` : ''}
-        ${locHtml}
-        ${hasResult ? `
-        <div class="ck-exif-section">
-            <div class="ck-exif-section-title">📷 CAMERA & DATE</div>
-            <div class="ck-exif-cam-row">
-                <select class="ck-exif-cam-select" id="exif-cam-select">${camOptions}</select>
-                <button class="ck-action-btn" id="exif-random-btn">🎲 Random</button>
-                <input type="datetime-local" class="ck-exif-dt-input" id="exif-dt-input" value="${dtVal}" step="1">
-                <button class="ck-action-btn" id="exif-now-btn">⏱ Now</button>
+        <div class="ex-wrap">
+            <div class="ex-addr-bar">
+                <input type="text" class="ex-addr" id="exif-addr-input"
+                       placeholder="Paste address..." value="${ex._lastAddr || ''}" autocomplete="off" spellcheck="false">
+                <button class="ck-action-btn ck-btn-copy" id="exif-parse-btn" ${ex.loading ? 'disabled' : ''}>
+                    ${ex.loading ? '⏳' : '⚡'} PARSE
+                </button>
             </div>
-        </div>
-        <div class="ck-exif-section">
-            <div class="ck-exif-section-title">🏷️ EXIF OUTPUT</div>
-            ${exifRows}
-        </div>
-        <div class="ck-exif-section">
-            <div class="ck-exif-section-title">📡 GPS OUTPUT</div>
-            ${gpsRows}
-            <div class="ck-exif-actions">
-                <button class="ck-action-btn ck-btn-copy" id="exif-copy-all">📋 Copy All</button>
-                <button class="ck-action-btn" id="exif-copy-tool">📄 Copy ExifTool CMD</button>
-            </div>
-        </div>
-        ` : (!ex.loading && !ex.error ? '<div class="ck-exif-empty">Paste an address above and click Parse</div>' : '')}
-    `;
+            <div class="ex-hint">Example: 2323 Northeast 181st Avenue, Portland, OR 97230</div>
+            ${ex.error ? `<div class="ck-exif-error">✗ ${ex.error}</div>` : ''}
+            ${body}
+        </div>`;
 }
 
-// Bind EXIF-specific events after render
+// ── Per-field copy ──
+function _exCopy(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value).then(() => toast('Copied: ' + el.value, 'success')).catch(() => {});
+}
+
+function _exCopyGPS() {
+    const ids = ['ex-latref','ex-latdms','ex-lngref','ex-lngdms','ex-gpstime','ex-latdec','ex-lngdec'];
+    const labels = ['LatitudeRef','Latitude','LongitudeRef','Longitude','GPS Time','Lat (dec)','Lng (dec)'];
+    const lines = ids.map((id, i) => { const el = document.getElementById(id); return labels[i] + ': ' + (el ? el.value : ''); });
+    navigator.clipboard.writeText(lines.join('\n')).then(() => toast('GPS copied', 'success')).catch(() => {});
+}
+
+function _exCopyEXIF() {
+    const ids = ['ex-make','ex-model','ex-dt0','ex-dt1','ex-dt2'];
+    const labels = ['Manufacturer','Model','DateTime','DateTimeOriginal','DateTimeDigitized'];
+    const lines = ids.map((id, i) => { const el = document.getElementById(id); return labels[i] + ': ' + (el ? el.value : ''); });
+    navigator.clipboard.writeText(lines.join('\n')).then(() => toast('EXIF copied', 'success')).catch(() => {});
+}
+
+function _exCopyAll() {
+    const sections = [
+        { title: 'LOCATION', ids: ['ex-country','ex-state','ex-city','ex-zip','ex-street'], labels: ['Country','State','City','ZIP','Street'] },
+        { title: 'GPS', ids: ['ex-latdec','ex-lngdec','ex-latdms','ex-lngdms','ex-latref','ex-lngref','ex-dir','ex-gpstime'], labels: ['Lat (dec)','Lng (dec)','Lat (DMS)','Lng (DMS)','LatitudeRef','LongitudeRef','Direction','GPS Time'] },
+        { title: 'TIME', ids: ['ex-tz','ex-utc','ex-local'], labels: ['Timezone','UTC Offset','Local Time'] },
+        { title: 'EXIF', ids: ['ex-make','ex-model','ex-dt0','ex-dt1','ex-dt2'], labels: ['Manufacturer','Model','DateTime','DateTimeOriginal','DateTimeDigitized'] },
+    ];
+    const out = sections.map(s => {
+        const rows = s.ids.map((id, i) => { const el = document.getElementById(id); return '  ' + s.labels[i] + ': ' + (el ? el.value : ''); });
+        return '═══ ' + s.title + ' ═══\n' + rows.join('\n');
+    }).join('\n\n');
+    navigator.clipboard.writeText(out).then(() => toast('All copied', 'success')).catch(() => {});
+}
+
+function _exCopyToolCmd() {
+    const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const latR = v('ex-latref').includes('North') ? 'N' : 'S';
+    const lngR = v('ex-lngref').includes('East') ? 'E' : 'W';
+    const cmd = `exiftool -Make="${v('ex-make')}" -Model="${v('ex-model')}" -DateTimeOriginal="${v('ex-dt1')}" -CreateDate="${v('ex-dt2')}" -ModifyDate="${v('ex-dt0')}" -GPSLatitudeRef="${latR}" -GPSLatitude="${v('ex-latdms')}" -GPSLongitudeRef="${lngR}" -GPSLongitude="${v('ex-lngdms')}" -GPSTimeStamp="${v('ex-gpstime')}"`;
+    navigator.clipboard.writeText(cmd).then(() => toast('ExifTool CMD copied', 'success')).catch(() => {});
+}
+
+// ── Bind EXIF events ──
 function _ckBindExifEvents(area) {
-    // Parse button
     document.getElementById('exif-parse-btn')?.addEventListener('click', async () => {
         const addr = document.getElementById('exif-addr-input')?.value?.trim();
         if (!addr) { toast('Paste an address first', 'warning'); return; }
         const ex = _CK.exif;
-        ex._lastAddr = addr;
-        ex.loading = true; ex.error = null;
+        ex._lastAddr = addr; ex.loading = true; ex.error = null;
         renderChecker();
         try {
             ex.geo = await _exifGeocode(addr);
-            ex.tz = _exifGetTimezone(ex.geo.lat, ex.geo.lng, ex.geo.cc);
-            if (!ex.cam) _exifRandomCamera();
-            if (!ex.dt) _exifSetNow();
+            ex.tz = _exifTZ(ex.geo.lat, ex.geo.lng, ex.geo.cc);
+            if (!ex.cam) { ex.cam = { ..._EXIF_CAMERAS[Math.floor(Math.random() * _EXIF_CAMERAS.length)] }; }
+            if (!ex.dt) ex.dt = new Date();
             ex.loading = false;
             renderChecker();
-            toast('Address parsed — EXIF generated', 'success');
+            toast('Parsed — ' + (ex.geo.matchedBy || 'OK'), 'success');
         } catch (err) {
-            ex.loading = false; ex.error = err.message;
-            renderChecker();
-            toast(err.message, 'error');
+            ex.loading = false; ex.error = err.message; renderChecker();
         }
     });
-
-    // Enter key on address input
-    document.getElementById('exif-addr-input')?.addEventListener('keydown', (e) => {
+    document.getElementById('exif-addr-input')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') document.getElementById('exif-parse-btn')?.click();
     });
-
-    // Camera select
-    document.getElementById('exif-cam-select')?.addEventListener('change', (e) => {
-        const idx = parseInt(e.target.value);
-        if (_EXIF_CAMERAS[idx]) { _CK.exif.cam = { ..._EXIF_CAMERAS[idx] }; renderChecker(); }
+    document.getElementById('exif-cam-select')?.addEventListener('change', e => {
+        const i = parseInt(e.target.value);
+        if (_EXIF_CAMERAS[i]) { _CK.exif.cam = { ..._EXIF_CAMERAS[i] }; renderChecker(); }
     });
-
-    // Random camera
     document.getElementById('exif-random-btn')?.addEventListener('click', () => {
-        _exifRandomCamera(); renderChecker();
+        _CK.exif.cam = { ..._EXIF_CAMERAS[Math.floor(Math.random() * _EXIF_CAMERAS.length)] };
+        renderChecker();
     });
-
-    // DateTime input
-    document.getElementById('exif-dt-input')?.addEventListener('change', (e) => {
+    document.getElementById('exif-dt-input')?.addEventListener('change', e => {
         if (e.target.value) { _CK.exif.dt = new Date(e.target.value); renderChecker(); }
     });
-
-    // Now button
     document.getElementById('exif-now-btn')?.addEventListener('click', () => {
-        _exifSetNow(); renderChecker();
-    });
-
-    // Copy All
-    document.getElementById('exif-copy-all')?.addEventListener('click', () => {
-        const fields = {};
-        for (let i = 0; i < 5; i++) { const el = document.getElementById('exf-'+i); if (el) fields['exf'+i] = el.value; }
-        for (let i = 0; i < 5; i++) { const el = document.getElementById('gps-'+i); if (el) fields['gps'+i] = el.value; }
-        const geo = _CK.exif.geo;
-        const lines = [
-            '═══ EXIF ═══',
-            'Camera Manufacturer: ' + (fields.exf0 || ''),
-            'Camera Model:        ' + (fields.exf1 || ''),
-            'Date Time:           ' + (fields.exf2 || ''),
-            'Date Time Original:  ' + (fields.exf3 || ''),
-            'Date Time Digitized: ' + (fields.exf4 || ''),
-            '', '═══ GPS ═══',
-            'LatitudeRef:  ' + (fields.gps0 || ''),
-            'Latitude:     ' + (fields.gps1 || ''),
-            'LongitudeRef: ' + (fields.gps2 || ''),
-            'Longitude:    ' + (fields.gps3 || ''),
-            'GPS Time:     ' + (fields.gps4 || ''),
-        ];
-        if (geo) {
-            lines.push('', '═══ LOCATION ═══',
-                'Country:  ' + geo.country, 'State:    ' + geo.state,
-                'City:     ' + geo.city, 'ZIP:      ' + geo.zip,
-                'Street:   ' + geo.street,
-                'Lat/Lng:  ' + geo.lat.toFixed(7) + ', ' + geo.lng.toFixed(7));
-        }
-        navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied to clipboard', 'success')).catch(() => toast('Copy failed', 'error'));
-    });
-
-    // Copy ExifTool CMD
-    document.getElementById('exif-copy-tool')?.addEventListener('click', () => {
-        const f = {};
-        for (let i = 0; i < 5; i++) { const el = document.getElementById('exf-'+i); if (el) f['e'+i] = el.value; }
-        for (let i = 0; i < 5; i++) { const el = document.getElementById('gps-'+i); if (el) f['g'+i] = el.value; }
-        const latRef = (f.g0 || '').includes('North') ? 'N' : 'S';
-        const lngRef = (f.g2 || '').includes('East') ? 'E' : 'W';
-        const cmd = 'exiftool'
-            + ` -Make="${f.e0}" -Model="${f.e1}"`
-            + ` -DateTimeOriginal="${f.e3}" -CreateDate="${f.e4}" -ModifyDate="${f.e2}"`
-            + ` -GPSLatitudeRef="${latRef}" -GPSLatitude="${f.g1}"`
-            + ` -GPSLongitudeRef="${lngRef}" -GPSLongitude="${f.g3}"`
-            + ` -GPSTimeStamp="${f.g4}"`;
-        navigator.clipboard.writeText(cmd).then(() => toast('ExifTool command copied', 'success')).catch(() => toast('Copy failed', 'error'));
+        _CK.exif.dt = new Date(); renderChecker();
     });
 }
+
 
 function renderChecker() {
     const area = document.getElementById('content-area');
