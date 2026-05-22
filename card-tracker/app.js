@@ -5444,7 +5444,7 @@ function _loadBinRotationIndex() {
 function _saveBinRotationIndex(index) {
     try {
         localStorage.setItem('binRotationIndex', JSON.stringify(index));
-    } catch { /* (translated)
+    } catch { /* ignore */ }
 }
 
 /**
@@ -6411,7 +6411,7 @@ function _initTrashCardModal() {
 // (translated)
 // ═══════════════════════════════════════════════════════════════════
 
-/* (translated)
+/* (translated) */
 const CML_STATE = {
     cleanCards:   [], // (translated)
     trashMatches: [], // (translated)
@@ -6587,7 +6587,7 @@ function _initCheckMyList() {
     });
 }
 
-/* (translated)
+/* (translated) */
 function _renderCMLStats() {
     const s = CML_STATE.stats;
     if (!s) return;
@@ -6614,7 +6614,7 @@ function _renderCMLStats() {
     `;
 }
 
-/* (translated)
+/* (translated) */
 function _renderCMLLists() {
     const resultsEl   = document.getElementById('cml-results');
     const trashListEl = document.getElementById('cml-trash-list');
@@ -6707,7 +6707,7 @@ function _parseCheckerOutput(text) {
             const svc = lines[j].trim();
             if (!svc) continue;
             // (translated)
-            const geoM = svc.match(/(?:Код\s* (translated)
+            const geoM = svc.match(/(?:Код\s*страны|Geo|Country|Region)\s*[-–:]\s*(\S+)/i);
             if (geoM) { geo = geoM[1].toUpperCase(); continue; }
             // (translated)
             const sysM = svc.match(/(?:Система|System|Network|Brand|Payment\s*system)\s*[-–:]\s*(\S+)/i);
@@ -6736,7 +6736,7 @@ function _parseCheckerOutput(text) {
 // (translated)
 // ═══════════════════════════════════════════════════════════════════
 
-/* (translated)
+/* (translated) */
 const _TRASH_KEYWORDS = [
     'DEAD','INVALID','DECLINED','DO NOT HONOR','DO NOT TRY AGAIN',
     'FRAUD','SUSPECTED FRAUD','CLOSED CARD','PROCESSOR DECLINED',
@@ -6744,7 +6744,7 @@ const _TRASH_KEYWORDS = [
     'NOT HONOR','INSUFFICIENT_FUNDS'
 ];
 
-/* (translated)
+/* (translated) */
 function _lineIsTrash(line) {
     const upper = line.toUpperCase();
     for (const kw of _TRASH_KEYWORDS) {
@@ -6753,7 +6753,7 @@ function _lineIsTrash(line) {
     return /\u{1F480}|\u274C|\u26D4|\u{1F7E5}/u.test(line); // 💀❌⛔🟥
 }
 
-/* (translated)
+/* (translated) */
 function _extractCC(line) {
     // (translated)
     const pm = line.match(/(\d{13,19})\|/);
@@ -8370,7 +8370,7 @@ function _openTodayCardsModal() {
     _tcUpdateDetected();
 }
 
-/* (translated)
+/* (translated) */
 function _tcUpdateDetected() {
     const ta = document.getElementById('tc-textarea');
     const badge = document.getElementById('tc-detected');
@@ -8450,7 +8450,7 @@ function _initTodayCardsModal() {
     parseBtn?.addEventListener('click', _tcRunParse);
 }
 
-/* (translated)
+/* (translated) */
 function _tcRunParse() {
     const ta = document.getElementById('tc-textarea');
     const dp = document.getElementById('tc-date');
@@ -8527,7 +8527,7 @@ function _tcRunParse() {
     toast(`Parsed: ${cards.length} cards`, 'success');
 }
 
-/* (translated)
+/* (translated) */
 function _tcStats(cards) {
     const total = cards.length;
     const geoMap = {}, typeMap = {}, levelMap = {}, sysMap = {}, bankMap = {}, statusMap = {};
@@ -8556,7 +8556,7 @@ function _tcStats(cards) {
     return { total, geoMap, typeMap, levelMap, sysMap, bankMap, statusMap };
 }
 
-/* (translated)
+/* (translated) */
 function _tcGeoName(code) {
     const M = {CA:'Canada',US:'United States',AU:'Australia',GB:'United Kingdom',
         DE:'Germany',FR:'France',NL:'Netherlands',NO:'Norway',SE:'Sweden',
@@ -8568,13 +8568,13 @@ function _tcGeoName(code) {
     return M[code] || code;
 }
 
-/* (translated)
+/* (translated) */
 function _tcFlag(code) {
     if (!code || code.length !== 2) return '🌐';
     return String.fromCodePoint(...[...code.toUpperCase()].map(c=>0x1F1E0+c.charCodeAt(0)-65));
 }
 
-/* (translated)
+/* (translated) */
 function _tcTextReport(s) {
     const pct = n => (n/s.total*100).toFixed(1)+'%';
     const sep = '━'.repeat(27);
@@ -8610,7 +8610,7 @@ function _tcTextReport(s) {
     return out;
 }
 
-/* (translated)
+/* (translated) */
 function _tcRenderResults(cards) {
     const el = document.getElementById('tc-results');
     if (!el) return;
