@@ -1596,6 +1596,7 @@ const _CK = {
         loading: false,
         error: null,
         cache: new Map(),   // address → geocode result
+        lockedCountry: null, // e.g. 'us' — locks all searches to this country
     }
 };
 
@@ -1777,49 +1778,104 @@ const _EXIF_TZ = {
     IT: () => ['Europe/Rome',1], ES: () => ['Europe/Madrid',1], NL: () => ['Europe/Amsterdam',1],
 };
 
-// ── Geocoding with multi-attempt fallback ──
+// ── US state abbreviations for auto-detection ──
+const _US_STATES = {
+    'AL':'Alabama','AK':'Alaska','AZ':'Arizona','AR':'Arkansas','CA':'California',
+    'CO':'Colorado','CT':'Connecticut','DE':'Delaware','FL':'Florida','GA':'Georgia',
+    'HI':'Hawaii','ID':'Idaho','IL':'Illinois','IN':'Indiana','IA':'Iowa',
+    'KS':'Kansas','KY':'Kentucky','LA':'Louisiana','ME':'Maine','MD':'Maryland',
+    'MA':'Massachusetts','MI':'Michigan','MN':'Minnesota','MS':'Mississippi','MO':'Missouri',
+    'MT':'Montana','NE':'Nebraska','NV':'Nevada','NH':'New Hampshire','NJ':'New Jersey',
+    'NM':'New Mexico','NY':'New York','NC':'North Carolina','ND':'North Dakota','OH':'Ohio',
+    'OK':'Oklahoma','OR':'Oregon','PA':'Pennsylvania','RI':'Rhode Island','SC':'South Carolina',
+    'SD':'South Dakota','TN':'Tennessee','TX':'Texas','UT':'Utah','VT':'Vermont',
+    'VA':'Virginia','WA':'Washington','WV':'West Virginia','WI':'Wisconsin','WY':'Wyoming',
+    'DC':'District of Columbia',
+};
+
+function _exifDetectCountry(address) {
+    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+    // Check if any part is a US state abbreviation (2 uppercase letters)
+    for (const p of parts) {
+        const token = p.replace(/[\d\s-]/g, '').toUpperCase();
+        if (_US_STATES[token]) return 'us';
+    }
+    // Check for explicit country mentions
+    const lower = address.toLowerCase();
+    if (/\b(usa|united states|u\.s\.a|u\.s\.)\b/.test(lower)) return 'us';
+    if (/\bjapan\b/.test(lower)) return 'jp';
+    if (/\b(uk|united kingdom|england)\b/.test(lower)) return 'gb';
+    if (/\bcanada\b/.test(lower)) return 'ca';
+    if (/\baustralia\b/.test(lower)) return 'au';
+    if (/\bgermany\b/.test(lower)) return 'de';
+    if (/\bfrance\b/.test(lower)) return 'fr';
+    return null;
+}
+
+// ── Geocoding with country-locked fallback ──
 
 async function _exifGeocode(address) {
     const ex = _CK.exif;
     if (ex.cache.has(address)) return { ...ex.cache.get(address), matchedBy: 'Cache' };
 
-    // Parse address parts for fallback attempts
+    // Detect or use locked country
+    const detectedCC = _exifDetectCountry(address);
+    const cc = ex.lockedCountry || detectedCC || null;
+
+    // Parse address parts
     const parts = address.split(',').map(p => p.trim()).filter(Boolean);
 
+    // Build fallback attempts (all within locked country)
     const attempts = [
         { q: address, label: 'Full Address' },
     ];
+    if (parts.length >= 4) {
+        // street + city + state + zip
+        attempts.push({ q: parts.slice(0, 4).join(', '), label: 'Street + City + State + ZIP' });
+    }
     if (parts.length >= 3) {
-        // street + city + state
-        attempts.push({ q: parts.slice(0, 3).join(', '), label: 'Street + City + State' });
-        // city + state + zip (last 3 parts)
+        // city + state + zip (last 3)
         attempts.push({ q: parts.slice(-3).join(', '), label: 'City + State + ZIP' });
     }
-    // ZIP only (last part, digits only)
+    if (parts.length >= 2) {
+        // state + zip (last 2) — within country only
+        attempts.push({ q: parts.slice(-2).join(', '), label: 'State + ZIP' });
+    }
+    // ZIP within country (NEVER global)
     const lastPart = parts[parts.length - 1] || '';
     const zipMatch = lastPart.match(/[\d-]{3,10}/);
-    if (zipMatch) attempts.push({ q: zipMatch[0], label: 'ZIP Only' });
+    if (zipMatch && cc) {
+        attempts.push({ q: zipMatch[0], label: 'ZIP (country-locked)' });
+    }
 
     let lastErr = 'Address not found';
     for (const attempt of attempts) {
         try {
-            const result = await _exifFetch(attempt.q);
+            const result = await _exifFetch(attempt.q, cc);
+            // Validate: if we have a country lock, reject mismatches
+            if (cc && result.cc !== cc.toUpperCase()) continue;
             result.matchedBy = attempt.label;
+            if (detectedCC && !ex.lockedCountry) ex.lockedCountry = detectedCC;
             ex.cache.set(address, result);
             return result;
         } catch (e) { lastErr = e.message; }
     }
-    throw new Error(lastErr);
+    throw new Error('Address partially matched — Check Street / City');
 }
 
-async function _exifFetch(q) {
-    const url = 'https://nominatim.openstreetmap.org/search?q='
-        + encodeURIComponent(q) + '&format=json&addressdetails=1&limit=1&accept-language=en';
+async function _exifFetch(q, countryCode) {
+    let url = 'https://nominatim.openstreetmap.org/search?q='
+        + encodeURIComponent(q) + '&format=json&addressdetails=1&limit=3&accept-language=en';
+    if (countryCode) url += '&countrycodes=' + countryCode;
     const res = await fetch(url, { headers: { 'User-Agent': 'CardTrackerExif/1.0' } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (!data || !data.length) throw new Error('Not found');
+    // Pick best result (highest importance)
     const r = data[0], a = r.address || {};
+    const importance = parseFloat(r.importance || 0);
+    // Reject low-confidence results on fallback
+    if (importance < 0.2 && data.length === 1) throw new Error('Low confidence match');
     const st = [];
     if (a.house_number) st.push(a.house_number);
     if (a.road) st.push(a.road);
@@ -1830,6 +1886,7 @@ async function _exifFetch(q) {
         state: a.state || a.province || a.region || '—',
         city: a.city || a.town || a.village || a.municipality || '—',
         zip: a.postcode || '—', street: st.join(' ') || '—',
+        importance: importance,
     };
 }
 
@@ -1897,7 +1954,7 @@ function _ckRenderExifPanel() {
         <div class="ex-grid">
             <div class="ex-block">
                 <div class="ex-block-title">🌍 LOCATION ${g.matchedBy ? `<span class="ex-match">Matched: ${g.matchedBy}</span>` : ''}</div>
-                ${R('Country', 'ex-country', g.country)}
+                <div class="ex-row"><span class="ex-lbl">Country</span><input class="ex-val" id="ex-country" value="${g.country}" onfocus="this.select()"><button class="ex-lock ${ex.lockedCountry ? 'ex-lock-on' : ''}" id="exif-lock-btn" title="${ex.lockedCountry ? 'Unlock country' : 'Lock country'}">${ex.lockedCountry ? '🔒' : '🔓'}</button><button class="ex-cp" onclick="_exCopy('ex-country')" title="Copy">📋</button></div>
                 ${R('State', 'ex-state', g.state)}
                 ${R('City', 'ex-city', g.city)}
                 ${R('ZIP', 'ex-zip', g.zip)}
@@ -2040,6 +2097,19 @@ function _ckBindExifEvents(area) {
     });
     document.getElementById('exif-now-btn')?.addEventListener('click', () => {
         _CK.exif.dt = new Date(); renderChecker();
+    });
+    // Lock Country toggle
+    document.getElementById('exif-lock-btn')?.addEventListener('click', () => {
+        const ex = _CK.exif;
+        if (ex.lockedCountry) {
+            ex.lockedCountry = null;
+            toast('Country unlocked', 'warning');
+        } else {
+            ex.lockedCountry = ex.geo?.cc?.toLowerCase() || null;
+            toast('Country locked: ' + (ex.geo?.country || '?'), 'success');
+        }
+        ex.cache.clear();
+        renderChecker();
     });
 }
 
