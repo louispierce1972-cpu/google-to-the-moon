@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXIF Generator — Address to Metadata</title>
+    <meta name="description" content="Generate EXIF and GPS metadata from a street address. Parse location, timezone, coordinates, and camera data.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="app-title">
+            <span class="icon">📍</span>
+            EXIF Generator
+            <span class="app-badge">v1.0</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm" onclick="resetAll()" title="Reset all fields">🔄 Reset</button>
+        </div>
+    </header>
+
+    <main class="app-container">
+
+        <!-- ═══ ADDRESS INPUT ═══ -->
+        <div class="section-card" id="section-address">
+            <div class="section-header">
+                <span class="icon">🏠</span> Address Input
+            </div>
+            <div class="address-row">
+                <input type="text" class="address-input" id="address-input"
+                       placeholder="Paste full address: 2323 NE 181st Ave, Portland, OR 97230"
+                       autocomplete="off" spellcheck="false">
+                <button class="btn btn-primary" id="btn-parse" onclick="parseAddress()">
+                    ⚡ Parse
+                </button>
+            </div>
+            <div class="status-bar" id="status-bar"></div>
+        </div>
+
+        <!-- ═══ LOCATION ═══ -->
+        <div class="section-card hidden" id="section-location">
+            <div class="section-header">
+                <span class="icon">🌍</span> Location
+            </div>
+            <div class="loc-grid" id="loc-grid"></div>
+            <div style="margin-top:12px;">
+                <div class="section-header" style="margin-bottom:8px;">
+                    <span class="icon">🧭</span> Direction
+                </div>
+                <div class="dir-badges" id="dir-badges"></div>
+            </div>
+        </div>
+
+        <!-- ═══ TIMEZONE ═══ -->
+        <div class="section-card hidden" id="section-timezone">
+            <div class="section-header">
+                <span class="icon">🕐</span> Timezone
+            </div>
+            <div class="loc-grid" id="tz-grid"></div>
+        </div>
+
+        <!-- ═══ CAMERA ═══ -->
+        <div class="section-card hidden" id="section-camera">
+            <div class="section-header">
+                <span class="icon">📷</span> Camera & Date/Time
+            </div>
+            <div class="camera-row">
+                <select class="camera-select" id="camera-select" onchange="updateOutput()"></select>
+                <button class="btn btn-sm" onclick="randomCamera()">🎲 Random</button>
+                <input type="datetime-local" class="datetime-input" id="datetime-input" onchange="updateOutput()" step="1">
+                <button class="btn btn-sm" onclick="setCurrentTime()">⏱ Now</button>
+            </div>
+        </div>
+
+        <!-- ═══ EXIF OUTPUT ═══ -->
+        <div class="section-card hidden" id="section-exif">
+            <div class="section-header">
+                <span class="icon">🏷️</span> EXIF Output
+            </div>
+            <table class="output-table" id="exif-table"></table>
+        </div>
+
+        <!-- ═══ GPS OUTPUT ═══ -->
+        <div class="section-card hidden" id="section-gps">
+            <div class="section-header">
+                <span class="icon">📡</span> GPS Output
+            </div>
+            <table class="output-table" id="gps-table"></table>
+
+            <div class="actions-row">
+                <button class="btn" onclick="copyAll()">📋 Copy All</button>
+                <button class="btn" onclick="copyForTool()">📄 Copy for ExifTool</button>
+            </div>
+        </div>
+
+    </main>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

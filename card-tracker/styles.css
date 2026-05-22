@@ -12312,3 +12312,177 @@ tr.row-selected td {
     }
 }
 
+/* ═══════════════════════════════════════════
+   EXIF MODE — Checker Sub-Panel
+   ═══════════════════════════════════════════ */
+
+.ck-exif-addr-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.ck-exif-addr-input {
+    flex: 1;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text-primary, #e2e8f0);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.ck-exif-addr-input::placeholder { color: rgba(100, 116, 139, 0.7); }
+.ck-exif-addr-input:focus {
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.ck-exif-error {
+    color: #ef4444;
+    font-size: 12px;
+    margin-bottom: 10px;
+    padding: 6px 10px;
+    background: rgba(239, 68, 68, 0.08);
+    border-radius: 4px;
+}
+
+.ck-exif-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(100, 116, 139, 0.6);
+    font-size: 13px;
+}
+
+/* Section blocks */
+.ck-exif-section {
+    margin-bottom: 14px;
+    padding: 12px;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(71, 85, 105, 0.25);
+    border-radius: 8px;
+}
+.ck-exif-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.7);
+    margin-bottom: 10px;
+}
+
+/* Location grid */
+.ck-exif-loc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+}
+.ck-exif-loc {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.ck-exif-loc-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(100, 116, 139, 0.6);
+}
+.ck-exif-loc-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary, #e2e8f0);
+}
+
+/* Direction colors */
+.ck-dir-n { color: #22c55e; }
+.ck-dir-s { color: #ef4444; }
+.ck-dir-e { color: #06b6d4; }
+.ck-dir-w { color: #f59e0b; }
+
+/* Camera row */
+.ck-exif-cam-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ck-exif-cam-select {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text-primary, #e2e8f0);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    min-width: 200px;
+    cursor: pointer;
+}
+.ck-exif-cam-select:focus { border-color: rgba(99, 102, 241, 0.6); }
+.ck-exif-cam-select option { background: #111827; }
+
+.ck-exif-dt-input {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text-primary, #e2e8f0);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    outline: none;
+}
+.ck-exif-dt-input:focus { border-color: rgba(99, 102, 241, 0.6); }
+
+/* EXIF/GPS output rows */
+.ck-exif-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.15);
+}
+.ck-exif-row:last-child { border-bottom: none; }
+
+.ck-exif-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: rgba(148, 163, 184, 0.8);
+    min-width: 160px;
+    flex-shrink: 0;
+}
+.ck-exif-val {
+    flex: 1;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(71, 85, 105, 0.25);
+    border-radius: 4px;
+    padding: 5px 8px;
+    color: #22c55e;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.ck-exif-val:focus {
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+.ck-exif-val-gps {
+    color: #06b6d4;
+}
+
+/* Actions row */
+.ck-exif-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(71, 85, 105, 0.2);
+}
+

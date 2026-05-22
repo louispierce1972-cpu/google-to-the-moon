@@ -1577,15 +1577,26 @@ function _anShowDetail(bin, data, prevData) {
 
 
 // ═══════════════════════════════════════════
-//   CHECKER — Formatter Utility (Proxy / BIN / Card / IP)
+//   CHECKER — Formatter Utility (Proxy / BIN / Card / IP / EXIF)
 // ═══════════════════════════════════════════
 
 const _CK = {
-    mode: 'proxy',      // proxy | bin | card | ip
+    mode: 'proxy',      // proxy | bin | card | ip | exif
     proxyProto: 'socks5', // socks5 | http | https
     input: '',
     output: '',
-    history: []          // last 10 operations
+    history: [],         // last 10 operations
+    // EXIF sub-state
+    exif: {
+        subMode: 'address', // address | photo  (photo = future)
+        geo: null,          // { lat, lng, country, state, city, zip, street }
+        tz: null,           // { name, utcOffset, utcOffsetStr }
+        cam: null,          // { make, model }
+        dt: null,           // Date object
+        loading: false,
+        error: null,
+        cache: new Map(),   // address → geocode result
+    }
 };
 
 function _ckParseProxy(text, proto) {
@@ -1713,19 +1724,354 @@ function _ckProcess() {
     }
 }
 
+// ═══════════════════════════════════════════
+//   EXIF MODE — Camera DB, Geocoding, Rendering
+// ═══════════════════════════════════════════
+
+const _EXIF_CAMERAS = [
+    { make: 'Google',    model: 'Pixel 9 Pro' },
+    { make: 'Google',    model: 'Pixel 9' },
+    { make: 'Google',    model: 'Pixel 8 Pro' },
+    { make: 'Google',    model: 'Pixel 8a' },
+    { make: 'Google',    model: 'Pixel 7 Pro' },
+    { make: 'Apple',     model: 'iPhone 16 Pro Max' },
+    { make: 'Apple',     model: 'iPhone 16 Pro' },
+    { make: 'Apple',     model: 'iPhone 15 Pro Max' },
+    { make: 'Apple',     model: 'iPhone 15 Pro' },
+    { make: 'Apple',     model: 'iPhone 14 Pro' },
+    { make: 'samsung',   model: 'SM-S928B' },
+    { make: 'samsung',   model: 'SM-S926B' },
+    { make: 'samsung',   model: 'SM-S921B' },
+    { make: 'samsung',   model: 'SM-S918B' },
+    { make: 'Xiaomi',    model: '2311DRK48C' },
+    { make: 'OnePlus',   model: 'CPH2581' },
+    { make: 'HUAWEI',    model: 'ALN-AL80' },
+    { make: 'Sony',      model: 'XQ-DQ72' },
+    { make: 'Canon',     model: 'Canon EOS R6 Mark II' },
+    { make: 'NIKON CORPORATION', model: 'NIKON Z6 III' },
+    { make: 'SONY',      model: 'ILCE-7M4' },
+];
+
+// Timezone map for country-based estimation
+const _EXIF_TZ_MAP = {
+    US: lng => lng < -135 ? 'America/Anchorage' : lng < -115 ? 'America/Los_Angeles' : lng < -100 ? 'America/Denver' : lng < -85 ? 'America/Chicago' : 'America/New_York',
+    CA: lng => lng < -120 ? 'America/Los_Angeles' : lng < -100 ? 'America/Denver' : lng < -80 ? 'America/Chicago' : 'America/New_York',
+    JP: () => 'Asia/Tokyo', KR: () => 'Asia/Seoul', CN: () => 'Asia/Shanghai',
+    HK: () => 'Asia/Hong_Kong', SG: () => 'Asia/Singapore', TH: () => 'Asia/Bangkok',
+    VN: () => 'Asia/Ho_Chi_Minh', ID: () => 'Asia/Jakarta', IN: () => 'Asia/Kolkata',
+    PK: () => 'Asia/Karachi', AE: () => 'Asia/Dubai', RU: () => 'Europe/Moscow',
+    GB: () => 'Europe/London', DE: () => 'Europe/Berlin', FR: () => 'Europe/Paris',
+    AU: () => 'Australia/Sydney', NZ: () => 'Pacific/Auckland', BR: () => 'America/Sao_Paulo',
+};
+const _EXIF_TZ_OFFSETS = {
+    'America/Anchorage':-9,'America/Los_Angeles':-8,'America/Denver':-7,
+    'America/Chicago':-6,'America/New_York':-5,'America/Halifax':-4,
+    'America/Sao_Paulo':-3,'Europe/London':0,'Europe/Berlin':1,'Europe/Paris':1,
+    'Europe/Moscow':3,'Asia/Dubai':4,'Asia/Karachi':5,'Asia/Kolkata':5.5,
+    'Asia/Bangkok':7,'Asia/Ho_Chi_Minh':7,'Asia/Jakarta':7,'Asia/Shanghai':8,
+    'Asia/Hong_Kong':8,'Asia/Singapore':8,'Asia/Tokyo':9,'Asia/Seoul':9,
+    'Australia/Sydney':10,'Pacific/Auckland':12,
+};
+
+async function _exifGeocode(address) {
+    const ex = _CK.exif;
+    if (ex.cache.has(address)) return ex.cache.get(address);
+    const url = 'https://nominatim.openstreetmap.org/search?q='
+        + encodeURIComponent(address) + '&format=json&addressdetails=1&limit=1';
+    const res = await fetch(url, { headers: { 'User-Agent': 'CardTrackerExif/1.0' } });
+    if (!res.ok) throw new Error('Geocoding failed: HTTP ' + res.status);
+    const data = await res.json();
+    if (!data || !data.length) throw new Error('Address not found');
+    const r = data[0], a = r.address || {};
+    const streetParts = [];
+    if (a.house_number) streetParts.push(a.house_number);
+    if (a.road) streetParts.push(a.road);
+    const result = {
+        lat: parseFloat(r.lat), lng: parseFloat(r.lon),
+        country: a.country || (a.country_code || '').toUpperCase() || '—',
+        cc: (a.country_code || '').toUpperCase(),
+        state: a.state || a.province || a.region || '—',
+        city: a.city || a.town || a.village || a.municipality || '—',
+        zip: a.postcode || '—',
+        street: streetParts.join(', ') || '—',
+    };
+    ex.cache.set(address, result);
+    return result;
+}
+
+function _exifGetTimezone(lat, lng, cc) {
+    const fn = _EXIF_TZ_MAP[cc];
+    const tzName = fn ? fn(lng) : null;
+    const offset = tzName ? (_EXIF_TZ_OFFSETS[tzName] ?? Math.round(lng / 15)) : Math.round(lng / 15);
+    const name = tzName || ('UTC' + _exifFmtOffset(offset));
+    return { name, utcOffset: offset, utcOffsetStr: _exifFmtOffset(offset) };
+}
+
+function _exifFmtOffset(o) {
+    const s = o >= 0 ? '+' : '-', abs = Math.abs(o);
+    return s + String(Math.floor(abs)).padStart(2,'0') + ':' + String(Math.round((abs % 1) * 60)).padStart(2,'0');
+}
+
+function _exifDecToDMS(dec) {
+    const abs = Math.abs(dec), deg = Math.floor(abs), mFull = (abs - deg) * 60;
+    return { deg, minDecimal: mFull.toFixed(7) };
+}
+
+function _exifFmtDMS(dec) {
+    const { deg, minDecimal } = _exifDecToDMS(dec);
+    return deg + '° ' + minDecimal + "'";
+}
+
+function _exifFmtDate(d) {
+    if (!d) return '—';
+    return d.getFullYear() + ':' + String(d.getMonth()+1).padStart(2,'0') + ':'
+        + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0')
+        + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+}
+
+function _exifFmtGPSTime(d) {
+    if (!d) return '—';
+    return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0')
+        + ':' + String(d.getUTCSeconds()).padStart(2,'0');
+}
+
+function _exifRandomCamera() {
+    _CK.exif.cam = { ..._EXIF_CAMERAS[Math.floor(Math.random() * _EXIF_CAMERAS.length)] };
+}
+
+function _exifSetNow() {
+    _CK.exif.dt = new Date();
+}
+
+// Build the EXIF panel HTML (called from renderChecker template)
+function _ckRenderExifPanel() {
+    const ex = _CK.exif;
+    const geo = ex.geo, tz = ex.tz, cam = ex.cam, dt = ex.dt;
+    const hasResult = !!(geo && tz);
+
+    // Camera selector options
+    const camOptions = _EXIF_CAMERAS.map((c, i) => {
+        const sel = cam && cam.make === c.make && cam.model === c.model ? 'selected' : '';
+        return `<option value="${i}" ${sel}>${c.make} — ${c.model}</option>`;
+    }).join('');
+
+    // DateTime input value
+    let dtVal = '';
+    if (dt) {
+        const y=dt.getFullYear(), mo=String(dt.getMonth()+1).padStart(2,'0'),
+              dy=String(dt.getDate()).padStart(2,'0'), hh=String(dt.getHours()).padStart(2,'0'),
+              mm=String(dt.getMinutes()).padStart(2,'0'), ss=String(dt.getSeconds()).padStart(2,'0');
+        dtVal = `${y}-${mo}-${dy}T${hh}:${mm}:${ss}`;
+    }
+
+    // EXIF + GPS output fields
+    let exifRows = '', gpsRows = '';
+    if (hasResult && cam && dt) {
+        const exDate = _exifFmtDate(dt);
+        const exifFields = [
+            ['Camera Manufacturer', cam.make],
+            ['Camera Model', cam.model],
+            ['Date Time', exDate],
+            ['Date Time Original', exDate],
+            ['Date Time Digitized', exDate],
+        ];
+        exifRows = exifFields.map(([n,v],i) =>
+            `<div class="ck-exif-row"><span class="ck-exif-label">${n}</span><input class="ck-exif-val" id="exf-${i}" value="${v}" onfocus="this.select()"></div>`
+        ).join('');
+
+        const latRef = geo.lat >= 0 ? 'North latitude' : 'South latitude';
+        const lngRef = geo.lng >= 0 ? 'East longitude' : 'West longitude';
+        const gpsFields = [
+            ['LatitudeRef', latRef],
+            ['Latitude', _exifFmtDMS(geo.lat)],
+            ['LongitudeRef', lngRef],
+            ['Longitude', _exifFmtDMS(Math.abs(geo.lng))],
+            ['GPS Time', _exifFmtGPSTime(dt)],
+        ];
+        gpsRows = gpsFields.map(([n,v],i) =>
+            `<div class="ck-exif-row"><span class="ck-exif-label">${n}</span><input class="ck-exif-val ck-exif-val-gps" id="gps-${i}" value="${v}" onfocus="this.select()"></div>`
+        ).join('');
+    }
+
+    // Location info
+    let locHtml = '';
+    if (hasResult) {
+        const latDir = geo.lat >= 0 ? 'North' : 'South';
+        const lngDir = geo.lng >= 0 ? 'East' : 'West';
+        const latCls = geo.lat >= 0 ? 'ck-dir-n' : 'ck-dir-s';
+        const lngCls = geo.lng >= 0 ? 'ck-dir-e' : 'ck-dir-w';
+        locHtml = `
+        <div class="ck-exif-section">
+            <div class="ck-exif-section-title">🌍 LOCATION</div>
+            <div class="ck-exif-loc-grid">
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Country</span><span class="ck-exif-loc-val">${geo.country}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">State</span><span class="ck-exif-loc-val">${geo.state}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">City</span><span class="ck-exif-loc-val">${geo.city}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">ZIP</span><span class="ck-exif-loc-val">${geo.zip}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Street</span><span class="ck-exif-loc-val">${geo.street}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Lat</span><span class="ck-exif-loc-val" style="color:var(--green)">${geo.lat.toFixed(7)}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Lng</span><span class="ck-exif-loc-val" style="color:var(--green)">${geo.lng.toFixed(7)}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Direction</span><span class="ck-exif-loc-val"><span class="${latCls}">${latDir}</span> / <span class="${lngCls}">${lngDir}</span></span></div>
+            </div>
+        </div>
+        <div class="ck-exif-section">
+            <div class="ck-exif-section-title">🕐 TIMEZONE</div>
+            <div class="ck-exif-loc-grid">
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">Timezone</span><span class="ck-exif-loc-val" style="color:var(--cyan)">${tz.name}</span></div>
+                <div class="ck-exif-loc"><span class="ck-exif-loc-label">UTC Offset</span><span class="ck-exif-loc-val" style="color:var(--cyan)">UTC ${tz.utcOffsetStr}</span></div>
+            </div>
+        </div>`;
+    }
+
+    return `
+        <div class="ck-exif-addr-bar">
+            <input type="text" class="ck-exif-addr-input" id="exif-addr-input"
+                   placeholder="Paste address: 2323 NE 181st Ave, Portland, OR 97230"
+                   value="${ex._lastAddr || ''}" autocomplete="off" spellcheck="false">
+            <button class="ck-action-btn ck-btn-copy" id="exif-parse-btn" ${ex.loading ? 'disabled' : ''}>
+                ${ex.loading ? '⏳' : '⚡'} Parse
+            </button>
+        </div>
+        ${ex.error ? `<div class="ck-exif-error">✗ ${ex.error}</div>` : ''}
+        ${locHtml}
+        ${hasResult ? `
+        <div class="ck-exif-section">
+            <div class="ck-exif-section-title">📷 CAMERA & DATE</div>
+            <div class="ck-exif-cam-row">
+                <select class="ck-exif-cam-select" id="exif-cam-select">${camOptions}</select>
+                <button class="ck-action-btn" id="exif-random-btn">🎲 Random</button>
+                <input type="datetime-local" class="ck-exif-dt-input" id="exif-dt-input" value="${dtVal}" step="1">
+                <button class="ck-action-btn" id="exif-now-btn">⏱ Now</button>
+            </div>
+        </div>
+        <div class="ck-exif-section">
+            <div class="ck-exif-section-title">🏷️ EXIF OUTPUT</div>
+            ${exifRows}
+        </div>
+        <div class="ck-exif-section">
+            <div class="ck-exif-section-title">📡 GPS OUTPUT</div>
+            ${gpsRows}
+            <div class="ck-exif-actions">
+                <button class="ck-action-btn ck-btn-copy" id="exif-copy-all">📋 Copy All</button>
+                <button class="ck-action-btn" id="exif-copy-tool">📄 Copy ExifTool CMD</button>
+            </div>
+        </div>
+        ` : (!ex.loading && !ex.error ? '<div class="ck-exif-empty">Paste an address above and click Parse</div>' : '')}
+    `;
+}
+
+// Bind EXIF-specific events after render
+function _ckBindExifEvents(area) {
+    // Parse button
+    document.getElementById('exif-parse-btn')?.addEventListener('click', async () => {
+        const addr = document.getElementById('exif-addr-input')?.value?.trim();
+        if (!addr) { toast('Paste an address first', 'warning'); return; }
+        const ex = _CK.exif;
+        ex._lastAddr = addr;
+        ex.loading = true; ex.error = null;
+        renderChecker();
+        try {
+            ex.geo = await _exifGeocode(addr);
+            ex.tz = _exifGetTimezone(ex.geo.lat, ex.geo.lng, ex.geo.cc);
+            if (!ex.cam) _exifRandomCamera();
+            if (!ex.dt) _exifSetNow();
+            ex.loading = false;
+            renderChecker();
+            toast('Address parsed — EXIF generated', 'success');
+        } catch (err) {
+            ex.loading = false; ex.error = err.message;
+            renderChecker();
+            toast(err.message, 'error');
+        }
+    });
+
+    // Enter key on address input
+    document.getElementById('exif-addr-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('exif-parse-btn')?.click();
+    });
+
+    // Camera select
+    document.getElementById('exif-cam-select')?.addEventListener('change', (e) => {
+        const idx = parseInt(e.target.value);
+        if (_EXIF_CAMERAS[idx]) { _CK.exif.cam = { ..._EXIF_CAMERAS[idx] }; renderChecker(); }
+    });
+
+    // Random camera
+    document.getElementById('exif-random-btn')?.addEventListener('click', () => {
+        _exifRandomCamera(); renderChecker();
+    });
+
+    // DateTime input
+    document.getElementById('exif-dt-input')?.addEventListener('change', (e) => {
+        if (e.target.value) { _CK.exif.dt = new Date(e.target.value); renderChecker(); }
+    });
+
+    // Now button
+    document.getElementById('exif-now-btn')?.addEventListener('click', () => {
+        _exifSetNow(); renderChecker();
+    });
+
+    // Copy All
+    document.getElementById('exif-copy-all')?.addEventListener('click', () => {
+        const fields = {};
+        for (let i = 0; i < 5; i++) { const el = document.getElementById('exf-'+i); if (el) fields['exf'+i] = el.value; }
+        for (let i = 0; i < 5; i++) { const el = document.getElementById('gps-'+i); if (el) fields['gps'+i] = el.value; }
+        const geo = _CK.exif.geo;
+        const lines = [
+            '═══ EXIF ═══',
+            'Camera Manufacturer: ' + (fields.exf0 || ''),
+            'Camera Model:        ' + (fields.exf1 || ''),
+            'Date Time:           ' + (fields.exf2 || ''),
+            'Date Time Original:  ' + (fields.exf3 || ''),
+            'Date Time Digitized: ' + (fields.exf4 || ''),
+            '', '═══ GPS ═══',
+            'LatitudeRef:  ' + (fields.gps0 || ''),
+            'Latitude:     ' + (fields.gps1 || ''),
+            'LongitudeRef: ' + (fields.gps2 || ''),
+            'Longitude:    ' + (fields.gps3 || ''),
+            'GPS Time:     ' + (fields.gps4 || ''),
+        ];
+        if (geo) {
+            lines.push('', '═══ LOCATION ═══',
+                'Country:  ' + geo.country, 'State:    ' + geo.state,
+                'City:     ' + geo.city, 'ZIP:      ' + geo.zip,
+                'Street:   ' + geo.street,
+                'Lat/Lng:  ' + geo.lat.toFixed(7) + ', ' + geo.lng.toFixed(7));
+        }
+        navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied to clipboard', 'success')).catch(() => toast('Copy failed', 'error'));
+    });
+
+    // Copy ExifTool CMD
+    document.getElementById('exif-copy-tool')?.addEventListener('click', () => {
+        const f = {};
+        for (let i = 0; i < 5; i++) { const el = document.getElementById('exf-'+i); if (el) f['e'+i] = el.value; }
+        for (let i = 0; i < 5; i++) { const el = document.getElementById('gps-'+i); if (el) f['g'+i] = el.value; }
+        const latRef = (f.g0 || '').includes('North') ? 'N' : 'S';
+        const lngRef = (f.g2 || '').includes('East') ? 'E' : 'W';
+        const cmd = 'exiftool'
+            + ` -Make="${f.e0}" -Model="${f.e1}"`
+            + ` -DateTimeOriginal="${f.e3}" -CreateDate="${f.e4}" -ModifyDate="${f.e2}"`
+            + ` -GPSLatitudeRef="${latRef}" -GPSLatitude="${f.g1}"`
+            + ` -GPSLongitudeRef="${lngRef}" -GPSLongitude="${f.g3}"`
+            + ` -GPSTimeStamp="${f.g4}"`;
+        navigator.clipboard.writeText(cmd).then(() => toast('ExifTool command copied', 'success')).catch(() => toast('Copy failed', 'error'));
+    });
+}
+
 function renderChecker() {
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', exif: '📍' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', exif: 'EXIF' };
     const modePlaceholders = {
         proxy: 'user:pass@proxy.example.com:10000\nuser:pass@proxy.example.com:10001\nuser:pass@proxy.example.com:10002\n\nFormats accepted:\n• user:pass@host:port\n• host:port:user:pass\n• host:port',
         bin: 'Paste card logs — BINs will be extracted automatically\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111 05 26 456\n\nOutput: /bin 424242',
         card: 'Paste card logs in any format:\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111:05:26:456\n\nOutput: 4242424242424242 11 26 777',
-        ip: 'Paste text containing IP addresses:\n\n192.168.1.1\nProxy: 56.233.33.4:8080\nServer at 10.0.0.1 responded\n\nOutput: /ip 192.168.1.1'
+        ip: 'Paste text containing IP addresses:\n\n192.168.1.1\nProxy: 56.233.33.4:8080\nServer at 10.0.0.1 responded\n\nOutput: /ip 192.168.1.1',
+        exif: ''
     };
 
     // Count output lines
@@ -1747,6 +2093,8 @@ function renderChecker() {
                 `).join('')}
             </div>
         </div>
+
+        ${_CK.mode === 'exif' ? _ckRenderExifPanel() : `
 
         ${_CK.mode === 'proxy' ? `
         <div class="ck-proto-bar">
@@ -1804,6 +2152,7 @@ function renderChecker() {
             </div>
         </div>
         ` : ''}
+        `}
     </div>
     `;
 
@@ -1817,6 +2166,12 @@ function renderChecker() {
             renderChecker();
         });
     });
+
+    // EXIF mode events
+    if (_CK.mode === 'exif') {
+        _ckBindExifEvents(area);
+        return; // EXIF has its own UI, skip proxy/bin/card/ip bindings
+    }
 
     // Protocol buttons (proxy mode)
     area.querySelectorAll('.ck-proto-btn').forEach(btn => {
