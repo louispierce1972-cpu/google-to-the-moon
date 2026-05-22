@@ -2195,9 +2195,6 @@ function renderAllCards() {
                     <span class="status-btn btn-a ${c.cardAdd ? 'active' : ''}">A</span>
                     <span class="status-btn btn-r ${c.runAds ? 'active' : ''}">R</span>
                     <span class="status-btn btn-v ${c.verified ? 'active' : ''}">V</span>
-                    <span class="status-btn btn-d ${c.docReady ? 'active' : ''}">D</span>
-                    <span class="status-btn btn-w ${c.waterBill ? 'active' : ''}">W</span>
-                    <span class="status-btn btn-m ${c.minic ? 'active' : ''}">M</span>
                 </div>
             </td>
             <td class="date-cell">${lastDate}</td>
@@ -2303,8 +2300,8 @@ function renderDocs() {
             <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
             <td>
                 <div class="vs-counters" onclick="event.stopPropagation()">
-                    <button class="doc-vs-btn vs-v" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;"><span class="vs-label">V</span><span class="vs-num">${d.verified || 0}</span></button>
-                    <button class="doc-vs-btn vs-s" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;"><span class="vs-label">S</span><span class="vs-num">${d.suspended || 0}</span></button>
+                    <button class="doc-vs-btn vs-v${(d.verified || 0) === 0 ? ' vs-zero' : ''}" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;"><span class="vs-label">V</span><span class="vs-num">${d.verified || 0}</span></button>
+                    <button class="doc-vs-btn vs-s${(d.suspended || 0) === 0 ? ' vs-zero' : ''}" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;"><span class="vs-label">S</span><span class="vs-num">${d.suspended || 0}</span></button>
                 </div>
             </td>
             <td class="date-cell">${d.date}</td>
@@ -2327,7 +2324,7 @@ function renderDocs() {
                     <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
                     <th class="sortable-doc" data-sort="geo">Geo ${docSortIcon('geo')}</th>
                     <th class="sortable-doc" data-sort="use">Use ${docSortIcon('use')}</th>
-                    <th class="sortable-doc" data-sort="vs">V / S ${docSortIcon('vs')}</th>
+                    <th class="sortable-doc" data-sort="vs">Status ${docSortIcon('vs')}</th>
                     <th class="sortable-doc" data-sort="date">Date ${docSortIcon('date')}</th>
                     <th></th>
                 </tr>
