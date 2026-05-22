@@ -17,25 +17,6 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // ── Geocoding proxy for EXIF module ──
-    if (req.url.startsWith('/geocode?')) {
-        const q = req.url.replace('/geocode?', '');
-        const geoUrl = 'https://nominatim.openstreetmap.org/search?' + q + '&format=json&addressdetails=1&limit=1&accept-language=en';
-        console.log('[GEO] ' + geoUrl);
-        https.get(geoUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36' } }, (geoRes) => {
-            let data = '';
-            geoRes.on('data', c => data += c);
-            geoRes.on('end', () => {
-                res.writeHead(geoRes.statusCode, { 'Content-Type': 'application/json' });
-                res.end(data);
-            });
-        }).on('error', e => {
-            res.writeHead(502, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: e.message }));
-        });
-        return;
-    }
-
     // Forward to Viper API
     const viperPath = req.url;
     let body = '';

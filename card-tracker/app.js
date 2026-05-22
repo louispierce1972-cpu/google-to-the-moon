@@ -1577,17 +1577,15 @@ function _anShowDetail(bin, data, prevData) {
 
 
 // ═══════════════════════════════════════════
-//   CHECKER — Formatter Utility (Proxy / BIN / Card / IP / EXIF)
+//   CHECKER — Formatter Utility (Proxy / BIN / Card / IP)
 // ═══════════════════════════════════════════
 
 const _CK = {
-    mode: 'proxy',      // proxy | bin | card | ip | exif
+    mode: 'proxy',      // proxy | bin | card | ip
     proxyProto: 'socks5', // socks5 | http | https
     input: '',
     output: '',
     history: [],         // last 10 operations
-    // EXIF sub-state
-    exif: { geo: null, tz: null, cam: null, dt: null, loading: false, error: null, _addr: '' }
 };
 
 function _ckParseProxy(text, proto) {
@@ -1715,191 +1713,6 @@ function _ckProcess() {
     }
 }
 
-// ═══════════════════════════════
-//   EXIF MODE — Simple Generator
-// ═══════════════════════════════
-
-
-const _EXIF_PHONES = [
-    { make: 'Apple',   model: 'iPhone 16 Pro Max', label: 'Apple — iPhone 16 Pro Max' },
-    { make: 'Apple',   model: 'iPhone 16 Pro',     label: 'Apple — iPhone 16 Pro' },
-    { make: 'Apple',   model: 'iPhone 15 Pro Max', label: 'Apple — iPhone 15 Pro Max' },
-    { make: 'Apple',   model: 'iPhone 15 Pro',     label: 'Apple — iPhone 15 Pro' },
-    { make: 'Apple',   model: 'iPhone 14 Pro',     label: 'Apple — iPhone 14 Pro' },
-    { make: 'Apple',   model: 'iPhone 14',         label: 'Apple — iPhone 14' },
-    { make: 'Google',  model: 'Pixel 9 Pro',       label: 'Google — Pixel 9 Pro' },
-    { make: 'Google',  model: 'Pixel 9',           label: 'Google — Pixel 9' },
-    { make: 'Google',  model: 'Pixel 8 Pro',       label: 'Google — Pixel 8 Pro' },
-    { make: 'Google',  model: 'Pixel 8',           label: 'Google — Pixel 8' },
-    { make: 'Google',  model: 'Pixel 7 Pro',       label: 'Google — Pixel 7 Pro' },
-    { make: 'samsung', model: 'SM-S928B',          label: 'Samsung — Galaxy S24 Ultra' },
-    { make: 'samsung', model: 'SM-S926B',          label: 'Samsung — Galaxy S24+' },
-    { make: 'samsung', model: 'SM-S921B',          label: 'Samsung — Galaxy S24' },
-    { make: 'samsung', model: 'SM-S918B',          label: 'Samsung — Galaxy S23 Ultra' },
-    { make: 'samsung', model: 'SM-S911B',          label: 'Samsung — Galaxy S23' },
-    { make: 'Xiaomi',  model: '2311DRK48C',        label: 'Xiaomi — 14 Pro' },
-    { make: 'Xiaomi',  model: '23127PN0CG',        label: 'Xiaomi — 14' },
-    { make: 'Xiaomi',  model: '2210132C',          label: 'Xiaomi — 13 Pro' },
-    { make: 'OnePlus', model: 'CPH2581',           label: 'OnePlus — 12' },
-    { make: 'OnePlus', model: 'CPH2449',           label: 'OnePlus — 11' },
-];
-
-const _EX_TZ = {
-    US: n => n < -135 ? ['America/Anchorage',-9] : n < -115 ? ['America/Los_Angeles',-8] : n < -100 ? ['America/Denver',-7] : n < -85 ? ['America/Chicago',-6] : ['America/New_York',-5],
-    CA: n => n < -120 ? ['America/Los_Angeles',-8] : n < -100 ? ['America/Denver',-7] : n < -80 ? ['America/Chicago',-6] : ['America/New_York',-5],
-    JP: () => ['Asia/Tokyo',9], KR: () => ['Asia/Seoul',9], CN: () => ['Asia/Shanghai',8],
-    HK: () => ['Asia/Hong_Kong',8], SG: () => ['Asia/Singapore',8], TH: () => ['Asia/Bangkok',7],
-    VN: () => ['Asia/Ho_Chi_Minh',7], ID: () => ['Asia/Jakarta',7], IN: () => ['Asia/Kolkata',5.5],
-    PK: () => ['Asia/Karachi',5], AE: () => ['Asia/Dubai',4], RU: () => ['Europe/Moscow',3],
-    GB: () => ['Europe/London',0], DE: () => ['Europe/Berlin',1], FR: () => ['Europe/Paris',1],
-    AU: () => ['Australia/Sydney',10], NZ: () => ['Pacific/Auckland',12], BR: () => ['America/Sao_Paulo',-3],
-    MX: () => ['America/Mexico_City',-6], PH: () => ['Asia/Manila',8], MY: () => ['Asia/Kuala_Lumpur',8],
-    IT: () => ['Europe/Rome',1], ES: () => ['Europe/Madrid',1], NL: () => ['Europe/Amsterdam',1],
-};
-
-async function _exParse(addr) {
-    // Try direct Nominatim first, then proxy fallback
-    const q = encodeURIComponent(addr);
-    const urls = [
-        'https://nominatim.openstreetmap.org/search?q=' + q + '&format=json&addressdetails=1&limit=1&accept-language=en',
-        'http://localhost:3777/geocode?q=' + q,
-    ];
-    let lastErr = 'Address not found';
-    for (const url of urls) {
-        try {
-            const r = await fetch(url);
-            if (!r.ok) { lastErr = 'HTTP ' + r.status; continue; }
-            const d = await r.json();
-            if (!d || !d.length) { lastErr = 'Address not found'; continue; }
-            const o = d[0], a = o.address || {};
-            const st = [];
-            if (a.house_number) st.push(a.house_number);
-            if (a.road) st.push(a.road);
-            return {
-                lat: parseFloat(o.lat), lng: parseFloat(o.lon),
-                country: a.country || '—', cc: (a.country_code || '').toUpperCase(),
-                state: a.state || a.province || a.region || '—',
-                city: a.city || a.town || a.village || a.municipality || '—',
-                zip: a.postcode || '—', street: st.join(' ') || '—',
-            };
-        } catch (e) { lastErr = e.message; }
-    }
-    throw new Error(lastErr);
-}
-
-function _exTZ(lng, cc) {
-    const fn = _EX_TZ[cc];
-    if (fn) { const [n,o] = fn(lng); return { name: n, off: o }; }
-    const o = Math.round(lng / 15);
-    return { name: 'UTC' + _exOff(o), off: o };
-}
-function _exOff(o) {
-    const s = o >= 0 ? '+' : '-', a = Math.abs(o);
-    return s + String(Math.floor(a)).padStart(2,'0') + ':' + String(Math.round((a%1)*60)).padStart(2,'0');
-}
-function _exDMS(v) {
-    const a = Math.abs(v), d = Math.floor(a), m = (a - d) * 60;
-    return d + "° " + m.toFixed(6) + "'";
-}
-function _exDt(d) {
-    return d.getFullYear()+':'+String(d.getMonth()+1).padStart(2,'0')+':'+String(d.getDate()).padStart(2,'0')
-        +' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
-}
-function _exGt(d) {
-    return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+':'+String(d.getUTCSeconds()).padStart(2,'0');
-}
-
-function _ckRenderExifPanel() {
-    const ex = _CK.exif, g = ex.geo, tz = ex.tz, c = ex.cam, d = ex.dt;
-    const ok = !!(g && tz && c && d);
-
-    const R = (lbl, id, val, cls) =>
-        `<div class="ex-r"><span class="ex-l">${lbl}</span><input class="ex-v${cls?' '+cls:''}" id="${id}" value="${val||''}" spellcheck="false" onfocus="this.select()"><button class="ex-c" onclick="_exC('${id}')">📋</button></div>`;
-
-    let out = '';
-    if (ok) {
-        const ed = _exDt(d);
-        out = `
-        <div class="ex-s"><div class="ex-st">LOCATION</div>
-            ${R('Country','ex-co',g.country)}${R('State','ex-st2',g.state)}${R('City','ex-ci',g.city)}${R('Street','ex-sr',g.street)}${R('ZIP','ex-zp',g.zip)}
-        </div>
-        <div class="ex-s"><div class="ex-st">GPS</div>
-            ${R('Latitude','ex-lat',g.lat.toFixed(7),'ex-g')}${R('Longitude','ex-lng',g.lng.toFixed(7),'ex-g')}
-            ${R('Lat DMS','ex-ld',_exDMS(g.lat),'ex-b')}${R('Lng DMS','ex-lgd',_exDMS(Math.abs(g.lng)),'ex-b')}
-            ${R('LatitudeRef','ex-lr',(g.lat>=0?'North':'South')+' latitude','ex-b')}${R('LongitudeRef','ex-lgr',(g.lng>=0?'East':'West')+' longitude','ex-b')}
-            ${R('GPS Time','ex-gt',_exGt(d),'ex-b')}
-        </div>
-        <div class="ex-s"><div class="ex-st">TIME</div>
-            ${R('Timezone','ex-tz',tz.name,'ex-y')}${R('UTC Offset','ex-uo','UTC '+_exOff(tz.off),'ex-y')}
-            ${R('Local Time','ex-lt',String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'),'ex-y')}
-        </div>
-        <div class="ex-s"><div class="ex-st">DEVICE</div>
-            <div class="ex-dev">
-                <select class="ex-sel" id="ex-cam">${_EXIF_PHONES.map((p,i) => `<option value="${i}"${c.make===p.make&&c.model===p.model?' selected':''}>${p.label}</option>`).join('')}</select>
-                <button class="ck-action-btn" id="ex-rnd">🎲</button>
-                <input type="datetime-local" class="ex-dti" id="ex-dti" value="${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}" step="1">
-                <button class="ck-action-btn" id="ex-now">⏱</button>
-            </div>
-        </div>
-        <div class="ex-s"><div class="ex-st">EXIF</div>
-            ${R('Manufacturer','ex-mk',c.make)}${R('Model','ex-md',c.model)}
-            ${R('DateTime','ex-d0',ed,'ex-g')}${R('DateTimeOriginal','ex-d1',ed,'ex-g')}${R('DateTimeDigitized','ex-d2',ed,'ex-g')}
-        </div>
-        <div class="ex-bot">
-            <button class="ck-action-btn ck-btn-copy" onclick="_exCA()">📋 Copy All</button>
-        </div>`;
-    } else if (!ex.loading && !ex.error) {
-        out = '<div class="ex-empty">Paste an address and press Parse</div>';
-    }
-
-    return `<div class="ex-w">
-        <div class="ex-bar">
-            <input type="text" class="ex-inp" id="ex-inp" placeholder="Paste address..." value="${ex._addr||''}" autocomplete="off" spellcheck="false">
-            <button class="ck-action-btn ck-btn-copy" id="ex-go" ${ex.loading?'disabled':''}>⚡ PARSE</button>
-        </div>
-        ${ex.error?`<div class="ex-err">✗ ${ex.error}</div>`:''}
-        ${out}
-    </div>`;
-}
-
-function _exC(id) {
-    const el = document.getElementById(id);
-    if (el) navigator.clipboard.writeText(el.value).then(() => toast('Copied','success'));
-}
-
-function _exCA() {
-    const S = (ids, lbls) => ids.map((id,i) => { const e = document.getElementById(id); return '  ' + lbls[i] + ': ' + (e?e.value:''); }).join('\n');
-    const t = [
-        '═══ LOCATION ═══\n' + S(['ex-co','ex-st2','ex-ci','ex-sr','ex-zp'],['Country','State','City','Street','ZIP']),
-        '═══ GPS ═══\n' + S(['ex-lat','ex-lng','ex-ld','ex-lgd','ex-lr','ex-lgr','ex-gt'],['Latitude','Longitude','Lat DMS','Lng DMS','LatitudeRef','LongitudeRef','GPS Time']),
-        '═══ TIME ═══\n' + S(['ex-tz','ex-uo','ex-lt'],['Timezone','UTC Offset','Local Time']),
-        '═══ EXIF ═══\n' + S(['ex-mk','ex-md','ex-d0','ex-d1','ex-d2'],['Manufacturer','Model','DateTime','DateTimeOriginal','DateTimeDigitized']),
-    ].join('\n\n');
-    navigator.clipboard.writeText(t).then(() => toast('All copied','success'));
-}
-
-function _ckBindExifEvents() {
-    document.getElementById('ex-go')?.addEventListener('click', async () => {
-        const a = document.getElementById('ex-inp')?.value?.trim();
-        if (!a) { toast('Paste an address','warning'); return; }
-        const ex = _CK.exif;
-        ex._addr = a; ex.loading = true; ex.error = null;
-        renderChecker();
-        try {
-            ex.geo = await _exParse(a);
-            ex.tz = _exTZ(ex.geo.lng, ex.geo.cc);
-            if (!ex.cam) ex.cam = { ..._EXIF_PHONES[Math.floor(Math.random()*_EXIF_PHONES.length)] };
-            if (!ex.dt) ex.dt = new Date();
-            ex.loading = false;
-            renderChecker();
-        } catch (e) { ex.loading = false; ex.error = e.message; renderChecker(); }
-    });
-    document.getElementById('ex-inp')?.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('ex-go')?.click(); });
-    document.getElementById('ex-cam')?.addEventListener('change', e => { const i=+e.target.value; if (_EXIF_PHONES[i]) { _CK.exif.cam={..._EXIF_PHONES[i]}; renderChecker(); } });
-    document.getElementById('ex-rnd')?.addEventListener('click', () => { _CK.exif.cam={..._EXIF_PHONES[Math.floor(Math.random()*_EXIF_PHONES.length)]}; renderChecker(); });
-    document.getElementById('ex-dti')?.addEventListener('change', e => { if (e.target.value) { _CK.exif.dt=new Date(e.target.value); renderChecker(); } });
-    document.getElementById('ex-now')?.addEventListener('click', () => { _CK.exif.dt=new Date(); renderChecker(); });
-}
 
 function renderChecker() {
     const area = document.getElementById('content-area');
@@ -1907,14 +1720,13 @@ function renderChecker() {
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', exif: '📍' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', exif: 'EXIF' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP' };
     const modePlaceholders = {
         proxy: 'user:pass@proxy.example.com:10000\nuser:pass@proxy.example.com:10001\nuser:pass@proxy.example.com:10002\n\nFormats accepted:\n• user:pass@host:port\n• host:port:user:pass\n• host:port',
         bin: 'Paste card logs — BINs will be extracted automatically\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111 05 26 456\n\nOutput: /bin 424242',
         card: 'Paste card logs in any format:\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111:05:26:456\n\nOutput: 4242424242424242 11 26 777',
         ip: 'Paste text containing IP addresses:\n\n192.168.1.1\nProxy: 56.233.33.4:8080\nServer at 10.0.0.1 responded\n\nOutput: /ip 192.168.1.1',
-        exif: ''
     };
 
     // Count output lines
@@ -1937,7 +1749,6 @@ function renderChecker() {
             </div>
         </div>
 
-        ${_CK.mode === 'exif' ? _ckRenderExifPanel() : `
 
         ${_CK.mode === 'proxy' ? `
         <div class="ck-proto-bar">
@@ -1995,7 +1806,7 @@ function renderChecker() {
             </div>
         </div>
         ` : ''}
-        `}
+
     </div>
     `;
 
@@ -2010,11 +1821,7 @@ function renderChecker() {
         });
     });
 
-    // EXIF mode events
-    if (_CK.mode === 'exif') {
-        _ckBindExifEvents(area);
-        return; // EXIF has its own UI, skip proxy/bin/card/ip bindings
-    }
+
 
     // Protocol buttons (proxy mode)
     area.querySelectorAll('.ck-proto-btn').forEach(btn => {
