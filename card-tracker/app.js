@@ -30,6 +30,7 @@ const STATE = {
     notesLastSaved: null,
     settings: {},
     trashCards: [],
+    bookmarks: [],
 };
 
 
@@ -258,6 +259,7 @@ function save() {
         localStorage.setItem('ct_settings', JSON.stringify(STATE.settings || {}));
 
         localStorage.setItem('ct_trash_cards', JSON.stringify(STATE.trashCards || []));
+        localStorage.setItem('ct_bookmarks', JSON.stringify(STATE.bookmarks || []));
         saveBinCache();
     } catch (e) {
         console.error('Save error:', e);
@@ -310,6 +312,9 @@ function load() {
             STATE.notesTabs = JSON.parse(tabsRaw);
             STATE.notesActiveTab = localStorage.getItem('activeNoteTab') || localStorage.getItem('ct_notes_active') || (STATE.notesTabs[0]?.id || '');
         }
+        // Load bookmarks
+        const bookmarksRaw = localStorage.getItem('ct_bookmarks');
+        if (bookmarksRaw) STATE.bookmarks = JSON.parse(bookmarksRaw);
     } catch (e) {
         console.error('Load error:', e);
     }
@@ -841,7 +846,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'bookmarks'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -1581,7 +1586,7 @@ function _anShowDetail(bin, data, prevData) {
 // ═══════════════════════════════════════════
 
 const _CK = {
-    mode: 'proxy',        // proxy | bin | card | ip | auto
+    mode: 'proxy',        // proxy | bin | card | ip | auto | glue
     proxyProto: 'socks5', // socks5 | http | https
     tabs: {
         proxy: { input: '', output: '' },
@@ -1589,6 +1594,16 @@ const _CK = {
         card:  { input: '', output: '' },
         ip:    { input: '', output: '' },
         auto:  { input: '', output: '' },
+        glue:  { input: '', output: '' },
+    },
+    // GLUE multi-step state
+    glue: {
+        step: 1,               // 1=cards, 2=identity, 3=result
+        cardsRaw: '',          // raw text for cards step
+        identityRaw: '',       // raw text for identity step
+        parsedCards: [],       // [{ccn, mm, yy, cvv, network}]
+        parsedIdentities: [],  // [{name,surname,address,city,state,country,zip,dob,phone,email}]
+        records: [],           // final paired [{card, identity}]
     },
     history: [],           // last 10 operations
 };
@@ -1918,14 +1933,377 @@ function _ckProcess() {
 }
 
 
+/* ──────────────────────────────────────────
+   GLUE — Identity Extractor
+   ────────────────────────────────────────── */
+function _ckExtractIdentities(text) {
+    const results = [];
+    const blocks = text.split(/\n\s*\n|\n(?=(?:name|first|last|full|fname|lname|holder|owner|address|street|city|state|country|zip|postal|dob|birth|phone|email|tel|mob)\s*[:=])/i);
+
+    for (const block of blocks) {
+        if (!block.trim()) continue;
+        const id = { name:'', surname:'', address:'', city:'', state:'', country:'', zip:'', dob:'', phone:'', email:'' };
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        let found = 0;
+
+        for (const line of lines) {
+            const kv = line.match(/^([a-z\s_-]+)\s*[:=|]\s*(.+)$/i);
+            if (!kv) continue;
+            const key = kv[1].toLowerCase().replace(/[\s_-]+/g, '');
+            const val = kv[2].trim();
+            if (!val) continue;
+
+            if (/^(firstname|fname|first|name|holder|owner|cardname)$/.test(key)) { id.name = val; found++; }
+            else if (/^(lastname|lname|last|surname|family)$/.test(key)) { id.surname = val; found++; }
+            else if (/^(fullname|full|namefull)$/.test(key)) {
+                const parts = val.split(/\s+/);
+                id.name = parts[0] || '';
+                id.surname = parts.slice(1).join(' ') || '';
+                found++;
+            }
+            else if (/^(address|addr|street|streetaddress|address1|line1)$/.test(key)) { id.address = val; found++; }
+            else if (/^(city|town|locality)$/.test(key)) { id.city = val; found++; }
+            else if (/^(state|province|region|oblast)$/.test(key)) { id.state = val; found++; }
+            else if (/^(country|nation|countrycode)$/.test(key)) { id.country = val; found++; }
+            else if (/^(zip|zipcode|postal|postalcode|postcode)$/.test(key)) { id.zip = val; found++; }
+            else if (/^(dob|birth|birthday|dateofbirth|birthdate)$/.test(key)) { id.dob = val; found++; }
+            else if (/^(phone|tel|telephone|mobile|mob|cell)$/.test(key)) { id.phone = val; found++; }
+            else if (/^(email|mail|emailaddress)$/.test(key)) { id.email = val; found++; }
+        }
+
+        // Try unstructured: first line = name surname
+        if (!id.name && lines.length > 0) {
+            const firstLine = lines[0];
+            if (!firstLine.includes(':') && !firstLine.includes('=')) {
+                const nameParts = firstLine.split(/\s+/).filter(w => /^[A-Za-zÀ-ÿ'-]+$/.test(w));
+                if (nameParts.length >= 2 && nameParts.length <= 4) {
+                    id.name = nameParts[0];
+                    id.surname = nameParts.slice(1).join(' ');
+                    found++;
+                }
+            }
+        }
+
+        if (found >= 1 && (id.name || id.surname)) {
+            results.push({...id});
+        }
+    }
+    return results;
+}
+
+/* GLUE — Pair cards with identities */
+function _ckGluePair() {
+    const g = _CK.glue;
+    const cards = g.parsedCards;
+    const ids = g.parsedIdentities;
+    const records = [];
+    const max = Math.max(cards.length, ids.length);
+
+    for (let i = 0; i < max; i++) {
+        const card = cards[i] || cards[cards.length - 1] || null;
+        const identity = ids[i] || ids[ids.length - 1] || null;
+        if (card || identity) {
+            records.push({ card: card ? {...card} : null, identity: identity ? {...identity} : null });
+        }
+    }
+    g.records = records;
+    return records;
+}
+
+/* GLUE — Format single record */
+function _ckFormatRecord(rec, idx) {
+    const lines = [`══ Record #${idx + 1} ══`];
+    if (rec.card) {
+        lines.push(`💳 ${rec.card.ccn}|${rec.card.mm}|${rec.card.yy}|${rec.card.cvv}  [${rec.card.network || '??'}]`);
+    }
+    if (rec.identity) {
+        const id = rec.identity;
+        if (id.name || id.surname) lines.push(`👤 ${id.name} ${id.surname}`.trim());
+        if (id.address) lines.push(`📍 ${id.address}`);
+        const geo = [id.city, id.state, id.zip, id.country].filter(Boolean).join(', ');
+        if (geo) lines.push(`🌍 ${geo}`);
+        if (id.dob) lines.push(`🎂 ${id.dob}`);
+        if (id.phone) lines.push(`📞 ${id.phone}`);
+        if (id.email) lines.push(`✉️ ${id.email}`);
+    }
+    return lines.join('\n');
+}
+
+/* GLUE — Format all records */
+function _ckFormatAllRecords() {
+    return _CK.glue.records.map((r, i) => _ckFormatRecord(r, i)).join('\n\n');
+}
+
+/* GLUE — Reset */
+function _ckGlueReset() {
+    _CK.glue = { step: 1, cardsRaw: '', identityRaw: '', parsedCards: [], parsedIdentities: [], records: [] };
+}
+
+/* ──────────────────────────────────────────
+   GLUE — Render UI
+   ────────────────────────────────────────── */
+function _renderGlue() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    const g = _CK.glue;
+
+    const stepLabels = ['', '1 · ADD CARDS', '2 · ADD IDENTITY', '3 · RESULT'];
+    const stepIcons = ['', '💳', '👤', '🔗'];
+
+    area.innerHTML = `
+    <div class="ck-container">
+        <div class="ck-header">
+            <div class="ck-title">
+                <span class="ck-icon">🔗</span>
+                <span>GLUE</span>
+                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Склейка</span>
+            </div>
+            <div class="ck-modes">
+                <button class="ck-mode-btn" data-mode="proxy"><span class="ck-mode-icon">🌐</span><span class="ck-mode-label">Proxy</span></button>
+                <button class="ck-mode-btn" data-mode="card"><span class="ck-mode-icon">💳</span><span class="ck-mode-label">Card</span></button>
+                <button class="ck-mode-btn" data-mode="auto"><span class="ck-mode-icon">🔍</span><span class="ck-mode-label">Auto</span></button>
+                <button class="ck-mode-btn active" data-mode="glue"><span class="ck-mode-icon">🔗</span><span class="ck-mode-label">Glue</span></button>
+            </div>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="glue-steps">
+            ${[1,2,3].map(s => `
+                <div class="glue-step ${g.step === s ? 'active' : ''} ${g.step > s ? 'done' : ''}" data-step="${s}">
+                    <span class="glue-step-num">${g.step > s ? '✓' : s}</span>
+                    <span class="glue-step-label">${stepLabels[s]}</span>
+                </div>
+                ${s < 3 ? '<div class="glue-step-line' + (g.step > s ? ' done' : '') + '"></div>' : ''}
+            `).join('')}
+        </div>
+
+        ${g.step === 1 ? _renderGlueStep1() : ''}
+        ${g.step === 2 ? _renderGlueStep2() : ''}
+        ${g.step === 3 ? _renderGlueStep3() : ''}
+    </div>`;
+
+    _bindGlueEvents();
+}
+
+function _renderGlueStep1() {
+    const g = _CK.glue;
+    const count = g.parsedCards.length;
+    return `
+        <div class="glue-workspace">
+            <div class="ck-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">💳 PASTE CARDS</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${count > 0 ? 'ck-count-active' : ''}">${count} cards found</span>
+                        <button class="ck-action-btn" id="glue-paste-1">📋 Paste</button>
+                        <button class="ck-action-btn ck-btn-danger" id="glue-clear-1">✕</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea" id="glue-input-1" placeholder="Paste cards in ANY format:\n\n4242424242424242|03|27|111\n4242424242424242:03:2027:111\nCard: 4242... Exp 03/27 CVV 111\nMixed text, logs, clipboard — all works">${g.cardsRaw}</textarea>
+            </div>
+            <div class="glue-bottom-bar">
+                <button class="glue-btn-secondary" id="glue-reset">↺ Reset</button>
+                <div class="glue-spacer"></div>
+                <button class="glue-btn-primary" id="glue-next-1" ${!count ? 'disabled' : ''}>
+                    Extract & Next →
+                    ${count > 0 ? `<span class="glue-badge">${count}</span>` : ''}
+                </button>
+            </div>
+        </div>`;
+}
+
+function _renderGlueStep2() {
+    const g = _CK.glue;
+    const count = g.parsedIdentities.length;
+    return `
+        <div class="glue-workspace">
+            <div class="glue-info-bar">
+                <span class="glue-info-icon">💳</span>
+                <span>${g.parsedCards.length} cards ready</span>
+            </div>
+            <div class="ck-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">👤 PASTE IDENTITY DATA</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${count > 0 ? 'ck-count-active' : ''}">${count} identities found</span>
+                        <button class="ck-action-btn" id="glue-paste-2">📋 Paste</button>
+                        <button class="ck-action-btn ck-btn-danger" id="glue-clear-2">✕</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea" id="glue-input-2" placeholder="Paste identity info:\n\nName: John\nSurname: Smith\nAddress: 123 Main St\nCity: New York\nState: NY\nZip: 10001\nCountry: US\nDOB: 01/15/1990\nPhone: +1-555-123-4567\nEmail: john@example.com\n\n(Separate multiple identities with blank lines)">${g.identityRaw}</textarea>
+            </div>
+            <div class="glue-bottom-bar">
+                <button class="glue-btn-secondary" id="glue-back-2">← Back</button>
+                <div class="glue-spacer"></div>
+                <button class="glue-btn-primary" id="glue-next-2" ${!count ? 'disabled' : ''}>
+                    Glue & Generate →
+                    ${count > 0 ? `<span class="glue-badge">${count}</span>` : ''}
+                </button>
+            </div>
+        </div>`;
+}
+
+function _renderGlueStep3() {
+    const g = _CK.glue;
+    const output = _ckFormatAllRecords();
+    return `
+        <div class="glue-workspace">
+            <div class="glue-info-bar">
+                <span class="glue-info-icon">🔗</span>
+                <span>${g.records.length} records paired</span>
+                <span style="margin-left:auto;font-size:10px;color:#6b7280">${g.parsedCards.length} cards × ${g.parsedIdentities.length} identities</span>
+            </div>
+            <div class="ck-panel" style="flex:1">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">📤 GLUED OUTPUT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ck-count-active">${g.records.length} records</span>
+                    </div>
+                </div>
+                <textarea class="ck-textarea ck-output-text" id="glue-output" readonly>${output}</textarea>
+            </div>
+            <div class="glue-export-bar">
+                <button class="glue-btn-export" id="glue-copy">📋 Copy</button>
+                <button class="glue-btn-export glue-btn-notes" id="glue-to-notes">📝 To Notes</button>
+                <button class="glue-btn-export glue-btn-workspace" id="glue-to-workspace">📊 To Workspace</button>
+                <button class="glue-btn-export glue-btn-txt" id="glue-export-txt">💾 Export .txt</button>
+            </div>
+            <div class="glue-bottom-bar">
+                <button class="glue-btn-secondary" id="glue-back-3">← Back to Identity</button>
+                <div class="glue-spacer"></div>
+                <button class="glue-btn-secondary" id="glue-reset-all">↺ New Session</button>
+            </div>
+        </div>`;
+}
+
+function _bindGlueEvents() {
+    const area = document.getElementById('content-area');
+    const g = _CK.glue;
+
+    // Mode switch
+    area.querySelectorAll('.ck-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _CK.mode = btn.dataset.mode;
+            if (_CK.mode === 'glue') _renderGlue();
+            else renderChecker();
+        });
+    });
+
+    // Step clicks (go back to completed steps)
+    area.querySelectorAll('.glue-step.done').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => { g.step = parseInt(el.dataset.step); _renderGlue(); });
+    });
+
+    if (g.step === 1) {
+        const inp = document.getElementById('glue-input-1');
+        inp?.addEventListener('input', () => {
+            g.cardsRaw = inp.value;
+            g.parsedCards = _ckExtractCards(inp.value);
+            const cnt = document.querySelector('.ck-count');
+            if (cnt) cnt.textContent = `${g.parsedCards.length} cards found`;
+            if (cnt) cnt.classList.toggle('ck-count-active', g.parsedCards.length > 0);
+            const btn = document.getElementById('glue-next-1');
+            if (btn) btn.disabled = g.parsedCards.length === 0;
+            if (btn) {
+                const badge = btn.querySelector('.glue-badge');
+                if (badge) badge.textContent = g.parsedCards.length;
+                else if (g.parsedCards.length > 0) btn.innerHTML = `Extract & Next → <span class="glue-badge">${g.parsedCards.length}</span>`;
+            }
+        });
+        document.getElementById('glue-paste-1')?.addEventListener('click', async () => {
+            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted','success'); } catch { toast('Clipboard denied','error'); }
+        });
+        document.getElementById('glue-clear-1')?.addEventListener('click', () => { g.cardsRaw = ''; g.parsedCards = []; _renderGlue(); });
+        document.getElementById('glue-next-1')?.addEventListener('click', () => {
+            if (g.parsedCards.length === 0) { toast('No cards found','error'); return; }
+            toast(`${g.parsedCards.length} cards extracted`, 'success');
+            g.step = 2; _renderGlue();
+        });
+        document.getElementById('glue-reset')?.addEventListener('click', () => { _ckGlueReset(); _renderGlue(); });
+    }
+
+    if (g.step === 2) {
+        const inp = document.getElementById('glue-input-2');
+        inp?.addEventListener('input', () => {
+            g.identityRaw = inp.value;
+            g.parsedIdentities = _ckExtractIdentities(inp.value);
+            const cnt = area.querySelectorAll('.ck-count')[0];
+            if (cnt) { cnt.textContent = `${g.parsedIdentities.length} identities found`; cnt.classList.toggle('ck-count-active', g.parsedIdentities.length > 0); }
+            const btn = document.getElementById('glue-next-2');
+            if (btn) btn.disabled = g.parsedIdentities.length === 0;
+        });
+        document.getElementById('glue-paste-2')?.addEventListener('click', async () => {
+            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted','success'); } catch { toast('Clipboard denied','error'); }
+        });
+        document.getElementById('glue-clear-2')?.addEventListener('click', () => { g.identityRaw = ''; g.parsedIdentities = []; _renderGlue(); });
+        document.getElementById('glue-back-2')?.addEventListener('click', () => { g.step = 1; _renderGlue(); });
+        document.getElementById('glue-next-2')?.addEventListener('click', () => {
+            if (g.parsedIdentities.length === 0) { toast('No identities found','error'); return; }
+            _ckGluePair();
+            toast(`${g.records.length} records paired`, 'success');
+            g.step = 3; _renderGlue();
+        });
+    }
+
+    if (g.step === 3) {
+        document.getElementById('glue-copy')?.addEventListener('click', () => {
+            const text = _ckFormatAllRecords();
+            navigator.clipboard.writeText(text).then(() => toast('Copied!','success')).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!','success'); });
+        });
+        document.getElementById('glue-to-notes')?.addEventListener('click', () => {
+            const text = '═══ GLUE EXPORT ═══\n' + new Date().toLocaleString() + '\n\n' + _ckFormatAllRecords();
+            const newTab = { id: 'tab-' + Date.now(), title: 'Glue ' + new Date().toLocaleTimeString(), content: text, pinned: false, tag: null, created: Date.now(), scrollPos: 0 };
+            STATE.notesTabs.push(newTab);
+            STATE.notesActiveTab = newTab.id;
+            save();
+            toast(`${g.records.length} records → Notes`, 'success');
+        });
+        document.getElementById('glue-to-workspace')?.addEventListener('click', () => {
+            let added = 0;
+            g.records.forEach(rec => {
+                if (!rec.card) return;
+                const c = rec.card; const id = rec.identity || {};
+                const geo = [id.city, id.state, id.country].filter(Boolean).join(', ');
+                STATE.cards.push({
+                    id: genId(), name: id.name || 'UNKNOWN', surname: id.surname || '',
+                    cardNumber: c.ccn, month: c.mm, year: c.yy, cvv: c.cvv,
+                    country: STATE.currentCountry, cardType: c.network || getCardType(c.ccn),
+                    docType: '', amount: '',
+                    notes: [geo, id.address, id.zip, id.dob, id.phone, id.email].filter(Boolean).join(' | '),
+                    date: todayStr(), cardAdd: false, runAds: false, verified: false, starred: false,
+                    mailVerify: false, mailSubmit: false, mailNone: false, readyToWork: true
+                });
+                added++;
+            });
+            if (added) { save(); toast(`${added} cards → Workspace`, 'success'); }
+            else toast('No cards to add', 'warning');
+        });
+        document.getElementById('glue-export-txt')?.addEventListener('click', () => {
+            const text = _ckFormatAllRecords();
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `glue-export-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(a.href);
+            toast('File downloaded', 'success');
+        });
+        document.getElementById('glue-back-3')?.addEventListener('click', () => { g.step = 2; _renderGlue(); });
+        document.getElementById('glue-reset-all')?.addEventListener('click', () => { _ckGlueReset(); _renderGlue(); toast('Session reset', 'info'); });
+    }
+}
+
 function renderChecker() {
+    // Route to GLUE renderer if in glue mode
+    if (_CK.mode === 'glue') { _renderGlue(); return; }
+
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue' };
     const modePlaceholders = {
         proxy: 'Paste any text containing proxies — they will be extracted automatically\n\nSupported formats:\n• user:pass@host:port\n• host:port:user:pass\n• user:pass:host:port\n• protocol://user:pass@host:port\n• host:port\n• IP:PORT from logs, JSON, HTML\n\nGarbage text is ignored automatically',
         bin: 'Paste any text — BINs will be extracted automatically\n\n4242424242424242|11|26|777\nCard: 5326 1023 4355 9988\nCC: 4111111111111111 Exp: 05/26 CVV: 456\nRandom log text with 5454781003037335...\n\nAll formats supported • Duplicates removed\nOutput: /bin 424242',
@@ -2143,6 +2521,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'analytics') {
         renderAnalytics();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'bookmarks') {
+        renderBookmarks();
         footer.style.display = 'none';
         return;
     }
@@ -8976,3 +9359,357 @@ function _tcRenderResults(cards) {
     });
 }
 
+
+// ══════════════════════════════════════
+//        BOOKMARKS MODULE
+// ══════════════════════════════════════
+
+let _bkSearchQuery = '';
+let _bkFilterTag = 'all';
+let _bkEditingId = null;
+
+function _bkGetFiltered() {
+    let items = [...(STATE.bookmarks || [])];
+    if (_bkFilterTag && _bkFilterTag !== 'all') {
+        items = items.filter(b => (b.tag || '').toLowerCase() === _bkFilterTag.toLowerCase());
+    }
+    if (_bkSearchQuery && _bkSearchQuery.length >= 2) {
+        const q = _bkSearchQuery.toLowerCase();
+        items = items.filter(b =>
+            (b.title || '').toLowerCase().includes(q) ||
+            (b.url || '').toLowerCase().includes(q) ||
+            (b.description || '').toLowerCase().includes(q) ||
+            (b.tag || '').toLowerCase().includes(q) ||
+            (b.notes || '').toLowerCase().includes(q)
+        );
+    }
+    items.sort((a, b) => (b.created || 0) - (a.created || 0));
+    return items;
+}
+
+function _bkGetAllTags() {
+    const tags = new Set();
+    (STATE.bookmarks || []).forEach(b => {
+        if (b.tag && b.tag.trim()) tags.add(b.tag.trim());
+    });
+    return [...tags].sort((a, b) => a.localeCompare(b));
+}
+
+function _bkFormatDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(2);
+    return `${dd}.${mm}.${yy}`;
+}
+
+function _bkEsc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderBookmarks() {
+    const area = document.getElementById('content-area');
+    const items = _bkGetFiltered();
+    const allTags = _bkGetAllTags();
+    const isEditing = _bkEditingId !== null;
+    const editItem = isEditing ? (STATE.bookmarks || []).find(b => b.id === _bkEditingId) : null;
+
+    let tagsBarHTML = `<button class="bk-tag-btn ${_bkFilterTag === 'all' ? 'active' : ''}" data-bk-tag="all">ALL</button>`;
+    allTags.forEach(t => {
+        tagsBarHTML += `<button class="bk-tag-btn ${_bkFilterTag === t ? 'active' : ''}" data-bk-tag="${t}">${t}</button>`;
+    });
+
+    let cardsHTML = '';
+    if (items.length === 0) {
+        cardsHTML = `<div class="bk-empty">No bookmarks found</div>`;
+    } else {
+        items.forEach(b => {
+            const truncUrl = (b.url || '').length > 60 ? b.url.slice(0, 57) + '...' : (b.url || '');
+            cardsHTML += `
+            <div class="bk-card" data-bk-id="${b.id}">
+                <div class="bk-card-top">
+                    <div class="bk-card-info">
+                        <span class="bk-card-title">${_bkEsc(b.title || 'Untitled')}</span>
+                        <a class="bk-card-url" href="${_bkEsc(b.url || '#')}" target="_blank" rel="noopener" title="${_bkEsc(b.url || '')}">${_bkEsc(truncUrl)}</a>
+                    </div>
+                    <div class="bk-card-meta">
+                        ${b.tag ? `<span class="bk-card-tag">${_bkEsc(b.tag)}</span>` : ''}
+                        <span class="bk-card-date">${_bkFormatDate(b.created)}</span>
+                    </div>
+                </div>
+                ${b.description ? `<div class="bk-card-desc">${_bkEsc(b.description)}</div>` : ''}
+                ${b.notes ? `<div class="bk-card-notes">${_bkEsc(b.notes)}</div>` : ''}
+                <div class="bk-card-actions">
+                    <button class="bk-act-btn bk-act-open" data-bk-action="open" data-bk-id="${b.id}">Open</button>
+                    <button class="bk-act-btn bk-act-copy" data-bk-action="copy-url" data-bk-id="${b.id}">Copy URL</button>
+                    <button class="bk-act-btn bk-act-copy-all" data-bk-action="copy-all" data-bk-id="${b.id}">Copy All</button>
+                    <button class="bk-act-btn bk-act-edit" data-bk-action="edit" data-bk-id="${b.id}">Edit</button>
+                    <button class="bk-act-btn bk-act-del" data-bk-action="delete" data-bk-id="${b.id}">Delete</button>
+                </div>
+            </div>`;
+        });
+    }
+
+    const formTitle = isEditing ? 'EDIT BOOKMARK' : 'ADD BOOKMARK';
+    const formBtn = isEditing ? 'Save Changes' : 'Add Bookmark';
+    const fTitle = editItem ? editItem.title : '';
+    const fUrl = editItem ? editItem.url : '';
+    const fDesc = editItem ? editItem.description : '';
+    const fTag = editItem ? editItem.tag : '';
+    const fNotes = editItem ? editItem.notes : '';
+    const showForm = isEditing;
+
+    area.innerHTML = `
+    <div class="bk-container">
+        <div class="bk-header">
+            <div class="bk-header-left">
+                <span class="bk-title">BOOKMARKS</span>
+                <span class="bk-count">${items.length} / ${(STATE.bookmarks || []).length}</span>
+            </div>
+            <div class="bk-header-right">
+                <input type="text" class="bk-search" id="bk-search" placeholder="Search bookmarks..." value="${_bkEsc(_bkSearchQuery)}" autocomplete="off">
+                <button class="bk-add-toggle" id="bk-add-toggle">${isEditing ? 'Cancel' : '+ Add'}</button>
+            </div>
+        </div>
+
+        <div class="bk-form-panel ${showForm ? '' : 'hidden'}" id="bk-form-panel">
+            <div class="bk-form-title">${formTitle}</div>
+            <div class="bk-form-row">
+                <div class="bk-form-group">
+                    <label>Title *</label>
+                    <input type="text" id="bk-f-title" placeholder="Bookmark name" value="${_bkEsc(fTitle)}">
+                </div>
+                <div class="bk-form-group">
+                    <label>URL *</label>
+                    <input type="text" id="bk-f-url" placeholder="https://..." value="${_bkEsc(fUrl)}">
+                </div>
+            </div>
+            <div class="bk-form-row">
+                <div class="bk-form-group">
+                    <label>Description</label>
+                    <input type="text" id="bk-f-desc" placeholder="Short description" value="${_bkEsc(fDesc)}">
+                </div>
+                <div class="bk-form-group bk-form-group-sm">
+                    <label>Category / Tag</label>
+                    <input type="text" id="bk-f-tag" placeholder="e.g. tools" value="${_bkEsc(fTag)}" list="bk-tag-list">
+                    <datalist id="bk-tag-list">${allTags.map(t => '<option value="' + _bkEsc(t) + '">').join('')}</datalist>
+                </div>
+            </div>
+            <div class="bk-form-row">
+                <div class="bk-form-group bk-form-group-full">
+                    <label>Notes</label>
+                    <textarea id="bk-f-notes" rows="2" placeholder="Additional notes...">${_bkEsc(fNotes)}</textarea>
+                </div>
+            </div>
+            <div class="bk-form-actions">
+                <button class="bk-form-cancel" id="bk-form-cancel">Cancel</button>
+                <button class="bk-form-save" id="bk-form-save">${formBtn}</button>
+            </div>
+        </div>
+
+        <div class="bk-tags-bar" id="bk-tags-bar">${tagsBarHTML}</div>
+
+        <div class="bk-list" id="bk-list">${cardsHTML}</div>
+    </div>`;
+
+    _bkBindEvents();
+}
+
+function _bkBindEvents() {
+    const searchEl = document.getElementById('bk-search');
+    if (searchEl) {
+        searchEl.addEventListener('input', () => {
+            _bkSearchQuery = searchEl.value;
+            _bkRebuildList();
+        });
+    }
+
+    const toggleBtn = document.getElementById('bk-add-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            if (_bkEditingId !== null) {
+                _bkEditingId = null;
+                renderBookmarks();
+                return;
+            }
+            const panel = document.getElementById('bk-form-panel');
+            if (panel) {
+                panel.classList.toggle('hidden');
+                if (!panel.classList.contains('hidden')) {
+                    document.getElementById('bk-f-title')?.focus();
+                    toggleBtn.textContent = 'Cancel';
+                } else {
+                    toggleBtn.textContent = '+ Add';
+                }
+            }
+        });
+    }
+
+    document.getElementById('bk-form-cancel')?.addEventListener('click', () => {
+        _bkEditingId = null;
+        const panel = document.getElementById('bk-form-panel');
+        if (panel) panel.classList.add('hidden');
+        const tb = document.getElementById('bk-add-toggle');
+        if (tb) tb.textContent = '+ Add';
+    });
+
+    document.getElementById('bk-form-save')?.addEventListener('click', () => {
+        const title = document.getElementById('bk-f-title')?.value.trim();
+        const url = document.getElementById('bk-f-url')?.value.trim();
+        const desc = document.getElementById('bk-f-desc')?.value.trim();
+        const tag = document.getElementById('bk-f-tag')?.value.trim();
+        const notes = document.getElementById('bk-f-notes')?.value.trim();
+
+        if (!title) { toast('Title is required', 'error'); return; }
+        if (!url) { toast('URL is required', 'error'); return; }
+
+        if (_bkEditingId) {
+            const bk = STATE.bookmarks.find(b => b.id === _bkEditingId);
+            if (bk) {
+                bk.title = title;
+                bk.url = url;
+                bk.description = desc;
+                bk.tag = tag;
+                bk.notes = notes;
+                bk.updated = Date.now();
+            }
+            _bkEditingId = null;
+            toast('Bookmark updated', 'success');
+        } else {
+            STATE.bookmarks.push({
+                id: genId(),
+                title,
+                url,
+                description: desc,
+                tag,
+                notes,
+                created: Date.now(),
+                updated: Date.now()
+            });
+            toast('Bookmark added', 'success');
+        }
+        save();
+        renderBookmarks();
+    });
+
+    document.querySelectorAll('[data-bk-tag]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _bkFilterTag = btn.dataset.bkTag;
+            _bkRebuildList();
+            document.querySelectorAll('[data-bk-tag]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    _bkBindCardActions();
+}
+
+function _bkBindCardActions() {
+    document.querySelectorAll('[data-bk-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = btn.dataset.bkAction;
+            const id = btn.dataset.bkId;
+            const bk = STATE.bookmarks.find(b => b.id === id);
+            if (!bk) return;
+
+            switch (action) {
+                case 'open':
+                    window.open(bk.url, '_blank', 'noopener');
+                    break;
+                case 'copy-url':
+                    navigator.clipboard?.writeText(bk.url || '');
+                    toast('URL copied', 'success');
+                    break;
+                case 'copy-all': {
+                    const parts = [bk.title || '', bk.url || ''];
+                    if (bk.description) parts.push(bk.description);
+                    if (bk.tag) parts.push('Tag: ' + bk.tag);
+                    if (bk.notes) parts.push('Notes: ' + bk.notes);
+                    navigator.clipboard?.writeText(parts.join('\n'));
+                    toast('Copied to clipboard', 'success');
+                    break;
+                }
+                case 'edit':
+                    _bkEditingId = id;
+                    renderBookmarks();
+                    const panel = document.getElementById('bk-form-panel');
+                    if (panel) panel.classList.remove('hidden');
+                    document.getElementById('bk-f-title')?.focus();
+                    break;
+                case 'delete':
+                    STATE.bookmarks = STATE.bookmarks.filter(b => b.id !== id);
+                    save();
+                    toast('Bookmark deleted', 'info');
+                    _bkRebuildList();
+                    _bkRebuildTagsBar();
+                    break;
+            }
+        });
+    });
+}
+
+function _bkRebuildList() {
+    const listEl = document.getElementById('bk-list');
+    if (!listEl) return;
+    const items = _bkGetFiltered();
+    const countEl = document.querySelector('.bk-count');
+    if (countEl) countEl.textContent = `${items.length} / ${(STATE.bookmarks || []).length}`;
+
+    if (items.length === 0) {
+        listEl.innerHTML = `<div class="bk-empty">No bookmarks found</div>`;
+        return;
+    }
+
+    listEl.innerHTML = items.map(b => {
+        const truncUrl = (b.url || '').length > 60 ? b.url.slice(0, 57) + '...' : (b.url || '');
+        return `
+        <div class="bk-card" data-bk-id="${b.id}">
+            <div class="bk-card-top">
+                <div class="bk-card-info">
+                    <span class="bk-card-title">${_bkEsc(b.title || 'Untitled')}</span>
+                    <a class="bk-card-url" href="${_bkEsc(b.url || '#')}" target="_blank" rel="noopener" title="${_bkEsc(b.url || '')}">${_bkEsc(truncUrl)}</a>
+                </div>
+                <div class="bk-card-meta">
+                    ${b.tag ? `<span class="bk-card-tag">${_bkEsc(b.tag)}</span>` : ''}
+                    <span class="bk-card-date">${_bkFormatDate(b.created)}</span>
+                </div>
+            </div>
+            ${b.description ? `<div class="bk-card-desc">${_bkEsc(b.description)}</div>` : ''}
+            ${b.notes ? `<div class="bk-card-notes">${_bkEsc(b.notes)}</div>` : ''}
+            <div class="bk-card-actions">
+                <button class="bk-act-btn bk-act-open" data-bk-action="open" data-bk-id="${b.id}">Open</button>
+                <button class="bk-act-btn bk-act-copy" data-bk-action="copy-url" data-bk-id="${b.id}">Copy URL</button>
+                <button class="bk-act-btn bk-act-copy-all" data-bk-action="copy-all" data-bk-id="${b.id}">Copy All</button>
+                <button class="bk-act-btn bk-act-edit" data-bk-action="edit" data-bk-id="${b.id}">Edit</button>
+                <button class="bk-act-btn bk-act-del" data-bk-action="delete" data-bk-id="${b.id}">Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    _bkBindCardActions();
+}
+
+function _bkRebuildTagsBar() {
+    const tagsBar = document.getElementById('bk-tags-bar');
+    if (!tagsBar) return;
+    const allTags = _bkGetAllTags();
+    let html = `<button class="bk-tag-btn ${_bkFilterTag === 'all' ? 'active' : ''}" data-bk-tag="all">ALL</button>`;
+    allTags.forEach(t => {
+        html += `<button class="bk-tag-btn ${_bkFilterTag === t ? 'active' : ''}" data-bk-tag="${t}">${t}</button>`;
+    });
+    tagsBar.innerHTML = html;
+    if (_bkFilterTag !== 'all' && !allTags.includes(_bkFilterTag)) {
+        _bkFilterTag = 'all';
+    }
+    document.querySelectorAll('[data-bk-tag]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _bkFilterTag = btn.dataset.bkTag;
+            _bkRebuildList();
+            document.querySelectorAll('[data-bk-tag]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+}
