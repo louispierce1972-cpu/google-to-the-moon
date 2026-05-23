@@ -1941,11 +1941,11 @@ function _ckProcess() {
 function _ckExtractIdentities(text) {
     const results = [];
 
-    // Pre-split by bullet characters (· • ●) so single-line lists work
-    let normalized = text.replace(/[·•●]/g, '\n');
+    // Pre-split by bullet characters: · (U+00B7), • (U+2022), ● (U+25CF), ◦ (U+25E6), ‣ (U+2023)
+    let normalized = text.replace(/[\u00B7\u2022\u25CF\u25E6\u2023\u2219]/g, '\n');
 
     // Split into blocks by blank lines OR by line-starting Name/First/Full keywords
-    const blocks = normalized.split(/\n\s*\n|\n(?=(?:name|first|last|full|fname|lname|holder|owner)\s*[:=])/i);
+    const blocks = normalized.split(/\n\s*\n|\n(?=\s*(?:name|first|last|full|fname|lname|holder|owner)\s*[:=])/i);
 
     for (const block of blocks) {
         if (!block.trim()) continue;
