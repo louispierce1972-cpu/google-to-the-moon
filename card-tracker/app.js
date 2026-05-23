@@ -1577,140 +1577,344 @@ function _anShowDetail(bin, data, prevData) {
 
 
 // ═══════════════════════════════════════════
-//   CHECKER — Formatter Utility (Proxy / BIN / Card / IP)
+//   CHECKER — Smart Format Utility (Proxy / BIN / Card / IP / Auto)
 // ═══════════════════════════════════════════
 
 const _CK = {
-    mode: 'proxy',      // proxy | bin | card | ip
+    mode: 'proxy',        // proxy | bin | card | ip | auto
     proxyProto: 'socks5', // socks5 | http | https
-    input: '',
-    output: '',
-    history: [],         // last 10 operations
+    tabs: {
+        proxy: { input: '', output: '' },
+        bin:   { input: '', output: '' },
+        card:  { input: '', output: '' },
+        ip:    { input: '', output: '' },
+        auto:  { input: '', output: '' },
+    },
+    history: [],           // last 10 operations
 };
 
-function _ckParseProxy(text, proto) {
-    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+/* ──────────────────────────────────────────
+   SMART CARD EXTRACTOR
+   ────────────────────────────────────────── */
+function _ckExtractCards(text) {
+    const cards = [];
+    const seen = new Set();
+    const lines = text.split(/\n/);
+
+    function addCard(ccn, mm, yy, cvv) {
+        if (!ccn || !mm || !yy || !cvv) return false;
+        ccn = ccn.replace(/[\s\-]/g, '');
+        if (ccn.length < 13 || ccn.length > 19) return false;
+        const mmInt = parseInt(mm, 10);
+        if (mmInt < 1 || mmInt > 12) return false;
+        mm = String(mmInt).padStart(2, '0');
+        if (yy.length === 4) yy = yy.slice(2);
+        if (yy.length !== 2) return false;
+        if (cvv.length < 3 || cvv.length > 4) return false;
+        if (seen.has(ccn)) return false;
+        seen.add(ccn);
+        cards.push({ ccn, mm, yy, cvv, network: getCardType(ccn) });
+        return true;
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+
+        // ── Strategy 1: Standard delimited (pipe/colon/slash/space/tab) ──
+        const stdRe = /(\d[\d\s\-]{11,22}\d)\s*[\|:\/\\\s\t]+\s*(0?[1-9]|1[0-2])\s*[\|:\/\\\s\t]+\s*(\d{2}|\d{4})\s*[\|:\/\\\s\t]+\s*(\d{3,4})/;
+        const stdM = line.match(stdRe);
+        if (stdM) { addCard(stdM[1], stdM[2], stdM[3], stdM[4]); continue; }
+
+        // ── Strategy 2: Labeled formats ──
+        // Find card number first
+        const ccnRe = /(\d[\d\s\-]{11,22}\d)/;
+        const ccnM = line.match(ccnRe);
+        if (!ccnM) continue;
+        const rawCcn = ccnM[1];
+        const ccn = rawCcn.replace(/[\s\-]/g, '');
+        if (ccn.length < 13 || ccn.length > 19) continue;
+        if (seen.has(ccn)) continue;
+
+        let mm = null, yy = null, cvv = null;
+
+        // Labeled Exp: MM/YY
+        const expRe = /(?:exp(?:ir[yation]*)?|valid(?:ity)?|срок)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i;
+        const expM = line.match(expRe);
+        if (expM) { mm = expM[1]; yy = expM[2]; }
+
+        // Labeled Month
+        if (!mm) {
+            const mmRe = /(?:month|mm|mes|месяц)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\b/i;
+            const mmM = line.match(mmRe);
+            if (mmM) mm = mmM[1];
+        }
+        // Labeled Year
+        if (!yy) {
+            const yyRe = /(?:year|yy|yyyy|ano|год)\s*[:\s=]+\s*(\d{2,4})\b/i;
+            const yyM = line.match(yyRe);
+            if (yyM) yy = yyM[1];
+        }
+        // Labeled CVV
+        const cvvRe = /(?:cvv2?|cvc2?|cid|код|security\s*code)\s*[:\s=]+\s*(\d{3,4})\b/i;
+        const cvvM = line.match(cvvRe);
+        if (cvvM) cvv = cvvM[1];
+
+        // ── Strategy 3: Remaining numbers after card ──
+        if (!mm || !yy || !cvv) {
+            const afterIdx = line.indexOf(rawCcn) + rawCcn.length;
+            const after = line.substring(afterIdx);
+            // Strip labels/garbage, keep digits
+            const nums = [];
+            const numRe = /\b(\d{2,4})\b/g;
+            let m;
+            while ((m = numRe.exec(after)) !== null) {
+                const n = m[1];
+                if (parseInt(n) > 9999) continue;
+                nums.push(n);
+            }
+            if (!mm && !yy && !cvv && nums.length >= 3) {
+                mm = nums[0]; yy = nums[1]; cvv = nums[2];
+            } else if (mm && !yy && !cvv && nums.length >= 2) {
+                yy = nums[0]; cvv = nums[1];
+            } else if (!mm && yy && !cvv && nums.length >= 2) {
+                mm = nums[0]; cvv = nums[1];
+            } else if (mm && yy && !cvv && nums.length >= 1) {
+                cvv = nums[0];
+            } else if (!mm && !yy && cvv && nums.length >= 2) {
+                mm = nums[0]; yy = nums[1];
+            }
+        }
+
+        // ── Strategy 4: Multi-line (look at next line) ──
+        if ((!mm || !yy || !cvv) && i + 1 < lines.length) {
+            const nextLine = lines[i + 1].trim();
+            if (nextLine && !nextLine.match(/\d{13,19}/)) {
+                const combined = line + ' ' + nextLine;
+                const comboM = combined.match(stdRe);
+                if (comboM) {
+                    const comboCcn = comboM[1].replace(/[\s\-]/g, '');
+                    if (comboCcn === ccn) {
+                        addCard(comboM[1], comboM[2], comboM[3], comboM[4]);
+                        i++;
+                        continue;
+                    }
+                }
+                // Try extracting remaining numbers from next line
+                if (!mm || !yy || !cvv) {
+                    const nums = [];
+                    const numRe = /\b(\d{2,4})\b/g;
+                    let m;
+                    while ((m = numRe.exec(nextLine)) !== null) nums.push(m[1]);
+                    const needed = [!mm, !yy, !cvv].filter(Boolean).length;
+                    if (nums.length >= needed) {
+                        let idx = 0;
+                        if (!mm && idx < nums.length) mm = nums[idx++];
+                        if (!yy && idx < nums.length) yy = nums[idx++];
+                        if (!cvv && idx < nums.length) cvv = nums[idx++];
+                        i++;
+                    }
+                }
+            }
+        }
+
+        addCard(rawCcn, mm, yy, cvv);
+    }
+    return cards;
+}
+
+/* ──────────────────────────────────────────
+   SMART BIN EXTRACTOR
+   ────────────────────────────────────────── */
+function _ckExtractBins(text) {
+    const bins = new Set();
+    // From full card extractions
+    _ckExtractCards(text).forEach(c => bins.add(c.ccn.slice(0, 6)));
+    // Also raw scan for any card-like numbers
+    const rawRe = /\d[\d\s\-]{11,22}\d/g;
+    let m;
+    while ((m = rawRe.exec(text)) !== null) {
+        const num = m[0].replace(/[\s\-]/g, '');
+        if (num.length >= 13 && num.length <= 19) bins.add(num.slice(0, 6));
+    }
+    // Standalone 13-19 digit numbers
+    const plainRe = /\b(\d{13,19})\b/g;
+    while ((m = plainRe.exec(text)) !== null) {
+        bins.add(m[1].slice(0, 6));
+    }
+    return [...bins].sort().map(b => `/bin ${b}`);
+}
+
+/* ──────────────────────────────────────────
+   SMART IP EXTRACTOR (validated IPv4)
+   ────────────────────────────────────────── */
+function _ckExtractIPs(text) {
+    const ips = new Set();
+    const re = /\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+        const o = [parseInt(m[1]), parseInt(m[2]), parseInt(m[3]), parseInt(m[4])];
+        if (o.every(v => v >= 0 && v <= 255)) {
+            ips.add(o.join('.'));
+        }
+    }
+    return [...ips].map(ip => `/ip ${ip}`);
+}
+
+/* ──────────────────────────────────────────
+   SMART PROXY EXTRACTOR
+   ────────────────────────────────────────── */
+function _ckExtractProxies(text, proto) {
     const results = [];
-    for (const line of lines) {
-        // Formats: user:pass@host:port  OR  host:port:user:pass  OR  host:port
-        let cleaned = line.replace(/^(socks5|socks4|http|https):\/\//i, '');
-        if (cleaned.includes('@')) {
-            // user:pass@host:port
-            results.push(`${proto}://${cleaned}`);
-        } else {
-            // host:port:user:pass OR host:port
-            const parts = cleaned.split(':');
-            if (parts.length === 4) {
-                // host:port:user:pass → user:pass@host:port
-                results.push(`${proto}://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`);
-            } else if (parts.length === 2) {
-                results.push(`${proto}://${parts[0]}:${parts[1]}`);
-            } else {
-                results.push(`${proto}://${cleaned}`);
+    const seen = new Set();
+    function add(str) { if (!seen.has(str)) { seen.add(str); results.push(str); } }
+
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+
+    for (const raw of lines) {
+        // Strip HTML/JSON artifacts
+        let line = raw.replace(/<[^>]*>/g, '').replace(/["'`\[\]{}(),;]/g, '').trim();
+        if (!line) continue;
+
+        // 1) Full protocol://user:pass@host:port
+        const f1 = line.match(/(?:socks[45]|https?):\/\/([^:\s]+):([^@\s]+)@([^:\s]+):(\d{1,5})/i);
+        if (f1 && _ckValidPort(f1[4])) {
+            add(`${proto}://${f1[1]}:${f1[2]}@${f1[3]}:${f1[4]}`); continue;
+        }
+        // 2) protocol://host:port (no auth)
+        const f2 = line.match(/(?:socks[45]|https?):\/\/([^:\s]+):(\d{1,5})/i);
+        if (f2 && _ckValidPort(f2[2])) {
+            add(`${proto}://${f2[1]}:${f2[2]}`); continue;
+        }
+        // 3) user:pass@host:port
+        const f3 = line.match(/([^:\s@]+):([^@\s]+)@([^:\s]+):(\d{1,5})/);
+        if (f3 && _ckValidPort(f3[4])) {
+            add(`${proto}://${f3[1]}:${f3[2]}@${f3[3]}:${f3[4]}`); continue;
+        }
+
+        // Strip protocol prefix for colon-split analysis
+        let stripped = line.replace(/^(socks[45]|https?):\/\//i, '');
+        const parts = stripped.split(':').map(s => s.trim());
+
+        // 4) host:port:user:pass
+        if (parts.length === 4 && /^\d+$/.test(parts[1]) && _ckValidPort(parts[1])) {
+            add(`${proto}://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`); continue;
+        }
+        // 5) user:pass:host:port
+        if (parts.length === 4 && /^\d+$/.test(parts[3]) && _ckValidPort(parts[3])) {
+            add(`${proto}://${parts[0]}:${parts[1]}@${parts[2]}:${parts[3]}`); continue;
+        }
+        // 6) host:port
+        if (parts.length === 2 && /^\d+$/.test(parts[1]) && _ckValidPort(parts[1])) {
+            add(`${proto}://${parts[0]}:${parts[1]}`); continue;
+        }
+
+        // 7) Embedded IP:PORT in messy text
+        const emb = line.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})/);
+        if (emb && _ckValidPort(emb[2])) {
+            const ip = emb[1];
+            const octs = ip.split('.').map(Number);
+            if (octs.every(o => o >= 0 && o <= 255)) {
+                // Check for auth before IP
+                const before = line.substring(0, line.indexOf(emb[0]));
+                const auth = before.match(/([^:\s]+):([^:\s@]+)@?\s*$/);
+                if (auth) {
+                    add(`${proto}://${auth[1]}:${auth[2]}@${ip}:${emb[2]}`);
+                } else {
+                    // Check for auth after port
+                    const afterIdx = line.indexOf(emb[0]) + emb[0].length;
+                    const after = line.substring(afterIdx);
+                    const authAfter = after.match(/^\s*[:\s]+\s*([^:\s]+)[:\s]+([^:\s]+)/);
+                    if (authAfter) {
+                        add(`${proto}://${authAfter[1]}:${authAfter[2]}@${ip}:${emb[2]}`);
+                    } else {
+                        add(`${proto}://${ip}:${emb[2]}`);
+                    }
+                }
             }
         }
     }
     return results;
 }
 
-function _ckParseBin(text) {
-    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-    const bins = new Set();
-    for (const line of lines) {
-        // Extract card numbers: 13-19 digit sequences
-        const matches = line.match(/\b\d{13,19}\b/g);
-        if (matches) {
-            matches.forEach(m => {
-                const bin = m.replace(/[\s\-]/g, '').slice(0, 6);
-                if (bin.length === 6) bins.add(bin);
-            });
-            continue;
-        }
-        // Also try pipe-separated: 4242424242424242|11|26|777
-        const pipeMatch = line.match(/(\d{13,19})/);
-        if (pipeMatch) {
-            const bin = pipeMatch[1].slice(0, 6);
-            if (bin.length === 6) bins.add(bin);
-        }
-    }
-    return [...bins].map(b => `/bin ${b}`);
+function _ckValidPort(p) {
+    const n = parseInt(p, 10);
+    return n > 0 && n <= 65535;
 }
 
-function _ckParseCard(text) {
-    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-    const cards = [];
-    for (const line of lines) {
-        // Try pipe format: 4242424242424242|11|26|777
-        const pipeMatch = line.match(/(\d{13,19})\|(\d{1,2})\|(\d{2,4})\|(\d{3,4})/);
-        if (pipeMatch) {
-            const [, num, mm, yy, cvv] = pipeMatch;
-            const year = yy.length === 4 ? yy.slice(2) : yy;
-            cards.push(`${num} ${mm.padStart(2, '0')} ${year} ${cvv}`);
-            continue;
-        }
-        // Try space/mixed format: 4242424242424242 11 26 777 or with extra data
-        const spaceMatch = line.match(/(\d{13,19})[\s\|]+(\d{1,2})[\s\|]+(\d{2,4})[\s\|]+(\d{3,4})/);
-        if (spaceMatch) {
-            const [, num, mm, yy, cvv] = spaceMatch;
-            const year = yy.length === 4 ? yy.slice(2) : yy;
-            cards.push(`${num} ${mm.padStart(2, '0')} ${year} ${cvv}`);
-            continue;
-        }
-        // Try colon format: 4242424242424242:11:26:777
-        const colonMatch = line.match(/(\d{13,19}):(\d{1,2}):(\d{2,4}):(\d{3,4})/);
-        if (colonMatch) {
-            const [, num, mm, yy, cvv] = colonMatch;
-            const year = yy.length === 4 ? yy.slice(2) : yy;
-            cards.push(`${num} ${mm.padStart(2, '0')} ${year} ${cvv}`);
-        }
+/* ──────────────────────────────────────────
+   AUTO EXTRACT (runs all parsers)
+   ────────────────────────────────────────── */
+function _ckAutoExtract(text, proto) {
+    const cards = _ckExtractCards(text);
+    const bins = _ckExtractBins(text);
+    const ips = _ckExtractIPs(text);
+    const proxies = _ckExtractProxies(text, proto);
+
+    const sections = [];
+    if (cards.length) {
+        const netStats = {};
+        cards.forEach(c => { netStats[c.network || '??'] = (netStats[c.network || '??'] || 0) + 1; });
+        const netStr = Object.entries(netStats).map(([k,v]) => `${k}: ${v}`).join(', ');
+        sections.push(`💳 CARDS (${cards.length}) [${netStr}]\n` + cards.map(c => `${c.ccn} ${c.mm} ${c.yy} ${c.cvv}`).join('\n'));
     }
-    return cards;
+    if (bins.length) sections.push(`🔢 BINs (${bins.length})\n` + bins.join('\n'));
+    if (ips.length)  sections.push(`📡 IPs (${ips.length})\n` + ips.join('\n'));
+    if (proxies.length) sections.push(`🌐 PROXIES (${proxies.length})\n` + proxies.join('\n'));
+
+    if (!sections.length) return '';
+    return `═══ AUTO EXTRACT ═══\n\n` + sections.join('\n\n');
 }
 
-function _ckParseIP(text) {
-    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
-    const ips = new Set();
-    for (const line of lines) {
-        // Extract IPv4 addresses
-        const matches = line.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g);
-        if (matches) {
-            matches.forEach(ip => ips.add(ip));
-        }
-    }
-    return [...ips].map(ip => `/ip ${ip}`);
-}
-
+/* ──────────────────────────────────────────
+   PROCESS (main dispatcher)
+   ────────────────────────────────────────── */
 function _ckProcess() {
-    const input = _CK.input;
-    if (!input.trim()) { _CK.output = ''; return; }
+    const tab = _CK.tabs[_CK.mode];
+    const input = tab.input;
+    if (!input.trim()) { tab.output = ''; return 0; }
 
     let result = [];
+    let countLabel = '';
+
     switch (_CK.mode) {
         case 'proxy':
-            result = _ckParseProxy(input, _CK.proxyProto);
+            result = _ckExtractProxies(input, _CK.proxyProto);
+            countLabel = `${result.length} proxies`;
             break;
         case 'bin':
-            result = _ckParseBin(input);
+            result = _ckExtractBins(input);
+            countLabel = `${result.length} unique BINs`;
             break;
-        case 'card':
-            result = _ckParseCard(input);
+        case 'card': {
+            const cards = _ckExtractCards(input);
+            result = cards.map(c => `${c.ccn} ${c.mm} ${c.yy} ${c.cvv}`);
+            const netStats = {};
+            cards.forEach(c => { netStats[c.network || '??'] = (netStats[c.network || '??'] || 0) + 1; });
+            const parts = Object.entries(netStats).map(([k,v]) => `${v} ${k}`);
+            countLabel = `${cards.length} cards` + (parts.length ? ` • ${parts.join(', ')}` : '');
             break;
+        }
         case 'ip':
-            result = _ckParseIP(input);
+            result = _ckExtractIPs(input);
+            countLabel = `${result.length} IPs`;
             break;
+        case 'auto':
+            tab.output = _ckAutoExtract(input, _CK.proxyProto);
+            return tab.output ? 1 : 0;
     }
-    _CK.output = result.join('\n');
+    tab.output = result.join('\n');
 
-    // Save to history
     if (result.length > 0) {
         _CK.history.unshift({
             mode: _CK.mode,
             count: result.length,
+            label: countLabel,
             time: new Date().toLocaleTimeString(),
-            preview: result.slice(0, 2).join(', ')
         });
         if (_CK.history.length > 10) _CK.history.pop();
     }
+    return result.length;
 }
 
 
@@ -1720,24 +1924,25 @@ function renderChecker() {
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto' };
     const modePlaceholders = {
-        proxy: 'user:pass@proxy.example.com:10000\nuser:pass@proxy.example.com:10001\nuser:pass@proxy.example.com:10002\n\nFormats accepted:\n• user:pass@host:port\n• host:port:user:pass\n• host:port',
-        bin: 'Paste card logs — BINs will be extracted automatically\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111 05 26 456\n\nOutput: /bin 424242',
-        card: 'Paste card logs in any format:\n\n4242424242424242|11|26|777\n5326102343559988|03|27|789\n4111111111111111:05:26:456\n\nOutput: 4242424242424242 11 26 777',
-        ip: 'Paste text containing IP addresses:\n\n192.168.1.1\nProxy: 56.233.33.4:8080\nServer at 10.0.0.1 responded\n\nOutput: /ip 192.168.1.1',
+        proxy: 'Paste any text containing proxies — they will be extracted automatically\n\nSupported formats:\n• user:pass@host:port\n• host:port:user:pass\n• user:pass:host:port\n• protocol://user:pass@host:port\n• host:port\n• IP:PORT from logs, JSON, HTML\n\nGarbage text is ignored automatically',
+        bin: 'Paste any text — BINs will be extracted automatically\n\n4242424242424242|11|26|777\nCard: 5326 1023 4355 9988\nCC: 4111111111111111 Exp: 05/26 CVV: 456\nRandom log text with 5454781003037335...\n\nAll formats supported • Duplicates removed\nOutput: /bin 424242',
+        card: 'Paste ANY text — cards will be extracted automatically\n\nSupported formats:\n• 4242424242424242|03|27|111\n• 4242424242424242:03:27:111\n• 4242424242424242 03 27 111\n• 4242424242424242/03/27/111\n• Card: 4242... Exp: 03/27 CVV: 111\n• CC: 4242... MM: 03 YY: 27 CVC: 111\n• Mixed text with emoji 🔥 and garbage\n\nAuto-detects network • Deduplicates • Cleans garbage',
+        ip: 'Paste any text — valid IPv4 addresses will be extracted\n\nExamples:\n192.168.1.1\nProxy: 56.233.33.4:8080\n{"ip": "10.0.0.1", "port": 3000}\n<div>Server: 172.16.0.5</div>\n\nValidated (0-255 per octet) • Duplicates removed\nOutput: /ip 192.168.1.1',
+        auto: 'Paste ANY chaotic text — all data types will be extracted\n\nAuto-detects:\n• 💳 Cards (all formats)\n• 🔢 BINs (unique)\n• 📡 IP addresses (validated)\n• 🌐 Proxies\n\nPerfect for Ctrl+A from websites, logs, chat exports',
     };
 
-    // Count output lines
-    const outLines = _CK.output ? _CK.output.split('\n').filter(Boolean).length : 0;
+    const tab = _CK.tabs[_CK.mode];
+    const outLines = tab.output ? tab.output.split('\n').filter(Boolean).length : 0;
 
     area.innerHTML = `
     <div class="ck-container">
         <div class="ck-header">
             <div class="ck-title">
                 <span class="ck-icon">⚡</span>
-                <span>FORMAT CHECKER</span>
+                <span>SMART CHECKER</span>
             </div>
             <div class="ck-modes">
                 ${Object.keys(modeIcons).map(m => `
@@ -1749,8 +1954,7 @@ function renderChecker() {
             </div>
         </div>
 
-
-        ${_CK.mode === 'proxy' ? `
+        ${_CK.mode === 'proxy' || _CK.mode === 'auto' ? `
         <div class="ck-proto-bar">
             <span class="ck-proto-label">Protocol:</span>
             <button class="ck-proto-btn ${_CK.proxyProto === 'socks5' ? 'active' : ''}" data-proto="socks5">SOCKS5</button>
@@ -1769,13 +1973,13 @@ function renderChecker() {
                         <button class="ck-action-btn ck-btn-danger" id="ck-clear-btn" title="Clear input">✕</button>
                     </div>
                 </div>
-                <textarea class="ck-textarea" id="ck-input" placeholder="${modePlaceholders[_CK.mode]}">${_CK.input || ''}</textarea>
+                <textarea class="ck-textarea" id="ck-input" placeholder="${modePlaceholders[_CK.mode]}">${tab.input || ''}</textarea>
             </div>
 
             <div class="ck-center-actions">
                 <button class="ck-convert-btn" id="ck-convert-btn">
                     <span class="ck-convert-arrow">→</span>
-                    <span class="ck-convert-text">FORMAT</span>
+                    <span class="ck-convert-text">${_CK.mode === 'auto' ? 'EXTRACT' : 'FORMAT'}</span>
                 </button>
             </div>
 
@@ -1787,7 +1991,7 @@ function renderChecker() {
                         <button class="ck-action-btn ck-btn-copy" id="ck-copy-btn" title="Copy output" ${!outLines ? 'disabled' : ''}>📋 Copy</button>
                     </div>
                 </div>
-                <textarea class="ck-textarea ck-output-text" id="ck-output" readonly placeholder="Formatted output will appear here...">${_CK.output || ''}</textarea>
+                <textarea class="ck-textarea ck-output-text" id="ck-output" readonly placeholder="Formatted output will appear here...">${tab.output || ''}</textarea>
             </div>
         </div>
 
@@ -1799,7 +2003,7 @@ function renderChecker() {
                     <div class="ck-history-item">
                         <span class="ck-history-icon">${modeIcons[h.mode]}</span>
                         <span class="ck-history-mode">${modeLabels[h.mode]}</span>
-                        <span class="ck-history-count">${h.count} items</span>
+                        <span class="ck-history-count">${h.label || h.count + ' items'}</span>
                         <span class="ck-history-time">${h.time}</span>
                     </div>
                 `).join('')}
@@ -1815,20 +2019,19 @@ function renderChecker() {
     // Mode buttons
     area.querySelectorAll('.ck-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            _ckSaveInput();
             _CK.mode = btn.dataset.mode;
-            _CK.output = '';
             renderChecker();
         });
     });
 
-
-
-    // Protocol buttons (proxy mode)
+    // Protocol buttons
     area.querySelectorAll('.ck-proto-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             _CK.proxyProto = btn.dataset.proto;
-            // Re-process if there's input
-            if (_CK.input.trim()) {
+            _ckSaveInput();
+            const t = _CK.tabs[_CK.mode];
+            if (t.input.trim() && (_CK.mode === 'proxy' || _CK.mode === 'auto')) {
                 _ckProcess();
             }
             renderChecker();
@@ -1838,7 +2041,7 @@ function renderChecker() {
     // Input textarea
     const inputEl = document.getElementById('ck-input');
     inputEl?.addEventListener('input', () => {
-        _CK.input = inputEl.value;
+        _CK.tabs[_CK.mode].input = inputEl.value;
         const lines = inputEl.value.split('\n').filter(l => l.trim()).length;
         document.getElementById('ck-input-count').textContent = `${lines} lines`;
     });
@@ -1847,7 +2050,7 @@ function renderChecker() {
     document.getElementById('ck-paste-btn')?.addEventListener('click', async () => {
         try {
             const text = await navigator.clipboard.readText();
-            _CK.input = text;
+            _CK.tabs[_CK.mode].input = text;
             inputEl.value = text;
             const lines = text.split('\n').filter(l => l.trim()).length;
             document.getElementById('ck-input-count').textContent = `${lines} lines`;
@@ -1859,32 +2062,36 @@ function renderChecker() {
 
     // Clear button
     document.getElementById('ck-clear-btn')?.addEventListener('click', () => {
-        _CK.input = '';
-        _CK.output = '';
+        _CK.tabs[_CK.mode].input = '';
+        _CK.tabs[_CK.mode].output = '';
         renderChecker();
     });
 
     // Convert button
     document.getElementById('ck-convert-btn')?.addEventListener('click', () => {
-        if (!_CK.input.trim()) {
+        _ckSaveInput();
+        if (!_CK.tabs[_CK.mode].input.trim()) {
             toast('Paste data first', 'error');
             return;
         }
-        _ckProcess();
+        const count = _ckProcess();
         renderChecker();
-        const outCount = _CK.output.split('\n').filter(Boolean).length;
-        toast(`Formatted ${outCount} items`, 'success');
+        if (count > 0) {
+            toast(`Extracted ${count} items`, 'success');
+        } else {
+            toast('No data found for this mode', 'warning');
+        }
     });
 
     // Copy button
     document.getElementById('ck-copy-btn')?.addEventListener('click', () => {
-        if (!_CK.output) return;
-        navigator.clipboard.writeText(_CK.output).then(() => {
+        const output = _CK.tabs[_CK.mode].output;
+        if (!output) return;
+        navigator.clipboard.writeText(output).then(() => {
             toast('Copied to clipboard!', 'success');
         }).catch(() => {
-            // Fallback
             const ta = document.createElement('textarea');
-            ta.value = _CK.output;
+            ta.value = output;
             document.body.appendChild(ta);
             ta.select();
             document.execCommand('copy');
@@ -1893,12 +2100,19 @@ function renderChecker() {
         });
     });
 
-    // Update input line count
-    if (inputEl && _CK.input) {
-        const lines = _CK.input.split('\n').filter(l => l.trim()).length;
+    // Update input line count on load
+    if (inputEl && tab.input) {
+        const lines = tab.input.split('\n').filter(l => l.trim()).length;
         document.getElementById('ck-input-count').textContent = `${lines} lines`;
     }
 }
+
+// Helper: save current input textarea value to state
+function _ckSaveInput() {
+    const inputEl = document.getElementById('ck-input');
+    if (inputEl) _CK.tabs[_CK.mode].input = inputEl.value;
+}
+
 
 function renderContent() {
     const area = document.getElementById('content-area');
