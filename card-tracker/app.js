@@ -1599,13 +1599,14 @@ const _CK = {
     // GLUE multi-step state
     glue: {
         step: 1,               // 1=cards, 2=identity, 3=result
-        cardsRaw: '',          // raw text for cards step
-        identityRaw: '',       // raw text for identity step
-        parsedCards: [],       // [{ccn, mm, yy, cvv, network}]
-        parsedIdentities: [],  // [{name,surname,address,city,state,country,zip,dob,phone,email}]
-        records: [],           // final paired [{card, identity}]
-        remainingCards: [],    // unpaired cards
-        remainingIdentities: [], // unpaired identities
+        cardsRaw: '',
+        identityRaw: '',
+        parsedCards: [],
+        parsedIdentities: [],
+        records: [],
+        remainingCards: [],
+        remainingIdentities: [],
+        format: 'numbered',    // numbered | plain | compact
     },
     history: [],           // last 10 operations
 };
@@ -2034,23 +2035,39 @@ function _ckGluePair() {
     return records;
 }
 
-/* GLUE — Format single record (clean key:value, no emoji, conditional fields) */
-function _ckFormatRecord(rec, idx) {
-    const lines = [`══ Record #${idx + 1} ══`];
-    if (rec.identity) {
-        const id = rec.identity;
-        if (id.name || id.surname) lines.push(`Name: ${id.name || ''} Surname: ${id.surname || ''}`.trim());
-    }
-    if (rec.card) {
-        lines.push(`Card: ${rec.card.ccn}|${rec.card.mm}|${rec.card.yy}|${rec.card.cvv}`);
-    }
-    if (rec.identity) {
-        const id = rec.identity;
-        const addrParts = [id.address, id.city, id.state, id.zip, id.country].filter(Boolean);
+/* GLUE — Format single record */
+function _ckFormatRecord(rec, idx, fmt) {
+    const lines = [];
+    const id = rec.identity || {};
+    const c = rec.card;
+    const nameStr = [id.name, id.surname].filter(Boolean).join(' ');
+    const addrParts = [id.address, id.city, id.state, id.zip, id.country].filter(Boolean);
+
+    if (fmt === 'numbered') {
+        // Format: numbered block
+        lines.push(`══ #${idx + 1} ══`);
+        if (nameStr) lines.push(`Name: ${id.name || ''} | Surname: ${id.surname || ''}`);
+        if (c) lines.push(`Card: ${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`);
         if (addrParts.length) lines.push(`Address: ${addrParts.join(', ')}`);
         if (id.dob) lines.push(`DOB: ${id.dob}`);
         if (id.phone) lines.push(`Phone: ${id.phone}`);
         if (id.email) lines.push(`Email: ${id.email}`);
+    } else if (fmt === 'plain') {
+        // Format: simple list without numbers
+        if (nameStr) lines.push(`Name: ${id.name || ''} | Surname: ${id.surname || ''}`);
+        if (c) lines.push(`Card: ${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`);
+        if (addrParts.length) lines.push(`Address: ${addrParts.join(', ')}`);
+        if (id.dob) lines.push(`DOB: ${id.dob}`);
+        if (id.phone) lines.push(`Phone: ${id.phone}`);
+        if (id.email) lines.push(`Email: ${id.email}`);
+    } else {
+        // compact: single line
+        const parts = [];
+        if (nameStr) parts.push(`${id.name || ''}|${id.surname || ''}`);
+        if (c) parts.push(`${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`);
+        if (addrParts.length) parts.push(addrParts.join(','));
+        if (id.dob) parts.push(id.dob);
+        lines.push(parts.join(' | '));
     }
     return lines.join('\n');
 }
@@ -2058,28 +2075,26 @@ function _ckFormatRecord(rec, idx) {
 /* GLUE — Format all records + remainders */
 function _ckFormatAllRecords() {
     const g = _CK.glue;
-    let output = g.records.map((r, i) => _ckFormatRecord(r, i)).join('\n\n');
+    const fmt = g.format || 'numbered';
+    const sep = fmt === 'compact' ? '\n' : '\n\n';
+    let output = g.records.map((r, i) => _ckFormatRecord(r, i, fmt)).join(sep);
 
-    // Show remaining unpaired cards
     if (g.remainingCards && g.remainingCards.length > 0) {
         output += '\n\n═══════════════════════\n';
         output += `⚠ Remaining: ${g.remainingCards.length} cards without identity\n`;
         output += g.remainingCards.map(c => `${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`).join('\n');
     }
-
-    // Show remaining unpaired identities
     if (g.remainingIdentities && g.remainingIdentities.length > 0) {
         output += '\n\n═══════════════════════\n';
         output += `⚠ Remaining: ${g.remainingIdentities.length} identities without card\n`;
         output += g.remainingIdentities.map(id => `${id.name} ${id.surname}`.trim()).join('\n');
     }
-
     return output;
 }
 
 /* GLUE — Reset */
 function _ckGlueReset() {
-    _CK.glue = { step: 1, cardsRaw: '', identityRaw: '', parsedCards: [], parsedIdentities: [], records: [], remainingCards: [], remainingIdentities: [] };
+    _CK.glue = { step: 1, cardsRaw: '', identityRaw: '', parsedCards: [], parsedIdentities: [], records: [], remainingCards: [], remainingIdentities: [], format: 'numbered' };
 }
 
 /* ──────────────────────────────────────────
@@ -2191,6 +2206,7 @@ function _renderGlueStep2() {
 function _renderGlueStep3() {
     const g = _CK.glue;
     const output = _ckFormatAllRecords();
+    const fmt = g.format || 'numbered';
     return `
         <div class="glue-workspace">
             <div class="glue-info-bar">
@@ -2199,6 +2215,12 @@ function _renderGlueStep3() {
                 ${(g.remainingCards?.length || 0) > 0 ? `<span class="glue-remain-warn">⚠ ${g.remainingCards.length} cards left</span>` : ''}
                 ${(g.remainingIdentities?.length || 0) > 0 ? `<span class="glue-remain-warn">⚠ ${g.remainingIdentities.length} identities left</span>` : ''}
                 <span style="margin-left:auto;font-size:10px;color:#6b7280">${g.parsedCards.length} cards × ${g.parsedIdentities.length} identities</span>
+            </div>
+            <div class="glue-format-bar">
+                <span class="glue-format-label">Format:</span>
+                <button class="ck-proto-btn ${fmt === 'numbered' ? 'active' : ''}" data-fmt="numbered">Numbered</button>
+                <button class="ck-proto-btn ${fmt === 'plain' ? 'active' : ''}" data-fmt="plain">Plain</button>
+                <button class="ck-proto-btn ${fmt === 'compact' ? 'active' : ''}" data-fmt="compact">Compact</button>
             </div>
             <div class="ck-panel" style="flex:1">
                 <div class="ck-panel-header">
@@ -2294,6 +2316,13 @@ function _bindGlueEvents() {
     }
 
     if (g.step === 3) {
+        // Format switcher
+        area.querySelectorAll('.glue-format-bar .ck-proto-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                g.format = btn.dataset.fmt;
+                _renderGlue();
+            });
+        });
         document.getElementById('glue-copy')?.addEventListener('click', () => {
             const text = _ckFormatAllRecords();
             navigator.clipboard.writeText(text).then(() => toast('Copied!','success')).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!','success'); });
