@@ -1604,6 +1604,8 @@ const _CK = {
         parsedCards: [],       // [{ccn, mm, yy, cvv, network}]
         parsedIdentities: [],  // [{name,surname,address,city,state,country,zip,dob,phone,email}]
         records: [],           // final paired [{card, identity}]
+        remainingCards: [],    // unpaired cards
+        remainingIdentities: [], // unpaired identities
     },
     history: [],           // last 10 operations
 };
@@ -1938,7 +1940,12 @@ function _ckProcess() {
    ────────────────────────────────────────── */
 function _ckExtractIdentities(text) {
     const results = [];
-    const blocks = text.split(/\n\s*\n|\n(?=(?:name|first|last|full|fname|lname|holder|owner|address|street|city|state|country|zip|postal|dob|birth|phone|email|tel|mob)\s*[:=])/i);
+
+    // Pre-split by bullet characters (· • ●) so single-line lists work
+    let normalized = text.replace(/[·•●]/g, '\n');
+
+    // Split into blocks by blank lines OR by line-starting Name/First/Full keywords
+    const blocks = normalized.split(/\n\s*\n|\n(?=(?:name|first|last|full|fname|lname|holder|owner)\s*[:=])/i);
 
     for (const block of blocks) {
         if (!block.trim()) continue;
@@ -1947,10 +1954,28 @@ function _ckExtractIdentities(text) {
         let found = 0;
 
         for (const line of lines) {
+            // Match key:value or key=value pairs
             const kv = line.match(/^([a-z\s_-]+)\s*[:=|]\s*(.+)$/i);
-            if (!kv) continue;
+            if (!kv) {
+                // Try inline "Name: X Surname: Y" on single line
+                const inline = line.match(/Name\s*[:=]\s*(\S+)\s+Surname\s*[:=]\s*(\S+)/i);
+                if (inline) {
+                    id.name = inline[1].trim();
+                    id.surname = inline[2].trim();
+                    found += 2;
+                }
+                continue;
+            }
             const key = kv[1].toLowerCase().replace(/[\s_-]+/g, '');
             const val = kv[2].trim();
+            // Handle "Name: AKIKO  Surname: IIJIMA" in value part
+            const surInVal = val.match(/^(\S+)\s+Surname\s*[:=]\s*(\S+)/i);
+            if (surInVal && /^(firstname|fname|first|name|holder|owner|cardname)$/.test(key)) {
+                id.name = surInVal[1];
+                id.surname = surInVal[2];
+                found += 2;
+                continue;
+            }
             if (!val) continue;
 
             if (/^(firstname|fname|first|name|holder|owner|cardname)$/.test(key)) { id.name = val; found++; }
@@ -1991,52 +2016,70 @@ function _ckExtractIdentities(text) {
     return results;
 }
 
-/* GLUE — Pair cards with identities */
+/* GLUE — Pair cards with identities (strict 1:1, no reuse) */
 function _ckGluePair() {
     const g = _CK.glue;
     const cards = g.parsedCards;
     const ids = g.parsedIdentities;
     const records = [];
-    const max = Math.max(cards.length, ids.length);
+    const paired = Math.min(cards.length, ids.length);
 
-    for (let i = 0; i < max; i++) {
-        const card = cards[i] || cards[cards.length - 1] || null;
-        const identity = ids[i] || ids[ids.length - 1] || null;
-        if (card || identity) {
-            records.push({ card: card ? {...card} : null, identity: identity ? {...identity} : null });
-        }
+    for (let i = 0; i < paired; i++) {
+        records.push({ card: {...cards[i]}, identity: {...ids[i]} });
     }
+
     g.records = records;
+    g.remainingCards = cards.slice(paired);
+    g.remainingIdentities = ids.slice(paired);
     return records;
 }
 
-/* GLUE — Format single record */
+/* GLUE — Format single record (clean key:value, no emoji, conditional fields) */
 function _ckFormatRecord(rec, idx) {
     const lines = [`══ Record #${idx + 1} ══`];
+    if (rec.identity) {
+        const id = rec.identity;
+        if (id.name || id.surname) lines.push(`Name: ${id.name || ''} Surname: ${id.surname || ''}`.trim());
+    }
     if (rec.card) {
-        lines.push(`💳 ${rec.card.ccn}|${rec.card.mm}|${rec.card.yy}|${rec.card.cvv}  [${rec.card.network || '??'}]`);
+        lines.push(`Card: ${rec.card.ccn}|${rec.card.mm}|${rec.card.yy}|${rec.card.cvv}`);
     }
     if (rec.identity) {
         const id = rec.identity;
-        if (id.name || id.surname) lines.push(`👤 ${id.name} ${id.surname}`.trim());
-        if (id.address) lines.push(`📍 ${id.address}`);
-        const geo = [id.city, id.state, id.zip, id.country].filter(Boolean).join(', ');
-        if (geo) lines.push(`🌍 ${geo}`);
-        if (id.dob) lines.push(`🎂 ${id.dob}`);
-        if (id.phone) lines.push(`📞 ${id.phone}`);
-        if (id.email) lines.push(`✉️ ${id.email}`);
+        const addrParts = [id.address, id.city, id.state, id.zip, id.country].filter(Boolean);
+        if (addrParts.length) lines.push(`Address: ${addrParts.join(', ')}`);
+        if (id.dob) lines.push(`DOB: ${id.dob}`);
+        if (id.phone) lines.push(`Phone: ${id.phone}`);
+        if (id.email) lines.push(`Email: ${id.email}`);
     }
     return lines.join('\n');
 }
 
-/* GLUE — Format all records */
+/* GLUE — Format all records + remainders */
 function _ckFormatAllRecords() {
-    return _CK.glue.records.map((r, i) => _ckFormatRecord(r, i)).join('\n\n');
+    const g = _CK.glue;
+    let output = g.records.map((r, i) => _ckFormatRecord(r, i)).join('\n\n');
+
+    // Show remaining unpaired cards
+    if (g.remainingCards && g.remainingCards.length > 0) {
+        output += '\n\n═══════════════════════\n';
+        output += `⚠ Remaining: ${g.remainingCards.length} cards without identity\n`;
+        output += g.remainingCards.map(c => `${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`).join('\n');
+    }
+
+    // Show remaining unpaired identities
+    if (g.remainingIdentities && g.remainingIdentities.length > 0) {
+        output += '\n\n═══════════════════════\n';
+        output += `⚠ Remaining: ${g.remainingIdentities.length} identities without card\n`;
+        output += g.remainingIdentities.map(id => `${id.name} ${id.surname}`.trim()).join('\n');
+    }
+
+    return output;
 }
 
 /* GLUE — Reset */
 function _ckGlueReset() {
-    _CK.glue = { step: 1, cardsRaw: '', identityRaw: '', parsedCards: [], parsedIdentities: [], records: [] };
+    _CK.glue = { step: 1, cardsRaw: '', identityRaw: '', parsedCards: [], parsedIdentities: [], records: [], remainingCards: [], remainingIdentities: [] };
 }
 
 /* ──────────────────────────────────────────
@@ -2153,6 +2196,8 @@ function _renderGlueStep3() {
             <div class="glue-info-bar">
                 <span class="glue-info-icon">🔗</span>
                 <span>${g.records.length} records paired</span>
+                ${(g.remainingCards?.length || 0) > 0 ? `<span class="glue-remain-warn">⚠ ${g.remainingCards.length} cards left</span>` : ''}
+                ${(g.remainingIdentities?.length || 0) > 0 ? `<span class="glue-remain-warn">⚠ ${g.remainingIdentities.length} identities left</span>` : ''}
                 <span style="margin-left:auto;font-size:10px;color:#6b7280">${g.parsedCards.length} cards × ${g.parsedIdentities.length} identities</span>
             </div>
             <div class="ck-panel" style="flex:1">
