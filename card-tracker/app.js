@@ -2384,7 +2384,7 @@ function _bindGlueEvents() {
 // ═══════════════════════════════════════════
 
 function _genRand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function _genFmtYen(n) { return '¥' + Number(n).toLocaleString('en-US'); }
+function _genFmtYen(n) { return '¥' + Number(n).toLocaleString('en-US').replace(/,/g, ' '); }
 
 function _generateTEPCOData(gen) {
     const now = new Date();
@@ -2532,7 +2532,6 @@ function _renderGenerator() {
             <div class="ck-title">
                 <span class="ck-icon">📄</span>
                 <span>BILL GENERATOR</span>
-                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Utility Bills</span>
             </div>
             <div class="ck-modes">
                 ${Object.keys(modeIcons).map(m => `
@@ -2550,53 +2549,39 @@ function _renderGenerator() {
             <button class="ck-proto-btn ${gen.type === 'water' ? 'active' : ''}" data-billtype="water">💧 Water Bill</button>
         </div>
 
-        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
-            <div class="ck-panel" style="width:280px;flex-shrink:0">
-                <div class="ck-panel-header"><span class="ck-panel-title">📝 YOUR DATA</span></div>
-                <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-                    <div>
-                        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Legal Name</label>
-                        <input type="text" id="gen-name" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="AKIKO IIJIMA" value="${gen.name}">
-                    </div>
-                    <div>
-                        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Postal Code</label>
-                        <input type="text" id="gen-postal" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="155-0031" value="${gen.postalCode}">
-                    </div>
-                    <div>
-                        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Street Address</label>
-                        <input type="text" id="gen-street" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="1 Chome-37-11 Kitazawa" value="${gen.streetAddress}">
-                    </div>
-                    <div style="display:flex;gap:8px">
-                        <div style="flex:1">
-                            <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">City</label>
-                            <input type="text" id="gen-city" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="Setagaya City" value="${gen.city}">
-                        </div>
-                        <div style="flex:1">
-                            <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Prefecture</label>
-                            <select id="gen-pref" class="ck-textarea" style="height:34px;padding:4px 8px;font-size:13px;resize:none">
-                                ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>
-                    <button class="ck-convert-btn" id="gen-btn" style="width:100%;padding:10px;margin-top:4px">
-                        <span class="ck-convert-arrow">⚡</span>
-                        <span class="ck-convert-text">GENERATE</span>
-                    </button>
-                    ${gen.billData ? `
-                    <div style="display:flex;gap:6px;flex-wrap:wrap">
-                        <button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="flex:1;padding:8px">📥 PNG</button>
-                        <button class="ck-action-btn ck-btn-copy" id="gen-regen" style="flex:1;padding:8px">🔄 New</button>
-                    </div>` : ''}
-                </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:8px">
+            <div style="flex:1;min-width:140px">
+                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Name</label>
+                <input type="text" id="gen-name" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="AKIKO IIJIMA" value="${gen.name}">
             </div>
+            <div style="min-width:90px;width:90px">
+                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Postal</label>
+                <input type="text" id="gen-postal" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="155-0031" value="${gen.postalCode}">
+            </div>
+            <div style="flex:1.5;min-width:160px">
+                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Street</label>
+                <input type="text" id="gen-street" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="1 Chome-37-11 Kitazawa" value="${gen.streetAddress}">
+            </div>
+            <div style="min-width:110px;width:110px">
+                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">City</label>
+                <input type="text" id="gen-city" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="Setagaya City" value="${gen.city}">
+            </div>
+            <div style="min-width:90px;width:90px">
+                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Pref</label>
+                <select id="gen-pref" class="ck-textarea" style="height:32px;padding:4px 6px;font-size:12px;resize:none">
+                    ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
+                </select>
+            </div>
+            <button class="ck-convert-btn" id="gen-btn" style="padding:6px 20px;height:32px;white-space:nowrap">
+                <span class="ck-convert-arrow">⚡</span> GENERATE
+            </button>
+            ${gen.billData ? `<button class="ck-action-btn ck-btn-copy" id="gen-regen" style="padding:6px 12px;height:32px">🔄</button>
+            <button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="padding:6px 12px;height:32px">📥 PNG</button>` : ''}
+        </div>
 
-            <div class="ck-panel" style="flex:1;min-width:400px">
-                <div class="ck-panel-header"><span class="ck-panel-title">📄 PREVIEW</span></div>
-                <div id="gen-preview" style="padding:12px;overflow:auto;max-height:80vh;background:#e5e7eb;display:flex;justify-content:center">
-                    ${gen.billData ? _renderTEPCOBillHTML(gen.billData) :
-                    '<div style="color:#6b7280;text-align:center;padding:60px 20px;font-size:13px">Fill in your data and click GENERATE<br><br>⚡ TEPCO Electricity Bill<br>Realistic Japanese utility bill with randomized values</div>'}
-                </div>
-            </div>
+        <div id="gen-preview" style="margin-top:12px;overflow:auto;background:#d1d5db;border-radius:8px;display:flex;justify-content:center;padding:20px;min-height:200px">
+            ${gen.billData ? _renderTEPCOBillHTML(gen.billData) :
+            '<div style="color:#6b7280;text-align:center;padding:80px 20px;font-size:13px">Fill in your data and click ⚡ GENERATE</div>'}
         </div>
     </div>`;
 
