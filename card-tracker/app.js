@@ -2549,34 +2549,16 @@ function _renderGenerator() {
             <button class="ck-proto-btn ${gen.type === 'water' ? 'active' : ''}" data-billtype="water">💧 Water Bill</button>
         </div>
 
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:8px">
-            <div style="flex:1;min-width:140px">
-                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Name</label>
-                <input type="text" id="gen-name" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="AKIKO IIJIMA" value="${gen.name}">
-            </div>
-            <div style="min-width:90px;width:90px">
-                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Postal</label>
-                <input type="text" id="gen-postal" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="155-0031" value="${gen.postalCode}">
-            </div>
-            <div style="flex:1.5;min-width:160px">
-                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Street</label>
-                <input type="text" id="gen-street" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="1 Chome-37-11 Kitazawa" value="${gen.streetAddress}">
-            </div>
-            <div style="min-width:110px;width:110px">
-                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">City</label>
-                <input type="text" id="gen-city" class="ck-textarea" style="height:32px;padding:4px 8px;font-size:12px;resize:none" placeholder="Setagaya City" value="${gen.city}">
-            </div>
-            <div style="min-width:90px;width:90px">
-                <label style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px">Pref</label>
-                <select id="gen-pref" class="ck-textarea" style="height:32px;padding:4px 6px;font-size:12px;resize:none">
-                    ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
-                </select>
-            </div>
-            <button class="ck-convert-btn" id="gen-btn" style="padding:6px 20px;height:32px;white-space:nowrap">
-                <span class="ck-convert-arrow">⚡</span> GENERATE
-            </button>
-            ${gen.billData ? `<button class="ck-action-btn ck-btn-copy" id="gen-regen" style="padding:6px 12px;height:32px">🔄</button>
-            <button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="padding:6px 12px;height:32px">📥 PNG</button>` : ''}
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">
+            <input type="text" id="gen-name" placeholder="Name" value="${gen.name}" style="flex:1;min-width:120px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+            <input type="text" id="gen-postal" placeholder="Postal" value="${gen.postalCode}" style="width:80px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+            <input type="text" id="gen-street" placeholder="Street Address" value="${gen.streetAddress}" style="flex:1.5;min-width:150px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+            <input type="text" id="gen-city" placeholder="City" value="${gen.city}" style="width:100px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+            <select id="gen-pref" style="width:80px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+                ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
+            </select>
+            <button class="ck-convert-btn" id="gen-btn" style="padding:4px 16px;height:28px;white-space:nowrap;font-size:11px">⚡ GENERATE</button>
+            ${gen.billData ? `<button class="ck-action-btn ck-btn-copy" id="gen-regen" style="padding:4px 10px;height:28px;font-size:11px">🔄</button><button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="padding:4px 10px;height:28px;font-size:11px">📥 PNG</button>` : ''}
         </div>
 
         <div id="gen-preview" style="margin-top:12px;overflow:auto;background:#d1d5db;border-radius:8px;display:flex;justify-content:center;padding:20px;min-height:200px">
@@ -2612,13 +2594,14 @@ function _renderGenerator() {
     document.getElementById('gen-dl-png')?.addEventListener('click', () => {
         const el = document.getElementById('tepco-bill-render');
         if (!el || typeof html2canvas === 'undefined') { toast('Export not available', 'error'); return; }
-        html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(canvas => {
+        el.scrollIntoView();
+        html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth + 100, windowHeight: el.scrollHeight + 100, scrollX: 0, scrollY: -window.scrollY }).then(canvas => {
             const a = document.createElement('a');
             a.download = `TEPCO_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.png`;
             a.href = canvas.toDataURL('image/png');
             a.click();
             toast('PNG downloaded!', 'success');
-        }).catch(() => toast('Export failed', 'error'));
+        }).catch(e => { console.error(e); toast('Export failed', 'error'); });
     });
     // Save inputs on change
     ['gen-name','gen-postal','gen-street','gen-city'].forEach(id => {
