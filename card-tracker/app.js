@@ -2394,29 +2394,35 @@ function _generateTEPCOData(gen) {
     const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).toString().slice(-2)}`;
     const acct = String(_genRand(10000000, 99999999));
     const inv = String(_genRand(100, 999));
-    const usage = (_genRand(15000, 45000) / 100);
-    const base = 286;
-    const t1 = Math.min(usage, 120) * 30;
-    const t2 = Math.max(0, Math.min(usage - 120, 180)) * 36.6;
-    const t3 = Math.max(0, usage - 300) * 40.69;
-    const energyBase = Math.round(base + t1 + t2 + t3);
-    const energyAdj = _genRand(200, 800);
-    const taxes = Math.round((energyBase + energyAdj) * 0.03 + _genRand(50, 200));
-    const currentCharges = energyBase + energyAdj + taxes;
-    const prevBal = _genRand(1500, 5000);
+    // Real TEPCO usage: 1-2 person household 150-350 kWh
+    const usage = _genRand(15000, 35000) / 100;
+    // Real TEPCO 従量電灯B rates (2025, tax included)
+    const baseCharge = 935; // 30A contract
+    const tier1 = Math.min(usage, 120) * 29.80;
+    const tier2 = Math.max(0, Math.min(usage - 120, 180)) * 36.40;
+    const tier3 = Math.max(0, usage - 300) * 40.49;
+    const energyCharge = Math.round(tier1 + tier2 + tier3);
+    // Renewable energy surcharge: ¥4.18/kWh (FY2026)
+    const renewSurcharge = Math.round(usage * 4.18);
+    // Fuel cost adjustment: varies monthly -3 to +3 yen/kWh
+    const fuelAdj = Math.round(usage * (_genRand(-300, 300) / 100));
+    const subtotal = baseCharge + energyCharge + renewSurcharge + fuelAdj;
+    const tax = Math.round(subtotal * 0.10);
+    const currentCharges = subtotal + tax;
+    const prevBal = _genRand(0, 1) === 0 ? 0 : _genRand(3000, 9000);
     const totalDue = currentCharges;
-    const totalDueAfter = totalDue + _genRand(300, 600);
-    const totalPayment = prevBal;
+    const totalDueAfter = totalDue + Math.round(totalDue * 0.03);
     const fullAddr = `${gen.streetAddress.toUpperCase()},\n${gen.city.toUpperCase()}, ${gen.prefecture.toUpperCase()} ${gen.postalCode}`;
     const bars = [];
-    for (let i = 0; i < 12; i++) bars.push(_genRand(80, 450));
+    for (let i = 0; i < 12; i++) bars.push(_genRand(100, 400));
     const chargeDue = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate() - _genRand(5, 15));
     return {
         name: gen.name.toUpperCase(), address: fullAddr, acct, inv,
         stmtDate: fmt(stmtDate), dueDate: fmt(dueDate), meterDate: fmt(meterDate),
         chargeDueDate: fmt(chargeDue),
-        usage: usage.toFixed(2), energyBase, energyAdj, taxes, currentCharges,
-        prevBal, totalPayment, totalDue, totalDueAfter, bars
+        usage: usage.toFixed(2),
+        baseCharge, energyCharge, renewSurcharge, fuelAdj, tax, currentCharges,
+        prevBal, totalPayment: prevBal, totalDue, totalDueAfter, bars
     };
 }
 
@@ -2476,9 +2482,11 @@ function _renderTEPCOBillHTML(d) {
       <div style="display:flex;justify-content:space-between"><span>Payment Amount – Thank you</span><span>${_genFmtYen(d.prevBal)}</span></div>
       <div style="display:flex;justify-content:space-between;font-weight:700"><span>Balance forward</span><span>¥0.00</span></div>
       <div style="height:10px"></div>
-      <div style="display:flex;justify-content:space-between"><span>Current Amount Energy Charges</span><span>${_genFmtYen(d.energyBase)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>Energy Charges</span><span>${_genFmtYen(d.energyAdj)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>Taxes and fees</span><span>${_genFmtYen(d.taxes)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Base Charge (30A)</span><span>${_genFmtYen(d.baseCharge)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Energy Charges (${d.usage} kWh)</span><span>${_genFmtYen(d.energyCharge)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Renewable Energy Surcharge</span><span>${_genFmtYen(d.renewSurcharge)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Fuel Cost Adjustment</span><span>${d.fuelAdj >= 0 ? _genFmtYen(d.fuelAdj) : '-' + _genFmtYen(Math.abs(d.fuelAdj))}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Consumption Tax (10%)</span><span>${_genFmtYen(d.tax)}</span></div>
       <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:4px"><span>Current Charges due by: ${d.chargeDueDate}</span><span>${_genFmtYen(d.currentCharges)}</span></div>
     </div>
   </div>
