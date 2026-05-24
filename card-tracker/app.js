@@ -1617,6 +1617,7 @@ const _CK = {
         streetAddress: '',
         city: '',
         prefecture: 'Tokyo',
+        font: 'Noto Sans',
         billData: null,
     },
     history: [],           // last 10 operations
@@ -2431,14 +2432,15 @@ function _generateTEPCOData(gen) {
     };
 }
 
-function _renderTEPCOBillHTML(d) {
+function _renderTEPCOBillHTML(d, font) {
     const yMax = d.yMax || 500;
+    const docFont = font || 'Noto Sans';
     const barsHtml = d.bars.map(v => {
         const h = Math.max(4, Math.round((v / yMax) * 90));
         return '<div style="width:14px;background:#333;border-radius:1px 1px 0 0;height:' + h + 'px"></div>';
     }).join('');
     return `
-<div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
+<div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:'${docFont}',sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
     <div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
     <div style="text-align:right;font-size:13px">
@@ -2571,12 +2573,15 @@ function _renderGenerator() {
             <select id="gen-pref" style="width:80px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
                 ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
+            <select id="gen-font" style="width:110px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit" title="Document Font">
+                ${['Noto Sans','Open Sans','Roboto','Lato','Inter'].map(f => `<option value="${f}" ${gen.font === f ? 'selected' : ''} style="font-family:${f}">${f}</option>`).join('')}
+            </select>
             <button class="ck-convert-btn" id="gen-btn" style="padding:4px 16px;height:28px;white-space:nowrap;font-size:11px">⚡ GENERATE</button>
             ${gen.billData ? `<button class="ck-action-btn ck-btn-copy" id="gen-regen" style="padding:4px 10px;height:28px;font-size:11px">🔄</button><button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="padding:4px 10px;height:28px;font-size:11px">📥 PNG</button>` : ''}
         </div>
 
         <div id="gen-preview" style="margin-top:12px;overflow:auto;background:#d1d5db;border-radius:8px;display:flex;justify-content:center;padding:20px;min-height:200px">
-            ${gen.billData ? _renderTEPCOBillHTML(gen.billData) :
+            ${gen.billData ? _renderTEPCOBillHTML(gen.billData, gen.font) :
             '<div style="color:#6b7280;text-align:center;padding:80px 20px;font-size:13px">Fill in your data and click ⚡ GENERATE</div>'}
         </div>
     </div>`;
@@ -2634,6 +2639,14 @@ function _renderGenerator() {
         });
     });
     document.getElementById('gen-pref')?.addEventListener('change', e => { gen.prefecture = e.target.value; });
+    document.getElementById('gen-font')?.addEventListener('change', e => {
+        gen.font = e.target.value;
+        // Live-update bill font without regenerating data
+        const preview = document.getElementById('gen-preview');
+        if (preview && gen.billData) {
+            preview.innerHTML = _renderTEPCOBillHTML(gen.billData, gen.font);
+        }
+    });
 }
 
 function renderChecker() {
