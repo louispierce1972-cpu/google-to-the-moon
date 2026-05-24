@@ -2384,27 +2384,28 @@ function _bindGlueEvents() {
 // ═══════════════════════════════════════════
 
 function _genRand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function _genFmtYen(n) { return '\u00a5' + String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+function _genFmtYen(n) { var s = String(Math.round(Number(n))); var r = ''; for (var i = s.length - 1, c = 0; i >= 0; i--, c++) { if (c > 0 && c % 3 === 0) r = ' ' + r; r = s[i] + r; } return String.fromCharCode(165) + r; }
 
 function _generateTEPCOData(gen) {
     const now = new Date();
-    const stmtDate = new Date(now.getFullYear(), now.getMonth(), _genRand(1, 15));
-    const dueDate = new Date(stmtDate.getFullYear(), stmtDate.getMonth() + 1, _genRand(10, 20));
-    const meterDate = new Date(stmtDate.getFullYear(), stmtDate.getMonth() - 1, _genRand(5, 15));
+    // Dates: meter reading → statement (20-25 days later) → due (30 days after statement)
+    const meterDay = _genRand(1, 10);
+    const meterDate = new Date(now.getFullYear(), now.getMonth() - 1, meterDay);
+    const stmtDate = new Date(meterDate.getFullYear(), meterDate.getMonth(), meterDay + _genRand(20, 25));
+    const dueDate = new Date(stmtDate.getFullYear(), stmtDate.getMonth() + 1, stmtDate.getDate());
+    const chargeDueDate = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate() - _genRand(1, 5));
     const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).toString().slice(-2)}`;
     const acct = String(_genRand(10000000, 99999999));
     const inv = String(_genRand(100, 999));
     // Real TEPCO usage: 1-2 person household 150-350 kWh
     const usage = _genRand(15000, 35000) / 100;
-    // Real TEPCO 従量電灯B rates (2025, tax included)
-    const baseCharge = 935; // 30A contract
+    // Real TEPCO rates (2025, tax included)
+    const baseCharge = 935;
     const tier1 = Math.min(usage, 120) * 29.80;
     const tier2 = Math.max(0, Math.min(usage - 120, 180)) * 36.40;
     const tier3 = Math.max(0, usage - 300) * 40.49;
     const energyCharge = Math.round(tier1 + tier2 + tier3);
-    // Renewable energy surcharge: ¥4.18/kWh (FY2026)
     const renewSurcharge = Math.round(usage * 4.18);
-    // Fuel cost adjustment: varies monthly -3 to +3 yen/kWh
     const fuelAdj = Math.round(usage * (_genRand(-300, 300) / 100));
     const subtotal = baseCharge + energyCharge + renewSurcharge + fuelAdj;
     const tax = Math.round(subtotal * 0.10);
@@ -2413,28 +2414,33 @@ function _generateTEPCOData(gen) {
     const totalDue = currentCharges;
     const totalDueAfter = totalDue + Math.round(totalDue * 0.03);
     const fullAddr = `${gen.streetAddress.toUpperCase()},\n${gen.city.toUpperCase()}, ${gen.prefecture.toUpperCase()} ${gen.postalCode}`;
+    // Bars: 12 months, last = current usage, all proportional
+    const usageInt = Math.round(usage);
     const bars = [];
-    for (let i = 0; i < 12; i++) bars.push(_genRand(100, 400));
-    const chargeDue = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate() - _genRand(5, 15));
+    for (let i = 0; i < 11; i++) bars.push(_genRand(Math.max(50, usageInt - 80), usageInt + 60));
+    bars.push(usageInt);
+    // Y-axis max: round up to nearest 100 above highest bar
+    const yMax = Math.ceil(Math.max(...bars) / 100) * 100;
     return {
         name: gen.name.toUpperCase(), address: fullAddr, acct, inv,
         stmtDate: fmt(stmtDate), dueDate: fmt(dueDate), meterDate: fmt(meterDate),
-        chargeDueDate: fmt(chargeDue),
+        chargeDueDate: fmt(chargeDueDate),
         usage: usage.toFixed(2),
         baseCharge, energyCharge, renewSurcharge, fuelAdj, tax, currentCharges,
-        prevBal, totalPayment: prevBal, totalDue, totalDueAfter, bars
+        prevBal, totalPayment: prevBal, totalDue, totalDueAfter, bars, yMax
     };
 }
 
 function _renderTEPCOBillHTML(d) {
+    const yMax = d.yMax || 500;
     const barsHtml = d.bars.map(v => {
-        const h = Math.round((v / 500) * 90);
-        return `<div style="width:14px;background:#b71c1c;border-radius:2px 2px 0 0;height:${h}px"></div>`;
+        const h = Math.max(4, Math.round((v / yMax) * 90));
+        return '<div style="width:14px;background:#333;border-radius:1px 1px 0 0;height:' + h + 'px"></div>';
     }).join('');
     return `
 <div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-    <div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
+    <div><div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div><div style="font-size:10px;color:#333;margin-top:-4px;letter-spacing:1px">東京電力フュエル＆パワー</div></div>
     <div style="text-align:right;font-size:13px">
       <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-bottom:4px">
         <span>Total amount due</span>
@@ -2457,7 +2463,8 @@ function _renderTEPCOBillHTML(d) {
   <hr style="border:none;border-top:3px solid #c62828;margin:14px 0">
   <div style="display:flex;gap:30px;margin-bottom:16px">
     <div style="width:230px;flex-shrink:0">
-      <div style="font-size:34px;font-weight:900;color:#c62828;letter-spacing:4px;margin-bottom:8px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
+      <div style="font-size:34px;font-weight:900;color:#c62828;letter-spacing:4px;margin-bottom:2px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
+      <div style="font-size:9px;color:#333;margin-bottom:8px;letter-spacing:1px">東京電力フュエル＆パワー</div>
       <div style="font-size:11px;color:#555;line-height:1.6">
         Tel.: +81-(0)3-6373-1111<br>
         Working hours MON-FRI 8 am to<br>6 pm and 10 am to 5 pm ST<br>
@@ -2496,10 +2503,10 @@ function _renderTEPCOBillHTML(d) {
   <div style="display:flex;gap:24px;align-items:flex-end">
     <div>
       <div style="display:flex;align-items:flex-end;position:relative;height:100px;border-bottom:1px solid #999;padding:0 4px">
-        <span style="position:absolute;left:-30px;top:0;font-size:9px;color:#666">2000</span>
-        <span style="position:absolute;left:-30px;top:25px;font-size:9px;color:#666">1500</span>
-        <span style="position:absolute;left:-30px;top:50px;font-size:9px;color:#666">1000</span>
-        <span style="position:absolute;left:-26px;top:75px;font-size:9px;color:#666">500</span>
+        <span style="position:absolute;left:-30px;top:0;font-size:9px;color:#666">${d.yMax}</span>
+        <span style="position:absolute;left:-30px;top:25px;font-size:9px;color:#666">${Math.round(d.yMax*0.75)}</span>
+        <span style="position:absolute;left:-30px;top:50px;font-size:9px;color:#666">${Math.round(d.yMax*0.5)}</span>
+        <span style="position:absolute;left:-30px;top:75px;font-size:9px;color:#666">${Math.round(d.yMax*0.25)}</span>
         <span style="position:absolute;left:-14px;bottom:-14px;font-size:9px;color:#666">0</span>
         <div style="display:flex;align-items:flex-end;gap:3px;margin-left:10px">${barsHtml}</div>
       </div>
