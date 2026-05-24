@@ -2384,7 +2384,7 @@ function _bindGlueEvents() {
 // ═══════════════════════════════════════════
 
 function _genRand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function _genFmtYen(n) { var s = String(Math.round(Number(n))); var r = ''; for (var i = s.length - 1, c = 0; i >= 0; i--, c++) { if (c > 0 && c % 3 === 0) r = ' ' + r; r = s[i] + r; } return String.fromCharCode(165) + r; }
+function _genFmtYen(n) { var s = String(Math.round(Number(n))); var r = ''; for (var i = s.length - 1, c = 0; i >= 0; i--, c++) { if (c > 0 && c % 3 === 0) r = ' ' + r; r = s[i] + r; } return '￥' + r; }
 
 function _generateTEPCOData(gen) {
     const now = new Date();
@@ -2487,7 +2487,7 @@ function _renderTEPCOBillHTML(d) {
       <div style="font-weight:700;font-size:14px;margin-bottom:6px;border-bottom:1px solid #ddd;padding-bottom:3px">Account Summary</div>
       <div style="display:flex;justify-content:space-between"><span>Previous Balance:</span><span>${_genFmtYen(d.prevBal)}</span></div>
       <div style="display:flex;justify-content:space-between"><span>Payment Amount – Thank you</span><span>${_genFmtYen(d.prevBal)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-weight:700"><span>Balance forward</span><span>¥0.00</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:700"><span>Balance forward</span><span>￥0.00</span></div>
       <div style="height:10px"></div>
       <div style="display:flex;justify-content:space-between"><span>Base Charge (30A)</span><span>${_genFmtYen(d.baseCharge)}</span></div>
       <div style="display:flex;justify-content:space-between"><span>Energy Charges (${d.usage} kWh)</span><span>${_genFmtYen(d.energyCharge)}</span></div>
