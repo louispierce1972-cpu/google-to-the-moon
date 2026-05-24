@@ -2384,7 +2384,7 @@ function _bindGlueEvents() {
 // ═══════════════════════════════════════════
 
 function _genRand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function _genFmtYen(n) { return '¥' + Number(n).toLocaleString('en-US').replace(/,/g, ' '); }
+function _genFmtYen(n) { return '\u00a5' + String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
 
 function _generateTEPCOData(gen) {
     const now = new Date();
@@ -2426,7 +2426,7 @@ function _renderTEPCOBillHTML(d) {
         return `<div style="width:14px;background:#b71c1c;border-radius:2px 2px 0 0;height:${h}px"></div>`;
     }).join('');
     return `
-<div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
+<div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
     <div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
     <div style="text-align:right;font-size:13px">
@@ -2594,14 +2594,20 @@ function _renderGenerator() {
     document.getElementById('gen-dl-png')?.addEventListener('click', () => {
         const el = document.getElementById('tepco-bill-render');
         if (!el || typeof html2canvas === 'undefined') { toast('Export not available', 'error'); return; }
-        el.scrollIntoView();
-        html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth + 100, windowHeight: el.scrollHeight + 100, scrollX: 0, scrollY: -window.scrollY }).then(canvas => {
+        // Clone bill into a temp off-screen container to avoid overflow clipping
+        const tmp = document.createElement('div');
+        tmp.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:#fff;';
+        tmp.innerHTML = el.outerHTML;
+        document.body.appendChild(tmp);
+        const clone = tmp.firstElementChild;
+        html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(canvas => {
+            document.body.removeChild(tmp);
             const a = document.createElement('a');
             a.download = `TEPCO_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.png`;
             a.href = canvas.toDataURL('image/png');
             a.click();
             toast('PNG downloaded!', 'success');
-        }).catch(e => { console.error(e); toast('Export failed', 'error'); });
+        }).catch(e => { document.body.removeChild(tmp); console.error(e); toast('Export failed', 'error'); });
     });
     // Save inputs on change
     ['gen-name','gen-postal','gen-street','gen-city'].forEach(id => {
