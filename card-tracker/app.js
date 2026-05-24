@@ -2440,7 +2440,7 @@ function _renderTEPCOBillHTML(d) {
     return `
 <div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-    <div><div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div><div style="font-size:10px;color:#333;margin-top:-4px;letter-spacing:1px">東京電力フュエル＆パワー</div></div>
+    <div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
     <div style="text-align:right;font-size:13px">
       <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-bottom:4px">
         <span>Total amount due</span>
@@ -2463,8 +2463,7 @@ function _renderTEPCOBillHTML(d) {
   <hr style="border:none;border-top:3px solid #c62828;margin:14px 0">
   <div style="display:flex;gap:30px;margin-bottom:16px">
     <div style="width:230px;flex-shrink:0">
-      <div style="font-size:34px;font-weight:900;color:#c62828;letter-spacing:4px;margin-bottom:2px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
-      <div style="font-size:9px;color:#333;margin-bottom:8px;letter-spacing:1px">東京電力フュエル＆パワー</div>
+      <div style="font-size:34px;font-weight:900;color:#c62828;letter-spacing:4px;margin-bottom:8px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
       <div style="font-size:11px;color:#555;line-height:1.6">
         Tel.: +81-(0)3-6373-1111<br>
         Working hours MON-FRI 8 am to<br>6 pm and 10 am to 5 pm ST<br>
