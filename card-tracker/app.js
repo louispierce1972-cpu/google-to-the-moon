@@ -1586,7 +1586,7 @@ function _anShowDetail(bin, data, prevData) {
 // ═══════════════════════════════════════════
 
 const _CK = {
-    mode: 'proxy',        // proxy | bin | card | ip | auto | glue
+    mode: 'proxy',        // proxy | bin | card | ip | auto | glue | generator
     proxyProto: 'socks5', // socks5 | http | https
     tabs: {
         proxy: { input: '', output: '' },
@@ -1595,6 +1595,7 @@ const _CK = {
         ip:    { input: '', output: '' },
         auto:  { input: '', output: '' },
         glue:  { input: '', output: '' },
+        generator: { input: '', output: '' },
     },
     // GLUE multi-step state
     glue: {
@@ -1607,6 +1608,16 @@ const _CK = {
         remainingCards: [],
         remainingIdentities: [],
         format: 'numbered',    // numbered | plain | compact
+    },
+    // GENERATOR state
+    generator: {
+        type: 'tepco',         // tepco | water
+        name: '',
+        postalCode: '',
+        streetAddress: '',
+        city: '',
+        prefecture: 'Tokyo',
+        billData: null,
     },
     history: [],           // last 10 operations
 };
@@ -2123,6 +2134,7 @@ function _renderGlue() {
                 <button class="ck-mode-btn" data-mode="card"><span class="ck-mode-icon">💳</span><span class="ck-mode-label">Card</span></button>
                 <button class="ck-mode-btn" data-mode="auto"><span class="ck-mode-icon">🔍</span><span class="ck-mode-label">Auto</span></button>
                 <button class="ck-mode-btn active" data-mode="glue"><span class="ck-mode-icon">🔗</span><span class="ck-mode-label">Glue</span></button>
+                <button class="ck-mode-btn" data-mode="generator"><span class="ck-mode-icon">📄</span><span class="ck-mode-label">Generator</span></button>
             </div>
         </div>
 
@@ -2370,14 +2382,16 @@ function _bindGlueEvents() {
 function renderChecker() {
     // Route to GLUE renderer if in glue mode
     if (_CK.mode === 'glue') { _renderGlue(); return; }
+    // Route to GENERATOR renderer
+    if (_CK.mode === 'generator') { _renderGenerator(); return; }
 
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', generator: 'Generator' };
     const modePlaceholders = {
         proxy: 'Paste any text containing proxies — they will be extracted automatically\n\nSupported formats:\n• user:pass@host:port\n• host:port:user:pass\n• user:pass:host:port\n• protocol://user:pass@host:port\n• host:port\n• IP:PORT from logs, JSON, HTML\n\nGarbage text is ignored automatically',
         bin: 'Paste any text — BINs will be extracted automatically\n\n4242424242424242|11|26|777\nCard: 5326 1023 4355 9988\nCC: 4111111111111111 Exp: 05/26 CVV: 456\nRandom log text with 5454781003037335...\n\nAll formats supported • Duplicates removed\nOutput: /bin 424242',
