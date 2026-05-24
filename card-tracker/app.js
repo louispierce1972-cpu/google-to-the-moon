@@ -2379,6 +2379,275 @@ function _bindGlueEvents() {
     }
 }
 
+// ═══════════════════════════════════════════
+//   GENERATOR — TEPCO Electricity Bill
+// ═══════════════════════════════════════════
+
+function _genRand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function _genFmtYen(n) { return '¥' + Number(n).toLocaleString('en-US'); }
+
+function _generateTEPCOData(gen) {
+    const now = new Date();
+    const stmtDate = new Date(now.getFullYear(), now.getMonth(), _genRand(1, 15));
+    const dueDate = new Date(stmtDate.getFullYear(), stmtDate.getMonth() + 1, _genRand(10, 20));
+    const meterDate = new Date(stmtDate.getFullYear(), stmtDate.getMonth() - 1, _genRand(5, 15));
+    const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).toString().slice(-2)}`;
+    const acct = String(_genRand(10000000, 99999999));
+    const inv = String(_genRand(100, 999));
+    const usage = (_genRand(15000, 45000) / 100);
+    const base = 286;
+    const t1 = Math.min(usage, 120) * 30;
+    const t2 = Math.max(0, Math.min(usage - 120, 180)) * 36.6;
+    const t3 = Math.max(0, usage - 300) * 40.69;
+    const energyBase = Math.round(base + t1 + t2 + t3);
+    const energyAdj = _genRand(200, 800);
+    const taxes = Math.round((energyBase + energyAdj) * 0.03 + _genRand(50, 200));
+    const currentCharges = energyBase + energyAdj + taxes;
+    const prevBal = _genRand(1500, 5000);
+    const totalDue = currentCharges;
+    const totalDueAfter = totalDue + _genRand(300, 600);
+    const totalPayment = prevBal;
+    const fullAddr = `${gen.streetAddress.toUpperCase()},\n${gen.city.toUpperCase()}, ${gen.prefecture.toUpperCase()} ${gen.postalCode}`;
+    const bars = [];
+    for (let i = 0; i < 12; i++) bars.push(_genRand(80, 450));
+    const chargeDue = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate() - _genRand(5, 15));
+    return {
+        name: gen.name.toUpperCase(), address: fullAddr, acct, inv,
+        stmtDate: fmt(stmtDate), dueDate: fmt(dueDate), meterDate: fmt(meterDate),
+        chargeDueDate: fmt(chargeDue),
+        usage: usage.toFixed(2), energyBase, energyAdj, taxes, currentCharges,
+        prevBal, totalPayment, totalDue, totalDueAfter, bars
+    };
+}
+
+function _renderTEPCOBillHTML(d) {
+    const barsHtml = d.bars.map(v => {
+        const h = Math.round((v / 500) * 90);
+        return `<div style="width:14px;background:#b71c1c;border-radius:2px 2px 0 0;height:${h}px"></div>`;
+    }).join('');
+    return `
+<div id="tepco-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div style="font-size:52px;font-weight:900;color:#c62828;letter-spacing:6px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
+    <div style="text-align:right;font-size:13px">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-bottom:4px">
+        <span>Total amount due</span>
+        <span style="border:1.5px solid #888;padding:4px 14px;font-weight:700;font-size:15px">${_genFmtYen(d.totalDue)}</span>
+      </div>
+      <div>Amount due pay after due date<span style="margin-left:20px;font-weight:600">${_genFmtYen(d.totalDueAfter)}</span></div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    <div>
+      <div style="margin-bottom:2px"><b>Account #:</b> ${d.acct} &nbsp;&nbsp;&nbsp; <b>Invoice:</b> ${d.inv}</div>
+      <div><b>Name:</b> ${d.name}</div>
+      <div><b>Address:</b> ${d.address.replace(/\n/g,'<br>')}</div>
+    </div>
+    <div style="text-align:right;max-width:260px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">DO NOT PAY</div>
+      <div style="font-size:12px;color:#555">The amount due will be charged to your credit card 1 day after your due date</div>
+    </div>
+  </div>
+  <hr style="border:none;border-top:3px solid #c62828;margin:14px 0">
+  <div style="display:flex;gap:30px;margin-bottom:16px">
+    <div style="width:230px;flex-shrink:0">
+      <div style="font-size:34px;font-weight:900;color:#c62828;letter-spacing:4px;margin-bottom:8px;font-family:Arial Black,Arial,sans-serif">TEPCO</div>
+      <div style="font-size:11px;color:#555;line-height:1.6">
+        Tel.: +81-(0)3-6373-1111<br>
+        Working hours MON-FRI 8 am to<br>6 pm and 10 am to 5 pm ST<br>
+        For more information about<br>residential electric service please<br>visit: <b>www.tepco.co.jp</b>
+      </div>
+    </div>
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div><b>Statement Date:</b> ${d.stmtDate}</div>
+          <div><b>Customer name:</b> ${d.name}</div>
+          <div><b>Account number:</b> ${d.acct}</div>
+          <div><b>Invoice number:</b> ${d.inv}</div>
+        </div>
+        <div style="text-align:right">
+          <div><b>Due Date:</b> ${d.dueDate}</div>
+          <div><b>Total payment:</b> ${_genFmtYen(d.totalPayment)}</div>
+        </div>
+      </div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px;border-bottom:1px solid #ddd;padding-bottom:3px">Account Summary</div>
+      <div style="display:flex;justify-content:space-between"><span>Previous Balance:</span><span>${_genFmtYen(d.prevBal)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Payment Amount – Thank you</span><span>${_genFmtYen(d.prevBal)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:700"><span>Balance forward</span><span>¥0.00</span></div>
+      <div style="height:10px"></div>
+      <div style="display:flex;justify-content:space-between"><span>Current Amount Energy Charges</span><span>${_genFmtYen(d.energyBase)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Energy Charges</span><span>${_genFmtYen(d.energyAdj)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Taxes and fees</span><span>${_genFmtYen(d.taxes)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:4px"><span>Current Charges due by: ${d.chargeDueDate}</span><span>${_genFmtYen(d.currentCharges)}</span></div>
+    </div>
+  </div>
+  <hr style="border:none;border-top:1px solid #ccc;margin:12px 0">
+  <div style="font-weight:700;font-size:14px;margin-bottom:4px">Account Details</div>
+  <div style="background:#c62828;color:#fff;padding:3px 10px;display:inline-block;font-size:11px;font-weight:600;margin-bottom:8px">Usage (kWh)</div>
+  <div style="display:flex;gap:24px;align-items:flex-end">
+    <div>
+      <div style="display:flex;align-items:flex-end;position:relative;height:100px;border-bottom:1px solid #999;padding:0 4px">
+        <span style="position:absolute;left:-30px;top:0;font-size:9px;color:#666">2000</span>
+        <span style="position:absolute;left:-30px;top:25px;font-size:9px;color:#666">1500</span>
+        <span style="position:absolute;left:-30px;top:50px;font-size:9px;color:#666">1000</span>
+        <span style="position:absolute;left:-26px;top:75px;font-size:9px;color:#666">500</span>
+        <span style="position:absolute;left:-14px;bottom:-14px;font-size:9px;color:#666">0</span>
+        <div style="display:flex;align-items:flex-end;gap:3px;margin-left:10px">${barsHtml}</div>
+      </div>
+    </div>
+    <table style="border-collapse:collapse;font-size:11px;flex:1">
+      <tr style="background:#c62828;color:#fff">
+        <th style="padding:4px 8px;text-align:left">Meter Reading</th><th style="padding:4px 8px">Usage</th>
+        <th style="padding:4px 8px">Type</th><th style="padding:4px 8px">Date</th>
+        <th style="padding:4px 8px">Account #</th><th style="padding:4px 8px">Invoice #</th>
+      </tr>
+      <tr>
+        <td style="padding:4px 8px;border:1px solid #ccc">Standard</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">${d.usage}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">Ordinary</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">${d.meterDate}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">${d.acct}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">${d.inv}</td>
+      </tr>
+    </table>
+  </div>
+  <div style="font-size:10px;color:#777;margin-top:10px">The amount of usage energy you can see on the top of the statement or visit to our branch.</div>
+</div>`;
+}
+
+function _renderGenerator() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    const gen = _CK.generator;
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', generator: 'Generator' };
+    const prefectures = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi','Hokkaido','Fukuoka','Hyogo','Kyoto','Shizuoka','Hiroshima','Miyagi','Niigata','Nagano'];
+
+    area.innerHTML = `
+    <div class="ck-container">
+        <div class="ck-header">
+            <div class="ck-title">
+                <span class="ck-icon">📄</span>
+                <span>BILL GENERATOR</span>
+                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Utility Bills</span>
+            </div>
+            <div class="ck-modes">
+                ${Object.keys(modeIcons).map(m => `
+                    <button class="ck-mode-btn ${_CK.mode === m ? 'active' : ''}" data-mode="${m}">
+                        <span class="ck-mode-icon">${modeIcons[m]}</span>
+                        <span class="ck-mode-label">${modeLabels[m]}</span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="ck-proto-bar">
+            <span class="ck-proto-label">Type:</span>
+            <button class="ck-proto-btn ${gen.type === 'tepco' ? 'active' : ''}" data-billtype="tepco">⚡ TEPCO Electricity</button>
+            <button class="ck-proto-btn ${gen.type === 'water' ? 'active' : ''}" data-billtype="water">💧 Water Bill</button>
+        </div>
+
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+            <div class="ck-panel" style="width:280px;flex-shrink:0">
+                <div class="ck-panel-header"><span class="ck-panel-title">📝 YOUR DATA</span></div>
+                <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+                    <div>
+                        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Legal Name</label>
+                        <input type="text" id="gen-name" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="AKIKO IIJIMA" value="${gen.name}">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Postal Code</label>
+                        <input type="text" id="gen-postal" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="155-0031" value="${gen.postalCode}">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Street Address</label>
+                        <input type="text" id="gen-street" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="1 Chome-37-11 Kitazawa" value="${gen.streetAddress}">
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <div style="flex:1">
+                            <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">City</label>
+                            <input type="text" id="gen-city" class="ck-textarea" style="height:34px;padding:6px 10px;font-size:13px;resize:none" placeholder="Setagaya City" value="${gen.city}">
+                        </div>
+                        <div style="flex:1">
+                            <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;display:block">Prefecture</label>
+                            <select id="gen-pref" class="ck-textarea" style="height:34px;padding:4px 8px;font-size:13px;resize:none">
+                                ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <button class="ck-convert-btn" id="gen-btn" style="width:100%;padding:10px;margin-top:4px">
+                        <span class="ck-convert-arrow">⚡</span>
+                        <span class="ck-convert-text">GENERATE</span>
+                    </button>
+                    ${gen.billData ? `
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="flex:1;padding:8px">📥 PNG</button>
+                        <button class="ck-action-btn ck-btn-copy" id="gen-regen" style="flex:1;padding:8px">🔄 New</button>
+                    </div>` : ''}
+                </div>
+            </div>
+
+            <div class="ck-panel" style="flex:1;min-width:400px">
+                <div class="ck-panel-header"><span class="ck-panel-title">📄 PREVIEW</span></div>
+                <div id="gen-preview" style="padding:12px;overflow:auto;max-height:80vh;background:#e5e7eb;display:flex;justify-content:center">
+                    ${gen.billData ? _renderTEPCOBillHTML(gen.billData) :
+                    '<div style="color:#6b7280;text-align:center;padding:60px 20px;font-size:13px">Fill in your data and click GENERATE<br><br>⚡ TEPCO Electricity Bill<br>Realistic Japanese utility bill with randomized values</div>'}
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    // Bind events
+    area.querySelectorAll('.ck-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => { _CK.mode = btn.dataset.mode; if (_CK.mode === 'glue') _renderGlue(); else if (_CK.mode === 'generator') _renderGenerator(); else renderChecker(); });
+    });
+    area.querySelectorAll('[data-billtype]').forEach(btn => {
+        btn.addEventListener('click', () => { gen.type = btn.dataset.billtype; gen.billData = null; _renderGenerator(); });
+    });
+    document.getElementById('gen-btn')?.addEventListener('click', () => {
+        gen.name = document.getElementById('gen-name')?.value || '';
+        gen.postalCode = document.getElementById('gen-postal')?.value || '';
+        gen.streetAddress = document.getElementById('gen-street')?.value || '';
+        gen.city = document.getElementById('gen-city')?.value || '';
+        gen.prefecture = document.getElementById('gen-pref')?.value || 'Tokyo';
+        if (!gen.name.trim() || !gen.streetAddress.trim()) { toast('Enter at least Name and Address', 'error'); return; }
+        if (gen.type === 'tepco') { gen.billData = _generateTEPCOData(gen); }
+        else { toast('Water bill coming soon', 'info'); return; }
+        _renderGenerator();
+        toast('Bill generated!', 'success');
+    });
+    document.getElementById('gen-regen')?.addEventListener('click', () => {
+        gen.billData = _generateTEPCOData(gen);
+        _renderGenerator();
+        toast('New bill generated', 'success');
+    });
+    document.getElementById('gen-dl-png')?.addEventListener('click', () => {
+        const el = document.getElementById('tepco-bill-render');
+        if (!el || typeof html2canvas === 'undefined') { toast('Export not available', 'error'); return; }
+        html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(canvas => {
+            const a = document.createElement('a');
+            a.download = `TEPCO_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.png`;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+            toast('PNG downloaded!', 'success');
+        }).catch(() => toast('Export failed', 'error'));
+    });
+    // Save inputs on change
+    ['gen-name','gen-postal','gen-street','gen-city'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', e => {
+            const key = {
+                'gen-name': 'name', 'gen-postal': 'postalCode',
+                'gen-street': 'streetAddress', 'gen-city': 'city'
+            }[id];
+            if (key) gen[key] = e.target.value;
+        });
+    });
+    document.getElementById('gen-pref')?.addEventListener('change', e => { gen.prefecture = e.target.value; });
+}
+
 function renderChecker() {
     // Route to GLUE renderer if in glue mode
     if (_CK.mode === 'glue') { _renderGlue(); return; }
