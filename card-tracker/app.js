@@ -2850,6 +2850,168 @@ function _ckSaveInput() {
 }
 
 
+// ──── GOOGLE FORMAT MODULE ────
+function renderGoogleFormat() {
+    const area = document.getElementById('content-area');
+    area.innerHTML = `
+        <div class="gf-container" style="padding: 30px; max-width: 900px; margin: 0 auto; color: var(--text-primary); height: 100%; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+                <div style="background: rgba(255,255,255,0.1); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                </div>
+                <div>
+                    <h2 style="margin: 0; font-weight: 600; font-size: 18px; letter-spacing: 0.5px;">GOOGLE FORMAT</h2>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Auto-extracts account details, 2FA, phone, and cards into structured output.</p>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 24px; flex: 1; min-height: 0;">
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px;">INPUT RAW DATA</label>
+                    <textarea id="gf-input" class="list-textarea" style="flex: 1; resize: none; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5;" placeholder="Paste chaotic text here...&#10;&#10;Auto-detects:&#10;• Email & Password&#10;• 2FA Codes&#10;• Names&#10;• Recovery Phone&#10;• Payment Card (Number, Exp, CVV)"></textarea>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button class="pz-btn pz-btn-primary" id="gf-btn-paste" style="flex:1;">📋 Paste</button>
+                        <button class="pz-btn pz-btn-valid" id="gf-btn-parse" style="flex:1;">⚡ Parse</button>
+                        <button class="pz-btn pz-btn-dim" id="gf-btn-clear" style="flex:1;">🗑 Clear</button>
+                    </div>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px;">PARSED OUTPUT</label>
+                    <textarea id="gf-output" class="list-textarea" style="flex: 1; resize: none; background: rgba(0,0,0,0.2); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5; color: var(--text-primary); border-color: rgba(255,255,255,0.05);" readonly placeholder="2FA: qrce lqft...&#10;LOGIN: babybisdd@gmail.com:pass&#10;NAME: BABYBOY JULIUS DAVIS&#10;CARD: 5210120018069220 09/27 314&#10;OCTO: BABYBOY JULIUS DAVIS - 521012....9220"></textarea>
+                    <div style="margin-top: 12px;">
+                        <button class="pz-btn pz-btn-primary" id="gf-btn-copy" style="width: 100%;">📋 Copy Result</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('gf-btn-paste').onclick = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            const input = document.getElementById('gf-input');
+            input.value = text;
+            _parseGoogleFormat(text);
+            toast('Pasted from clipboard', 'info');
+        } catch(e) {
+            toast('Failed to read clipboard', 'error');
+        }
+    };
+
+    document.getElementById('gf-btn-parse').onclick = () => {
+        _parseGoogleFormat(document.getElementById('gf-input').value);
+    };
+
+    document.getElementById('gf-input').addEventListener('input', (e) => {
+        _parseGoogleFormat(e.target.value);
+    });
+
+    document.getElementById('gf-btn-clear').onclick = () => {
+        document.getElementById('gf-input').value = '';
+        document.getElementById('gf-output').value = '';
+    };
+
+    document.getElementById('gf-btn-copy').onclick = () => {
+        const out = document.getElementById('gf-output');
+        if (!out.value) return;
+        out.select();
+        document.execCommand('copy');
+        toast('Copied to clipboard!', 'success');
+    };
+}
+
+function _parseGoogleFormat(text) {
+    if (!text.trim()) {
+        document.getElementById('gf-output').value = '';
+        return;
+    }
+
+    let email = '';
+    let password = '';
+    let twoFA = '';
+    let namePart = '';
+    let surnamePart = '';
+    let ccn = '';
+    let exp = '';
+    let cvv = '';
+
+    // 1. Email & 2. Password
+    const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})[\s:|]+([^\s]+)/);
+    if (emailMatch) {
+        email = emailMatch[1];
+        password = emailMatch[2];
+    } else {
+        const justEmail = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (justEmail) email = justEmail[1];
+    }
+
+    // 3. 2FA
+    const twoFaSpaces = text.match(/\b([a-z0-9]{4}(?:\s[a-z0-9]{4}){7})\b/i);
+    if (twoFaSpaces) {
+        twoFA = twoFaSpaces[1];
+    } else {
+        const twoFaRaw = text.match(/\b([A-Z2-7]{16}|[A-Z2-7]{32})\b/);
+        if (twoFaRaw) {
+            twoFA = twoFaRaw[1];
+        } else {
+            const backupCode = text.match(/\b(\d{4}[\s-]?\d{4}|\d{8})\b/);
+            if (backupCode) twoFA = backupCode[1];
+        }
+    }
+
+    // 4. Name / Surname
+    const nameMatch = text.match(/(?:Name|First Name)\s*[:=]\s*(.+?)(?=\n|$)/i);
+    const surnameMatch = text.match(/(?:Surname|Last Name)\s*[:=]\s*(.+?)(?=\n|$)/i);
+    if (nameMatch) namePart = nameMatch[1].trim();
+    if (surnameMatch) surnamePart = surnameMatch[1].trim();
+    
+    let fullName = `${namePart} ${surnamePart}`.trim();
+    if (!fullName) {
+        const fullMatch = text.match(/(?:Name|Full Name)\s*[:=]\s*([a-zA-Z\s]+)/i);
+        if (fullMatch) fullName = fullMatch[1].trim();
+    }
+
+    // 5. Card
+    const ccnMatch = text.match(/\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7})\b/);
+    if (ccnMatch) {
+        ccn = ccnMatch[1].replace(/[\s\-]/g, '');
+        
+        const expMatch = text.match(/\b(0[1-9]|1[0-2])[\s\/\-\|]*(\d{2}|\d{4})\b/);
+        if (expMatch) {
+            exp = `${expMatch[1]}/${expMatch[2].slice(-2)}`;
+        }
+        
+        const cardLine = text.split('\n').find(l => l.replace(/[\s\-]/g, '').includes(ccn));
+        if (cardLine) {
+            const cleanLine = cardLine.replace(/-\w+/g, ' '); 
+            const numMatches = cleanLine.match(/\b\d{3,4}\b/g);
+            if (numMatches) {
+                for(let m of numMatches) {
+                    if (m !== expMatch?.[1] && m !== expMatch?.[2] && m.length >= 3 && m.length <= 4) {
+                        cvv = m;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Assembly
+    const outLines = [];
+    if (twoFA) outLines.push(`2FA: ${twoFA}`);
+    if (email) outLines.push(`LOGIN: ${email}${password ? ':' + password : ''}`);
+    if (fullName) outLines.push(`NAME: ${fullName.toUpperCase()}`);
+    if (ccn) outLines.push(`CARD: ${ccn} ${exp} ${cvv}`);
+    if (ccn) {
+        const octoName = fullName ? fullName.toUpperCase() : 'UNKNOWN';
+        const octoCard = ccn.length >= 10 ? `${ccn.slice(0,6)}....${ccn.slice(-4)}` : ccn;
+        outLines.push(`OCTO: ${octoName} - ${octoCard}`);
+    }
+
+    document.getElementById('gf-output').value = outLines.join('\n');
+}
+
+
 function renderContent() {
     const area = document.getElementById('content-area');
     const footer = document.getElementById('table-footer');
@@ -2884,6 +3046,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'bookmarks') {
         renderBookmarks();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'google-format') {
+        renderGoogleFormat();
         footer.style.display = 'none';
         return;
     }
@@ -10071,3 +10238,5 @@ function _bkRebuildTagsBar() {
         });
     });
 }
+
+
