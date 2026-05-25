@@ -2855,13 +2855,22 @@ function renderGoogleFormat() {
     const area = document.getElementById('content-area');
     area.innerHTML = `
         <div class="gf-container" style="padding: 30px; max-width: 900px; margin: 0 auto; color: var(--text-primary); height: 100%; display: flex; flex-direction: column;">
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-                <div style="background: rgba(255,255,255,0.1); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.1); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-weight: 600; font-size: 18px; letter-spacing: 0.5px;">GOOGLE FORMAT</h2>
+                        <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Auto-extracts account details, 2FA, phone, and cards into structured output.</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 style="margin: 0; font-weight: 600; font-size: 18px; letter-spacing: 0.5px;">GOOGLE FORMAT</h2>
-                    <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);">Auto-extracts account details, 2FA, phone, and cards into structured output.</p>
+
+                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                    <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap;">Default Password:</label>
+                    <input type="text" id="gf-default-pass" style="width: 150px; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 4px 8px; height: 28px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;" placeholder="Optional">
+                    <button class="pz-btn pz-btn-primary" id="gf-btn-save-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Save</button>
+                    <button class="pz-btn pz-btn-dim" id="gf-btn-clear-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Clear</button>
                 </div>
             </div>
 
@@ -2896,6 +2905,23 @@ function renderGoogleFormat() {
         } catch(e) {
             toast('Failed to read clipboard', 'error');
         }
+    };
+
+    // Default password logic
+    const defPassInput = document.getElementById('gf-default-pass');
+    defPassInput.value = localStorage.getItem('gf_default_password') || '';
+
+    document.getElementById('gf-btn-save-pass').onclick = () => {
+        localStorage.setItem('gf_default_password', defPassInput.value);
+        toast('Default password saved', 'success');
+        _parseGoogleFormat(document.getElementById('gf-input').value);
+    };
+
+    document.getElementById('gf-btn-clear-pass').onclick = () => {
+        defPassInput.value = '';
+        localStorage.removeItem('gf_default_password');
+        toast('Default password cleared', 'info');
+        _parseGoogleFormat(document.getElementById('gf-input').value);
     };
 
     document.getElementById('gf-btn-parse').onclick = () => {
@@ -2943,6 +2969,13 @@ function _parseGoogleFormat(text) {
     } else {
         const justEmail = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
         if (justEmail) email = justEmail[1];
+    }
+
+    if (email && !password) {
+        const defaultPass = localStorage.getItem('gf_default_password');
+        if (defaultPass) {
+            password = defaultPass;
+        }
     }
 
     // 3. 2FA
