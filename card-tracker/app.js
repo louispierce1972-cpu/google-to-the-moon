@@ -2853,10 +2853,15 @@ function _ckSaveInput() {
 // ──── GOOGLE FORMAT MODULE ────
 function renderGoogleFormat() {
     const area = document.getElementById('content-area');
+    
+    // Initialize state to persist across tab switches
+    if (typeof STATE.gfInput === 'undefined') STATE.gfInput = '';
+    if (typeof STATE.gfOutput === 'undefined') STATE.gfOutput = '';
+
     area.innerHTML = `
         <div class="gf-container" style="padding: 30px; max-width: 900px; margin: 0 auto; color: var(--text-primary); height: 100%; display: flex; flex-direction: column;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 250px;">
                     <div style="background: rgba(255,255,255,0.1); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                         <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                     </div>
@@ -2866,18 +2871,26 @@ function renderGoogleFormat() {
                     </div>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
-                    <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap;">Default Password:</label>
-                    <input type="text" id="gf-default-pass" style="width: 150px; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 4px 8px; height: 28px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;" placeholder="Optional">
-                    <button class="pz-btn pz-btn-primary" id="gf-btn-save-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Save</button>
-                    <button class="pz-btn pz-btn-dim" id="gf-btn-clear-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Clear</button>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                        <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; width: 110px;">Default Password:</label>
+                        <input type="text" id="gf-default-pass" style="width: 140px; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 4px 8px; height: 28px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;" placeholder="Optional">
+                        <button class="pz-btn pz-btn-primary" id="gf-btn-save-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Save</button>
+                        <button class="pz-btn pz-btn-dim" id="gf-btn-clear-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Clear</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                        <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; width: 110px;">Octo Prefix:</label>
+                        <input type="text" id="gf-octo-prefix" style="width: 140px; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 4px 8px; height: 28px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;" placeholder="e.g. Japan">
+                        <button class="pz-btn pz-btn-primary" id="gf-btn-save-prefix" style="padding: 4px 10px; height: 28px; font-size: 12px;">Save Prefix</button>
+                        <button class="pz-btn pz-btn-dim" id="gf-btn-clear-prefix" style="padding: 4px 10px; height: 28px; font-size: 12px;">Clear Prefix</button>
+                    </div>
                 </div>
             </div>
 
             <div style="display: flex; gap: 24px; flex: 1; min-height: 0;">
                 <div style="flex: 1; display: flex; flex-direction: column;">
                     <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px;">INPUT RAW DATA</label>
-                    <textarea id="gf-input" class="list-textarea" style="flex: 1; resize: none; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5;" placeholder="Paste chaotic text here...&#10;&#10;Auto-detects:&#10;• Email & Password&#10;• 2FA Codes&#10;• Names&#10;• Recovery Phone&#10;• Payment Card (Number, Exp, CVV)"></textarea>
+                    <textarea id="gf-input" class="list-textarea" style="flex: 1; resize: none; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5;" placeholder="Paste chaotic text here..."></textarea>
                     <div style="margin-top: 12px; display: flex; gap: 8px;">
                         <button class="pz-btn pz-btn-primary" id="gf-btn-paste" style="flex:1;">📋 Paste</button>
                         <button class="pz-btn pz-btn-valid" id="gf-btn-parse" style="flex:1;">⚡ Parse</button>
@@ -2886,7 +2899,7 @@ function renderGoogleFormat() {
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column;">
                     <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px;">PARSED OUTPUT</label>
-                    <textarea id="gf-output" class="list-textarea" style="flex: 1; resize: none; background: rgba(0,0,0,0.2); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5; color: var(--text-primary); border-color: rgba(255,255,255,0.05);" readonly placeholder="2FA: qrce lqft...&#10;LOGIN: babybisdd@gmail.com:pass&#10;NAME: BABYBOY JULIUS DAVIS&#10;CARD: 5210120018069220 09/27 314&#10;OCTO: BABYBOY JULIUS DAVIS - 521012....9220"></textarea>
+                    <textarea id="gf-output" class="list-textarea" style="flex: 1; resize: none; background: rgba(0,0,0,0.2); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5; color: var(--text-primary); border-color: rgba(255,255,255,0.05);" readonly placeholder="2fa: qrce lqft...&#10;login: babybisdd@gmail.com:pass&#10;name: First Last&#10;card: 5210120018069220 09/27 314&#10;octo: Prefix - First Last - 123456....7890"></textarea>
                     <div style="margin-top: 12px;">
                         <button class="pz-btn pz-btn-primary" id="gf-btn-copy" style="width: 100%;">📋 Copy Result</button>
                     </div>
@@ -2895,12 +2908,16 @@ function renderGoogleFormat() {
         </div>
     `;
 
+    document.getElementById('gf-input').value = STATE.gfInput;
+    document.getElementById('gf-output').value = STATE.gfOutput;
+
     document.getElementById('gf-btn-paste').onclick = async () => {
         try {
             const text = await navigator.clipboard.readText();
             const input = document.getElementById('gf-input');
             input.value = text;
-            _parseGoogleFormat(text);
+            STATE.gfInput = text;
+            _parseGoogleFormat(text, true);
             toast('Pasted from clipboard', 'info');
         } catch(e) {
             toast('Failed to read clipboard', 'error');
@@ -2910,31 +2927,54 @@ function renderGoogleFormat() {
     // Default password logic
     const defPassInput = document.getElementById('gf-default-pass');
     defPassInput.value = localStorage.getItem('gf_default_password') || '';
-
     document.getElementById('gf-btn-save-pass').onclick = () => {
         localStorage.setItem('gf_default_password', defPassInput.value);
         toast('Default password saved', 'success');
-        _parseGoogleFormat(document.getElementById('gf-input').value);
+        _parseGoogleFormat(document.getElementById('gf-input').value, false);
     };
-
     document.getElementById('gf-btn-clear-pass').onclick = () => {
         defPassInput.value = '';
         localStorage.removeItem('gf_default_password');
         toast('Default password cleared', 'info');
-        _parseGoogleFormat(document.getElementById('gf-input').value);
+        _parseGoogleFormat(document.getElementById('gf-input').value, false);
+    };
+
+    // Octo Prefix logic
+    const octoPrefixInput = document.getElementById('gf-octo-prefix');
+    octoPrefixInput.value = localStorage.getItem('googleFormat_octoPrefix') || '';
+    document.getElementById('gf-btn-save-prefix').onclick = () => {
+        const val = octoPrefixInput.value.trim();
+        localStorage.setItem('googleFormat_octoPrefix', val);
+        if (val) {
+            if (!localStorage.getItem('googleFormat_octoPrefixCounter')) {
+                localStorage.setItem('googleFormat_octoPrefixCounter', '1');
+            }
+        }
+        toast('Octo Prefix saved', 'success');
+        _parseGoogleFormat(document.getElementById('gf-input').value, false);
+    };
+    document.getElementById('gf-btn-clear-prefix').onclick = () => {
+        octoPrefixInput.value = '';
+        localStorage.removeItem('googleFormat_octoPrefix');
+        localStorage.setItem('googleFormat_octoPrefixCounter', '1');
+        toast('Octo Prefix cleared', 'info');
+        _parseGoogleFormat(document.getElementById('gf-input').value, false);
     };
 
     document.getElementById('gf-btn-parse').onclick = () => {
-        _parseGoogleFormat(document.getElementById('gf-input').value);
+        _parseGoogleFormat(document.getElementById('gf-input').value, true);
     };
 
     document.getElementById('gf-input').addEventListener('input', (e) => {
-        _parseGoogleFormat(e.target.value);
+        STATE.gfInput = e.target.value;
+        _parseGoogleFormat(e.target.value, false);
     });
 
     document.getElementById('gf-btn-clear').onclick = () => {
         document.getElementById('gf-input').value = '';
         document.getElementById('gf-output').value = '';
+        STATE.gfInput = '';
+        STATE.gfOutput = '';
     };
 
     document.getElementById('gf-btn-copy').onclick = () => {
@@ -2946,9 +2986,10 @@ function renderGoogleFormat() {
     };
 }
 
-function _parseGoogleFormat(text) {
-    if (!text.trim()) {
+function _parseGoogleFormat(text, isExplicitParse = false) {
+    if (!text || !text.trim()) {
         document.getElementById('gf-output').value = '';
+        STATE.gfOutput = '';
         return;
     }
 
@@ -3003,6 +3044,23 @@ function _parseGoogleFormat(text) {
         const fullMatch = text.match(/(?:Name|Full Name)\s*[:=]\s*([a-zA-Z\s]+)/i);
         if (fullMatch) fullName = fullMatch[1].trim();
     }
+    // Also use heuristic if not found via labels, assuming name is present and not card etc.
+    if (!fullName) {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+        for(const l of lines) {
+            if (/^[A-Z][a-z]+\s[A-Z][a-z]+(\s[A-Z][a-z]+)?$/.test(l)) {
+                if(!/card|visa|master|discover|amex|jcb/i.test(l)) {
+                    fullName = l;
+                    break;
+                }
+            } else if (/^[A-Z]+\s[A-Z]+(\s[A-Z]+)?$/.test(l)) { // ALL CAPS names
+                if(!/CARD|VISA|MASTER|DISCOVER|AMEX|JCB/i.test(l) && !email.toUpperCase().includes(l) && !twoFA.includes(l)) {
+                    fullName = l;
+                    break;
+                }
+            }
+        }
+    }
 
     // 5. Card
     const ccnMatch = text.match(/\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7})\b/);
@@ -3031,18 +3089,96 @@ function _parseGoogleFormat(text) {
 
     // Assembly
     const outLines = [];
-    if (twoFA) outLines.push(`2FA: ${twoFA}`);
-    if (email) outLines.push(`LOGIN: ${email}${password ? ':' + password : ''}`);
-    if (fullName) outLines.push(`NAME: ${fullName.toUpperCase()}`);
-    if (ccn) outLines.push(`CARD: ${ccn} ${exp} ${cvv}`);
+    if (twoFA) outLines.push(`2fa: ${twoFA}`);
+    if (email) outLines.push(`login: ${email}${password ? ':' + password : ''}`);
+    if (fullName) outLines.push(`name: ${fullName.toUpperCase()}`);
+    if (ccn) outLines.push(`card: ${ccn} ${exp} ${cvv}`);
+    
     if (ccn) {
         const octoName = fullName ? fullName.toUpperCase() : 'UNKNOWN';
         const octoCard = ccn.length >= 10 ? `${ccn.slice(0,6)}....${ccn.slice(-4)}` : ccn;
-        outLines.push(`OCTO: ${octoName} - ${octoCard}`);
+        
+        let prefixLabel = '';
+        const savedPrefix = localStorage.getItem('googleFormat_octoPrefix');
+        if (savedPrefix) {
+            let counter = parseInt(localStorage.getItem('googleFormat_octoPrefixCounter') || '1', 10);
+            
+            let countDisplay = counter > 1 ? ` ${counter}` : '';
+            prefixLabel = `${savedPrefix}${countDisplay} - `;
+            
+            if (isExplicitParse) {
+                counter++;
+                localStorage.setItem('googleFormat_octoPrefixCounter', counter.toString());
+            }
+        }
+        
+        outLines.push(`octo: ${prefixLabel}${octoName} - ${octoCard}`);
+    }
+
+    const finalOutput = outLines.join('\n');
+    document.getElementById('gf-output').value = finalOutput;
+    STATE.gfOutput = finalOutput;
+}
+
+        }
+    }
+
+    // 5. Card
+    const ccnMatch = text.match(/\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7})\b/);
+    if (ccnMatch) {
+        ccn = ccnMatch[1].replace(/[\s\-]/g, '');
+        
+        const expMatch = text.match(/\b(0[1-9]|1[0-2])[\s\/\-\|]*(\d{2}|\d{4})\b/);
+        if (expMatch) {
+            exp = `${expMatch[1]}/${expMatch[2].slice(-2)}`;
+        }
+        
+        const cardLine = text.split('\n').find(l => l.replace(/[\s\-]/g, '').includes(ccn));
+        if (cardLine) {
+            const cleanLine = cardLine.replace(/-\w+/g, ' '); 
+            const numMatches = cleanLine.match(/\b\d{3,4}\b/g);
+            if (numMatches) {
+                for(let m of numMatches) {
+                    if (m !== expMatch?.[1] && m !== expMatch?.[2] && m.length >= 3 && m.length <= 4) {
+                        cvv = m;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Assembly
+    const outLines = [];
+    if (twoFA) outLines.push(`2fa: ${twoFA}`);
+    if (email) outLines.push(`login: ${email}${password ? ':' + password : ''}`);
+    if (fullName) outLines.push(`name: ${fullName.toUpperCase()}`);
+    if (ccn) outLines.push(`card: ${ccn} ${exp} ${cvv}`);
+    
+    if (ccn) {
+        const octoName = fullName ? fullName.toUpperCase() : 'UNKNOWN';
+        const octoCard = ccn.length >= 10 ? `${ccn.slice(0,6)}....${ccn.slice(-4)}` : ccn;
+        
+        let prefixLabel = '';
+        const savedPrefix = localStorage.getItem('googleFormat_octoPrefix');
+        if (savedPrefix) {
+            let counter = parseInt(localStorage.getItem('googleFormat_octoPrefixCounter') || '1', 10);
+            
+            let countDisplay = counter > 1 ? ` ${counter}` : '';
+            prefixLabel = `${savedPrefix}${countDisplay} - `;
+            
+            if (isExplicitParse) {
+                counter++;
+                localStorage.setItem('googleFormat_octoPrefixCounter', counter.toString());
+            }
+        }
+        
+        outLines.push(`octo: ${prefixLabel}${octoName} - ${octoCard}`);
     }
 
     document.getElementById('gf-output').value = outLines.join('\n');
 }
+
 
 
 function renderContent() {
