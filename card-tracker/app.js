@@ -3120,66 +3120,6 @@ function _parseGoogleFormat(text, isExplicitParse = false) {
     STATE.gfOutput = finalOutput;
 }
 
-        }
-    }
-
-    // 5. Card
-    const ccnMatch = text.match(/\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7})\b/);
-    if (ccnMatch) {
-        ccn = ccnMatch[1].replace(/[\s\-]/g, '');
-        
-        const expMatch = text.match(/\b(0[1-9]|1[0-2])[\s\/\-\|]*(\d{2}|\d{4})\b/);
-        if (expMatch) {
-            exp = `${expMatch[1]}/${expMatch[2].slice(-2)}`;
-        }
-        
-        const cardLine = text.split('\n').find(l => l.replace(/[\s\-]/g, '').includes(ccn));
-        if (cardLine) {
-            const cleanLine = cardLine.replace(/-\w+/g, ' '); 
-            const numMatches = cleanLine.match(/\b\d{3,4}\b/g);
-            if (numMatches) {
-                for(let m of numMatches) {
-                    if (m !== expMatch?.[1] && m !== expMatch?.[2] && m.length >= 3 && m.length <= 4) {
-                        cvv = m;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // Assembly
-    const outLines = [];
-    if (twoFA) outLines.push(`2fa: ${twoFA}`);
-    if (email) outLines.push(`login: ${email}${password ? ':' + password : ''}`);
-    if (fullName) outLines.push(`name: ${fullName.toUpperCase()}`);
-    if (ccn) outLines.push(`card: ${ccn} ${exp} ${cvv}`);
-    
-    if (ccn) {
-        const octoName = fullName ? fullName.toUpperCase() : 'UNKNOWN';
-        const octoCard = ccn.length >= 10 ? `${ccn.slice(0,6)}....${ccn.slice(-4)}` : ccn;
-        
-        let prefixLabel = '';
-        const savedPrefix = localStorage.getItem('googleFormat_octoPrefix');
-        if (savedPrefix) {
-            let counter = parseInt(localStorage.getItem('googleFormat_octoPrefixCounter') || '1', 10);
-            
-            let countDisplay = counter > 1 ? ` ${counter}` : '';
-            prefixLabel = `${savedPrefix}${countDisplay} - `;
-            
-            if (isExplicitParse) {
-                counter++;
-                localStorage.setItem('googleFormat_octoPrefixCounter', counter.toString());
-            }
-        }
-        
-        outLines.push(`octo: ${prefixLabel}${octoName} - ${octoCard}`);
-    }
-
-    document.getElementById('gf-output').value = outLines.join('\n');
-}
-
-
 
 function renderContent() {
     const area = document.getElementById('content-area');
