@@ -2534,171 +2534,190 @@ function _renderTEPCOBillHTML(d, font) {
 }
 
 // ═══════════════════════════════════════════
-//   US WATER BILL — Provider Data & Generator
+//   US WATER BILL — Provider Data & Generator (50 states)
 // ═══════════════════════════════════════════
 const US_WATER_PROVIDERS = {
-    'NY': { name:'NYC Water Board', full:'New York City Water Board', phone:'(718) 595-7000', web:'nyc.gov/dep', abbr:'NY', tax:0.0, base:12.87, tiers:[{limit:0,rate:4.51}], sewerPct:1.59, storm:4.06, avgUse:[3000,7000] },
-    'CA': { name:'Cal Water', full:'California Water Service', phone:'(408) 367-8200', web:'calwater.com', abbr:'CA', tax:0.0, base:18.54, tiers:[{limit:5,rate:5.12},{limit:15,rate:7.89},{limit:999,rate:11.34}], sewerPct:1.0, storm:8.25, avgUse:[3000,6500] },
-    'TX': { name:'Dallas Water', full:'Dallas Water Utilities', phone:'(214) 651-1441', web:'dallascityhall.com', abbr:'TX', tax:0.0, base:7.58, tiers:[{limit:4,rate:3.16},{limit:10,rate:5.27},{limit:999,rate:8.45}], sewerPct:1.1, storm:5.88, avgUse:[4000,9000] },
-    'FL': { name:'Miami-Dade Water', full:'Miami-Dade Water and Sewer Dept', phone:'(305) 665-7471', web:'miamidade.gov/water', abbr:'FL', tax:0.0, base:6.93, tiers:[{limit:5,rate:2.65},{limit:10,rate:5.18},{limit:999,rate:8.73}], sewerPct:1.4, storm:6.12, avgUse:[4000,8500] },
-    'IL': { name:'Illinois American Water', full:'Illinois American Water Co.', phone:'(800) 422-2782', web:'amwater.com/ilaw', abbr:'IL', tax:0.07, base:14.25, tiers:[{limit:0,rate:5.84}], sewerPct:0.85, storm:3.50, avgUse:[2500,6000] },
-    'PA': { name:'Philadelphia Water', full:'Philadelphia Water Department', phone:'(215) 685-6300', web:'phila.gov/water', abbr:'PA', tax:0.0, base:10.33, tiers:[{limit:4,rate:4.41},{limit:12,rate:6.78},{limit:999,rate:9.15}], sewerPct:1.2, storm:7.44, avgUse:[2500,6500] },
-    'OH': { name:'Columbus Water', full:'Columbus Dept of Public Utilities', phone:'(614) 645-7788', web:'columbus.gov/utilities', abbr:'OH', tax:0.0, base:8.12, tiers:[{limit:0,rate:6.07}], sewerPct:1.3, storm:5.90, avgUse:[3000,7000] },
-    'GA': { name:'Atlanta Watershed', full:'Atlanta Dept of Watershed Mgmt', phone:'(404) 546-0311', web:'atlantawatershed.org', abbr:'GA', tax:0.0, base:11.04, tiers:[{limit:3,rate:3.95},{limit:6,rate:6.56},{limit:999,rate:10.87}], sewerPct:1.5, storm:8.10, avgUse:[3500,8000] },
-    'NC': { name:'Charlotte Water', full:'Charlotte Water Services', phone:'(704) 336-3432', web:'charlottewater.org', abbr:'NC', tax:0.0, base:5.66, tiers:[{limit:5,rate:2.88},{limit:10,rate:4.65},{limit:999,rate:7.32}], sewerPct:1.1, storm:5.39, avgUse:[3000,7500] },
-    'VA': { name:'Fairfax Water', full:'Fairfax Water Authority', phone:'(703) 698-5800', web:'fairfaxwater.org', abbr:'VA', tax:0.0, base:9.17, tiers:[{limit:4,rate:3.20},{limit:12,rate:4.97},{limit:999,rate:7.64}], sewerPct:1.2, storm:6.80, avgUse:[3000,7000] },
-    'MI': { name:'Detroit Water', full:'Detroit Water & Sewerage Dept', phone:'(313) 267-8000', web:'detroitmi.gov/dwsd', abbr:'MI', tax:0.0, base:6.45, tiers:[{limit:0,rate:5.63}], sewerPct:1.6, storm:6.50, avgUse:[2500,6500] },
-    'NJ': { name:'NJ American Water', full:'New Jersey American Water', phone:'(800) 652-6987', web:'amwater.com/njaw', abbr:'NJ', tax:0.0, base:15.93, tiers:[{limit:0,rate:6.28}], sewerPct:0.95, storm:4.80, avgUse:[2500,6000] },
-    'MA': { name:'Boston Water', full:'Boston Water and Sewer Commission', phone:'(617) 989-7000', web:'bwsc.org', abbr:'MA', tax:0.0, base:8.79, tiers:[{limit:0,rate:7.14}], sewerPct:1.3, storm:5.55, avgUse:[2000,5500] },
-    'WA': { name:'Seattle Public Utilities', full:'Seattle Public Utilities', phone:'(206) 684-3000', web:'seattle.gov/utilities', abbr:'WA', tax:0.1025, base:16.30, tiers:[{limit:5,rate:5.72},{limit:10,rate:8.19},{limit:999,rate:13.46}], sewerPct:1.4, storm:11.40, avgUse:[2500,6000] },
-    'OR': { name:'Portland Water', full:'Portland Water Bureau', phone:'(503) 823-7770', web:'portland.gov/water', abbr:'OR', tax:0.0, base:13.46, tiers:[{limit:5,rate:5.11},{limit:999,rate:7.65}], sewerPct:1.5, storm:10.68, avgUse:[2500,5500] },
-    'NV': { name:'LVVWD', full:'Las Vegas Valley Water District', phone:'(702) 870-4194', web:'lvvwd.com', abbr:'NV', tax:0.0, base:8.24, tiers:[{limit:5,rate:2.01},{limit:10,rate:3.48},{limit:999,rate:6.92}], sewerPct:0.85, storm:3.90, avgUse:[4000,9000] },
-    'AZ': { name:'Phoenix Water', full:'Phoenix Water Services Dept', phone:'(602) 262-6251', web:'phoenix.gov/water', abbr:'AZ', tax:0.023, base:9.07, tiers:[{limit:5,rate:3.33},{limit:10,rate:4.96},{limit:999,rate:8.77}], sewerPct:1.1, storm:4.54, avgUse:[4000,10000] },
-    'CO': { name:'Denver Water', full:'Denver Water', phone:'(303) 893-2444', web:'denverwater.org', abbr:'CO', tax:0.0, base:10.67, tiers:[{limit:5,rate:3.81},{limit:11,rate:5.49},{limit:999,rate:9.16}], sewerPct:1.05, storm:7.20, avgUse:[3000,7000] },
-    'AL': { name:'Birmingham Water', full:'Birmingham Water Works Board', phone:'(205) 244-4000', web:'bwwb.org', abbr:'AL', tax:0.04, base:5.30, tiers:[{limit:3,rate:2.48},{limit:999,rate:4.12}], sewerPct:1.3, storm:4.25, avgUse:[3000,7500] },
-    'MN': { name:'Minneapolis Water', full:'Minneapolis Water Treatment', phone:'(612) 673-5600', web:'minneapolismn.gov/water', abbr:'MN', tax:0.0, base:7.82, tiers:[{limit:0,rate:4.27}], sewerPct:1.2, storm:6.30, avgUse:[2500,6000] }
+    'AL': { name:'Birmingham Water Works', co:'Birmingham Water Works Board', phone:'(205) 244-4000', web:'bwwb.org', color:'#0066a1', avgBill:[25,45] },
+    'AK': { name:'Anchorage Water', co:'Anchorage Water & Wastewater Utility', phone:'(907) 564-2700', web:'awwu.biz', color:'#005b96', avgBill:[40,80] },
+    'AZ': { name:'Phoenix Water Services', co:'City of Phoenix Water Services Dept', phone:'(602) 262-6251', web:'phoenix.gov/water', color:'#b7312c', avgBill:[30,65] },
+    'AR': { name:'Central Arkansas Water', co:'Central Arkansas Water', phone:'(501) 377-1200', web:'carkw.com', color:'#1a5276', avgBill:[22,42] },
+    'CA': { name:'Cal Water', co:'California Water Service', phone:'(408) 367-8200', web:'calwater.com', color:'#0072bc', avgBill:[55,110] },
+    'CO': { name:'Denver Water', co:'Denver Water', phone:'(303) 893-2444', web:'denverwater.org', color:'#004990', avgBill:[30,60] },
+    'CT': { name:'Aquarion Water', co:'Aquarion Water Company of CT', phone:'(800) 732-9678', web:'aquarionwater.com', color:'#007dba', avgBill:[50,90] },
+    'DE': { name:'Artesian Water', co:'Artesian Water Company', phone:'(302) 453-6900', web:'artesianwater.com', color:'#1b5e20', avgBill:[35,65] },
+    'FL': { name:'Miami-Dade Water', co:'Miami-Dade Water and Sewer Dept', phone:'(305) 665-7471', web:'miamidade.gov/water', color:'#00838f', avgBill:[28,58] },
+    'GA': { name:'Atlanta Watershed', co:'Atlanta Dept of Watershed Management', phone:'(404) 546-0311', web:'atlantawatershed.org', color:'#1565c0', avgBill:[25,55] },
+    'HI': { name:'Honolulu BWS', co:'Board of Water Supply', phone:'(808) 748-5000', web:'boardofwatersupply.com', color:'#0277bd', avgBill:[35,70] },
+    'ID': { name:'Boise Water', co:'United Water Idaho', phone:'(208) 362-7304', web:'unitedwater.com', color:'#2e7d32', avgBill:[25,50] },
+    'IL': { name:'Illinois American Water', co:'Illinois American Water Co.', phone:'(800) 422-2782', web:'amwater.com/ilaw', color:'#01579b', avgBill:[22,50] },
+    'IN': { name:'Indiana American Water', co:'Indiana American Water', phone:'(800) 492-8373', web:'amwater.com/inaw', color:'#01579b', avgBill:[25,55] },
+    'IA': { name:'Iowa American Water', co:'Iowa American Water', phone:'(563) 386-4501', web:'amwater.com/iaaw', color:'#01579b', avgBill:[26,52] },
+    'KS': { name:'WaterOne', co:'WaterOne of Johnson County', phone:'(913) 895-5500', web:'waterone.org', color:'#0d47a1', avgBill:[24,50] },
+    'KY': { name:'Kentucky American Water', co:'Kentucky American Water', phone:'(800) 678-6301', web:'amwater.com/kyaw', color:'#01579b', avgBill:[28,56] },
+    'LA': { name:'Sewerage & Water Board', co:'Sewerage & Water Board of New Orleans', phone:'(504) 529-2837', web:'swbno.org', color:'#1a237e', avgBill:[18,40] },
+    'ME': { name:'Portland Water District', co:'Portland Water District', phone:'(207) 761-8310', web:'pwd.org', color:'#006064', avgBill:[20,45] },
+    'MD': { name:'Maryland American Water', co:'Maryland American Water', phone:'(800) 934-1502', web:'amwater.com/mdaw', color:'#01579b', avgBill:[30,60] },
+    'MA': { name:'Boston Water & Sewer', co:'Boston Water and Sewer Commission', phone:'(617) 989-7000', web:'bwsc.org', color:'#0d47a1', avgBill:[30,65] },
+    'MI': { name:'Great Lakes Water', co:'Great Lakes Water Authority', phone:'(313) 964-9580', web:'glwater.org', color:'#1565c0', avgBill:[25,55] },
+    'MN': { name:'Minneapolis Water', co:'Minneapolis Water Treatment & Distribution', phone:'(612) 673-5600', web:'minneapolismn.gov/water', color:'#0d47a1', avgBill:[24,52] },
+    'MS': { name:'Jackson Water', co:'City of Jackson Water/Sewer Utilities', phone:'(601) 960-2723', web:'jacksonms.gov', color:'#283593', avgBill:[20,42] },
+    'MO': { name:'Missouri American Water', co:'Missouri American Water', phone:'(866) 430-0820', web:'amwater.com/moaw', color:'#01579b', avgBill:[24,52] },
+    'MT': { name:'Mountain Water', co:'Mountain Water Company', phone:'(406) 721-5570', web:'mountainwater.com', color:'#1b5e20', avgBill:[28,55] },
+    'NE': { name:'Metropolitan Utilities', co:'Metropolitan Utilities District', phone:'(402) 554-6666', web:'mudomaha.com', color:'#004d40', avgBill:[20,44] },
+    'NV': { name:'Las Vegas Valley Water', co:'Las Vegas Valley Water District', phone:'(702) 870-4194', web:'lvvwd.com', color:'#0277bd', avgBill:[22,50] },
+    'NH': { name:'Manchester Water Works', co:'Manchester Water Works', phone:'(603) 624-6482', web:'manchesternh.gov', color:'#1a5276', avgBill:[24,50] },
+    'NJ': { name:'NJ American Water', co:'New Jersey American Water', phone:'(800) 652-6987', web:'amwater.com/njaw', color:'#01579b', avgBill:[30,65] },
+    'NM': { name:'Albuquerque Water', co:'Albuquerque Bernalillo County Water Utility', phone:'(505) 842-3400', web:'abcwua.org', color:'#bf360c', avgBill:[28,58] },
+    'NY': { name:'NYC Water Board', co:'New York City Water Board', phone:'(718) 595-7000', web:'nyc.gov/dep', color:'#1565c0', avgBill:[25,55] },
+    'NC': { name:'Charlotte Water', co:'Charlotte Water', phone:'(704) 336-3432', web:'charlottewater.org', color:'#00695c', avgBill:[18,42] },
+    'ND': { name:'Bismarck Water', co:'City of Bismarck Water Department', phone:'(701) 355-1500', web:'bismarcknd.gov', color:'#0d47a1', avgBill:[26,52] },
+    'OH': { name:'Aqua Ohio', co:'Aqua Ohio Inc.', phone:'(877) 987-2782', web:'aquawater.com', color:'#00838f', avgBill:[24,50] },
+    'OK': { name:'OKC Utilities', co:'Oklahoma City Utilities', phone:'(405) 297-2833', web:'okc.gov/utilities', color:'#b71c1c', avgBill:[30,60] },
+    'OR': { name:'Portland Water Bureau', co:'Portland Water Bureau', phone:'(503) 823-7770', web:'portland.gov/water', color:'#1b5e20', avgBill:[55,100] },
+    'PA': { name:'Philadelphia Water', co:'Philadelphia Water Department', phone:'(215) 685-6300', web:'phila.gov/water', color:'#0d47a1', avgBill:[28,60] },
+    'RI': { name:'Providence Water', co:'Providence Water Supply Board', phone:'(401) 521-6300', web:'provwater.com', color:'#1a237e', avgBill:[28,55] },
+    'SC': { name:'Charleston Water', co:'Charleston Water System', phone:'(843) 727-6800', web:'charlestonwater.com', color:'#00695c', avgBill:[28,58] },
+    'SD': { name:'Sioux Falls Water', co:'City of Sioux Falls Water Division', phone:'(605) 367-8601', web:'siouxfalls.org', color:'#0d47a1', avgBill:[22,46] },
+    'TN': { name:'Tennessee American Water', co:'Tennessee American Water', phone:'(866) 736-6420', web:'amwater.com/tnaw', color:'#01579b', avgBill:[26,55] },
+    'TX': { name:'Dallas Water Utilities', co:'Dallas Water Utilities', phone:'(214) 651-1441', web:'dallascityhall.com', color:'#1565c0', avgBill:[28,62] },
+    'UT': { name:'SLC Public Utilities', co:'Salt Lake City Public Utilities', phone:'(801) 483-6900', web:'slc.gov/utilities', color:'#283593', avgBill:[24,52] },
+    'VT': { name:'Burlington Water', co:'Burlington Dept of Public Works', phone:'(802) 863-4501', web:'burlingtonvt.gov/dpw', color:'#2e7d32', avgBill:[15,35] },
+    'VA': { name:'Virginia American Water', co:'Virginia American Water', phone:'(800) 452-6863', web:'amwater.com/vaaw', color:'#01579b', avgBill:[30,60] },
+    'WA': { name:'Seattle Public Utilities', co:'Seattle Public Utilities', phone:'(206) 684-3000', web:'seattle.gov/utilities', color:'#004d40', avgBill:[55,100] },
+    'WV': { name:'WV American Water', co:'West Virginia American Water', phone:'(800) 685-8660', web:'amwater.com/wvaw', color:'#01579b', avgBill:[65,120] },
+    'WI': { name:'Milwaukee Water Works', co:'Milwaukee Water Works', phone:'(414) 286-2830', web:'milwaukee.gov/water', color:'#0d47a1', avgBill:[15,38] },
+    'WY': { name:'Cheyenne Water', co:'Cheyenne Board of Public Utilities', phone:'(307) 637-6460', web:'cheyennebopu.org', color:'#33691e', avgBill:[24,50] },
+    'DC': { name:'DC Water', co:'District of Columbia Water and Sewer Authority', phone:'(202) 354-3600', web:'dcwater.com', color:'#0d47a1', avgBill:[35,70] }
 };
-const US_STATES_LIST = Object.keys(US_WATER_PROVIDERS);
+const US_STATES_LIST = Object.keys(US_WATER_PROVIDERS).sort();
+const US_STATE_NAMES = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'Washington DC'};
 
 function _generateWaterBillData(gen) {
     const st = gen.waterState || 'NY';
     const prov = US_WATER_PROVIDERS[st];
     if (!prov) return null;
     const now = new Date();
-    const periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - _genRand(1,5));
-    const periodStart = new Date(periodEnd.getFullYear(), periodEnd.getMonth() - 1, periodEnd.getDate());
-    const billDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate() + _genRand(2,5));
-    const dueDate = new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + _genRand(20,25));
-    const fmtD = d => `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;
-    const fmtShort = d => { const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${mo[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')}, ${d.getFullYear()}`; };
-    const acct = String(_genRand(1000000000,9999999999));
-    const meter = 'M-' + String(_genRand(10000,99999));
-    const billNo = String(_genRand(10000000,99999999));
-    const galUsed = _genRand(prov.avgUse[0], prov.avgUse[1]);
-    const ccf = galUsed / 748;
-    // Tiered water charge
-    let waterUsage = 0; let rem = ccf;
-    for (let i = 0; i < prov.tiers.length; i++) {
-        const t = prov.tiers[i]; const nextLimit = (i+1 < prov.tiers.length) ? prov.tiers[i+1].limit || 999 : 999;
-        const tierAmt = (t.limit === 0) ? rem : Math.min(rem, (nextLimit - t.limit));
-        if (tierAmt <= 0) break;
-        waterUsage += tierAmt * t.rate; rem -= tierAmt;
-        if (rem <= 0) break;
-    }
-    waterUsage = Math.round(waterUsage * 100) / 100;
-    const waterBase = prov.base;
-    const waterTotal = Math.round((waterBase + waterUsage) * 100) / 100;
-    const sewerBase = Math.round(prov.base * 0.6 * 100) / 100;
-    const sewerUsage = Math.round(waterUsage * prov.sewerPct * 100) / 100;
-    const sewerTotal = Math.round((sewerBase + sewerUsage) * 100) / 100;
-    const stormFee = prov.storm;
-    const subTotal = Math.round((waterTotal + sewerTotal + stormFee) * 100) / 100;
-    const taxAmt = Math.round(subTotal * prov.tax * 100) / 100;
-    const currentCharges = Math.round((subTotal + taxAmt) * 100) / 100;
-    const prevBal = _genRand(0,1) === 0 ? 0 : Math.round((_genRand(2500,8500)/100)*100)/100;
-    const payment = prevBal;
+    const billDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - _genRand(1,10));
+    const dueDate = new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + _genRand(18,25));
+    const fmtD = d => { const mo=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']; return `${String(d.getDate()).padStart(2,'0')} ${mo[d.getMonth()]}, ${d.getFullYear()}`; };
+    const fmtPay = d => { const mo=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']; return `${mo[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')}, ${d.getFullYear()}`; };
+    const acct = `${_genRand(1,9)}-${String(_genRand(1000,9999))}-${String(_genRand(1000,9999))}`;
+    const billNo = String(_genRand(100000000,999999999));
+    // Generate realistic bill amounts
+    const totalBill = Math.round((_genRand(prov.avgBill[0]*100, prov.avgBill[1]*100))/100 * 100)/100;
+    const waterSvc = Math.round(totalBill * _genRand(65,80)/100 * 100)/100;
+    const sewerSvc = Math.round((totalBill - waterSvc) * 100)/100;
+    const prevBal = _genRand(0,1) === 0 ? Math.round(totalBill * _genRand(85,115)/100 * 100)/100 : 0;
+    const paidAmt = prevBal > 0 ? Math.round(prevBal * _genRand(90,100)/100 * 100)/100 : 0;
+    const adj = prevBal > 0 ? -Math.round((prevBal - paidAmt) * 100)/100 : 0;
     const balFwd = 0;
-    const totalDue = Math.round((currentCharges + balFwd) * 100) / 100;
-    const lateAmt = Math.round(totalDue * 0.015 * 100) / 100;
-    // 12-month bar chart
-    const bars = [];
-    for (let i = 0; i < 11; i++) bars.push(_genRand(Math.max(1000, galUsed - 1500), galUsed + 1200));
-    bars.push(galUsed);
-    const yMax = Math.ceil(Math.max(...bars) / 1000) * 1000;
-    const avgDaily = Math.round(galUsed / 30);
-    const fullAddr = `${gen.streetAddress.toUpperCase()}, ${gen.city.toUpperCase()}, ${st} ${gen.postalCode}`;
+    const pastDue = prevBal > 0 ? Math.round((prevBal - paidAmt + adj) * 100)/100 : 0;
+    const savedAmt = Math.round(_genRand(1500,5500)/100 * 100)/100;
+    const taxPct = _genRand(0, st==='WA'? 1025 : st==='AZ'?230 : st==='IL'?700 : st==='AL'?400 : 0) / 10000;
+    const taxAmt = Math.round(totalBill * taxPct * 100)/100;
+    const totalToPay = Math.round((totalBill + taxAmt) * 100)/100;
+    const fullAddr = `${gen.streetAddress.toUpperCase()}\n${gen.city.toUpperCase()}, ${st} ${gen.postalCode}`;
+    const poBox = `PO Box ${_genRand(1000,9999)}`;
+    const poCity = ['Camden, NJ 08101','Trenton, NJ 08650','Atlanta, GA 30348','Dallas, TX 75284','Chicago, IL 60677','Denver, CO 80271'][_genRand(0,5)];
+    const postalCode = `##POSTAL${String(_genRand(10000,99999))} ${String(_genRand(100000000,999999999))}`;
+    const barcode = String(_genRand(10000000000000,99999999999999)) + 'TT' + '0'.repeat(25) + '001';
     return {
-        provider: prov, state: st, name: gen.name.toUpperCase(), address: fullAddr,
-        acct, meter, billNo, periodStart: fmtD(periodStart), periodEnd: fmtD(periodEnd),
-        billDate: fmtShort(billDate), dueDate: fmtShort(dueDate),
-        galUsed, ccf: ccf.toFixed(2), waterBase, waterUsage, waterTotal,
-        sewerBase, sewerUsage, sewerTotal, stormFee, taxAmt, taxRate: prov.tax,
-        subTotal, currentCharges, prevBal, payment, balFwd, totalDue, lateAmt,
-        bars, yMax, avgDaily
+        provider: prov, state: st, stateName: US_STATE_NAMES[st] || st,
+        name: gen.name.toUpperCase(), address: fullAddr,
+        acct, billNo, billDate: fmtD(billDate), dueDate: fmtPay(dueDate),
+        waterSvc, sewerSvc, totalBill, taxAmt, taxPct,
+        prevBal, paidAmt, adj, balFwd, pastDue, totalToPay,
+        savedAmt, poBox, poCity, postalCode, barcode
     };
 }
 
 function _renderWaterBillHTML(d, font) {
-    const docFont = font || 'Noto Sans';
+    const f = font || 'Noto Sans';
     const p = d.provider;
-    const fmtM = n => '$' + Number(n).toFixed(2);
-    const barsHtml = d.bars.map((v,i) => {
-        const h = Math.max(4, Math.round((v / d.yMax) * 80));
-        const mo = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-        const mIdx = (new Date().getMonth() - 11 + i + 12) % 12;
-        return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:16px;background:#2563eb;border-radius:2px 2px 0 0;height:'+h+'px"></div><div style="font-size:8px;color:#666">'+mo[mIdx]+'</div></div>';
-    }).join('');
+    const c = p.color;
+    const fm = n => '$' + Number(n).toFixed(2);
     return `
-<div id="water-bill-render" style="width:760px;padding:36px 40px;background:#fff;color:#222;font-family:'${docFont}',sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:3px solid #2563eb;padding-bottom:14px">
-    <div>
-      <div style="font-size:22px;font-weight:800;color:#2563eb;letter-spacing:1px">${p.name.toUpperCase()}</div>
-      <div style="font-size:10px;color:#555;margin-top:2px">${p.full}</div>
-      <div style="font-size:10px;color:#777">${p.phone} | ${p.web}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:1px">Water & Sewer Statement</div>
-      <div style="font-size:10px;color:#777">Page 1 of 1</div>
-    </div>
-  </div>
-  <div style="display:flex;justify-content:space-between;margin-bottom:14px">
-    <div style="font-size:12px;line-height:1.7">
-      <div><b>Account #:</b> ${d.acct}</div>
-      <div><b>Meter #:</b> ${d.meter}</div>
-      <div><b>Name:</b> ${d.name}</div>
-      <div><b>Service Address:</b> ${d.address}</div>
-    </div>
-    <div style="text-align:right;font-size:12px;line-height:1.7">
-      <div><b>Bill Date:</b> ${d.billDate}</div>
-      <div><b>Due Date:</b> ${d.dueDate}</div>
-      <div><b>Service Period:</b> ${d.periodStart} - ${d.periodEnd}</div>
-      <div><b>Bill #:</b> ${d.billNo}</div>
+<div id="water-bill-render" style="width:794px;min-height:1060px;background:#fff;font-family:'${f}',Arial,sans-serif;color:#222;font-size:13px;line-height:1.5;box-sizing:border-box;padding-bottom:30px">
+  <!-- TOP HEADER BAR -->
+  <div style="display:flex;align-items:center;background:${c};color:#fff;padding:8px 20px;font-size:12px;gap:2px">
+    <div style="flex:1;border-right:1px solid rgba(255,255,255,.3);padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Account number</div><div style="font-weight:700">${d.acct}</div></div>
+    <div style="flex:1;border-right:1px solid rgba(255,255,255,.3);padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Bill number</div><div style="font-weight:700">${d.billNo}</div></div>
+    <div style="flex:1;border-right:1px solid rgba(255,255,255,.3);padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Bill date</div><div style="font-weight:700">${d.billDate}</div></div>
+    <div style="flex:.5;padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Page</div><div style="font-weight:700">1 of 1</div></div>
+    <div style="margin-left:auto;text-align:right;padding:6px 0">
+      <div style="font-size:22px;font-weight:900;letter-spacing:1.5px">${p.name.toUpperCase()}</div>
     </div>
   </div>
-  <div style="background:#f0f4ff;border:1px solid #c7d5f5;border-radius:6px;padding:12px 16px;margin-bottom:14px">
-    <div style="font-weight:700;font-size:14px;color:#1e40af;margin-bottom:8px;border-bottom:1px solid #c7d5f5;padding-bottom:4px">Account Summary</div>
-    <div style="display:flex;justify-content:space-between"><span>Previous Balance</span><span>${fmtM(d.prevBal)}</span></div>
-    <div style="display:flex;justify-content:space-between"><span>Payment Received - Thank You</span><span>-${fmtM(d.payment)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-weight:600"><span>Balance Forward</span><span>${fmtM(d.balFwd)}</span></div>
-    <div style="display:flex;justify-content:space-between"><span>Current Charges</span><span>${fmtM(d.currentCharges)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:6px;padding-top:6px;border-top:2px solid #2563eb;color:#1e40af"><span>TOTAL AMOUNT DUE</span><span>${fmtM(d.totalDue)}</span></div>
-  </div>
-  <div style="margin-bottom:14px">
-    <div style="font-weight:700;font-size:13px;color:#1e40af;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:4px">Current Charges Detail</div>
-    <div style="font-weight:600;font-size:12px;color:#333;margin:8px 0 4px">WATER SERVICE</div>
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="padding-left:12px">Base / Fixed Charge</span><span>${fmtM(d.waterBase)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="padding-left:12px">Usage: ${d.galUsed.toLocaleString()} gal (${d.ccf} CCF)</span><span>${fmtM(d.waterUsage)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;padding-top:2px"><span style="padding-left:12px">Water Subtotal</span><span>${fmtM(d.waterTotal)}</span></div>
-    <div style="font-weight:600;font-size:12px;color:#333;margin:10px 0 4px">SEWER SERVICE</div>
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="padding-left:12px">Sewer Base Charge</span><span>${fmtM(d.sewerBase)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="padding-left:12px">Sewer Usage Charge</span><span>${fmtM(d.sewerUsage)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;padding-top:2px"><span style="padding-left:12px">Sewer Subtotal</span><span>${fmtM(d.sewerTotal)}</span></div>
-    <div style="font-weight:600;font-size:12px;color:#333;margin:10px 0 4px">OTHER CHARGES</div>
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="padding-left:12px">Stormwater Management Fee</span><span>${fmtM(d.stormFee)}</span></div>
-    ${d.taxAmt > 0 ? '<div style="display:flex;justify-content:space-between;font-size:12px"><span style="padding-left:12px">Tax (' + (d.taxRate*100).toFixed(1) + '%)</span><span>' + fmtM(d.taxAmt) + '</span></div>' : ''}
-    <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:6px;padding-top:6px;border-top:2px solid #1e40af;color:#1e40af"><span>TOTAL CURRENT CHARGES</span><span>${fmtM(d.currentCharges)}</span></div>
-  </div>
-  <div style="border:1px solid #ddd;border-radius:6px;padding:10px 14px;margin-bottom:14px">
-    <div style="font-weight:600;font-size:11px;color:#555;margin-bottom:6px">USAGE HISTORY (gallons) &nbsp;&bull;&nbsp; Avg Daily: ${d.avgDaily} gal</div>
-    <div style="display:flex;align-items:flex-end;gap:6px;height:90px;padding:0 4px">${barsHtml}</div>
-  </div>
-  <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:6px;padding:10px 14px;font-size:11px;color:#92400e;margin-bottom:14px">
-    <b>IMPORTANT:</b> Please pay by <b>${d.dueDate}</b> to avoid a late payment charge of <b>${fmtM(d.lateAmt)}</b>. For questions call ${p.phone} or visit <b>${p.web}</b>
-  </div>
-  <hr style="border:none;border-top:1px dashed #ccc;margin:16px 0">
-  <div style="display:flex;justify-content:space-between;font-size:11px;color:#555">
-    <div>
-      <div style="font-weight:700;font-size:13px;color:#2563eb;margin-bottom:4px">${p.name.toUpperCase()}</div>
-      <div>${p.full}</div>
-      <div>${p.phone}</div>
+
+  <!-- GREETING -->
+  <div style="padding:24px 36px 12px;font-size:15px">Hello <b>${d.name}</b>, this page gives you a quick summary of your bill.</div>
+
+  <!-- MAIN TWO-COLUMN BODY -->
+  <div style="display:flex;padding:8px 36px 0;gap:40px">
+    <!-- LEFT COLUMN -->
+    <div style="flex:1;min-width:0">
+      <div style="font-size:24px;font-weight:300;color:#333;border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:14px">What is the total due?</div>
+      <div style="font-size:36px;font-weight:700;color:#222;padding:10px 0">${fm(d.totalToPay)}</div>
+      ${d.pastDue > 0 ? `<div style="display:flex;gap:8px;align-items:flex-start;margin:10px 0"><span style="color:${c};font-size:20px;font-weight:700">→</span><div style="font-size:13px;line-height:1.5"><b>Please pay past due balance of<br>${fm(d.pastDue)} immediately</b><br>Then please pay ${fm(d.totalToPay)} by the<br>required payment date of <b>${d.dueDate}</b></div></div>` : `<div style="font-size:13px;color:#555;margin:10px 0;line-height:1.6">Please pay <b>${fm(d.totalToPay)}</b> by the<br>required payment date of <b>${d.dueDate}</b></div>`}
+      <div style="font-size:11px;color:#999;margin-top:12px">See page 1 for ways to pay</div>
+      <!-- SAVINGS BANNER -->
+      <div style="background:#2e7d32;color:#fff;border-radius:6px;padding:12px 16px;margin-top:20px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">🏷️</span>
+        <span style="font-size:15px;font-weight:600">You saved ${fm(d.savedAmt)} on this bill</span>
+      </div>
     </div>
-    <div style="text-align:right">
-      <div><b>Account:</b> ${d.acct}</div>
-      <div><b>Total Due:</b> ${fmtM(d.totalDue)}</div>
-      <div><b>Due Date:</b> ${d.dueDate}</div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="flex:1.15;min-width:0">
+      <div style="font-size:24px;font-weight:300;color:#333;border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:14px">What makes up my total?</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><td colspan="2" style="font-weight:700;padding:8px 0;border-bottom:1px solid #ccc"><span>Account summary</span><span style="float:right">$</span></td></tr>
+        <tr><td style="padding:5px 0">Balance from last bill</td><td style="text-align:right;padding:5px 0">${d.prevBal.toFixed(2)}</td></tr>
+        <tr><td style="padding:5px 0">Your payments - thank you</td><td style="text-align:right;padding:5px 0">${d.paidAmt > 0 ? '-' + d.paidAmt.toFixed(2) : '0.00'}</td></tr>
+        ${d.adj !== 0 ? `<tr><td style="padding:5px 0">Adjustments</td><td style="text-align:right;padding:5px 0">${d.adj.toFixed(2)}</td></tr>` : ''}
+        <tr><td style="padding:6px 0;font-weight:700;border-top:1px solid #eee">Balance brought forward</td><td style="text-align:right;padding:6px 0;font-weight:700;border-top:1px solid #eee">${d.balFwd.toFixed(2)}</td></tr>
+        <tr><td colspan="2" style="font-weight:700;padding:10px 0 6px;border-top:2px solid #222;border-bottom:1px solid #ccc"><span>This bill</span><span style="float:right">$</span></td></tr>
+        <tr><td style="padding:5px 0;padding-left:10px">💧 Water Services</td><td style="text-align:right;padding:5px 0">${d.waterSvc.toFixed(2)}</td></tr>
+        <tr><td style="padding:5px 0;padding-left:10px">🚿 Sewer Services</td><td style="text-align:right;padding:5px 0">${d.sewerSvc.toFixed(2)}</td></tr>
+        ${d.taxAmt > 0 ? `<tr><td style="padding:4px 0;font-size:11px;color:#666;padding-left:14px">Total (Includes ${fm(d.taxAmt)} tax)</td><td style="text-align:right;padding:4px 0">${d.totalBill.toFixed(2)}</td></tr>` : `<tr><td style="padding:4px 0;font-size:11px;color:#666;padding-left:14px">Total</td><td style="text-align:right;padding:4px 0">${d.totalBill.toFixed(2)}</td></tr>`}
+        <tr><td style="padding:8px 10px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:4px 0 0 4px">Total to pay</td><td style="text-align:right;padding:8px 10px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:0 4px 4px 0">${fm(d.totalToPay)}</td></tr>
+      </table>
+      <div style="font-size:11px;color:#555;margin-top:12px;line-height:1.5">Any payments we received and processed after ${d.dueDate}<br>will show on your next bill.</div>
+      <div style="font-size:11px;color:#555;margin-top:6px;line-height:1.5">Chat with us! For other ways to reach ${p.name},<br>visit <b style="color:${c}">${p.web}</b></div>
+      <div style="font-size:11px;color:#999;margin-top:4px">See page 2 for other ways to contact us ›</div>
     </div>
   </div>
-  <div style="margin-top:10px;font-size:11px"><b>${d.name}</b><br>${d.address}</div>
+
+  <!-- FOOTER SEPARATOR -->
+  <hr style="border:none;border-top:1px dashed #bbb;margin:30px 36px">
+
+  <!-- PAYMENT STUB -->
+  <div style="padding:0 36px 20px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div style="font-size:18px;font-weight:900;color:${c};letter-spacing:1px">${p.name.toUpperCase()}</div>
+      <div style="text-align:right;font-size:12px;line-height:1.8">
+        <div>Your account number: <b>${d.acct}</b></div>
+        <div><b>Total amount due:</b> <b>${fm(d.totalToPay)}</b></div>
+        <div>Required Payment Date: <b>${d.dueDate}</b></div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:#333;margin-bottom:6px">${d.postalCode}</div>
+    <div style="font-size:11px;font-weight:700;margin-bottom:6px">IMPORTANT</div>
+    <div style="font-size:10px;color:#555;line-height:1.5;margin-bottom:16px">Payment due upon receipt. Payment must be received on or before the Required Payment Date to<br>avoid a Late Payment Charge. Please make the cheque payable to ${p.name} (9 digit account number)<br>and write your account number on the front of the cheque. Return this stub with your payment.</div>
+    <div style="text-align:center;font-size:11px;color:#888;margin-bottom:16px">########</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px">
+      <div style="font-size:11px;line-height:1.7">
+        <div style="font-weight:700">${p.name}</div>
+        <div>${d.poBox}</div>
+        <div>${d.poCity}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;line-height:1.7">
+        <div style="font-weight:700">${d.name}</div>
+        <div style="white-space:pre-line">${d.address}</div>
+      </div>
+    </div>
+    <div style="text-align:center;font-family:'Courier New',monospace;font-size:14px;letter-spacing:3px;margin-top:20px;color:#333">${d.barcode}</div>
+  </div>
 </div>`;
 }
 
@@ -2791,19 +2810,22 @@ function _renderGenerator() {
         const el = document.getElementById(elId);
         if (!el || typeof html2canvas === 'undefined') { toast('Export not available', 'error'); return; }
         const tmp = document.createElement('div');
-        tmp.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:#fff;';
+        tmp.style.cssText = 'position:absolute;left:-9999px;top:0;z-index:-1;background:#fff;overflow:visible;width:auto;height:auto;';
         tmp.innerHTML = el.outerHTML;
         document.body.appendChild(tmp);
         const clone = tmp.firstElementChild;
-        html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(canvas => {
+        clone.style.overflow = 'visible';
+        html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, width: clone.scrollWidth, height: clone.scrollHeight, windowWidth: clone.scrollWidth + 100 }).then(canvas => {
             document.body.removeChild(tmp);
-            const a = document.createElement('a');
+            const link = document.createElement('a');
             const prefix = gen.type === 'water' ? 'WaterBill' : 'TEPCO';
-            a.download = `${prefix}_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.png`;
-            a.href = canvas.toDataURL('image/png');
-            a.click();
+            link.download = `${prefix}_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             toast('PNG downloaded!', 'success');
-        }).catch(e => { document.body.removeChild(tmp); console.error(e); toast('Export failed', 'error'); });
+        }).catch(e => { try { document.body.removeChild(tmp); } catch(x){} console.error(e); toast('Export failed', 'error'); });
     });
     document.getElementById('gen-dl-pdf')?.addEventListener('click', () => {
         const elId = gen.type === 'water' ? 'water-bill-render' : 'tepco-bill-render';
