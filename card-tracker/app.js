@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -30,7 +30,7 @@ const STATE = {
     notesLastSaved: null,
     settings: {},
     trashCards: [],
-    bookmarks: [],
+
 };
 
 
@@ -259,7 +259,7 @@ function save() {
         localStorage.setItem('ct_settings', JSON.stringify(STATE.settings || {}));
 
         localStorage.setItem('ct_trash_cards', JSON.stringify(STATE.trashCards || []));
-        localStorage.setItem('ct_bookmarks', JSON.stringify(STATE.bookmarks || []));
+
         saveBinCache();
     } catch (e) {
         console.error('Save error:', e);
@@ -312,9 +312,7 @@ function load() {
             STATE.notesTabs = JSON.parse(tabsRaw);
             STATE.notesActiveTab = localStorage.getItem('activeNoteTab') || localStorage.getItem('ct_notes_active') || (STATE.notesTabs[0]?.id || '');
         }
-        // Load bookmarks
-        const bookmarksRaw = localStorage.getItem('ct_bookmarks');
-        if (bookmarksRaw) STATE.bookmarks = JSON.parse(bookmarksRaw);
+
     } catch (e) {
         console.error('Load error:', e);
     }
@@ -846,7 +844,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'bookmarks', 'google-format', 'google-work'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -1611,7 +1609,7 @@ const _CK = {
     },
     // GENERATOR state
     generator: {
-        type: 'tepco',         // tepco | water
+        type: 'tepco',         // tepco | water | creditcard
         name: '',
         postalCode: '',
         streetAddress: '',
@@ -1620,6 +1618,17 @@ const _CK = {
         waterState: 'NY',
         font: 'Noto Sans',
         billData: null,
+        // Credit Card Generator state
+        ccg: {
+            cardNumber: '4242 4242 4242 4242',
+            expiry: '12/28',
+            cvv: '123',
+            holderName: 'JOHN DOE',
+            cardNetwork: 'visa',
+            bankName: 'PREMIUM BANK',
+            customLogo: null,
+            colorScheme: 'black',
+        },
     },
     history: [],           // last 10 operations
 };
@@ -2722,6 +2731,9 @@ function _renderWaterBillHTML(d, font) {
 }
 
 function _renderGenerator() {
+    // Route to Credit Card generator
+    if (_CK.generator.type === 'creditcard') { _renderCreditCardGenerator(); return; }
+
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.style.display = 'none';
@@ -2752,6 +2764,7 @@ function _renderGenerator() {
             <span class="ck-proto-label">Type:</span>
             <button class="ck-proto-btn ${gen.type === 'tepco' ? 'active' : ''}" data-billtype="tepco">⚡ TEPCO Electricity</button>
             <button class="ck-proto-btn ${gen.type === 'water' ? 'active' : ''}" data-billtype="water">💧 Water Bill</button>
+            <button class="ck-proto-btn ${gen.type === 'creditcard' ? 'active' : ''}" data-billtype="creditcard">💳 Credit Card</button>
         </div>
 
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">
@@ -3398,18 +3411,8 @@ function renderContent() {
         footer.style.display = 'none';
         return;
     }
-    if (STATE.currentView === 'bookmarks') {
-        renderBookmarks();
-        footer.style.display = 'none';
-        return;
-    }
     if (STATE.currentView === 'google-format') {
         renderGoogleFormat();
-        footer.style.display = 'none';
-        return;
-    }
-    if (STATE.currentView === 'google-work') {
-        renderGoogleWork();
         footer.style.display = 'none';
         return;
     }
@@ -10243,711 +10246,3 @@ function _tcRenderResults(cards) {
     });
 }
 
-
-// ══════════════════════════════════════
-//        BOOKMARKS MODULE
-// ══════════════════════════════════════
-
-let _bkSearchQuery = '';
-let _bkFilterTag = 'all';
-let _bkEditingId = null;
-
-function _bkGetFiltered() {
-    let items = [...(STATE.bookmarks || [])];
-    if (_bkFilterTag && _bkFilterTag !== 'all') {
-        items = items.filter(b => (b.tag || '').toLowerCase() === _bkFilterTag.toLowerCase());
-    }
-    if (_bkSearchQuery && _bkSearchQuery.length >= 2) {
-        const q = _bkSearchQuery.toLowerCase();
-        items = items.filter(b =>
-            (b.title || '').toLowerCase().includes(q) ||
-            (b.url || '').toLowerCase().includes(q) ||
-            (b.description || '').toLowerCase().includes(q) ||
-            (b.tag || '').toLowerCase().includes(q) ||
-            (b.notes || '').toLowerCase().includes(q)
-        );
-    }
-    items.sort((a, b) => (b.created || 0) - (a.created || 0));
-    return items;
-}
-
-function _bkGetAllTags() {
-    const tags = new Set();
-    (STATE.bookmarks || []).forEach(b => {
-        if (b.tag && b.tag.trim()) tags.add(b.tag.trim());
-    });
-    return [...tags].sort((a, b) => a.localeCompare(b));
-}
-
-function _bkFormatDate(ts) {
-    if (!ts) return '';
-    const d = new Date(ts);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yy = String(d.getFullYear()).slice(2);
-    return `${dd}.${mm}.${yy}`;
-}
-
-function _bkEsc(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function renderBookmarks() {
-    const area = document.getElementById('content-area');
-    const items = _bkGetFiltered();
-    const allTags = _bkGetAllTags();
-    const isEditing = _bkEditingId !== null;
-    const editItem = isEditing ? (STATE.bookmarks || []).find(b => b.id === _bkEditingId) : null;
-
-    let tagsBarHTML = `<button class="bk-tag-btn ${_bkFilterTag === 'all' ? 'active' : ''}" data-bk-tag="all">ALL</button>`;
-    allTags.forEach(t => {
-        tagsBarHTML += `<button class="bk-tag-btn ${_bkFilterTag === t ? 'active' : ''}" data-bk-tag="${t}">${t}</button>`;
-    });
-
-    let cardsHTML = '';
-    if (items.length === 0) {
-        cardsHTML = `<div class="bk-empty">No bookmarks found</div>`;
-    } else {
-        items.forEach(b => {
-            const truncUrl = (b.url || '').length > 60 ? b.url.slice(0, 57) + '...' : (b.url || '');
-            cardsHTML += `
-            <div class="bk-card" data-bk-id="${b.id}">
-                <div class="bk-card-top">
-                    <div class="bk-card-info">
-                        <span class="bk-card-title">${_bkEsc(b.title || 'Untitled')}</span>
-                        <a class="bk-card-url" href="${_bkEsc(b.url || '#')}" target="_blank" rel="noopener" title="${_bkEsc(b.url || '')}">${_bkEsc(truncUrl)}</a>
-                    </div>
-                    <div class="bk-card-meta">
-                        ${b.tag ? `<span class="bk-card-tag">${_bkEsc(b.tag)}</span>` : ''}
-                        <span class="bk-card-date">${_bkFormatDate(b.created)}</span>
-                    </div>
-                </div>
-                ${b.description ? `<div class="bk-card-desc">${_bkEsc(b.description)}</div>` : ''}
-                ${b.notes ? `<div class="bk-card-notes">${_bkEsc(b.notes)}</div>` : ''}
-                <div class="bk-card-actions">
-                    <button class="bk-act-btn bk-act-open" data-bk-action="open" data-bk-id="${b.id}">Open</button>
-                    <button class="bk-act-btn bk-act-copy" data-bk-action="copy-url" data-bk-id="${b.id}">Copy URL</button>
-                    <button class="bk-act-btn bk-act-copy-all" data-bk-action="copy-all" data-bk-id="${b.id}">Copy All</button>
-                    <button class="bk-act-btn bk-act-edit" data-bk-action="edit" data-bk-id="${b.id}">Edit</button>
-                    <button class="bk-act-btn bk-act-del" data-bk-action="delete" data-bk-id="${b.id}">Delete</button>
-                </div>
-            </div>`;
-        });
-    }
-
-    const formTitle = isEditing ? 'EDIT BOOKMARK' : 'ADD BOOKMARK';
-    const formBtn = isEditing ? 'Save Changes' : 'Add Bookmark';
-    const fTitle = editItem ? editItem.title : '';
-    const fUrl = editItem ? editItem.url : '';
-    const fDesc = editItem ? editItem.description : '';
-    const fTag = editItem ? editItem.tag : '';
-    const fNotes = editItem ? editItem.notes : '';
-    const showForm = isEditing;
-
-    area.innerHTML = `
-    <div class="bk-container">
-        <div class="bk-header">
-            <div class="bk-header-left">
-                <span class="bk-title">BOOKMARKS</span>
-                <span class="bk-count">${items.length} / ${(STATE.bookmarks || []).length}</span>
-            </div>
-            <div class="bk-header-right">
-                <input type="text" class="bk-search" id="bk-search" placeholder="Search bookmarks..." value="${_bkEsc(_bkSearchQuery)}" autocomplete="off">
-                <button class="bk-add-toggle" id="bk-add-toggle">${isEditing ? 'Cancel' : '+ Add'}</button>
-            </div>
-        </div>
-
-        <div class="bk-form-panel ${showForm ? '' : 'hidden'}" id="bk-form-panel">
-            <div class="bk-form-title">${formTitle}</div>
-            <div class="bk-form-row">
-                <div class="bk-form-group">
-                    <label>Title *</label>
-                    <input type="text" id="bk-f-title" placeholder="Bookmark name" value="${_bkEsc(fTitle)}">
-                </div>
-                <div class="bk-form-group">
-                    <label>URL *</label>
-                    <input type="text" id="bk-f-url" placeholder="https://..." value="${_bkEsc(fUrl)}">
-                </div>
-            </div>
-            <div class="bk-form-row">
-                <div class="bk-form-group">
-                    <label>Description</label>
-                    <input type="text" id="bk-f-desc" placeholder="Short description" value="${_bkEsc(fDesc)}">
-                </div>
-                <div class="bk-form-group bk-form-group-sm">
-                    <label>Category / Tag</label>
-                    <input type="text" id="bk-f-tag" placeholder="e.g. tools" value="${_bkEsc(fTag)}" list="bk-tag-list">
-                    <datalist id="bk-tag-list">${allTags.map(t => '<option value="' + _bkEsc(t) + '">').join('')}</datalist>
-                </div>
-            </div>
-            <div class="bk-form-row">
-                <div class="bk-form-group bk-form-group-full">
-                    <label>Notes</label>
-                    <textarea id="bk-f-notes" rows="2" placeholder="Additional notes...">${_bkEsc(fNotes)}</textarea>
-                </div>
-            </div>
-            <div class="bk-form-actions">
-                <button class="bk-form-cancel" id="bk-form-cancel">Cancel</button>
-                <button class="bk-form-save" id="bk-form-save">${formBtn}</button>
-            </div>
-        </div>
-
-        <div class="bk-tags-bar" id="bk-tags-bar">${tagsBarHTML}</div>
-
-        <div class="bk-list" id="bk-list">${cardsHTML}</div>
-    </div>`;
-
-    _bkBindEvents();
-}
-
-function _bkBindEvents() {
-    const searchEl = document.getElementById('bk-search');
-    if (searchEl) {
-        searchEl.addEventListener('input', () => {
-            _bkSearchQuery = searchEl.value;
-            _bkRebuildList();
-        });
-    }
-
-    const toggleBtn = document.getElementById('bk-add-toggle');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            if (_bkEditingId !== null) {
-                _bkEditingId = null;
-                renderBookmarks();
-                return;
-            }
-            const panel = document.getElementById('bk-form-panel');
-            if (panel) {
-                panel.classList.toggle('hidden');
-                if (!panel.classList.contains('hidden')) {
-                    document.getElementById('bk-f-title')?.focus();
-                    toggleBtn.textContent = 'Cancel';
-                } else {
-                    toggleBtn.textContent = '+ Add';
-                }
-            }
-        });
-    }
-
-    document.getElementById('bk-form-cancel')?.addEventListener('click', () => {
-        _bkEditingId = null;
-        const panel = document.getElementById('bk-form-panel');
-        if (panel) panel.classList.add('hidden');
-        const tb = document.getElementById('bk-add-toggle');
-        if (tb) tb.textContent = '+ Add';
-    });
-
-    document.getElementById('bk-form-save')?.addEventListener('click', () => {
-        const title = document.getElementById('bk-f-title')?.value.trim();
-        const url = document.getElementById('bk-f-url')?.value.trim();
-        const desc = document.getElementById('bk-f-desc')?.value.trim();
-        const tag = document.getElementById('bk-f-tag')?.value.trim();
-        const notes = document.getElementById('bk-f-notes')?.value.trim();
-
-        if (!title) { toast('Title is required', 'error'); return; }
-        if (!url) { toast('URL is required', 'error'); return; }
-
-        if (_bkEditingId) {
-            const bk = STATE.bookmarks.find(b => b.id === _bkEditingId);
-            if (bk) {
-                bk.title = title;
-                bk.url = url;
-                bk.description = desc;
-                bk.tag = tag;
-                bk.notes = notes;
-                bk.updated = Date.now();
-            }
-            _bkEditingId = null;
-            toast('Bookmark updated', 'success');
-        } else {
-            STATE.bookmarks.push({
-                id: genId(),
-                title,
-                url,
-                description: desc,
-                tag,
-                notes,
-                created: Date.now(),
-                updated: Date.now()
-            });
-            toast('Bookmark added', 'success');
-        }
-        save();
-        renderBookmarks();
-    });
-
-    document.querySelectorAll('[data-bk-tag]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            _bkFilterTag = btn.dataset.bkTag;
-            _bkRebuildList();
-            document.querySelectorAll('[data-bk-tag]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-
-    _bkBindCardActions();
-}
-
-function _bkBindCardActions() {
-    document.querySelectorAll('[data-bk-action]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const action = btn.dataset.bkAction;
-            const id = btn.dataset.bkId;
-            const bk = STATE.bookmarks.find(b => b.id === id);
-            if (!bk) return;
-
-            switch (action) {
-                case 'open':
-                    window.open(bk.url, '_blank', 'noopener');
-                    break;
-                case 'copy-url':
-                    navigator.clipboard?.writeText(bk.url || '');
-                    toast('URL copied', 'success');
-                    break;
-                case 'copy-all': {
-                    const parts = [bk.title || '', bk.url || ''];
-                    if (bk.description) parts.push(bk.description);
-                    if (bk.tag) parts.push('Tag: ' + bk.tag);
-                    if (bk.notes) parts.push('Notes: ' + bk.notes);
-                    navigator.clipboard?.writeText(parts.join('\n'));
-                    toast('Copied to clipboard', 'success');
-                    break;
-                }
-                case 'edit':
-                    _bkEditingId = id;
-                    renderBookmarks();
-                    const panel = document.getElementById('bk-form-panel');
-                    if (panel) panel.classList.remove('hidden');
-                    document.getElementById('bk-f-title')?.focus();
-                    break;
-                case 'delete':
-                    STATE.bookmarks = STATE.bookmarks.filter(b => b.id !== id);
-                    save();
-                    toast('Bookmark deleted', 'info');
-                    _bkRebuildList();
-                    _bkRebuildTagsBar();
-                    break;
-            }
-        });
-    });
-}
-
-function _bkRebuildList() {
-    const listEl = document.getElementById('bk-list');
-    if (!listEl) return;
-    const items = _bkGetFiltered();
-    const countEl = document.querySelector('.bk-count');
-    if (countEl) countEl.textContent = `${items.length} / ${(STATE.bookmarks || []).length}`;
-
-    if (items.length === 0) {
-        listEl.innerHTML = `<div class="bk-empty">No bookmarks found</div>`;
-        return;
-    }
-
-    listEl.innerHTML = items.map(b => {
-        const truncUrl = (b.url || '').length > 60 ? b.url.slice(0, 57) + '...' : (b.url || '');
-        return `
-        <div class="bk-card" data-bk-id="${b.id}">
-            <div class="bk-card-top">
-                <div class="bk-card-info">
-                    <span class="bk-card-title">${_bkEsc(b.title || 'Untitled')}</span>
-                    <a class="bk-card-url" href="${_bkEsc(b.url || '#')}" target="_blank" rel="noopener" title="${_bkEsc(b.url || '')}">${_bkEsc(truncUrl)}</a>
-                </div>
-                <div class="bk-card-meta">
-                    ${b.tag ? `<span class="bk-card-tag">${_bkEsc(b.tag)}</span>` : ''}
-                    <span class="bk-card-date">${_bkFormatDate(b.created)}</span>
-                </div>
-            </div>
-            ${b.description ? `<div class="bk-card-desc">${_bkEsc(b.description)}</div>` : ''}
-            ${b.notes ? `<div class="bk-card-notes">${_bkEsc(b.notes)}</div>` : ''}
-            <div class="bk-card-actions">
-                <button class="bk-act-btn bk-act-open" data-bk-action="open" data-bk-id="${b.id}">Open</button>
-                <button class="bk-act-btn bk-act-copy" data-bk-action="copy-url" data-bk-id="${b.id}">Copy URL</button>
-                <button class="bk-act-btn bk-act-copy-all" data-bk-action="copy-all" data-bk-id="${b.id}">Copy All</button>
-                <button class="bk-act-btn bk-act-edit" data-bk-action="edit" data-bk-id="${b.id}">Edit</button>
-                <button class="bk-act-btn bk-act-del" data-bk-action="delete" data-bk-id="${b.id}">Delete</button>
-            </div>
-        </div>`;
-    }).join('');
-
-    _bkBindCardActions();
-}
-
-function _bkRebuildTagsBar() {
-    const tagsBar = document.getElementById('bk-tags-bar');
-    if (!tagsBar) return;
-    const allTags = _bkGetAllTags();
-    let html = `<button class="bk-tag-btn ${_bkFilterTag === 'all' ? 'active' : ''}" data-bk-tag="all">ALL</button>`;
-    allTags.forEach(t => {
-        html += `<button class="bk-tag-btn ${_bkFilterTag === t ? 'active' : ''}" data-bk-tag="${t}">${t}</button>`;
-    });
-    tagsBar.innerHTML = html;
-    if (_bkFilterTag !== 'all' && !allTags.includes(_bkFilterTag)) {
-        _bkFilterTag = 'all';
-    }
-    document.querySelectorAll('[data-bk-tag]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            _bkFilterTag = btn.dataset.bkTag;
-            _bkRebuildList();
-            document.querySelectorAll('[data-bk-tag]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-//         GOOGLE WORK MODULE — Create Domain & Google ADS
-// ═══════════════════════════════════════════════════════════════
-
-const JAPAN_DATA = {
-    // Tokyo-based first names (common Japanese given names)
-    firstNames: [
-        'AKITO', 'HARUKI', 'RYOTA', 'KENJI', 'TAKESHI', 'YUTO', 'SOMA', 'KENTA',
-        'DAIKI', 'NAOKI', 'SHOTA', 'RIKU', 'KAITO', 'YUKI', 'HAYATO', 'TATSUKI',
-        'SORA', 'HINATA', 'MINATO', 'REN', 'ARATA', 'MAKOTO', 'SHIN', 'DAISUKE',
-        'TAKUMI', 'YUJI', 'KAZUKI', 'SATOSHI', 'HIROKI', 'KOSUKE', 'MASATO', 'TARO',
-        'SHINJI', 'YOSHIO', 'AKIRA', 'TETSUYA', 'NOBORU', 'FUMIO', 'ISAMU', 'TSUTOMU',
-        'MAMORU', 'OSAMU', 'SUSUMU', 'TAKUYA', 'MASAKI', 'JUNICHI', 'KOICHI', 'RYOICHI',
-        'MIKU', 'SAKURA', 'YUNA', 'HANA', 'AOI', 'RIKO', 'MEI', 'SAKI',
-        'YUMI', 'AYAKA', 'NANA', 'MANA', 'KAHO', 'MIYU', 'ARISA', 'CHIKA'
-    ],
-    // Tokyo-based last names (common Japanese family names)
-    lastNames: [
-        'SAGURO', 'TANAKA', 'SUZUKI', 'WATANABE', 'TAKAHASHI', 'ITO', 'YAMAMOTO', 'NAKAMURA',
-        'KOBAYASHI', 'KATO', 'YOSHIDA', 'YAMADA', 'SASAKI', 'YAMAGUCHI', 'MATSUMOTO', 'INOUE',
-        'KIMURA', 'HAYASHI', 'SHIMIZU', 'YAMAZAKI', 'MORI', 'ABE', 'IKEDA', 'HASHIMOTO',
-        'YAMASHITA', 'ISHIKAWA', 'NAKAJIMA', 'MAEDA', 'FUJITA', 'OGAWA', 'GOTO', 'OKADA',
-        'HASEGAWA', 'MURAKAMI', 'KONDO', 'ISHII', 'SAITO', 'SAKAMOTO', 'ENDO', 'AOKI',
-        'FUJII', 'NISHIMURA', 'FUKUDA', 'OOTA', 'MIURA', 'FUJIWARA', 'OKAMOTO', 'MATSUDA',
-        'NAKAGAWA', 'NAKANO', 'HARADA', 'ONO', 'TAMURA', 'TAKEUCHI', 'KANEKO', 'WADA'
-    ],
-    // Tokyo streets / areas
-    tokyoStreets: [
-        'Shibuya', 'Shinjuku', 'Minato', 'Chiyoda', 'Chuo', 'Taito', 'Sumida', 'Koto',
-        'Shinagawa', 'Meguro', 'Ota', 'Setagaya', 'Nakano', 'Suginami', 'Toshima', 'Kita',
-        'Arakawa', 'Itabashi', 'Nerima', 'Adachi', 'Katsushika', 'Edogawa', 'Bunkyo', 'Roppongi',
-        'Ginza', 'Akihabara', 'Ueno', 'Ikebukuro', 'Harajuku', 'Aoyama', 'Ebisu', 'Azabu'
-    ],
-    // Japanese building types
-    buildingTypes: ['Heights', 'Mansion', 'Tower', 'Residence', 'Hills', 'Court', 'Place', 'Square', 'Park', 'Garden'],
-    // Business name parts
-    businessPrefixes: ['Kairo', 'Nishi', 'Sakura', 'Hoshi', 'Tsuki', 'Kaze', 'Yama', 'Mizu', 'Sora', 'Haru',
-        'Riku', 'Hana', 'Aki', 'Fuji', 'Taka', 'Shin', 'Dai', 'Kuro', 'Shiro', 'Midori',
-        'Umi', 'Nami', 'Kumo', 'Yuki', 'Koi', 'Tetsu', 'Kin', 'Gin', 'Aoi', 'Ryu'],
-    businessSuffixes: ['Digital', 'Tech', 'Media', 'Corp', 'Solutions', 'Global', 'Systems', 'Group', 'Works', 'Lab',
-        'Studio', 'Design', 'Creative', 'Marketing', 'Agency', 'Net', 'Cloud', 'Data', 'Logic', 'Soft'],
-    // Domain word parts for domain generation
-    domainWords: ['kairo', 'nishi', 'sakura', 'hoshi', 'tsuki', 'kaze', 'yama', 'mizu', 'sora', 'haru',
-        'riku', 'hana', 'aki', 'fuji', 'taka', 'shin', 'dai', 'kuro', 'shiro', 'midori',
-        'tokyo', 'nippon', 'zen', 'nova', 'pixel', 'cyber', 'orbit', 'alpha', 'beta', 'delta',
-        'neo', 'mega', 'ultra', 'prime', 'core', 'nexus', 'apex', 'wave', 'flux', 'vibe'],
-    domainBiz: ['digital', 'tech', 'media', 'web', 'net', 'group', 'lab', 'hub', 'cloud', 'pro',
-        'studio', 'works', 'inc', 'io', 'dev', 'site', 'app', 'soft', 'link', 'base']
-};
-
-// Generate random Tokyo postal code (format: 1XX-XXXX, Tokyo starts with 1)
-function _gwPostalCode() {
-    const prefix = 1;
-    const mid = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-    const suffix = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-    return `${prefix}${mid}-${suffix}`;
-}
-
-// Generate random Tokyo phone number (+81 3-XXXX-XXXX or 080/090 mobile)
-function _gwPhoneNumber() {
-    const type = Math.random();
-    if (type < 0.4) {
-        // Tokyo landline: 03-XXXX-XXXX
-        const p1 = String(Math.floor(1000 + Math.random() * 9000));
-        const p2 = String(Math.floor(1000 + Math.random() * 9000));
-        return `03${p1}${p2}`;
-    } else if (type < 0.7) {
-        // Mobile 080
-        const p1 = String(Math.floor(1000 + Math.random() * 9000));
-        const p2 = String(Math.floor(1000 + Math.random() * 9000));
-        return `080${p1}${p2}`;
-    } else {
-        // Mobile 090
-        const p1 = String(Math.floor(1000 + Math.random() * 9000));
-        const p2 = String(Math.floor(1000 + Math.random() * 9000));
-        return `090${p1}${p2}`;
-    }
-}
-
-function _gwRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// Generate Tokyo street address
-function _gwStreetAddress() {
-    const ward = _gwRandom(JAPAN_DATA.tokyoStreets);
-    const chome = Math.floor(1 + Math.random() * 6);
-    const ban = Math.floor(1 + Math.random() * 30);
-    const go = Math.floor(1 + Math.random() * 20);
-    return `${ward} ${chome}-${ban}-${go}`;
-}
-
-// Generate street address line 2 (optional building/room)
-function _gwStreetAddress2() {
-    if (Math.random() < 0.4) return ''; // 40% chance no line 2
-    const building = _gwRandom(JAPAN_DATA.buildingTypes);
-    const name = _gwRandom(JAPAN_DATA.tokyoStreets);
-    const room = Math.floor(100 + Math.random() * 900);
-    return `${name} ${building} ${room}`;
-}
-
-// Generate business name
-function _gwBusinessName() {
-    const prefix = _gwRandom(JAPAN_DATA.businessPrefixes);
-    const suffix = _gwRandom(JAPAN_DATA.businessSuffixes);
-    const hasJP = Math.random() < 0.5;
-    return `${prefix} ${suffix}${hasJP ? ' JP' : ''}`;
-}
-
-// Generate domain name
-function _gwDomainName() {
-    const word1 = _gwRandom(JAPAN_DATA.domainWords);
-    const word2 = _gwRandom(JAPAN_DATA.domainBiz);
-    const num = Math.random() < 0.5 ? String(Math.floor(10 + Math.random() * 90)) : '';
-    return `${word1}${word2}${num}`;
-}
-
-// Generate all fields at once
-function _gwGenerateAll() {
-    const firstName = _gwRandom(JAPAN_DATA.firstNames);
-    const lastName = _gwRandom(JAPAN_DATA.lastNames);
-    return {
-        firstName,
-        lastName,
-        businessName: _gwBusinessName(),
-        domainName: _gwDomainName(),
-        streetAddress: _gwStreetAddress(),
-        streetAddress2: _gwStreetAddress2(),
-        prefecture: 'Tokyo',
-        postalCode: _gwPostalCode(),
-        phoneNumber: _gwPhoneNumber()
-    };
-}
-
-// Copy to clipboard with visual feedback
-function _gwCopyField(text, el) {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-        el.classList.add('gw-copied');
-        setTimeout(() => el.classList.remove('gw-copied'), 600);
-        toast(`Copied: ${text}`, 'success');
-    }).catch(() => toast('Copy failed', 'error'));
-}
-
-// ──── GOOGLE WORK STATE ────
-let _gwCurrentView = 'create-domain'; // 'create-domain' or 'google-ads'
-
-function renderGoogleWork() {
-    const area = document.getElementById('content-area');
-
-    area.innerHTML = `
-        <div class="gw-container">
-            <div class="gw-header">
-                <div class="gw-header-left">
-                    <div class="gw-logo">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                            <path d="M2 17l10 5 10-5"/>
-                            <path d="M2 12l10 5 10-5"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="gw-title">GOOGLE WORK</h2>
-                        <p class="gw-subtitle">Domain registration & Ads management tools</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="gw-tabs">
-                <button class="gw-tab ${_gwCurrentView === 'create-domain' ? 'active' : ''}" data-gw-view="create-domain">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z" clip-rule="evenodd"/></svg>
-                    Create Domain
-                </button>
-                <button class="gw-tab ${_gwCurrentView === 'google-ads' ? 'active' : ''}" data-gw-view="google-ads">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/></svg>
-                    Google ADS
-                </button>
-            </div>
-
-            <div class="gw-content">
-                ${_gwCurrentView === 'create-domain' ? _gwRenderCreateDomain() : _gwRenderGoogleAds()}
-            </div>
-        </div>
-    `;
-
-    // Bind tab clicks
-    document.querySelectorAll('.gw-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            _gwCurrentView = tab.dataset.gwView;
-            renderGoogleWork();
-        });
-    });
-
-    // Bind Create Domain logic
-    if (_gwCurrentView === 'create-domain') {
-        _gwBindCreateDomain();
-    }
-}
-
-function _gwRenderCreateDomain() {
-    const data = _gwGenerateAll();
-
-    return `
-        <div class="gw-cd-wrapper">
-            <div class="gw-cd-section">
-                <div class="gw-cd-section-header">
-                    <span class="gw-cd-section-icon">🌐</span>
-                    <span class="gw-cd-section-title">Domain & Business</span>
-                    <button class="gw-generate-all-btn" id="gw-generate-all" title="Generate All">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
-                        Generate All
-                    </button>
-                </div>
-
-                <div class="gw-cd-fields">
-                    <div class="gw-cd-row gw-cd-row-2">
-                        <div class="gw-cd-field" id="gw-field-firstname">
-                            <label class="gw-cd-label">First name</label>
-                            <div class="gw-cd-value" data-field="firstName">${data.firstName}</div>
-                        </div>
-                        <div class="gw-cd-field" id="gw-field-lastname">
-                            <label class="gw-cd-label">Last name</label>
-                            <div class="gw-cd-value" data-field="lastName">${data.lastName}</div>
-                        </div>
-                    </div>
-
-                    <div class="gw-cd-row gw-cd-row-1">
-                        <div class="gw-cd-field" id="gw-field-business">
-                            <label class="gw-cd-label">Business name</label>
-                            <div class="gw-cd-value" data-field="businessName">${data.businessName}</div>
-                        </div>
-                    </div>
-
-                    <div class="gw-cd-row gw-cd-row-1">
-                        <div class="gw-cd-field" id="gw-field-domain">
-                            <label class="gw-cd-label">Domain name</label>
-                            <div class="gw-cd-value gw-cd-value-domain" data-field="domainName">${data.domainName}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="gw-cd-section">
-                <div class="gw-cd-section-header">
-                    <span class="gw-cd-section-icon">📍</span>
-                    <span class="gw-cd-section-title">Address — Tokyo, Japan</span>
-                </div>
-
-                <div class="gw-cd-fields">
-                    <div class="gw-cd-row gw-cd-row-1">
-                        <div class="gw-cd-field" id="gw-field-street">
-                            <label class="gw-cd-label">Street address</label>
-                            <div class="gw-cd-value" data-field="streetAddress">${data.streetAddress}</div>
-                        </div>
-                    </div>
-
-                    <div class="gw-cd-row gw-cd-row-1">
-                        <div class="gw-cd-field" id="gw-field-street2">
-                            <label class="gw-cd-label">Street address line 2</label>
-                            <div class="gw-cd-value" data-field="streetAddress2">${data.streetAddress2 || '—'}</div>
-                        </div>
-                    </div>
-
-                    <div class="gw-cd-row gw-cd-row-2">
-                        <div class="gw-cd-field gw-cd-field-select" id="gw-field-prefecture">
-                            <label class="gw-cd-label">Prefecture</label>
-                            <div class="gw-cd-value" data-field="prefecture">Tokyo</div>
-                        </div>
-                        <div class="gw-cd-field" id="gw-field-postal">
-                            <label class="gw-cd-label">Postal code</label>
-                            <div class="gw-cd-value" data-field="postalCode">${data.postalCode}</div>
-                        </div>
-                    </div>
-
-                    <div class="gw-cd-row gw-cd-row-1">
-                        <div class="gw-cd-field" id="gw-field-phone">
-                            <label class="gw-cd-label">Phone number <span class="gw-cd-phone-code">(+81)</span></label>
-                            <div class="gw-cd-value" data-field="phoneNumber">${data.phoneNumber}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="gw-cd-actions">
-                <button class="gw-cd-btn-copy-all" id="gw-copy-all">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
-                    Copy All Fields
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function _gwRenderGoogleAds() {
-    return `
-        <div class="gw-ads-wrapper">
-            <div class="gw-ads-empty">
-                <div class="gw-ads-empty-icon">
-                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5z"/>
-                        <path d="M5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5z"/>
-                        <path d="M13 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5z"/>
-                        <path d="M16 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/>
-                    </svg>
-                </div>
-                <p class="gw-ads-empty-title">Google ADS</p>
-                <p class="gw-ads-empty-text">Coming soon — ads management tools will appear here.</p>
-            </div>
-        </div>
-    `;
-}
-
-function _gwBindCreateDomain() {
-    // Click on any value field → copy to clipboard
-    document.querySelectorAll('.gw-cd-value').forEach(el => {
-        el.addEventListener('click', () => {
-            const text = el.textContent.trim();
-            if (text && text !== '—') {
-                _gwCopyField(text, el);
-            }
-        });
-    });
-
-    // Generate All button
-    const genAllBtn = document.getElementById('gw-generate-all');
-    if (genAllBtn) {
-        genAllBtn.addEventListener('click', () => {
-            renderGoogleWork(); // re-render with new random data
-            toast('🎲 New data generated', 'info');
-        });
-    }
-
-    // Copy All button
-    const copyAllBtn = document.getElementById('gw-copy-all');
-    if (copyAllBtn) {
-        copyAllBtn.addEventListener('click', () => {
-            const fields = document.querySelectorAll('.gw-cd-value');
-            const lines = [];
-            fields.forEach(f => {
-                const label = f.closest('.gw-cd-field')?.querySelector('.gw-cd-label')?.textContent?.trim() || '';
-                const val = f.textContent.trim();
-                if (val && val !== '—') {
-                    lines.push(`${label}: ${val}`);
-                }
-            });
-            const text = lines.join('\n');
-            navigator.clipboard.writeText(text).then(() => {
-                toast('📋 All fields copied!', 'success');
-            }).catch(() => toast('Copy failed', 'error'));
-        });
-    }
-}
