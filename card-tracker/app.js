@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -1628,6 +1628,8 @@ const _CK = {
             bankName: 'PREMIUM BANK',
             customLogo: null,
             colorScheme: 'black',
+            dateLayout: 'A',
+            skinImage: null,
         },
     },
     history: [],           // last 10 operations
