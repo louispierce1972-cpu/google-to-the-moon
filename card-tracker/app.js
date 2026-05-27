@@ -846,7 +846,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'bookmarks'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'bookmarks', 'google-format', 'google-work'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -3098,14 +3098,14 @@ function renderGoogleFormat() {
                     <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
                         <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; width: 110px;">Default Password:</label>
                         <input type="text" id="gf-default-pass" style="width: 140px; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 4px 8px; height: 28px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;" placeholder="Optional">
-                        <button class="pz-btn pz-btn-primary" id="gf-btn-save-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Save</button>
-                        <button class="pz-btn pz-btn-dim" id="gf-btn-clear-pass" style="padding: 4px 10px; height: 28px; font-size: 12px;">Clear</button>
+                        <button id="gf-btn-save-pass" style="padding:4px 10px;height:28px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:4px;cursor:pointer;">Save</button>
+                        <button id="gf-btn-clear-pass" style="padding:4px 10px;height:28px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:4px;cursor:pointer;">Clear</button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
                         <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; width: 110px;">Octo Prefix:</label>
                         <input type="text" id="gf-octo-prefix" style="width: 140px; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 4px 8px; height: 28px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;" placeholder="e.g. Japan">
-                        <button class="pz-btn pz-btn-primary" id="gf-btn-save-prefix" style="padding: 4px 10px; height: 28px; font-size: 12px;">Save Prefix</button>
-                        <button class="pz-btn pz-btn-dim" id="gf-btn-clear-prefix" style="padding: 4px 10px; height: 28px; font-size: 12px;">Clear Prefix</button>
+                        <button id="gf-btn-save-prefix" style="padding:4px 10px;height:28px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:4px;cursor:pointer;">Save Prefix</button>
+                        <button id="gf-btn-clear-prefix" style="padding:4px 10px;height:28px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:4px;cursor:pointer;">Clear Prefix</button>
                     </div>
                 </div>
             </div>
@@ -3115,16 +3115,16 @@ function renderGoogleFormat() {
                     <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px;">INPUT RAW DATA</label>
                     <textarea id="gf-input" class="list-textarea" style="flex: 1; resize: none; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5;" placeholder="Paste chaotic text here..."></textarea>
                     <div style="margin-top: 12px; display: flex; gap: 8px;">
-                        <button class="pz-btn pz-btn-primary" id="gf-btn-paste" style="flex:1;">📋 Paste</button>
-                        <button class="pz-btn pz-btn-valid" id="gf-btn-parse" style="flex:1;">⚡ Parse</button>
-                        <button class="pz-btn pz-btn-dim" id="gf-btn-clear" style="flex:1;">🗑 Clear</button>
+                        <button id="gf-btn-paste" style="flex:1;padding:8px 14px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:5px;cursor:pointer;">📋 Paste</button>
+                        <button id="gf-btn-parse" style="flex:1;padding:8px 14px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:5px;cursor:pointer;">⚡ Parse</button>
+                        <button id="gf-btn-clear" style="flex:1;padding:8px 14px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:5px;cursor:pointer;">🗑 Clear</button>
                     </div>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column;">
                     <label style="display: block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px;">PARSED OUTPUT</label>
                     <textarea id="gf-output" class="list-textarea" style="flex: 1; resize: none; background: rgba(0,0,0,0.2); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5; color: var(--text-primary); border-color: rgba(255,255,255,0.05);" readonly placeholder="2fa: qrce lqft...&#10;login: babybisdd@gmail.com:pass&#10;name: First Last&#10;card: 5210120018069220 09/27 314&#10;octo: Prefix - First Last - 123456....7890"></textarea>
                     <div style="margin-top: 12px;">
-                        <button class="pz-btn pz-btn-primary" id="gf-btn-copy" style="width: 100%;">📋 Copy Result</button>
+                        <button id="gf-btn-copy" style="width:100%;padding:8px 14px;font-size:12px;font-weight:600;background:#fff;color:#111;border:1px solid #ccc;border-radius:5px;cursor:pointer;">📋 Copy Result</button>
                     </div>
                 </div>
             </div>
@@ -3216,106 +3216,131 @@ function _parseGoogleFormat(text, isExplicitParse = false) {
         return;
     }
 
+    // Clean helper: strip junk symbols but keep essential punctuation
+    const clean = s => s.replace(/[\u200B\u200C\u200D\uFEFF]/g, '').replace(/^[\s:=\-–—>]+/, '').replace(/[\s:=\-–—>]+$/, '').trim();
+
     let email = '';
     let password = '';
     let twoFA = '';
-    let namePart = '';
-    let surnamePart = '';
+    let fullName = '';
     let ccn = '';
     let exp = '';
     let cvv = '';
 
-    // 1. Email & 2. Password
-    const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})[\s:|]+([^\s]+)/);
-    if (emailMatch) {
-        email = emailMatch[1];
-        password = emailMatch[2];
-    } else {
-        const justEmail = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        if (justEmail) email = justEmail[1];
-    }
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-    if (email && !password) {
-        const defaultPass = localStorage.getItem('gf_default_password');
-        if (defaultPass) {
-            password = defaultPass;
+    // PASS 1: Try labeled key:value format first (most reliable)
+    for (const line of lines) {
+        const kv = line.match(/^([a-zA-Z0-9_ ]+?)\s*[:=]\s*(.+)$/); 
+        if (!kv) continue;
+        const key = kv[1].toLowerCase().trim();
+        const val = clean(kv[2]);
+
+        if (/^(2fa|two.?fa|totp|authenticator|backup|secret|seed)$/i.test(key)) {
+            twoFA = val;
+        } else if (/^(login|email|e-mail|mail|account|user)$/i.test(key)) {
+            // May contain email:pass
+            const parts = val.split(':');
+            if (parts.length >= 2 && parts[0].includes('@')) {
+                email = parts[0].trim();
+                password = parts.slice(1).join(':').trim();
+            } else {
+                email = val.split(/[\s|]+/)[0];
+            }
+        } else if (/^(pass|password|pwd)$/i.test(key)) {
+            password = val;
+        } else if (/^(name|full.?name|first.?name|имя)$/i.test(key)) {
+            fullName = val;
+        } else if (/^(last.?name|surname|фамилия)$/i.test(key)) {
+            fullName = fullName ? fullName + ' ' + val : val;
+        } else if (/^(card|cc|payment|карта)$/i.test(key)) {
+            // Parse card line: 5210120018069220 09/27 314
+            const cardParts = val.replace(/[\-|]/g, ' ').split(/\s+/);
+            for (const p of cardParts) {
+                const digits = p.replace(/\D/g, '');
+                if (!ccn && digits.length >= 13 && digits.length <= 19) ccn = digits;
+                else if (!exp && /^(0[1-9]|1[0-2])[\/\-]?(\d{2,4})$/.test(p)) {
+                    const em = p.match(/^(0[1-9]|1[0-2])[\/\-]?(\d{2,4})$/);
+                    if (em) exp = em[1] + '/' + em[2].slice(-2);
+                } else if (!cvv && digits.length >= 3 && digits.length <= 4 && !ccn?.includes(digits)) cvv = digits;
+            }
         }
     }
 
-    // 3. 2FA
-    const twoFaSpaces = text.match(/\b([a-z0-9]{4}(?:\s[a-z0-9]{4}){7})\b/i);
-    if (twoFaSpaces) {
-        twoFA = twoFaSpaces[1];
-    } else {
-        const twoFaRaw = text.match(/\b([A-Z2-7]{16}|[A-Z2-7]{32})\b/);
-        if (twoFaRaw) {
-            twoFA = twoFaRaw[1];
-        } else {
-            const backupCode = text.match(/\b(\d{4}[\s-]?\d{4}|\d{8})\b/);
-            if (backupCode) twoFA = backupCode[1];
+    // PASS 2: Fallback heuristics for unlabeled data
+    if (!email) {
+        const emailMatch = text.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:[\s:|]+([^\s\n]+))?/);
+        if (emailMatch) {
+            email = emailMatch[1];
+            if (!password && emailMatch[2]) password = emailMatch[2];
         }
     }
 
-    // 4. Name / Surname
-    const nameMatch = text.match(/(?:Name|First Name)\s*[:=]\s*(.+?)(?=\n|$)/i);
-    const surnameMatch = text.match(/(?:Surname|Last Name)\s*[:=]\s*(.+?)(?=\n|$)/i);
-    if (nameMatch) namePart = nameMatch[1].trim();
-    if (surnameMatch) surnamePart = surnameMatch[1].trim();
-    
-    let fullName = `${namePart} ${surnamePart}`.trim();
-    if (!fullName) {
-        const fullMatch = text.match(/(?:Name|Full Name)\s*[:=]\s*([a-zA-Z\s]+)/i);
-        if (fullMatch) fullName = fullMatch[1].trim();
+    if (!twoFA) {
+        // 8 groups of 4 chars separated by spaces
+        const fa8 = text.match(/\b([a-z0-9]{4}(?:\s[a-z0-9]{4}){7})\b/i);
+        if (fa8) { twoFA = fa8[1]; }
+        else {
+            // Base32 key (16 or 32 chars)
+            const fa32 = text.match(/\b([A-Z2-7]{16}|[A-Z2-7]{32})\b/);
+            if (fa32) twoFA = fa32[1];
+        }
     }
-    // Also use heuristic if not found via labels, assuming name is present and not card etc.
+
     if (!fullName) {
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-        for(const l of lines) {
-            if (/^[A-Z][a-z]+\s[A-Z][a-z]+(\s[A-Z][a-z]+)?$/.test(l)) {
-                if(!/card|visa|master|discover|amex|jcb/i.test(l)) {
-                    fullName = l;
-                    break;
-                }
-            } else if (/^[A-Z]+\s[A-Z]+(\s[A-Z]+)?$/.test(l)) { // ALL CAPS names
-                if(!/CARD|VISA|MASTER|DISCOVER|AMEX|JCB/i.test(l) && !email.toUpperCase().includes(l) && !twoFA.includes(l)) {
+        // Try labeled patterns
+        const nameMatch = text.match(/(?:First\s*Name|Name)\s*[:=]\s*(.+?)(?=[\n|]|$)/i);
+        const surnameMatch = text.match(/(?:Last\s*Name|Surname)\s*[:=]\s*(.+?)(?=[\n|]|$)/i);
+        if (nameMatch) fullName = clean(nameMatch[1]);
+        if (surnameMatch) fullName = (fullName ? fullName + ' ' : '') + clean(surnameMatch[1]);
+    }
+    if (!fullName) {
+        // Heuristic: line that looks like a name (2-3 words, letters only)
+        for (const l of lines) {
+            if (/^[A-Z][a-z]+\s[A-Z][a-z]+(\s[A-Z][a-z]+)?$/.test(l) || /^[A-Z]+\s[A-Z]+(\s[A-Z]+)?$/.test(l)) {
+                if (!/card|visa|master|discover|amex|jcb|email|login|pass/i.test(l) && !l.includes('@')) {
                     fullName = l;
                     break;
                 }
             }
         }
     }
+    // Clean name: remove junk chars
+    fullName = fullName.replace(/[^a-zA-Z\s\-']/g, '').replace(/\s+/g, ' ').trim();
 
-    // 5. Card
-    const ccnMatch = text.match(/\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7})\b/);
-    if (ccnMatch) {
-        ccn = ccnMatch[1].replace(/[\s\-]/g, '');
-        
-        const expMatch = text.match(/\b(0[1-9]|1[0-2])[\s\/\-\|]*(\d{2}|\d{4})\b/);
-        if (expMatch) {
-            exp = `${expMatch[1]}/${expMatch[2].slice(-2)}`;
-        }
-        
-        const cardLine = text.split('\n').find(l => l.replace(/[\s\-]/g, '').includes(ccn));
-        if (cardLine) {
-            const cleanLine = cardLine.replace(/-\w+/g, ' '); 
-            const numMatches = cleanLine.match(/\b\d{3,4}\b/g);
-            if (numMatches) {
-                for(let m of numMatches) {
-                    if (m !== expMatch?.[1] && m !== expMatch?.[2] && m.length >= 3 && m.length <= 4) {
-                        cvv = m;
-                        break;
+    if (!ccn) {
+        const ccnMatch = text.match(/\b(\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7})\b/);
+        if (ccnMatch) {
+            ccn = ccnMatch[1].replace(/[\s\-]/g, '');
+            const expMatch = text.match(/\b(0[1-9]|1[0-2])[\/\-](\d{2}|\d{4})\b/);
+            if (expMatch) exp = `${expMatch[1]}/${expMatch[2].slice(-2)}`;
+            const cardLine = text.split('\n').find(l => l.replace(/[\s\-]/g, '').includes(ccn));
+            if (cardLine) {
+                const nums = cardLine.match(/\b\d{3,4}\b/g);
+                if (nums) {
+                    for (const m of nums) {
+                        if (m !== expMatch?.[1] && m !== expMatch?.[2] && m.length >= 3 && m.length <= 4) { cvv = m; break; }
                     }
                 }
             }
         }
     }
 
-    // Assembly
+    // Default password fallback
+    if (email && !password) {
+        const defaultPass = localStorage.getItem('gf_default_password');
+        if (defaultPass) password = defaultPass;
+    }
+
+    // Assembly — clean output
     const outLines = [];
     if (twoFA) outLines.push(`2fa: ${twoFA}`);
     if (email) outLines.push(`login: ${email}${password ? ':' + password : ''}`);
     if (fullName) outLines.push(`name: ${fullName.toUpperCase()}`);
-    if (ccn) outLines.push(`card: ${ccn} ${exp} ${cvv}`);
+    if (ccn) {
+        const cardStr = [ccn, exp, cvv].filter(Boolean).join(' ');
+        outLines.push(`card: ${cardStr}`);
+    }
     
     if (ccn) {
         const octoName = fullName ? fullName.toUpperCase() : 'UNKNOWN';
@@ -3325,16 +3350,13 @@ function _parseGoogleFormat(text, isExplicitParse = false) {
         const savedPrefix = localStorage.getItem('googleFormat_octoPrefix');
         if (savedPrefix) {
             let counter = parseInt(localStorage.getItem('googleFormat_octoPrefixCounter') || '1', 10);
-            
             let countDisplay = counter > 1 ? ` ${counter}` : '';
             prefixLabel = `${savedPrefix}${countDisplay} - `;
-            
             if (isExplicitParse) {
                 counter++;
                 localStorage.setItem('googleFormat_octoPrefixCounter', counter.toString());
             }
         }
-        
         outLines.push(`octo: ${prefixLabel}${octoName} - ${octoCard}`);
     }
 
@@ -3383,6 +3405,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'google-format') {
         renderGoogleFormat();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'google-work') {
+        renderGoogleWork();
         footer.style.display = 'none';
         return;
     }
@@ -10572,3 +10599,355 @@ function _bkRebuildTagsBar() {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+//         GOOGLE WORK MODULE — Create Domain & Google ADS
+// ═══════════════════════════════════════════════════════════════
+
+const JAPAN_DATA = {
+    // Tokyo-based first names (common Japanese given names)
+    firstNames: [
+        'AKITO', 'HARUKI', 'RYOTA', 'KENJI', 'TAKESHI', 'YUTO', 'SOMA', 'KENTA',
+        'DAIKI', 'NAOKI', 'SHOTA', 'RIKU', 'KAITO', 'YUKI', 'HAYATO', 'TATSUKI',
+        'SORA', 'HINATA', 'MINATO', 'REN', 'ARATA', 'MAKOTO', 'SHIN', 'DAISUKE',
+        'TAKUMI', 'YUJI', 'KAZUKI', 'SATOSHI', 'HIROKI', 'KOSUKE', 'MASATO', 'TARO',
+        'SHINJI', 'YOSHIO', 'AKIRA', 'TETSUYA', 'NOBORU', 'FUMIO', 'ISAMU', 'TSUTOMU',
+        'MAMORU', 'OSAMU', 'SUSUMU', 'TAKUYA', 'MASAKI', 'JUNICHI', 'KOICHI', 'RYOICHI',
+        'MIKU', 'SAKURA', 'YUNA', 'HANA', 'AOI', 'RIKO', 'MEI', 'SAKI',
+        'YUMI', 'AYAKA', 'NANA', 'MANA', 'KAHO', 'MIYU', 'ARISA', 'CHIKA'
+    ],
+    // Tokyo-based last names (common Japanese family names)
+    lastNames: [
+        'SAGURO', 'TANAKA', 'SUZUKI', 'WATANABE', 'TAKAHASHI', 'ITO', 'YAMAMOTO', 'NAKAMURA',
+        'KOBAYASHI', 'KATO', 'YOSHIDA', 'YAMADA', 'SASAKI', 'YAMAGUCHI', 'MATSUMOTO', 'INOUE',
+        'KIMURA', 'HAYASHI', 'SHIMIZU', 'YAMAZAKI', 'MORI', 'ABE', 'IKEDA', 'HASHIMOTO',
+        'YAMASHITA', 'ISHIKAWA', 'NAKAJIMA', 'MAEDA', 'FUJITA', 'OGAWA', 'GOTO', 'OKADA',
+        'HASEGAWA', 'MURAKAMI', 'KONDO', 'ISHII', 'SAITO', 'SAKAMOTO', 'ENDO', 'AOKI',
+        'FUJII', 'NISHIMURA', 'FUKUDA', 'OOTA', 'MIURA', 'FUJIWARA', 'OKAMOTO', 'MATSUDA',
+        'NAKAGAWA', 'NAKANO', 'HARADA', 'ONO', 'TAMURA', 'TAKEUCHI', 'KANEKO', 'WADA'
+    ],
+    // Tokyo streets / areas
+    tokyoStreets: [
+        'Shibuya', 'Shinjuku', 'Minato', 'Chiyoda', 'Chuo', 'Taito', 'Sumida', 'Koto',
+        'Shinagawa', 'Meguro', 'Ota', 'Setagaya', 'Nakano', 'Suginami', 'Toshima', 'Kita',
+        'Arakawa', 'Itabashi', 'Nerima', 'Adachi', 'Katsushika', 'Edogawa', 'Bunkyo', 'Roppongi',
+        'Ginza', 'Akihabara', 'Ueno', 'Ikebukuro', 'Harajuku', 'Aoyama', 'Ebisu', 'Azabu'
+    ],
+    // Japanese building types
+    buildingTypes: ['Heights', 'Mansion', 'Tower', 'Residence', 'Hills', 'Court', 'Place', 'Square', 'Park', 'Garden'],
+    // Business name parts
+    businessPrefixes: ['Kairo', 'Nishi', 'Sakura', 'Hoshi', 'Tsuki', 'Kaze', 'Yama', 'Mizu', 'Sora', 'Haru',
+        'Riku', 'Hana', 'Aki', 'Fuji', 'Taka', 'Shin', 'Dai', 'Kuro', 'Shiro', 'Midori',
+        'Umi', 'Nami', 'Kumo', 'Yuki', 'Koi', 'Tetsu', 'Kin', 'Gin', 'Aoi', 'Ryu'],
+    businessSuffixes: ['Digital', 'Tech', 'Media', 'Corp', 'Solutions', 'Global', 'Systems', 'Group', 'Works', 'Lab',
+        'Studio', 'Design', 'Creative', 'Marketing', 'Agency', 'Net', 'Cloud', 'Data', 'Logic', 'Soft'],
+    // Domain word parts for domain generation
+    domainWords: ['kairo', 'nishi', 'sakura', 'hoshi', 'tsuki', 'kaze', 'yama', 'mizu', 'sora', 'haru',
+        'riku', 'hana', 'aki', 'fuji', 'taka', 'shin', 'dai', 'kuro', 'shiro', 'midori',
+        'tokyo', 'nippon', 'zen', 'nova', 'pixel', 'cyber', 'orbit', 'alpha', 'beta', 'delta',
+        'neo', 'mega', 'ultra', 'prime', 'core', 'nexus', 'apex', 'wave', 'flux', 'vibe'],
+    domainBiz: ['digital', 'tech', 'media', 'web', 'net', 'group', 'lab', 'hub', 'cloud', 'pro',
+        'studio', 'works', 'inc', 'io', 'dev', 'site', 'app', 'soft', 'link', 'base']
+};
+
+// Generate random Tokyo postal code (format: 1XX-XXXX, Tokyo starts with 1)
+function _gwPostalCode() {
+    const prefix = 1;
+    const mid = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+    const suffix = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    return `${prefix}${mid}-${suffix}`;
+}
+
+// Generate random Tokyo phone number (+81 3-XXXX-XXXX or 080/090 mobile)
+function _gwPhoneNumber() {
+    const type = Math.random();
+    if (type < 0.4) {
+        // Tokyo landline: 03-XXXX-XXXX
+        const p1 = String(Math.floor(1000 + Math.random() * 9000));
+        const p2 = String(Math.floor(1000 + Math.random() * 9000));
+        return `03${p1}${p2}`;
+    } else if (type < 0.7) {
+        // Mobile 080
+        const p1 = String(Math.floor(1000 + Math.random() * 9000));
+        const p2 = String(Math.floor(1000 + Math.random() * 9000));
+        return `080${p1}${p2}`;
+    } else {
+        // Mobile 090
+        const p1 = String(Math.floor(1000 + Math.random() * 9000));
+        const p2 = String(Math.floor(1000 + Math.random() * 9000));
+        return `090${p1}${p2}`;
+    }
+}
+
+function _gwRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Generate Tokyo street address
+function _gwStreetAddress() {
+    const ward = _gwRandom(JAPAN_DATA.tokyoStreets);
+    const chome = Math.floor(1 + Math.random() * 6);
+    const ban = Math.floor(1 + Math.random() * 30);
+    const go = Math.floor(1 + Math.random() * 20);
+    return `${ward} ${chome}-${ban}-${go}`;
+}
+
+// Generate street address line 2 (optional building/room)
+function _gwStreetAddress2() {
+    if (Math.random() < 0.4) return ''; // 40% chance no line 2
+    const building = _gwRandom(JAPAN_DATA.buildingTypes);
+    const name = _gwRandom(JAPAN_DATA.tokyoStreets);
+    const room = Math.floor(100 + Math.random() * 900);
+    return `${name} ${building} ${room}`;
+}
+
+// Generate business name
+function _gwBusinessName() {
+    const prefix = _gwRandom(JAPAN_DATA.businessPrefixes);
+    const suffix = _gwRandom(JAPAN_DATA.businessSuffixes);
+    const hasJP = Math.random() < 0.5;
+    return `${prefix} ${suffix}${hasJP ? ' JP' : ''}`;
+}
+
+// Generate domain name
+function _gwDomainName() {
+    const word1 = _gwRandom(JAPAN_DATA.domainWords);
+    const word2 = _gwRandom(JAPAN_DATA.domainBiz);
+    const num = Math.random() < 0.5 ? String(Math.floor(10 + Math.random() * 90)) : '';
+    return `${word1}${word2}${num}`;
+}
+
+// Generate all fields at once
+function _gwGenerateAll() {
+    const firstName = _gwRandom(JAPAN_DATA.firstNames);
+    const lastName = _gwRandom(JAPAN_DATA.lastNames);
+    return {
+        firstName,
+        lastName,
+        businessName: _gwBusinessName(),
+        domainName: _gwDomainName(),
+        streetAddress: _gwStreetAddress(),
+        streetAddress2: _gwStreetAddress2(),
+        prefecture: 'Tokyo',
+        postalCode: _gwPostalCode(),
+        phoneNumber: _gwPhoneNumber()
+    };
+}
+
+// Copy to clipboard with visual feedback
+function _gwCopyField(text, el) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        el.classList.add('gw-copied');
+        setTimeout(() => el.classList.remove('gw-copied'), 600);
+        toast(`Copied: ${text}`, 'success');
+    }).catch(() => toast('Copy failed', 'error'));
+}
+
+// ──── GOOGLE WORK STATE ────
+let _gwCurrentView = 'create-domain'; // 'create-domain' or 'google-ads'
+
+function renderGoogleWork() {
+    const area = document.getElementById('content-area');
+
+    area.innerHTML = `
+        <div class="gw-container">
+            <div class="gw-header">
+                <div class="gw-header-left">
+                    <div class="gw-logo">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="gw-title">GOOGLE WORK</h2>
+                        <p class="gw-subtitle">Domain registration & Ads management tools</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gw-tabs">
+                <button class="gw-tab ${_gwCurrentView === 'create-domain' ? 'active' : ''}" data-gw-view="create-domain">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z" clip-rule="evenodd"/></svg>
+                    Create Domain
+                </button>
+                <button class="gw-tab ${_gwCurrentView === 'google-ads' ? 'active' : ''}" data-gw-view="google-ads">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/></svg>
+                    Google ADS
+                </button>
+            </div>
+
+            <div class="gw-content">
+                ${_gwCurrentView === 'create-domain' ? _gwRenderCreateDomain() : _gwRenderGoogleAds()}
+            </div>
+        </div>
+    `;
+
+    // Bind tab clicks
+    document.querySelectorAll('.gw-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            _gwCurrentView = tab.dataset.gwView;
+            renderGoogleWork();
+        });
+    });
+
+    // Bind Create Domain logic
+    if (_gwCurrentView === 'create-domain') {
+        _gwBindCreateDomain();
+    }
+}
+
+function _gwRenderCreateDomain() {
+    const data = _gwGenerateAll();
+
+    return `
+        <div class="gw-cd-wrapper">
+            <div class="gw-cd-section">
+                <div class="gw-cd-section-header">
+                    <span class="gw-cd-section-icon">🌐</span>
+                    <span class="gw-cd-section-title">Domain & Business</span>
+                    <button class="gw-generate-all-btn" id="gw-generate-all" title="Generate All">
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+                        Generate All
+                    </button>
+                </div>
+
+                <div class="gw-cd-fields">
+                    <div class="gw-cd-row gw-cd-row-2">
+                        <div class="gw-cd-field" id="gw-field-firstname">
+                            <label class="gw-cd-label">First name</label>
+                            <div class="gw-cd-value" data-field="firstName">${data.firstName}</div>
+                        </div>
+                        <div class="gw-cd-field" id="gw-field-lastname">
+                            <label class="gw-cd-label">Last name</label>
+                            <div class="gw-cd-value" data-field="lastName">${data.lastName}</div>
+                        </div>
+                    </div>
+
+                    <div class="gw-cd-row gw-cd-row-1">
+                        <div class="gw-cd-field" id="gw-field-business">
+                            <label class="gw-cd-label">Business name</label>
+                            <div class="gw-cd-value" data-field="businessName">${data.businessName}</div>
+                        </div>
+                    </div>
+
+                    <div class="gw-cd-row gw-cd-row-1">
+                        <div class="gw-cd-field" id="gw-field-domain">
+                            <label class="gw-cd-label">Domain name</label>
+                            <div class="gw-cd-value gw-cd-value-domain" data-field="domainName">${data.domainName}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gw-cd-section">
+                <div class="gw-cd-section-header">
+                    <span class="gw-cd-section-icon">📍</span>
+                    <span class="gw-cd-section-title">Address — Tokyo, Japan</span>
+                </div>
+
+                <div class="gw-cd-fields">
+                    <div class="gw-cd-row gw-cd-row-1">
+                        <div class="gw-cd-field" id="gw-field-street">
+                            <label class="gw-cd-label">Street address</label>
+                            <div class="gw-cd-value" data-field="streetAddress">${data.streetAddress}</div>
+                        </div>
+                    </div>
+
+                    <div class="gw-cd-row gw-cd-row-1">
+                        <div class="gw-cd-field" id="gw-field-street2">
+                            <label class="gw-cd-label">Street address line 2</label>
+                            <div class="gw-cd-value" data-field="streetAddress2">${data.streetAddress2 || '—'}</div>
+                        </div>
+                    </div>
+
+                    <div class="gw-cd-row gw-cd-row-2">
+                        <div class="gw-cd-field gw-cd-field-select" id="gw-field-prefecture">
+                            <label class="gw-cd-label">Prefecture</label>
+                            <div class="gw-cd-value" data-field="prefecture">Tokyo</div>
+                        </div>
+                        <div class="gw-cd-field" id="gw-field-postal">
+                            <label class="gw-cd-label">Postal code</label>
+                            <div class="gw-cd-value" data-field="postalCode">${data.postalCode}</div>
+                        </div>
+                    </div>
+
+                    <div class="gw-cd-row gw-cd-row-1">
+                        <div class="gw-cd-field" id="gw-field-phone">
+                            <label class="gw-cd-label">Phone number <span class="gw-cd-phone-code">(+81)</span></label>
+                            <div class="gw-cd-value" data-field="phoneNumber">${data.phoneNumber}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gw-cd-actions">
+                <button class="gw-cd-btn-copy-all" id="gw-copy-all">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+                    Copy All Fields
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function _gwRenderGoogleAds() {
+    return `
+        <div class="gw-ads-wrapper">
+            <div class="gw-ads-empty">
+                <div class="gw-ads-empty-icon">
+                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5z"/>
+                        <path d="M5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5z"/>
+                        <path d="M13 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5z"/>
+                        <path d="M16 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/>
+                    </svg>
+                </div>
+                <p class="gw-ads-empty-title">Google ADS</p>
+                <p class="gw-ads-empty-text">Coming soon — ads management tools will appear here.</p>
+            </div>
+        </div>
+    `;
+}
+
+function _gwBindCreateDomain() {
+    // Click on any value field → copy to clipboard
+    document.querySelectorAll('.gw-cd-value').forEach(el => {
+        el.addEventListener('click', () => {
+            const text = el.textContent.trim();
+            if (text && text !== '—') {
+                _gwCopyField(text, el);
+            }
+        });
+    });
+
+    // Generate All button
+    const genAllBtn = document.getElementById('gw-generate-all');
+    if (genAllBtn) {
+        genAllBtn.addEventListener('click', () => {
+            renderGoogleWork(); // re-render with new random data
+            toast('🎲 New data generated', 'info');
+        });
+    }
+
+    // Copy All button
+    const copyAllBtn = document.getElementById('gw-copy-all');
+    if (copyAllBtn) {
+        copyAllBtn.addEventListener('click', () => {
+            const fields = document.querySelectorAll('.gw-cd-value');
+            const lines = [];
+            fields.forEach(f => {
+                const label = f.closest('.gw-cd-field')?.querySelector('.gw-cd-label')?.textContent?.trim() || '';
+                const val = f.textContent.trim();
+                if (val && val !== '—') {
+                    lines.push(`${label}: ${val}`);
+                }
+            });
+            const text = lines.join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                toast('📋 All fields copied!', 'success');
+            }).catch(() => toast('Copy failed', 'error'));
+        });
+    }
+}

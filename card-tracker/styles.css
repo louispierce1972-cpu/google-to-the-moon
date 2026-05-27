@@ -13007,3 +13007,298 @@ tr.row-selected td {
     .glue-btn-primary { padding:10px 16px; font-size:12px; }
 }
 
+
+/* ===============================================================
+   GOOGLE WORK MODULE  -  Create Domain & Google ADS
+   =============================================================== */
+
+.gw-container {
+    padding: 24px 28px;
+    max-width: 520px;
+    margin: 0 auto;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: 100%;
+}
+
+/* Header */
+.gw-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.gw-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.gw-logo {
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a78bfa;
+    flex-shrink: 0;
+}
+.gw-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+}
+.gw-subtitle {
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Tabs */
+.gw-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 20px;
+}
+.gw-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: -1px;
+    font-family: inherit;
+}
+.gw-tab:hover { color: var(--text-secondary); }
+.gw-tab.active {
+    color: #a78bfa;
+    border-bottom-color: #a78bfa;
+}
+
+/* Content area */
+.gw-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* -- Create Domain -- */
+.gw-cd-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.gw-cd-section {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+.gw-cd-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.gw-cd-section-icon {
+    font-size: 16px;
+}
+.gw-cd-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+    flex: 1;
+}
+
+/* Generate All button */
+.gw-generate-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #a78bfa;
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+.gw-generate-all-btn:hover {
+    background: rgba(167,139,250,0.2);
+    border-color: rgba(167,139,250,0.4);
+    transform: translateY(-1px);
+}
+.gw-generate-all-btn:active {
+    transform: translateY(0) scale(0.97);
+}
+
+/* Fields grid */
+.gw-cd-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.gw-cd-row {
+    display: flex;
+    gap: 10px;
+}
+.gw-cd-row-1 .gw-cd-field { flex: 1; }
+.gw-cd-row-2 .gw-cd-field { flex: 1; }
+
+/* Field container */
+.gw-cd-field {
+    position: relative;
+}
+.gw-cd-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+}
+.gw-cd-phone-code {
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+/* Value field click to copy */
+.gw-cd-value {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    min-height: 18px;
+    line-height: 1.3;
+    position: relative;
+    overflow: hidden;
+}
+.gw-cd-value:hover {
+    border-color: rgba(167,139,250,0.4);
+    background: rgba(167,139,250,0.06);
+}
+.gw-cd-value:active {
+    transform: scale(0.98);
+}
+
+/* Copy animation */
+.gw-cd-value.gw-copied {
+    border-color: #22c55e !important;
+    background: rgba(34,197,94,0.12) !important;
+    color: #4ade80 !important;
+}
+.gw-cd-value.gw-copied::after {
+    content: '\2713';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    font-weight: 700;
+    color: #22c55e;
+    animation: gwCheckPop 0.3s ease;
+}
+@keyframes gwCheckPop {
+    0% { opacity: 0; transform: translateY(-50%) scale(0.5); }
+    100% { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+/* Domain value special style */
+.gw-cd-value-domain {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #60a5fa;
+    letter-spacing: 0.03em;
+}
+
+/* Copy All button */
+.gw-cd-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+.gw-cd-btn-copy-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.25);
+}
+.gw-cd-btn-copy-all:hover {
+    background: linear-gradient(135deg, #818cf8, #a78bfa);
+    box-shadow: 0 6px 20px rgba(99,102,241,0.35);
+    transform: translateY(-1px);
+}
+.gw-cd-btn-copy-all:active {
+    transform: translateY(0);
+}
+
+/* -- Google ADS (empty state) -- */
+.gw-ads-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+.gw-ads-empty {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.gw-ads-empty-icon {
+    color: var(--text-dim);
+    opacity: 0.3;
+}
+.gw-ads-empty-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+.gw-ads-empty-text {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .gw-container { padding: 16px; max-width: 100%; }
+    .gw-cd-row-2 { flex-direction: column; }
+}
