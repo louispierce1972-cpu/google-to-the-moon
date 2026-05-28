@@ -13134,3 +13134,189 @@ tr.row-selected td {
 }
 .ccg-color-skin:hover { border-color: rgba(129,140,248,0.5) !important; }
 .ccg-color-skin.active { border-color: #6ee7b7 !important; border-style: solid !important; box-shadow: 0 0 12px rgba(110,231,183,0.3); }
+
+/* ═══════════════════════════════════════════════════════════════
+   DOMAIN MODULE — Japan Profile Generator
+═══════════════════════════════════════════════════════════════ */
+
+.dom-wrap {
+    padding: 10px 12px;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ── Toolbar ── */
+.dom-toolbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.dom-btn {
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    cursor: pointer;
+    border: 1px solid var(--border-default);
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+}
+.dom-btn:active { transform: scale(0.96); }
+
+.dom-btn-gen {
+    background: rgba(129, 140, 248, 0.15);
+    border-color: rgba(129, 140, 248, 0.35);
+    color: #a5b4fc;
+}
+.dom-btn-gen:hover {
+    background: rgba(129, 140, 248, 0.28);
+    border-color: rgba(129, 140, 248, 0.5);
+}
+
+.dom-btn-pref {
+    background: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.3);
+    color: #fbbf24;
+    min-width: 70px;
+    text-align: center;
+}
+.dom-btn-pref:hover {
+    background: rgba(251, 191, 36, 0.22);
+    border-color: rgba(251, 191, 36, 0.45);
+}
+
+.dom-btn-copy {
+    background: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: #6ee7b7;
+}
+.dom-btn-copy:hover {
+    background: rgba(52, 211, 153, 0.22);
+    border-color: rgba(52, 211, 153, 0.45);
+}
+
+.dom-btn-regen {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-default);
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 3px 10px;
+}
+.dom-btn-regen:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+/* ── Profile Block ── */
+.dom-block {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 6px 0;
+}
+
+.dom-row {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 12px;
+    gap: 1px;
+}
+
+.dom-label {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    line-height: 1.2;
+}
+
+.dom-value {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 2px 4px;
+    margin: 0 -4px;
+    border-radius: 4px;
+    transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+.dom-value:hover {
+    background: rgba(129, 140, 248, 0.1);
+    color: #c7d2fe;
+}
+
+.dom-value.dom-copied {
+    background: rgba(52, 211, 153, 0.18);
+    color: #6ee7b7;
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.2);
+}
+
+.dom-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 4px 12px;
+}
+
+/* ── Names Section ── */
+.dom-names-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 0;
+    margin-top: 4px;
+}
+
+.dom-names-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+}
+
+.dom-names-list {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 4px 0;
+}
+
+.dom-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.12s;
+}
+.dom-name-row:hover {
+    background: rgba(129, 140, 248, 0.08);
+}
+
+.dom-name-row.dom-copied {
+    background: rgba(52, 211, 153, 0.15);
+}
+
+.dom-name-idx {
+    font-size: 10px;
+    color: var(--text-dim);
+    min-width: 16px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.dom-name-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.03em;
+    font-family: 'JetBrains Mono', monospace;
+}

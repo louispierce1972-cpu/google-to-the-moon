@@ -844,7 +844,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -3088,6 +3088,205 @@ function _ckSaveInput() {
 }
 
 
+
+// ──── DOMAIN MODULE — Japan Profile Generator ────
+function renderDomain() {
+    const area = document.getElementById('content-area');
+
+    // ── DATA POOLS ──
+    const FIRST_NAMES = [
+        'AKITO','HARUTO','REN','YUTO','SORA','KAITO','HIROSHI','TAKESHI','RYOTA','KENJI',
+        'DAIKI','NAOKI','SHOTA','YUKI','KENTA','MASARU','TOSHIRO','SHIN','KAZUYA','NOBORU',
+        'AKIRA','MAKOTO','SATOSHI','YUSEI','HAYATO','RIKU','MINATO','SOUTA','ASAHI','HINATA',
+        'TAIGA','YAMATO','ITSUKI','AOI','HARU','KAI','SHINJI','TSUBASA','KOKI','REI'
+    ];
+    const LAST_NAMES = [
+        'TANAKA','SUZUKI','TAKAHASHI','WATANABE','SATO','ITO','YAMAMOTO','NAKAMURA','KOBAYASHI','KATO',
+        'YOSHIDA','YAMADA','SASAKI','YAMAGUCHI','MATSUMOTO','INOUE','KIMURA','SHIMIZU','HAYASHI','SAITO',
+        'SAGURO','OKAZAKI','UEDA','FUJITA','OGAWA','HASEGAWA','MURAKAMI','KONDOH','ISHIKAWA','MAEDA',
+        'OKADA','NISHIMURA','MORITA','ENDO','AOKI','IKEDA','SAKAMOTO','HASHIMOTO','NOGUCHI','KAWAMURA'
+    ];
+    const BIZ_FIRST = [
+        'Kairo','Mirai','Sakura','Aoba','Nihon','Tokyo','Kaze','Hikari','Yume','Kumo',
+        'Sora','Nami','Zenith','Apex','Nova','Hoshi','Tora','Kuro','Shiro','Fuji',
+        'Ryu','Zen','Kai','Mizu','Hana','Matsu','Tsuki','Umi','Sugi','Akane'
+    ];
+    const BIZ_SECOND = [
+        'Digital','Works','Web','Creative','Studio','Office','Solutions','Tech','Labs','Media',
+        'Nexus','Systems','Cloud','Logic','Hub','Bridge','Link','Net','Point','Core'
+    ];
+    const BIZ_SUFFIX = ['JP','Japan','Co','Inc',''];
+    const BIZ_NUMS = ['','','','','88','247','360','21','55','77','101','33','7','9'];
+    const DOMAINS_EXT = ['.org','.com','.net'];
+    const STREETS = [
+        '2-8-1 Nishi-Shinjuku','3-14-5 Roppongi','1-7-1 Marunouchi','4-2-8 Shibuya',
+        '2-11-3 Meguro','1-5-2 Higashi-Ikebukuro','6-10-1 Ginza','3-6-7 Kita-Aoyama',
+        '5-3-1 Chiyoda','2-1-1 Nihonbashi','1-12-32 Akasaka','4-1-6 Shiba-Koen',
+        '3-3-5 Okubo','1-9-2 Higashi-Shimbashi','2-4-16 Yoyogi','7-3-1 Akihabara',
+        '5-5-1 Sendagaya','3-28-12 Jingumae','1-2-3 Otemachi','4-12-20 Ebisu'
+    ];
+    const BUILDINGS = [
+        'Shinjuku NS Building','Roppongi Hills Mori Tower','Tokyo Midtown','Shibuya Stream',
+        'Meguro Central Square','Sunshine 60','Ginza SIX','Aoyama Oval Building',
+        'Otemachi Tower','Nihonbashi Mitsui Tower','Akasaka Biz Tower','Tokyo Tower Side',
+        'Yoyogi Village','Shiodome City Center','Ebisu Garden Place','Ark Hills Sengokuyama',
+        'Toranomon Hills','Atago Green Hills','Cerulean Tower','Gate City Ohsaki'
+    ];
+    const PREFECTURES = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi'];
+
+    function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    function rndNum(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+    function genProfile(prefIndex) {
+        const pref = PREFECTURES[prefIndex || 0];
+        const bizFirst = rnd(BIZ_FIRST);
+        const bizSecond = rnd(BIZ_SECOND);
+        const bizSuffix = rnd(BIZ_SUFFIX);
+        const bizNum = rnd(BIZ_NUMS);
+        const bizName = [bizFirst, bizSecond, bizSuffix].filter(Boolean).join(' ');
+
+        const domainBase = (bizFirst + bizSecond).toLowerCase().replace(/\s+/g, '') + bizNum;
+        const domainExt = rnd(DOMAINS_EXT);
+        const domain = domainBase + domainExt;
+
+        const street = rnd(STREETS);
+        const building = rnd(BUILDINGS);
+        const postal = `${rndNum(100,199)}-${String(rndNum(0,9999)).padStart(4,'0')}`;
+        const phone = `+813${rndNum(10000000,99999999)}`;
+        const firstName = rnd(FIRST_NAMES);
+        const lastName = rnd(LAST_NAMES);
+
+        return {
+            bizName, domain, street, building, pref, postal, phone,
+            firstName, lastName,
+            username: 'admin',
+            password: 'ASwsx23$#$23x'
+        };
+    }
+
+    function genNames() {
+        const names = [];
+        const used = new Set();
+        while (names.length < 9) {
+            const n = rnd(FIRST_NAMES) + ' ' + rnd(LAST_NAMES);
+            if (!used.has(n)) { used.add(n); names.push(n); }
+        }
+        return names;
+    }
+
+    // Init state
+    if (!STATE._domProfile) STATE._domProfile = genProfile(0);
+    if (!STATE._domNames) STATE._domNames = genNames();
+    if (typeof STATE._domPrefIdx === 'undefined') STATE._domPrefIdx = 0;
+
+    const p = STATE._domProfile;
+    const names = STATE._domNames;
+
+    function row(label, value, id) {
+        return `<div class="dom-row" id="${id}">
+            <span class="dom-label">${label}</span>
+            <span class="dom-value" data-copy="${value.replace(/"/g, '&quot;')}">${value}</span>
+        </div>`;
+    }
+
+    area.innerHTML = `
+        <div class="dom-wrap">
+            <div class="dom-toolbar">
+                <button class="dom-btn dom-btn-gen" id="dom-generate">⚡ Generate</button>
+                <button class="dom-btn dom-btn-pref" id="dom-pref">${PREFECTURES[STATE._domPrefIdx]}</button>
+                <button class="dom-btn dom-btn-copy" id="dom-copy-all">📋 Copy All</button>
+            </div>
+
+            <div class="dom-block">
+                ${row('Business Name', p.bizName, 'dom-biz')}
+                ${row('Domain', p.domain, 'dom-domain')}
+                <div class="dom-divider"></div>
+                ${row('Street Address', p.street, 'dom-street')}
+                ${row('Street Address Line 2', p.building, 'dom-building')}
+                ${row('Prefecture', p.pref, 'dom-pref-val')}
+                ${row('Postal Code', p.postal, 'dom-postal')}
+                ${row('Phone', p.phone, 'dom-phone')}
+                <div class="dom-divider"></div>
+                ${row('First Name', p.firstName, 'dom-fn')}
+                ${row('Last Name', p.lastName, 'dom-ln')}
+                <div class="dom-divider"></div>
+                ${row('Username', p.username, 'dom-user')}
+                ${row('Password', p.password, 'dom-pass')}
+                ${row('Confirm Password', p.password, 'dom-pass2')}
+            </div>
+
+            <div class="dom-names-header">
+                <span class="dom-names-title">Random Japanese Names</span>
+                <button class="dom-btn dom-btn-regen" id="dom-regen-names">↻ Regenerate</button>
+            </div>
+            <div class="dom-names-list">
+                ${names.map((n, i) => `<div class="dom-name-row" data-copy="${n}"><span class="dom-name-idx">${i + 1}.</span><span class="dom-name-val">${n}</span></div>`).join('')}
+            </div>
+        </div>
+    `;
+
+    // ── Copy single value ──
+    function flashCopy(el) {
+        el.classList.add('dom-copied');
+        setTimeout(() => el.classList.remove('dom-copied'), 600);
+    }
+
+    area.querySelectorAll('.dom-value').forEach(el => {
+        el.addEventListener('click', () => {
+            navigator.clipboard.writeText(el.dataset.copy);
+            flashCopy(el);
+            toast('Copied: ' + (el.dataset.copy.length > 40 ? el.dataset.copy.slice(0,40)+'…' : el.dataset.copy), 'success');
+        });
+    });
+
+    area.querySelectorAll('.dom-name-row').forEach(el => {
+        el.addEventListener('click', () => {
+            navigator.clipboard.writeText(el.dataset.copy);
+            flashCopy(el);
+            toast('Copied: ' + el.dataset.copy, 'success');
+        });
+    });
+
+    // ── Generate ──
+    document.getElementById('dom-generate').onclick = () => {
+        STATE._domProfile = genProfile(STATE._domPrefIdx);
+        STATE._domNames = genNames();
+        renderDomain();
+    };
+
+    // ── Cycle Prefecture ──
+    document.getElementById('dom-pref').onclick = () => {
+        STATE._domPrefIdx = (STATE._domPrefIdx + 1) % PREFECTURES.length;
+        STATE._domProfile = genProfile(STATE._domPrefIdx);
+        renderDomain();
+    };
+
+    // ── Regenerate Names ──
+    document.getElementById('dom-regen-names').onclick = () => {
+        STATE._domNames = genNames();
+        renderDomain();
+    };
+
+    // ── Copy All ──
+    document.getElementById('dom-copy-all').onclick = () => {
+        const all = [
+            `Business Name: ${p.bizName}`,
+            `Domain: ${p.domain}`,
+            `Street Address: ${p.street}`,
+            `Street Address Line 2: ${p.building}`,
+            `Prefecture: ${p.pref}`,
+            `Postal Code: ${p.postal}`,
+            `Phone: ${p.phone}`,
+            `First Name: ${p.firstName}`,
+            `Last Name: ${p.lastName}`,
+            `Username: ${p.username}`,
+            `Password: ${p.password}`,
+        ].join('\n');
+        navigator.clipboard.writeText(all);
+        toast('All fields copied', 'success');
+    };
+}
+
 // ──── GOOGLE FORMAT MODULE ────
 function renderGoogleFormat() {
     const area = document.getElementById('content-area');
@@ -3415,6 +3614,11 @@ function renderContent() {
     }
     if (STATE.currentView === 'google-format') {
         renderGoogleFormat();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'domain') {
+        renderDomain();
         footer.style.display = 'none';
         return;
     }
