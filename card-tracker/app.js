@@ -3088,7 +3088,6 @@ function _ckSaveInput() {
 }
 
 
-
 // ──── DOMAIN MODULE — Japan Profile Generator ────
 function renderDomain() {
     const area = document.getElementById('content-area');
@@ -3116,8 +3115,6 @@ function renderDomain() {
         'Nexus','Systems','Cloud','Logic','Hub','Bridge','Link','Net','Point','Core'
     ];
     const BIZ_SUFFIX = ['JP','Japan','Co','Inc',''];
-    const BIZ_NUMS = ['','','','','88','247','360','21','55','77','101','33','7','9'];
-    const DOMAINS_EXT = ['.org','.com','.net'];
     const STREETS = [
         '2-8-1 Nishi-Shinjuku','3-14-5 Roppongi','1-7-1 Marunouchi','4-2-8 Shibuya',
         '2-11-3 Meguro','1-5-2 Higashi-Ikebukuro','6-10-1 Ginza','3-6-7 Kita-Aoyama',
@@ -3133,6 +3130,14 @@ function renderDomain() {
         'Toranomon Hills','Atago Green Hills','Cerulean Tower','Gate City Ohsaki'
     ];
     const PREFECTURES = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi'];
+    // Longer, more interesting domain name parts
+    const DOM_PREFIXES = [
+        'namibridge','tokyovault','sakurafield','miraicloud','aobaworks','hikarinet',
+        'kazefront','soranova','kumobridge','hoshipoint','fujistream','tsukilabs',
+        'matsugate','umicraft','sugiworks','akanehub','zenithcore','apexfield',
+        'novabright','toralink','ryubridge','mizupoint','hanaworks','kazetech'
+    ];
+    const DOM_SUFFIXES = ['21','337','4082','59','1706','803','247','55','9021','612','78','3301'];
 
     function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
     function rndNum(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
@@ -3142,22 +3147,21 @@ function renderDomain() {
         const bizFirst = rnd(BIZ_FIRST);
         const bizSecond = rnd(BIZ_SECOND);
         const bizSuffix = rnd(BIZ_SUFFIX);
-        const bizNum = rnd(BIZ_NUMS);
         const bizName = [bizFirst, bizSecond, bizSuffix].filter(Boolean).join(' ');
 
-        const domainBase = (bizFirst + bizSecond).toLowerCase().replace(/\s+/g, '') + bizNum;
-        const domainExt = rnd(DOMAINS_EXT);
-        const domain = domainBase + domainExt;
+        // Domain: just name, no extension
+        const domainName = rnd(DOM_PREFIXES) + rnd(DOM_SUFFIXES);
 
         const street = rnd(STREETS);
         const building = rnd(BUILDINGS);
         const postal = `${rndNum(100,199)}-${String(rndNum(0,9999)).padStart(4,'0')}`;
-        const phone = `+813${rndNum(10000000,99999999)}`;
+        // Phone without country code
+        const phone = `3${rndNum(10000000,99999999)}`;
         const firstName = rnd(FIRST_NAMES);
         const lastName = rnd(LAST_NAMES);
 
         return {
-            bizName, domain, street, building, pref, postal, phone,
+            bizName, domain: domainName, street, building, pref, postal, phone,
             firstName, lastName,
             username: 'admin',
             password: 'ASwsx23$#$23x'
@@ -3168,8 +3172,10 @@ function renderDomain() {
         const names = [];
         const used = new Set();
         while (names.length < 9) {
-            const n = rnd(FIRST_NAMES) + ' ' + rnd(LAST_NAMES);
-            if (!used.has(n)) { used.add(n); names.push(n); }
+            const f = rnd(FIRST_NAMES);
+            const l = rnd(LAST_NAMES);
+            const key = f + ' ' + l;
+            if (!used.has(key)) { used.add(key); names.push({ first: f, last: l }); }
         }
         return names;
     }
@@ -3178,59 +3184,84 @@ function renderDomain() {
     if (!STATE._domProfile) STATE._domProfile = genProfile(0);
     if (!STATE._domNames) STATE._domNames = genNames();
     if (typeof STATE._domPrefIdx === 'undefined') STATE._domPrefIdx = 0;
+    if (typeof STATE._domCleanerInput === 'undefined') STATE._domCleanerInput = '';
+    if (typeof STATE._domCleanerOutput === 'undefined') STATE._domCleanerOutput = '';
 
     const p = STATE._domProfile;
     const names = STATE._domNames;
 
-    function row(label, value, id) {
-        return `<div class="dom-row" id="${id}">
+    function row(label, value) {
+        return `<div class="dom-row">
             <span class="dom-label">${label}</span>
             <span class="dom-value" data-copy="${value.replace(/"/g, '&quot;')}">${value}</span>
         </div>`;
     }
 
     area.innerHTML = `
-        <div class="dom-wrap">
-            <div class="dom-toolbar">
-                <button class="dom-btn dom-btn-gen" id="dom-generate">⚡ Generate</button>
-                <button class="dom-btn dom-btn-pref" id="dom-pref">${PREFECTURES[STATE._domPrefIdx]}</button>
-                <button class="dom-btn dom-btn-copy" id="dom-copy-all">📋 Copy All</button>
+        <div class="dom-page">
+            <!-- COLUMN 1: Profile Generator -->
+            <div class="dom-col dom-col-profile">
+                <div class="dom-toolbar">
+                    <button class="dom-btn dom-btn-gen" id="dom-generate">⚡ Generate</button>
+                    <button class="dom-btn dom-btn-pref" id="dom-pref">${PREFECTURES[STATE._domPrefIdx]}</button>
+                    <button class="dom-btn dom-btn-copy" id="dom-copy-all">📋 Copy All</button>
+                </div>
+                <div class="dom-block">
+                    ${row('Business Name', p.bizName)}
+                    ${row('Domain', p.domain)}
+                    <div class="dom-divider"></div>
+                    ${row('Street Address', p.street)}
+                    ${row('Street Address Line 2', p.building)}
+                    ${row('Prefecture', p.pref)}
+                    ${row('Postal Code', p.postal)}
+                    ${row('Phone', p.phone)}
+                    <div class="dom-divider"></div>
+                    ${row('First Name', p.firstName)}
+                    ${row('Last Name', p.lastName)}
+                    <div class="dom-divider"></div>
+                    ${row('Username', p.username)}
+                    ${row('Password', p.password)}
+                    ${row('Confirm Password', p.password)}
+                </div>
             </div>
 
-            <div class="dom-block">
-                ${row('Business Name', p.bizName, 'dom-biz')}
-                ${row('Domain', p.domain, 'dom-domain')}
-                <div class="dom-divider"></div>
-                ${row('Street Address', p.street, 'dom-street')}
-                ${row('Street Address Line 2', p.building, 'dom-building')}
-                ${row('Prefecture', p.pref, 'dom-pref-val')}
-                ${row('Postal Code', p.postal, 'dom-postal')}
-                ${row('Phone', p.phone, 'dom-phone')}
-                <div class="dom-divider"></div>
-                ${row('First Name', p.firstName, 'dom-fn')}
-                ${row('Last Name', p.lastName, 'dom-ln')}
-                <div class="dom-divider"></div>
-                ${row('Username', p.username, 'dom-user')}
-                ${row('Password', p.password, 'dom-pass')}
-                ${row('Confirm Password', p.password, 'dom-pass2')}
+            <!-- COLUMN 2: Names Generator -->
+            <div class="dom-col dom-col-names">
+                <div class="dom-names-header">
+                    <span class="dom-names-title">Names</span>
+                    <button class="dom-btn dom-btn-regen" id="dom-regen-names">↻ Regen</button>
+                </div>
+                <div class="dom-names-list">
+                    ${names.map((n, i) => `<div class="dom-name-row">
+                        <span class="dom-name-idx">${i + 1}.</span>
+                        <span class="dom-name-part" data-copy="${n.first}">${n.first}</span>
+                        <span class="dom-name-part" data-copy="${n.last}">${n.last}</span>
+                    </div>`).join('')}
+                </div>
             </div>
 
-            <div class="dom-names-header">
-                <span class="dom-names-title">Random Japanese Names</span>
-                <button class="dom-btn dom-btn-regen" id="dom-regen-names">↻ Regenerate</button>
-            </div>
-            <div class="dom-names-list">
-                ${names.map((n, i) => `<div class="dom-name-row" data-copy="${n}"><span class="dom-name-idx">${i + 1}.</span><span class="dom-name-val">${n}</span></div>`).join('')}
+            <!-- COLUMN 3: Workspace Cleaner -->
+            <div class="dom-col dom-col-cleaner">
+                <div class="dom-names-header">
+                    <span class="dom-names-title">Workspace Cleaner</span>
+                    <button class="dom-btn dom-btn-gen" id="dom-clean-btn">⚡ Clean</button>
+                </div>
+                <textarea id="dom-cleaner-input" class="dom-cleaner-ta" placeholder="Paste Google Workspace output here...">${STATE._domCleanerInput.replace(/</g,'&lt;')}</textarea>
+                <div class="dom-cleaner-out-wrap">
+                    <div class="dom-cleaner-out" id="dom-cleaner-output">${STATE._domCleanerOutput ? STATE._domCleanerOutput : '<span class="dom-cleaner-ph">login:password lines appear here</span>'}</div>
+                    <button class="dom-btn dom-btn-copy dom-cleaner-copy-btn" id="dom-copy-clean" style="${STATE._domCleanerOutput ? '' : 'display:none'}">📋 Copy</button>
+                </div>
             </div>
         </div>
     `;
 
-    // ── Copy single value ──
+    // ── Copy helpers ──
     function flashCopy(el) {
         el.classList.add('dom-copied');
         setTimeout(() => el.classList.remove('dom-copied'), 600);
     }
 
+    // Profile values — click to copy
     area.querySelectorAll('.dom-value').forEach(el => {
         el.addEventListener('click', () => {
             navigator.clipboard.writeText(el.dataset.copy);
@@ -3239,8 +3270,10 @@ function renderDomain() {
         });
     });
 
-    area.querySelectorAll('.dom-name-row').forEach(el => {
-        el.addEventListener('click', () => {
+    // Names — each part copies separately
+    area.querySelectorAll('.dom-name-part').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
             navigator.clipboard.writeText(el.dataset.copy);
             flashCopy(el);
             toast('Copied: ' + el.dataset.copy, 'success');
@@ -3285,6 +3318,93 @@ function renderDomain() {
         navigator.clipboard.writeText(all);
         toast('All fields copied', 'success');
     };
+
+    // ── Cleaner: persist input ──
+    const cleanerInput = document.getElementById('dom-cleaner-input');
+    cleanerInput.addEventListener('input', () => {
+        STATE._domCleanerInput = cleanerInput.value;
+    });
+
+    // ── Cleaner: parse Google Workspace output ──
+    document.getElementById('dom-clean-btn').onclick = () => {
+        const raw = cleanerInput.value.trim();
+        if (!raw) { toast('Paste Workspace text first', 'info'); return; }
+
+        const lines = raw.split('\n').map(l => l.trim());
+        const accounts = [];
+        let i = 0;
+        while (i < lines.length) {
+            const line = lines[i];
+            // Look for "Username" label
+            if (/^username$/i.test(line)) {
+                const login = (lines[i + 1] || '').trim();
+                // Find next "Password" label
+                let passLine = '';
+                for (let j = i + 2; j < Math.min(i + 5, lines.length); j++) {
+                    if (/^password$/i.test(lines[j])) {
+                        passLine = (lines[j + 1] || '').trim();
+                        i = j + 2;
+                        break;
+                    }
+                }
+                if (login && passLine) {
+                    accounts.push({ login, password: passLine });
+                } else {
+                    i++;
+                }
+            } else {
+                i++;
+            }
+        }
+
+        if (accounts.length === 0) {
+            toast('No accounts found', 'error');
+            return;
+        }
+
+        // Build numbered output
+        const outHtml = accounts.map((a, idx) => {
+            return `<div class="dom-clean-line" data-copy="${a.login}\n${a.password}"><span class="dom-clean-idx">${idx + 1}.</span><span class="dom-clean-login">${a.login}</span><br><span class="dom-clean-idx"></span><span class="dom-clean-pass">${a.password}</span></div>`;
+        }).join('');
+
+        const outEl = document.getElementById('dom-cleaner-output');
+        outEl.innerHTML = outHtml;
+
+        // Build plain text for copy-all
+        STATE._domCleanerParsed = accounts.map((a, idx) => `${idx + 1}. ${a.login}\n   ${a.password}`).join('\n');
+        STATE._domCleanerOutput = outHtml;
+
+        document.getElementById('dom-copy-clean').style.display = '';
+
+        // Click on each line copies that account
+        outEl.querySelectorAll('.dom-clean-line').forEach(el => {
+            el.addEventListener('click', () => {
+                navigator.clipboard.writeText(el.dataset.copy);
+                flashCopy(el);
+                toast('Copied account', 'success');
+            });
+        });
+
+        toast(`${accounts.length} accounts parsed`, 'success');
+    };
+
+    // ── Cleaner: copy all parsed ──
+    document.getElementById('dom-copy-clean').onclick = () => {
+        if (STATE._domCleanerParsed) {
+            navigator.clipboard.writeText(STATE._domCleanerParsed);
+            toast('All accounts copied', 'success');
+        }
+    };
+
+    // Re-bind click handlers on existing output if present
+    const outEl = document.getElementById('dom-cleaner-output');
+    outEl.querySelectorAll('.dom-clean-line').forEach(el => {
+        el.addEventListener('click', () => {
+            navigator.clipboard.writeText(el.dataset.copy);
+            flashCopy(el);
+            toast('Copied account', 'success');
+        });
+    });
 }
 
 // ──── GOOGLE FORMAT MODULE ────

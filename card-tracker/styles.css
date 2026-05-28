@@ -13136,28 +13136,39 @@ tr.row-selected td {
 .ccg-color-skin.active { border-color: #6ee7b7 !important; border-style: solid !important; box-shadow: 0 0 12px rgba(110,231,183,0.3); }
 
 /* ═══════════════════════════════════════════════════════════════
-   DOMAIN MODULE — Japan Profile Generator
+   DOMAIN MODULE — Japan Profile Generator (3-column)
 ═══════════════════════════════════════════════════════════════ */
 
-.dom-wrap {
+/* ── Page container: 3 columns, full viewport height ── */
+.dom-page {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
     padding: 10px 12px;
-    max-width: 480px;
+    height: calc(100vh - var(--topbar-h, 52px) - 8px);
+    overflow: hidden;
+}
+
+.dom-col {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* ── Toolbar ── */
 .dom-toolbar {
     display: flex;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .dom-btn {
-    padding: 5px 12px;
+    padding: 4px 10px;
     border-radius: 5px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     font-family: var(--font-sans, 'Inter', sans-serif);
     cursor: pointer;
@@ -13181,7 +13192,7 @@ tr.row-selected td {
     background: rgba(251, 191, 36, 0.12);
     border-color: rgba(251, 191, 36, 0.3);
     color: #fbbf24;
-    min-width: 70px;
+    min-width: 60px;
     text-align: center;
 }
 .dom-btn-pref:hover {
@@ -13203,8 +13214,8 @@ tr.row-selected td {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--border-default);
     color: var(--text-muted);
-    font-size: 11px;
-    padding: 3px 10px;
+    font-size: 10px;
+    padding: 3px 8px;
 }
 .dom-btn-regen:hover {
     background: rgba(255, 255, 255, 0.1);
@@ -13216,18 +13227,20 @@ tr.row-selected td {
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    padding: 6px 0;
+    padding: 4px 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .dom-row {
     display: flex;
     flex-direction: column;
-    padding: 4px 12px;
-    gap: 1px;
+    padding: 2px 10px;
+    gap: 0px;
 }
 
 .dom-label {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -13236,16 +13249,16 @@ tr.row-selected td {
 }
 
 .dom-value {
-    font-size: 13px;
+    font-size: 12px;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     color: var(--text-primary);
     cursor: pointer;
-    padding: 2px 4px;
-    margin: 0 -4px;
-    border-radius: 4px;
+    padding: 1px 3px;
+    margin: 0 -3px;
+    border-radius: 3px;
     transition: background 0.12s, color 0.12s, box-shadow 0.12s;
     word-break: break-all;
-    line-height: 1.4;
+    line-height: 1.3;
 }
 
 .dom-value:hover {
@@ -13262,7 +13275,7 @@ tr.row-selected td {
 .dom-divider {
     height: 1px;
     background: var(--border-subtle);
-    margin: 4px 12px;
+    margin: 2px 10px;
 }
 
 /* ── Names Section ── */
@@ -13270,8 +13283,8 @@ tr.row-selected td {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 2px 0;
-    margin-top: 4px;
+    padding: 0;
+    flex-shrink: 0;
 }
 
 .dom-names-title {
@@ -13286,37 +13299,134 @@ tr.row-selected td {
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    padding: 4px 0;
+    padding: 3px 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .dom-name-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 3px 12px;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background 0.12s;
-}
-.dom-name-row:hover {
-    background: rgba(129, 140, 248, 0.08);
-}
-
-.dom-name-row.dom-copied {
-    background: rgba(52, 211, 153, 0.15);
+    gap: 6px;
+    padding: 3px 10px;
 }
 
 .dom-name-idx {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-dim);
-    min-width: 16px;
+    min-width: 14px;
     font-family: 'JetBrains Mono', monospace;
 }
 
-.dom-name-val {
-    font-size: 12px;
+/* ── Name Parts: each clickable separately ── */
+.dom-name-part {
+    font-size: 11px;
     font-weight: 500;
     color: var(--text-secondary);
     letter-spacing: 0.03em;
     font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: background 0.12s, color 0.12s, box-shadow 0.12s;
 }
+.dom-name-part:hover {
+    background: rgba(129, 140, 248, 0.1);
+    color: #c7d2fe;
+}
+.dom-name-part.dom-copied {
+    background: rgba(52, 211, 153, 0.18);
+    color: #6ee7b7;
+    box-shadow: 0 0 6px rgba(52, 211, 153, 0.2);
+}
+
+/* ── Workspace Cleaner ── */
+.dom-cleaner-ta {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.dom-cleaner-ta:focus {
+    border-color: rgba(129, 140, 248, 0.4);
+}
+.dom-cleaner-ta::placeholder {
+    color: var(--text-dim);
+    font-size: 10px;
+}
+
+.dom-cleaner-out-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dom-cleaner-out {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+.dom-cleaner-ph {
+    color: var(--text-dim);
+    font-size: 10px;
+}
+
+.dom-cleaner-copy-btn {
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+/* ── Cleaned output lines ── */
+.dom-clean-line {
+    padding: 3px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.12s;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.dom-clean-line:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+.dom-clean-line:hover {
+    background: rgba(129, 140, 248, 0.08);
+}
+.dom-clean-line.dom-copied {
+    background: rgba(52, 211, 153, 0.15);
+}
+
+.dom-clean-idx {
+    color: var(--text-dim);
+    font-size: 9px;
+    display: inline-block;
+    min-width: 16px;
+}
+.dom-clean-login {
+    color: #a5b4fc;
+}
+.dom-clean-pass {
+    color: #fbbf24;
+    font-size: 10px;
+}
+
