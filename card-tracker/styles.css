@@ -13528,3 +13528,34 @@ tr.row-selected td {
 .dl-bc-black{background:#111}
 .dl-bc-white{background:#eee}
 
+/* DOB overlay on photo */
+.dl-photo-dob-overlay{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:16px;font-weight:800;color:rgba(0,0,0,.35);letter-spacing:2px;pointer-events:none;font-family:'Arial Narrow',sans-serif}
+
+/* Batch controls */
+.dl-batch-bar{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding:8px 10px;background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.15);border-radius:6px;margin-bottom:6px}
+.dl-batch-group{display:flex;flex-direction:column;gap:2px}
+.dl-batch-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.dl-batch-input{height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit;width:60px;text-align:center}
+.dl-batch-select{height:28px;padding:2px 6px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit}
+.dl-batch-btn{height:28px;padding:0 14px;font-size:11px;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s}
+.dl-batch-gen{background:#818cf8;color:#fff}
+.dl-batch-gen:hover{background:#6366f1}
+.dl-batch-zip{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.2)}
+.dl-batch-zip:hover{background:rgba(34,197,94,.25)}
+
+/* Card list */
+.dl-card-list{max-height:250px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-top:4px;padding:4px;background:rgba(0,0,0,.15);border:1px solid rgba(255,255,255,.06);border-radius:6px}
+.dl-card-row{display:flex;align-items:center;gap:8px;padding:5px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:4px;cursor:pointer;transition:all .12s;font-size:11px}
+.dl-card-row:hover{background:rgba(255,255,255,.06)}
+.dl-card-row.active{background:rgba(129,140,248,.1);border-color:rgba(129,140,248,.3)}
+.dl-card-row-num{color:var(--text-dim);font-weight:700;min-width:20px}
+.dl-card-row-name{color:#e5e7eb;font-weight:600;min-width:140px}
+.dl-card-row-dl{color:#818cf8;font-family:var(--font-mono);font-size:10px;min-width:80px}
+.dl-card-row-dob{color:#f87171;font-size:10px;min-width:80px}
+.dl-card-row-sex{color:var(--text-dim);font-size:10px;min-width:20px}
+.dl-card-row-actions{margin-left:auto;display:flex;gap:3px}
+.dl-row-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:3px;color:#9ca3af;font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .12s}
+.dl-row-btn:hover{background:rgba(255,255,255,.12);color:#e5e7eb}
+.dl-row-btn-prompt{color:#fbbf24;border-color:rgba(251,191,36,.2)}
+.dl-row-btn-prompt:hover{background:rgba(251,191,36,.15)}
+

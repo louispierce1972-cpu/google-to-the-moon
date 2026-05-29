@@ -66,10 +66,16 @@ function _dlGetDefaults(){
     };
 }
 
-// Ensure DL state exists
 function _dlEnsureState(){
     if(!_CK.generator.dl) _CK.generator.dl=_dlGetDefaults();
-    return _CK.generator.dl;
+    var s=_CK.generator.dl;
+    if(!s.batch) s.batch=[];
+    if(s.selectedIdx===undefined) s.selectedIdx=-1;
+    if(!s.batchCount) s.batchCount=5;
+    if(!s.batchSex) s.batchSex='random';
+    if(!s.batchAgeMin) s.batchAgeMin=21;
+    if(!s.batchAgeMax) s.batchAgeMax=35;
+    return s;
 }
 
 function _dlGenerateAll(){
@@ -84,6 +90,27 @@ function _dlGenerateAll(){
     dl.dd=_dlGenerateDD(dl.issueDate);
     dl.expiration=_dlCalculateExpiration(dl.dob,dl.issueDate);
     dl.inventoryNum=_dlGenerateInventory(dl.dlNumber,dl.issueDate);
+}
+
+function _dlGenerateCard(sex,ageMin,ageMax){
+    var card=_dlRandomPerson(sex,ageMin,ageMax);
+    var now=new Date();
+    var m=String(now.getMonth()+1).padStart(2,'0');
+    var d=String(now.getDate()).padStart(2,'0');
+    card.issueDate=m+'/'+d+'/'+now.getFullYear();
+    card.dlNumber=_dlGenerateNumber();
+    card.dd=_dlGenerateDD(card.issueDate);
+    card.expiration=_dlCalculateExpiration(card.dob,card.issueDate);
+    card.inventoryNum=_dlGenerateInventory(card.dlNumber,card.issueDate);
+    return card;
+}
+
+function _dlGenerateBatch(){
+    var dl=_dlEnsureState();
+    dl.batch=[];
+    var n=Math.max(1,Math.min(50,dl.batchCount||5));
+    for(var i=0;i<n;i++) dl.batch.push(_dlGenerateCard(dl.batchSex,dl.batchAgeMin,dl.batchAgeMax));
+    dl.selectedIdx=0;
 }
 
 function _dlRenderFront(dl){
@@ -108,8 +135,8 @@ function _dlRenderFront(dl){
           '<div class="dl-title-text">DRIVER LICENSE</div>'+
           '<div class="dl-bear">🐻</div>'+
         '</div>'+
-        // Photo area
-        '<div class="dl-photo-area">'+photoHTML+'</div>'+
+        // Photo area with DOB overlay
+        '<div class="dl-photo-area">'+photoHTML+'<div class="dl-photo-dob-overlay">'+_dlEsc(dobNum)+'</div></div>'+
         // Ghost photo
         '<div class="dl-ghost-area">'+ghostHTML+'</div>'+
         // Fields
@@ -197,11 +224,13 @@ function _renderDriverLicenseGenerator(){
     var ml={proxy:'Proxy',bin:'BIN',card:'Card',ip:'IP',auto:'Auto',glue:'Glue',generator:'Generator'};
     var mh='';for(var k in mi)mh+='<button class="ck-mode-btn '+(_CK.mode===k?'active':'')+'" data-mode="'+k+'"><span class="ck-mode-icon">'+mi[k]+'</span><span class="ck-mode-label">'+ml[k]+'</span></button>';
 
-    var hairOpts='';_DL_HAIR_COLORS.forEach(function(c){hairOpts+='<option value="'+c+'" '+(dl.hair===c?'selected':'')+'>'+c+'</option>';});
-    var eyeOpts='';_DL_EYE_COLORS.forEach(function(c){eyeOpts+='<option value="'+c+'" '+(dl.eyes===c?'selected':'')+'>'+c+'</option>';});
-    var classOpts='';_DL_CLASSES.forEach(function(c){classOpts+='<option value="'+c+'" '+(dl.dlClass===c?'selected':'')+'>'+c+'</option>';});
+    var sel=(dl.batch.length && dl.selectedIdx>=0 && dl.selectedIdx<dl.batch.length)?dl.batch[dl.selectedIdx]:dl;
 
-    var hasData=!!dl.dlNumber;
+    var hairOpts='';_DL_HAIR_COLORS.forEach(function(c){hairOpts+='<option value="'+c+'" '+(sel.hair===c?'selected':'')+'>'+c+'</option>';});
+    var eyeOpts='';_DL_EYE_COLORS.forEach(function(c){eyeOpts+='<option value="'+c+'" '+(sel.eyes===c?'selected':'')+'>'+c+'</option>';});
+    var classOpts='';_DL_CLASSES.forEach(function(c){classOpts+='<option value="'+c+'" '+(sel.dlClass===c?'selected':'')+'>'+c+'</option>';});
+
+    var hasData=!!sel.dlNumber;
 
     area.innerHTML=
     '<div class="ck-container">'+
@@ -212,35 +241,44 @@ function _renderDriverLicenseGenerator(){
             '<button class="ck-proto-btn '+(gen.type==='creditcard'?'active':'')+'" data-billtype="creditcard">💳 Credit Card</button>'+
             '<button class="ck-proto-btn '+(gen.type==='driverlicense'?'active':'')+'" data-billtype="driverlicense">🪪 Driver License</button>'+
         '</div>'+
-        // Form
+        // Batch controls
+        '<div class="dl-batch-bar">'+
+          '<div class="dl-batch-group"><span class="dl-batch-label">Count</span><input type="number" class="dl-batch-input" id="dl-batch-count" value="'+dl.batchCount+'" min="1" max="50"></div>'+
+          '<div class="dl-batch-group"><span class="dl-batch-label">Sex</span><select class="dl-batch-select" id="dl-batch-sex"><option value="random" '+(dl.batchSex==='random'?'selected':'')+'>Random</option><option value="m" '+(dl.batchSex==='m'?'selected':'')+'>Male</option><option value="f" '+(dl.batchSex==='f'?'selected':'')+'>Female</option></select></div>'+
+          '<div class="dl-batch-group"><span class="dl-batch-label">Age Min</span><input type="number" class="dl-batch-input" id="dl-batch-amin" value="'+dl.batchAgeMin+'" min="16" max="80"></div>'+
+          '<div class="dl-batch-group"><span class="dl-batch-label">Age Max</span><input type="number" class="dl-batch-input" id="dl-batch-amax" value="'+dl.batchAgeMax+'" min="16" max="80"></div>'+
+          '<button class="dl-batch-btn dl-batch-gen" id="dl-batch-gen-btn">🎲 GENERATE BATCH</button>'+
+          (dl.batch.length>1?'<button class="dl-batch-btn dl-batch-zip" id="dl-batch-zip-btn">📦 ZIP All ('+dl.batch.length+')</button>':'')+
+        '</div>'+
+        // Card list
+        (dl.batch.length?'<div class="dl-card-list" id="dl-card-list">'+_dlRenderCardList(dl)+'</div>':'')+
+        // Edit form for selected card
         '<div class="dl-form">'+
           '<div class="dl-form-row">'+
-            '<div class="dl-form-group"><label class="dl-form-label">First Name</label><input type="text" class="dl-form-input" id="dl-firstname" value="'+_dlEsc(dl.firstName)+'" placeholder="JOHN"></div>'+
-            '<div class="dl-form-group"><label class="dl-form-label">Last Name</label><input type="text" class="dl-form-input" id="dl-lastname" value="'+_dlEsc(dl.lastName)+'" placeholder="WICK"></div>'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">DOB</label><input type="text" class="dl-form-input" id="dl-dob" value="'+_dlEsc(dl.dob)+'" placeholder="MM/DD/YYYY"></div>'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">Sex</label><select class="dl-form-select" id="dl-sex"><option value="M" '+(dl.sex==='M'?'selected':'')+'>M</option><option value="F" '+(dl.sex==='F'?'selected':'')+'>F</option></select></div>'+
+            '<div class="dl-form-group"><label class="dl-form-label">First Name</label><input type="text" class="dl-form-input" id="dl-firstname" value="'+_dlEsc(sel.firstName)+'" placeholder="JOHN"></div>'+
+            '<div class="dl-form-group"><label class="dl-form-label">Last Name</label><input type="text" class="dl-form-input" id="dl-lastname" value="'+_dlEsc(sel.lastName)+'" placeholder="WICK"></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">DOB</label><input type="text" class="dl-form-input" id="dl-dob" value="'+_dlEsc(sel.dob)+'" placeholder="MM/DD/YYYY"></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">Sex</label><select class="dl-form-select" id="dl-sex"><option value="M" '+(sel.sex==='M'?'selected':'')+'>M</option><option value="F" '+(sel.sex==='F'?'selected':'')+'>F</option></select></div>'+
           '</div>'+
           '<div class="dl-form-row">'+
-            '<div class="dl-form-group" style="flex:2"><label class="dl-form-label">Street</label><input type="text" class="dl-form-input" id="dl-street" value="'+_dlEsc(dl.street)+'" placeholder="1624 CANYON ROAD"></div>'+
-            '<div class="dl-form-group"><label class="dl-form-label">City</label><input type="text" class="dl-form-input" id="dl-city" value="'+_dlEsc(dl.city)+'" placeholder="SPRING VALLEY"></div>'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">ZIP</label><input type="text" class="dl-form-input" id="dl-zip" value="'+_dlEsc(dl.zip)+'" placeholder="91977" maxlength="5"></div>'+
+            '<div class="dl-form-group" style="flex:2"><label class="dl-form-label">Street</label><input type="text" class="dl-form-input" id="dl-street" value="'+_dlEsc(sel.street)+'" placeholder="1624 CANYON ROAD"></div>'+
+            '<div class="dl-form-group"><label class="dl-form-label">City</label><input type="text" class="dl-form-input" id="dl-city" value="'+_dlEsc(sel.city)+'" placeholder="SPRING VALLEY"></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">ZIP</label><input type="text" class="dl-form-input" id="dl-zip" value="'+_dlEsc(sel.zip)+'" placeholder="91977" maxlength="5"></div>'+
           '</div>'+
           '<div class="dl-form-row">'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">Height</label><input type="text" class="dl-form-input" id="dl-height" value="'+_dlEsc(dl.height)+'" placeholder="5\'-10&quot;"></div>'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">Weight</label><input type="text" class="dl-form-input" id="dl-weight" value="'+_dlEsc(dl.weight)+'" placeholder="170"></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">Height</label><input type="text" class="dl-form-input" id="dl-height" value="'+_dlEsc(sel.height)+'" placeholder="5\'-10&quot;"></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">Weight</label><input type="text" class="dl-form-input" id="dl-weight" value="'+_dlEsc(sel.weight)+'" placeholder="170"></div>'+
             '<div class="dl-form-group-sm"><label class="dl-form-label">Hair</label><select class="dl-form-select" id="dl-hair">'+hairOpts+'</select></div>'+
             '<div class="dl-form-group-sm"><label class="dl-form-label">Eyes</label><select class="dl-form-select" id="dl-eyes">'+eyeOpts+'</select></div>'+
             '<div class="dl-form-group-sm"><label class="dl-form-label">Class</label><select class="dl-form-select" id="dl-class">'+classOpts+'</select></div>'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">Rstr</label><input type="text" class="dl-form-input" id="dl-rstr" value="'+_dlEsc(dl.restrictions)+'" placeholder="NONE"></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">Rstr</label><input type="text" class="dl-form-input" id="dl-rstr" value="'+_dlEsc(sel.restrictions)+'" placeholder="NONE"></div>'+
           '</div>'+
           '<div class="dl-form-row">'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">Photo</label><label class="dl-upload-btn '+(dl.photoData?'has-file':'')+'">📷 '+(dl.photoData?'✓ Photo':'Upload')+'<input type="file" id="dl-photo-input" accept=".png,.jpg,.jpeg,.webp" hidden></label></div>'+
-            '<div class="dl-form-group-sm"><label class="dl-form-label">Signature</label><label class="dl-upload-btn '+(dl.signatureData?'has-file':'')+'">✍️ '+(dl.signatureData?'✓ Sig':'Upload')+'<input type="file" id="dl-sig-input" accept=".png,.jpg,.jpeg,.webp,.svg" hidden></label></div>'+
-            (dl.photoData?'<div class="dl-form-group-sm" style="align-self:flex-end"><button class="dl-btn-sm" id="dl-remove-photo" style="color:#f87171">✕ Photo</button></div>':'')+
-            (dl.signatureData?'<div class="dl-form-group-sm" style="align-self:flex-end"><button class="dl-btn-sm" id="dl-remove-sig" style="color:#f87171">✕ Sig</button></div>':'')+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">Photo</label><label class="dl-upload-btn '+(sel.photoData?'has-file':'')+'">📷 '+(sel.photoData?'✓':'Up')+'<input type="file" id="dl-photo-input" accept=".png,.jpg,.jpeg,.webp" hidden></label></div>'+
+            '<div class="dl-form-group-sm"><label class="dl-form-label">Sig</label><label class="dl-upload-btn '+(sel.signatureData?'has-file':'')+'">✍️ '+(sel.signatureData?'✓':'Up')+'<input type="file" id="dl-sig-input" accept=".png,.jpg,.jpeg,.webp,.svg" hidden></label></div>'+
             '<div style="flex:1"></div>'+
             '<div class="dl-actions">'+
-              '<button class="dl-btn dl-btn-generate" id="dl-generate-btn">🪪 GENERATE</button>'+
+              '<button class="dl-btn dl-btn-generate" id="dl-apply-btn">✅ APPLY</button>'+
               (hasData?'<button class="dl-btn dl-btn-action" id="dl-dl-front">📥 Front</button><button class="dl-btn dl-btn-action" id="dl-dl-back">📥 Back</button><button class="dl-btn dl-btn-prompt" id="dl-gen-prompt">📝 Prompt</button>':'')+
             '</div>'+
           '</div>'+
@@ -248,9 +286,9 @@ function _renderDriverLicenseGenerator(){
         // Preview
         '<div class="dl-preview">'+
           (hasData?
-            '<div><div class="dl-card-label">FRONT</div>'+_dlRenderFront(dl)+'</div>'+
-            '<div><div class="dl-card-label">BACK</div>'+_dlRenderBack(dl)+'</div>'
-            :'<div style="color:#6b7280;text-align:center;padding:80px 20px;font-size:13px;width:100%">Fill in your data and click GENERATE</div>'
+            '<div><div class="dl-card-label">FRONT</div>'+_dlRenderFront(sel)+'</div>'+
+            '<div><div class="dl-card-label">BACK</div>'+_dlRenderBack(sel)+'</div>'
+            :'<div style="color:#6b7280;text-align:center;padding:80px 20px;font-size:13px;width:100%">Set parameters and click GENERATE BATCH</div>'
           )+
         '</div>'+
     '</div>';
@@ -258,58 +296,154 @@ function _renderDriverLicenseGenerator(){
     _dlBindEvents();
 }
 
+function _dlRenderCardList(dl){
+    var h='';
+    for(var i=0;i<dl.batch.length;i++){
+        var c=dl.batch[i];var a=i===dl.selectedIdx?'active':'';
+        h+='<div class="dl-card-row '+a+'" data-idx="'+i+'">'+
+          '<span class="dl-card-row-num">#'+(i+1)+'</span>'+
+          '<span class="dl-card-row-name">'+_dlEsc(c.firstName)+' '+_dlEsc(c.lastName)+'</span>'+
+          '<span class="dl-card-row-dl">'+_dlEsc(c.dlNumber)+'</span>'+
+          '<span class="dl-card-row-dob">'+_dlEsc(c.dob)+'</span>'+
+          '<span class="dl-card-row-sex">'+_dlEsc(c.sex)+'</span>'+
+          '<span class="dl-card-row-actions">'+
+            '<button class="dl-row-btn dl-row-btn-prompt" data-pidx="'+i+'" title="Copy Prompt">📋</button>'+
+            '<button class="dl-row-btn" data-fidx="'+i+'" title="Download Front">📥F</button>'+
+            '<button class="dl-row-btn" data-bidx="'+i+'" title="Download Back">📥B</button>'+
+          '</span></div>';
+    }
+    return h;
+}
+
+function _dlCopyPromptForCard(card){
+    var p=_dlBuildPrompt(card);
+    navigator.clipboard.writeText(p).then(function(){toast('Prompt copied!','success');}).catch(function(){
+        var ta=document.createElement('textarea');ta.value=p;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Prompt copied!','success');
+    });
+}
+
+function _dlDownloadCardPNG(card,side,cb){
+    var tmp=document.createElement('div');
+    tmp.style.cssText='position:absolute;left:-9999px;top:0;z-index:-1;background:#fff;overflow:visible;';
+    tmp.innerHTML=side==='front'?_dlRenderFront(card):_dlRenderBack(card);
+    document.body.appendChild(tmp);
+    var el=tmp.firstElementChild;
+    html2canvas(el,{scale:3,backgroundColor:'#ffffff',useCORS:true,allowTaint:true,logging:false}).then(function(c){
+        document.body.removeChild(tmp);
+        if(cb) cb(c);
+        else{var a=document.createElement('a');a.download='CA_DL_'+side+'_'+card.dlNumber+'.png';a.href=c.toDataURL('image/png');a.click();toast('Downloaded!','success');}
+    }).catch(function(e){try{document.body.removeChild(tmp);}catch(x){}console.error(e);if(!cb)toast('Export failed','error');});
+}
+
 function _dlBindEvents(){
     var area=document.getElementById('content-area');
     var gen=_CK.generator,dl=_dlEnsureState();
+    var sel=(dl.batch.length&&dl.selectedIdx>=0&&dl.selectedIdx<dl.batch.length)?dl.batch[dl.selectedIdx]:dl;
 
     area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
     area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_renderGenerator();});});
 
-    // Generate
+    // Batch generate
     var el;
-    el=document.getElementById('dl-generate-btn');if(el)el.addEventListener('click',function(){
-        dl.firstName=(document.getElementById('dl-firstname').value||'').toUpperCase();
-        dl.lastName=(document.getElementById('dl-lastname').value||'').toUpperCase();
-        dl.dob=document.getElementById('dl-dob').value||'';
-        dl.sex=document.getElementById('dl-sex').value||'M';
-        dl.street=(document.getElementById('dl-street').value||'').toUpperCase();
-        dl.city=(document.getElementById('dl-city').value||'').toUpperCase();
-        dl.zip=document.getElementById('dl-zip').value||'';
-        dl.height=document.getElementById('dl-height').value||'';
-        dl.weight=document.getElementById('dl-weight').value||'';
-        dl.hair=document.getElementById('dl-hair').value||'BLK';
-        dl.eyes=document.getElementById('dl-eyes').value||'BLK';
-        dl.dlClass=document.getElementById('dl-class').value||'C';
-        dl.restrictions=(document.getElementById('dl-rstr').value||'NONE').toUpperCase();
-        if(!dl.firstName||!dl.lastName){toast('Enter First and Last name','error');return;}
-        if(!dl.dob||dl.dob.split('/').length!==3){toast('Enter DOB as MM/DD/YYYY','error');return;}
-        _dlGenerateAll();
+    el=document.getElementById('dl-batch-gen-btn');if(el)el.addEventListener('click',function(){
+        dl.batchCount=parseInt(document.getElementById('dl-batch-count').value)||5;
+        dl.batchSex=document.getElementById('dl-batch-sex').value||'random';
+        dl.batchAgeMin=parseInt(document.getElementById('dl-batch-amin').value)||21;
+        dl.batchAgeMax=parseInt(document.getElementById('dl-batch-amax').value)||35;
+        if(dl.batchAgeMin>dl.batchAgeMax){var t=dl.batchAgeMin;dl.batchAgeMin=dl.batchAgeMax;dl.batchAgeMax=t;}
+        _dlGenerateBatch();
         _renderDriverLicenseGenerator();
-        toast('Driver License generated!','success');
+        toast(dl.batch.length+' licenses generated!','success');
     });
 
-    // Photo upload
+    // Card row click - select
+    area.querySelectorAll('.dl-card-row').forEach(function(r){
+        r.addEventListener('click',function(e){
+            if(e.target.closest('button'))return;
+            dl.selectedIdx=parseInt(r.dataset.idx);
+            _renderDriverLicenseGenerator();
+        });
+    });
+
+    // Per-card prompt buttons
+    area.querySelectorAll('[data-pidx]').forEach(function(b){b.addEventListener('click',function(e){
+        e.stopPropagation();var card=dl.batch[parseInt(b.dataset.pidx)];if(card)_dlCopyPromptForCard(card);
+    });});
+
+    // Per-card front download
+    area.querySelectorAll('[data-fidx]').forEach(function(b){b.addEventListener('click',function(e){
+        e.stopPropagation();var card=dl.batch[parseInt(b.dataset.fidx)];if(card)_dlDownloadCardPNG(card,'front');
+    });});
+
+    // Per-card back download
+    area.querySelectorAll('[data-bidx]').forEach(function(b){b.addEventListener('click',function(e){
+        e.stopPropagation();var card=dl.batch[parseInt(b.dataset.bidx)];if(card)_dlDownloadCardPNG(card,'back');
+    });});
+
+    // Apply edits to selected card
+    el=document.getElementById('dl-apply-btn');if(el)el.addEventListener('click',function(){
+        sel.firstName=(document.getElementById('dl-firstname').value||'').toUpperCase();
+        sel.lastName=(document.getElementById('dl-lastname').value||'').toUpperCase();
+        sel.dob=document.getElementById('dl-dob').value||'';
+        sel.sex=document.getElementById('dl-sex').value||'M';
+        sel.street=(document.getElementById('dl-street').value||'').toUpperCase();
+        sel.city=(document.getElementById('dl-city').value||'').toUpperCase();
+        sel.zip=document.getElementById('dl-zip').value||'';
+        sel.height=document.getElementById('dl-height').value||'';
+        sel.weight=document.getElementById('dl-weight').value||'';
+        sel.hair=document.getElementById('dl-hair').value||'BLK';
+        sel.eyes=document.getElementById('dl-eyes').value||'BLK';
+        sel.dlClass=document.getElementById('dl-class').value||'C';
+        sel.restrictions=(document.getElementById('dl-rstr').value||'NONE').toUpperCase();
+        if(!sel.dlNumber){
+            if(!sel.dob||sel.dob.split('/').length!==3){toast('Enter DOB as MM/DD/YYYY','error');return;}
+            var now=new Date();sel.issueDate=String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0')+'/'+now.getFullYear();
+            sel.dlNumber=_dlGenerateNumber();sel.dd=_dlGenerateDD(sel.issueDate);
+            sel.expiration=_dlCalculateExpiration(sel.dob,sel.issueDate);
+            sel.inventoryNum=_dlGenerateInventory(sel.dlNumber,sel.issueDate);
+        }
+        sel.expiration=_dlCalculateExpiration(sel.dob,sel.issueDate);
+        _renderDriverLicenseGenerator();
+        toast('Card updated!','success');
+    });
+
+    // Photo/sig upload
     el=document.getElementById('dl-photo-input');if(el)el.addEventListener('change',function(e){
         var f=e.target.files[0];if(!f)return;
-        var r=new FileReader();r.onload=function(ev){dl.photoData=ev.target.result;_renderDriverLicenseGenerator();toast('Photo uploaded!','success');};r.readAsDataURL(f);
+        var r=new FileReader();r.onload=function(ev){sel.photoData=ev.target.result;_renderDriverLicenseGenerator();toast('Photo uploaded!','success');};r.readAsDataURL(f);
     });
     el=document.getElementById('dl-sig-input');if(el)el.addEventListener('change',function(e){
         var f=e.target.files[0];if(!f)return;
-        var r=new FileReader();r.onload=function(ev){dl.signatureData=ev.target.result;_renderDriverLicenseGenerator();toast('Signature uploaded!','success');};r.readAsDataURL(f);
+        var r=new FileReader();r.onload=function(ev){sel.signatureData=ev.target.result;_renderDriverLicenseGenerator();toast('Sig uploaded!','success');};r.readAsDataURL(f);
     });
-    el=document.getElementById('dl-remove-photo');if(el)el.addEventListener('click',function(){dl.photoData=null;_renderDriverLicenseGenerator();});
-    el=document.getElementById('dl-remove-sig');if(el)el.addEventListener('click',function(){dl.signatureData=null;_renderDriverLicenseGenerator();});
 
-    // Downloads
-    el=document.getElementById('dl-dl-front');if(el)el.addEventListener('click',function(){_dlDownloadPNG('dl-front-card','CA_DL_Front_'+Date.now()+'.png');});
-    el=document.getElementById('dl-dl-back');if(el)el.addEventListener('click',function(){_dlDownloadPNG('dl-back-card','CA_DL_Back_'+Date.now()+'.png');});
+    // Preview downloads
+    el=document.getElementById('dl-dl-front');if(el)el.addEventListener('click',function(){_dlDownloadCardPNG(sel,'front');});
+    el=document.getElementById('dl-dl-back');if(el)el.addEventListener('click',function(){_dlDownloadCardPNG(sel,'back');});
+    el=document.getElementById('dl-gen-prompt');if(el)el.addEventListener('click',function(){_dlCopyPromptForCard(sel);});
 
-    // Prompt generator
-    el=document.getElementById('dl-gen-prompt');if(el)el.addEventListener('click',function(){
-        var prompt=_dlBuildPrompt(dl);
-        navigator.clipboard.writeText(prompt).then(function(){toast('Prompt copied to clipboard!','success');}).catch(function(){
-            var ta=document.createElement('textarea');ta.value=prompt;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Prompt copied!','success');
+    // ZIP all
+    el=document.getElementById('dl-batch-zip-btn');if(el)el.addEventListener('click',function(){
+        if(typeof JSZip==='undefined'){toast('JSZip not loaded','error');return;}
+        var zip=new JSZip();var done=0;var total=dl.batch.length*2;
+        toast('Generating ZIP... 0/'+total,'info');
+        dl.batch.forEach(function(card,i){
+            _dlDownloadCardPNG(card,'front',function(cf){
+                zip.file('DL_'+(i+1)+'_'+card.dlNumber+'_front.png',cf.toDataURL('image/png').split(',')[1],{base64:true});
+                done++;if(done===total)_dlFinalizeZip(zip);else toast('ZIP: '+done+'/'+total,'info');
+            });
+            _dlDownloadCardPNG(card,'back',function(cb){
+                zip.file('DL_'+(i+1)+'_'+card.dlNumber+'_back.png',cb.toDataURL('image/png').split(',')[1],{base64:true});
+                done++;if(done===total)_dlFinalizeZip(zip);else toast('ZIP: '+done+'/'+total,'info');
+            });
         });
+    });
+}
+
+function _dlFinalizeZip(zip){
+    zip.generateAsync({type:'blob'}).then(function(b){
+        var a=document.createElement('a');a.download='CA_DL_Batch_'+Date.now()+'.zip';a.href=URL.createObjectURL(b);a.click();
+        toast('ZIP downloaded!','success');
     });
 }
 
