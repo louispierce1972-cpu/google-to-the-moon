@@ -1770,22 +1770,63 @@ function _ckExtractCards(text) {
    ────────────────────────────────────────── */
 function _ckExtractBins(text) {
     const bins = new Set();
-    // From full card extractions
-    _ckExtractCards(text).forEach(c => bins.add(c.ccn.slice(0, 6)));
-    // Also raw scan for any card-like numbers
-    const rawRe = /\d[\d\s\-]{11,22}\d/g;
+
+    // ── Phase 1: Normalize input ──
+    // Replace common delimiters, tabs, multiple spaces with single space for scanning
+    // But keep newlines for context
+    const normalized = text
+        .replace(/\r\n/g, '\n')
+        .replace(/\t/g, ' ');
+
+    // ── Phase 2: Extract card numbers from ALL possible formats ──
+
+    // 2a) Cards with spaces/dashes inside: "4076 1300 0481 5409" or "4076-1300-0481-5409"
+    const spacedRe = /\b(\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{1,4})\b/g;
     let m;
-    while ((m = rawRe.exec(text)) !== null) {
-        const num = m[0].replace(/[\s\-]/g, '');
+    while ((m = spacedRe.exec(normalized)) !== null) {
+        const num = m[1].replace(/[\s\-]/g, '');
         if (num.length >= 13 && num.length <= 19) bins.add(num.slice(0, 6));
     }
-    // Standalone 13-19 digit numbers
-    const plainRe = /\b(\d{13,19})\b/g;
-    while ((m = plainRe.exec(text)) !== null) {
+
+    // 2b) Plain 13-19 digit numbers (no separators) — most common format
+    const plainRe = /(?<!\d)(\d{13,19})(?!\d)/g;
+    while ((m = plainRe.exec(normalized)) !== null) {
         bins.add(m[1].slice(0, 6));
     }
+
+    // 2c) Numbers with any separator pattern (spaces, dashes, dots) between digit groups
+    // Catches: "4076130004815409", "4076 130004815409", "40761300 0481 5409" etc.
+    const flexRe = /(?<!\d)(\d[\d\s\-\.]{11,25}\d)(?!\d)/g;
+    while ((m = flexRe.exec(normalized)) !== null) {
+        const num = m[1].replace(/[\s\-\.]/g, '');
+        if (num.length >= 13 && num.length <= 19 && /^\d+$/.test(num)) {
+            bins.add(num.slice(0, 6));
+        }
+    }
+
+    // 2d) Also extract from full card lines via _ckExtractCards for completeness
+    try {
+        _ckExtractCards(text).forEach(c => bins.add(c.ccn.slice(0, 6)));
+    } catch (e) { /* ignore errors */ }
+
+    // 2e) Scan for 6+ digit sequences that START like valid card BINs (3,4,5,6)
+    // This catches partial card numbers or BINs written standalone
+    const binOnlyRe = /(?<!\d)([3-6]\d{5,7})(?!\d)/g;
+    while ((m = binOnlyRe.exec(normalized)) !== null) {
+        const num = m[1];
+        // Only add if it looks like a real BIN (6 digits) and not already caught as full card
+        if (num.length >= 6) {
+            const bin6 = num.slice(0, 6);
+            // Verify it starts with valid card prefix
+            if (/^(3[0-9]|4[0-9]|5[0-5]|6[0-9])/.test(bin6)) {
+                bins.add(bin6);
+            }
+        }
+    }
+
     return [...bins].sort().map(b => `/bin ${b}`);
 }
+
 
 /* ──────────────────────────────────────────
    SMART IP EXTRACTOR (validated IPv4)
@@ -2735,6 +2776,8 @@ function _renderWaterBillHTML(d, font) {
 function _renderGenerator() {
     // Route to Credit Card generator
     if (_CK.generator.type === 'creditcard') { _renderCreditCardGenerator(); return; }
+    // Route to Driver License generator
+    if (_CK.generator.type === 'driverlicense') { _renderDriverLicenseGenerator(); return; }
 
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
@@ -2767,6 +2810,7 @@ function _renderGenerator() {
             <button class="ck-proto-btn ${gen.type === 'tepco' ? 'active' : ''}" data-billtype="tepco">⚡ TEPCO Electricity</button>
             <button class="ck-proto-btn ${gen.type === 'water' ? 'active' : ''}" data-billtype="water">💧 Water Bill</button>
             <button class="ck-proto-btn ${gen.type === 'creditcard' ? 'active' : ''}" data-billtype="creditcard">💳 Credit Card</button>
+            <button class="ck-proto-btn ${gen.type === 'driverlicense' ? 'active' : ''}" data-billtype="driverlicense">🪪 Driver License</button>
         </div>
 
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">

@@ -13430,3 +13430,101 @@ tr.row-selected td {
     font-size: 10px;
 }
 
+/* ═══════════════════════════════════════════
+   DRIVER LICENSE GENERATOR
+   ═══════════════════════════════════════════ */
+.dl-form{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px}
+.dl-form-row{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap}
+.dl-form-group{flex:1;min-width:100px}
+.dl-form-group-sm{flex:0 0 auto;min-width:70px}
+.dl-form-label{display:block;font-size:10px;color:var(--text-dim);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.dl-form-input{width:100%;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit}
+.dl-form-input:focus{border-color:rgba(129,140,248,.4)}
+.dl-form-select{width:100%;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit}
+.dl-upload-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#9ca3af;cursor:pointer;transition:all .15s}
+.dl-upload-btn:hover{background:rgba(255,255,255,.1);color:#e5e7eb}
+.dl-upload-btn.has-file{border-color:rgba(34,197,94,.4);color:#4ade80}
+.dl-btn-sm{background:none;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:4px 8px;font-size:11px;color:#9ca3af;cursor:pointer;font-family:inherit}
+.dl-btn-sm:hover{background:rgba(255,255,255,.06)}
+.dl-actions{display:flex;gap:4px;align-items:center}
+.dl-btn{padding:4px 14px;height:28px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s}
+.dl-btn-generate{background:#818cf8;color:#fff}
+.dl-btn-generate:hover{background:#6366f1}
+.dl-btn-action{background:rgba(255,255,255,.08);color:#d4d4d8;border:1px solid rgba(255,255,255,.1)}
+.dl-btn-action:hover{background:rgba(255,255,255,.14)}
+.dl-btn-prompt{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
+.dl-btn-prompt:hover{background:rgba(251,191,36,.25)}
+
+/* Card preview area */
+.dl-preview{margin-top:12px;overflow:auto;background:#b8bcc4;border-radius:8px;display:flex;justify-content:center;gap:30px;padding:24px;min-height:200px;flex-wrap:wrap}
+.dl-card-label{text-align:center;font-size:11px;font-weight:700;color:#555;margin-bottom:6px;letter-spacing:1px}
+
+/* DL Card - shared */
+.dl-card{width:540px;height:340px;border-radius:12px;overflow:hidden;position:relative;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:'Roboto Condensed','Inter','Arial Narrow',sans-serif}
+
+/* Front card */
+.dl-front-card{background:linear-gradient(135deg,#f5e6a8 0%,#e8d48b 15%,#d4c37a 25%,#c9b96f 35%,#8fb8d4 55%,#6da0c4 70%,#5590b8 85%,#4a85ad 100%)}
+.dl-bg-layer{position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="540" height="340"><text x="270" y="200" text-anchor="middle" font-size="180" opacity=".04" fill="%23000">★</text></svg>') center/cover no-repeat;pointer-events:none}
+.dl-content-front{position:relative;z-index:1;width:100%;height:100%;padding:10px 14px}
+
+/* Header */
+.dl-header{display:flex;align-items:flex-start;gap:6px;margin-bottom:2px}
+.dl-california{font-family:'Brush Script MT','Segoe Script','Comic Sans MS',cursive;font-size:38px;font-weight:700;color:#8b6914;text-shadow:1px 1px 0 rgba(255,255,255,.3);line-height:1;flex-shrink:0}
+.dl-usa-label{font-size:9px;font-weight:800;color:#333;letter-spacing:2px;margin-top:6px}
+.dl-title-text{font-size:14px;font-weight:800;color:#1a1a4a;letter-spacing:3px;margin-top:4px;margin-left:auto}
+.dl-bear{font-size:28px;margin-top:-2px;filter:saturate(.8)}
+
+/* Photo */
+.dl-photo-area{position:absolute;left:14px;top:60px;width:105px;height:132px;border:2px solid rgba(0,0,0,.15);border-radius:3px;overflow:hidden;background:#ccc;box-shadow:2px 2px 8px rgba(0,0,0,.2)}
+.dl-ghost-area{position:absolute;right:90px;top:80px;width:60px;height:75px;overflow:hidden;opacity:.15;border-radius:2px}
+
+/* Fields */
+.dl-field{position:absolute;line-height:1.2}
+.dl-label{font-size:8px;font-weight:700;color:#333;letter-spacing:.5px}
+.dl-val{font-size:12px;font-weight:700;color:#1a1a4a}
+.dl-val-red{font-size:14px;font-weight:800;color:#c62828}
+.dl-val-name{font-size:15px;font-weight:800;color:#1a1a4a}
+.dl-val-sm{font-size:11px;font-weight:600;color:#1a1a4a}
+.dl-val-dob-num{font-size:11px;font-weight:600;color:#555;letter-spacing:1px}
+
+/* Field positions */
+.dl-f-dlnum{top:58px;left:130px}
+.dl-f-exp{top:76px;left:130px}
+.dl-f-class{top:58px;left:290px}
+.dl-f-end{top:76px;left:290px}
+.dl-f-ln{top:98px;left:130px}
+.dl-f-fn{top:118px;left:130px}
+.dl-f-addr{top:140px;left:130px}
+.dl-f-dob{top:178px;left:130px}
+.dl-f-rstr{top:200px;left:130px}
+.dl-f-dobnum{top:178px;right:100px}
+.dl-f-dd{bottom:28px;left:130px}
+.dl-f-iss{bottom:28px;right:90px}
+
+/* Bottom row */
+.dl-bottom-row{position:absolute;bottom:48px;left:130px;display:flex;gap:12px;align-items:baseline}
+.dl-bottom-item{display:flex;flex-direction:column;align-items:center;gap:1px}
+
+/* Signature */
+.dl-signature-area{position:absolute;bottom:10px;left:14px;width:110px;height:35px;display:flex;align-items:center;justify-content:center}
+
+/* Back card */
+.dl-back-card{background:linear-gradient(135deg,#e8e0d0 0%,#d8d0c0 50%,#c8c0b0 100%)}
+.dl-back-content{position:relative;width:100%;height:100%;padding:14px}
+.dl-back-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.dl-back-class-info{font-size:10px;color:#333;line-height:1.6;max-width:300px}
+.dl-back-barcode1d{display:flex;gap:0;align-items:flex-start;height:36px}
+.dl-back-middle{display:flex;gap:16px;align-items:flex-start;margin-top:8px}
+.dl-back-2dbarcode{flex-shrink:0}
+.dl-back-right-info{flex:1;font-size:9px;color:#333;line-height:1.5}
+.dl-back-disclaimer{font-size:8px;color:#555;line-height:1.4;margin-bottom:8px;max-width:200px}
+.dl-back-rev{font-size:10px;font-weight:700;color:#333;margin-bottom:4px}
+.dl-back-inv{font-size:9px;color:#c62828;font-weight:700;margin-bottom:8px;letter-spacing:.5px}
+.dl-back-sig{margin-top:4px}
+
+/* PDF417 barcode grid */
+.dl-bc-row{display:flex;gap:0}
+.dl-bc-cell{width:6px;height:4px}
+.dl-bc-black{background:#111}
+.dl-bc-white{background:#eee}
+
