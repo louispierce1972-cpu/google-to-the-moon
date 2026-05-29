@@ -329,21 +329,29 @@ function _dlDownloadPNG(id,fn){
 }
 
 function _dlBuildPrompt(dl){
-    return 'Photorealistic California Driver License, front side, exact official CA DMV design.\n'+
-        'Golden "California" script header at top left, "USA" in small caps, "DRIVER LICENSE" title.\n'+
-        'California golden bear emblem top right.\n'+
-        'Class: '+dl.dlClass+', Endorsements: NONE, Restrictions: '+dl.restrictions+'.\n'+
-        'DL Number: '+dl.dlNumber+' (red text), EXP: '+dl.expiration+' (red text).\n'+
-        'Name: LN '+dl.lastName+', FN '+dl.firstName+'.\n'+
-        'Address: '+dl.street+', '+dl.city+', '+dl.state+' '+dl.zip+'.\n'+
-        'DOB: '+dl.dob+' (red text).\n'+
-        'Sex: '+dl.sex+', HGT: '+dl.height+', Hair: '+dl.hair+', WGT: '+dl.weight+' lb, Eyes: '+dl.eyes+'.\n'+
-        'DD: '+dl.dd+', ISS: '+dl.issueDate+'.\n'+
-        'Left side: portrait photo with blue-tinted background, shadow falling on card.\n'+
-        'Small ghost image of the portrait overlaid semi-transparent on the right.\n'+
-        'Bottom left: cursive signature.\n'+
-        'Background: California golden-hour gradient, subtle mountain silhouette,\n'+
-        'holographic overlay patterns, fine-line guilloche security patterns,\n'+
-        'state seal watermark. Professional government document quality.\n'+
-        'High resolution, sharp text, authentic DMV formatting.';
+    var dobNum=_dlFormatDOBNum(dl.dob);
+    return 'Using the provided reference image as the exact base template, replace ONLY the text fields with the following new data. Keep everything else identical — same layout, same background, same holographic overlays, same textures, same fonts, same colors, same positioning, same security patterns, same photo style.\n\n'+
+        'REPLACE THESE FIELDS ONLY:\n'+
+        'DL: '+dl.dlNumber+'\n'+
+        'EXP: '+dl.expiration+'\n'+
+        'LN: '+dl.lastName+'\n'+
+        'FN: '+dl.firstName+'\n'+
+        'Address line 1: '+dl.street+'\n'+
+        'Address line 2: '+dl.city+', '+dl.state+' '+dl.zip+'\n'+
+        'DOB: '+dl.dob+'\n'+
+        'RSTR: '+dl.restrictions+'\n'+
+        'DOB number (right side): '+dobNum+'\n'+
+        'SEX: '+dl.sex+' | HAIR: '+dl.hair+' | EYES: '+dl.eyes+'\n'+
+        'HGT: '+dl.height+' | WGT: '+dl.weight+' lb\n'+
+        'DD: '+dl.dd+'\n'+
+        'ISS: '+dl.issueDate+'\n'+
+        'CLASS: '+dl.dlClass+' | END: NONE\n\n'+
+        'CRITICAL RULES:\n'+
+        '- The reference image is the ground truth for design, do NOT alter the visual style\n'+
+        '- Keep the exact same photo, signature, ghost image from the reference\n'+
+        '- Preserve all holographic elements, state seal, bear emblem, background gradient\n'+
+        '- Red text fields (DL number, EXP, DOB) must stay red, same font weight\n'+
+        '- Black text fields must stay black, same font and size as reference\n'+
+        '- Do not move, resize, or reposition any element\n'+
+        '- Output must be indistinguishable from the reference except for the changed text values';
 }
