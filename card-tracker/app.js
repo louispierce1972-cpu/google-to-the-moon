@@ -1623,7 +1623,7 @@ const _CK = {
         usedBaseFileName: '',    // name of loaded JSON file
         usedBaseCount: 0,        // how many cards in the base
         dedupeEnabled: true,     // whether to remove cards found in usedBase
-        dedupeStats: { total: 0, removed: 0, clean: 0 },
+        dedupeStats: { total: 0, removed: 0, clean: 0, dupes: 0 },
     },
     // GENERATOR state
     generator: {
@@ -2193,7 +2193,7 @@ function _ccGlueReset() {
         usedBaseFileName: _CK.ccGlue?.usedBaseFileName || '',
         usedBaseCount: _CK.ccGlue?.usedBaseCount || 0,
         dedupeEnabled: true,
-        dedupeStats: { total: 0, removed: 0, clean: 0 },
+        dedupeStats: { total: 0, removed: 0, clean: 0, dupes: 0 },
     };
 }
 
@@ -2236,20 +2236,26 @@ function _ccGlueParseJSON(data) {
     return [...ccSet];
 }
 
-/* Parse pasted card list, dedupe against usedBase */
+/* Parse pasted card list, dedupe against usedBase + remove duplicates */
 function _ccGlueParseCards(text) {
     const cards = _ckExtractCards(text); // reuse existing extractor
     const g = _CK.ccGlue;
     const baseSet = new Set(g.usedBase.map(n => n.replace(/[\s\-]/g, '')));
     const total = cards.length;
     let removed = 0;
+    let dupes = 0;
+    const seen = new Set();
     const clean = [];
     cards.forEach(c => {
         const num = c.ccn.replace(/[\s\-]/g, '');
+        // Skip duplicates
+        if (seen.has(num)) { dupes++; return; }
+        seen.add(num);
+        // Skip if in used base
         if (g.dedupeEnabled && baseSet.has(num)) { removed++; return; }
         clean.push(c);
     });
-    g.dedupeStats = { total, removed, clean: clean.length };
+    g.dedupeStats = { total, removed, clean: clean.length, dupes };
     return clean;
 }
 
@@ -2290,6 +2296,42 @@ function _ccGlueGenerate() {
     g.currentBatch = batch;
     g.generatedBatches.push([...batch]);
     return batch;
+}
+
+/* Subtract loaded JSON base from current bin pools — mini-parser */
+function _ccGlueSubtractBase() {
+    const g = _CK.ccGlue;
+    if (g.usedBase.length === 0) return { found: 0, before: 0 };
+    const baseSet = new Set(g.usedBase.map(n => n.replace(/[\s\-]/g, '')));
+    let found = 0;
+    let before = 0;
+    for (const bin of Object.keys(g.binGroups)) {
+        const pool = g.binGroups[bin];
+        before += pool.length;
+        const cleaned = pool.filter(c => {
+            const num = c.ccn.replace(/[\s\-]/g, '');
+            if (baseSet.has(num)) { found++; return false; }
+            return true;
+        });
+        g.binGroups[bin] = cleaned;
+    }
+    // Also dedupe within pools
+    for (const bin of Object.keys(g.binGroups)) {
+        const seen = new Set();
+        g.binGroups[bin] = g.binGroups[bin].filter(c => {
+            const num = c.ccn.replace(/[\s\-]/g, '');
+            if (seen.has(num)) return false;
+            seen.add(num);
+            return true;
+        });
+    }
+    // Remove empty bins from selection
+    for (const bin of [...g.selectedBins]) {
+        if (!g.binGroups[bin] || g.binGroups[bin].length === 0) {
+            g.selectedBins.delete(bin);
+        }
+    }
+    return { found, before };
 }
 
 /* Format batch for output */
@@ -2366,7 +2408,7 @@ function _renderCCGlueStep1() {
                     </label>
                 </div>
             </div>
-            ${ds.removed > 0 ? `<div class="ccg-dedupe-alert">⚠ Found <b>${ds.removed}</b> cards from used base — removed. Clean: <b>${ds.clean}</b> of ${ds.total}</div>` : ''}
+            ${(ds.removed > 0 || ds.dupes > 0) ? `<div class="ccg-dedupe-alert">⚠ ${ds.removed > 0 ? `<b>${ds.removed}</b> in base — removed. ` : ''}${ds.dupes > 0 ? `<b>${ds.dupes}</b> duplicates removed. ` : ''}Clean: <b>${ds.clean}</b> of ${ds.total}</div>` : ''}
             <div class="ck-panel">
                 <div class="ck-panel-header">
                     <span class="ck-panel-title">💳 PASTE CARDS</span>
@@ -2401,7 +2443,22 @@ function _renderCCGlueStep2() {
 
     return `
         <div class="glue-workspace">
-            ${baseCount > 0 ? `<div class="ccg-dedupe-alert" style="background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.2);color:#6ee7b7">📂 JSON Base: <b>${baseCount}</b> cards (${g.usedBaseFileName}) · ${g.dedupeStats.removed > 0 ? `<span style="color:#fbbf24">⚠ ${g.dedupeStats.removed} removed</span>` : '✓ clean'}</div>` : ''}
+            <div class="ccg-base-bar">
+                <div class="ccg-base-info">
+                    <span class="ccg-base-icon">📂</span>
+                    <span class="ccg-base-label">JSON Base:</span>
+                    <span class="ccg-base-count ${baseCount > 0 ? 'ccg-base-loaded' : ''}">${baseCount > 0 ? `${baseCount} cards (${g.usedBaseFileName})` : 'Not loaded'}</span>
+                    ${g.lastSubtract ? `<span style="color:#fbbf24;font-size:10px;margin-left:8px">⚠ ${g.lastSubtract.found} found & removed</span>` : ''}
+                </div>
+                <div class="ccg-base-actions">
+                    <label class="ck-action-btn ck-btn-copy" style="cursor:pointer">
+                        📁 Load JSON
+                        <input type="file" id="ccg-load-json-2" accept=".json" hidden>
+                    </label>
+                    ${baseCount > 0 ? `<button class="ck-action-btn" id="ccg-subtract" style="color:#fbbf24;border-color:rgba(251,191,36,.3)">🔍 Subtract</button>` : ''}
+                    ${baseCount > 0 ? '<button class="ck-action-btn ck-btn-danger" id="ccg-clear-base-2">✕</button>' : ''}
+                </div>
+            </div>
             <div class="glue-info-bar">
                 <span class="glue-info-icon">💳</span>
                 <span>${totalRemaining} cards left · ${bins.length} BINs</span>
@@ -2576,6 +2633,41 @@ function _bindCCGlueEvents() {
         });
         document.getElementById('ccg-back-2')?.addEventListener('click', () => { g.step = 1; _renderCCGlue(); });
         document.getElementById('ccg-reset-all')?.addEventListener('click', () => { _ccGlueReset(); _renderCCGlue(); toast('Session reset', 'info'); });
+        // Mini-parser: Load JSON base on Step 2
+        document.getElementById('ccg-load-json-2')?.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    const cards = _ccGlueParseJSON(data);
+                    g.usedBase = cards;
+                    g.usedBaseFileName = file.name;
+                    g.usedBaseCount = cards.length;
+                    g.lastSubtract = null;
+                    _ccGlueSaveBase();
+                    toast(`Loaded ${cards.length} cards from ${file.name}`, 'success');
+                    _renderCCGlue();
+                } catch (err) { toast(`Invalid JSON: ${err.message}`, 'error'); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+        // Mini-parser: Subtract base from pools
+        document.getElementById('ccg-subtract')?.addEventListener('click', () => {
+            const result = _ccGlueSubtractBase();
+            g.lastSubtract = result;
+            toast(`Found ${result.found} cards in base — removed. ${result.before - result.found} remain`, result.found > 0 ? 'success' : 'info');
+            _renderCCGlue();
+        });
+        // Mini-parser: Clear base
+        document.getElementById('ccg-clear-base-2')?.addEventListener('click', () => {
+            g.usedBase = []; g.usedBaseFileName = ''; g.usedBaseCount = 0; g.lastSubtract = null;
+            _ccGlueSaveBase();
+            toast('Base cleared', 'info');
+            _renderCCGlue();
+        });
         // Generate + export (on same screen)
         document.getElementById('ccg-generate')?.addEventListener('click', () => {
             _ccGlueGenerate();
