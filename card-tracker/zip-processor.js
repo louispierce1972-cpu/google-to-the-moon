@@ -312,11 +312,13 @@ function _zipLoadFile(file){
             _ZIP_STATE._modal=null;
 
             var folderSet={};
+            var folderOrder=[];
             zip.forEach(function(path,entry){
                 var parts=path.split('/');
                 if(parts.length>=2 && parts[0]){
                     if(!folderSet[parts[0]]){
                         folderSet[parts[0]]={origName:parts[0],newName:parts[0],files:[],txtContent:''};
+                        folderOrder.push(parts[0]);
                     }
                     if(!entry.dir && parts.length>=2){
                         folderSet[parts[0]].files.push(path);
@@ -324,8 +326,9 @@ function _zipLoadFile(file){
                 }
             });
 
-            var folderNames=Object.keys(folderSet).sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});});
-            folderNames.forEach(function(n){_ZIP_STATE.folders.push(folderSet[n]);});
+            // Sort naturally: 1, 2, 3, ..., 10, 11 (not 1, 10, 11, 2, 3...)
+            folderOrder.sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});});
+            folderOrder.forEach(function(n){_ZIP_STATE.folders.push(folderSet[n]);});
             _renderZipProcessor();
             toast(_ZIP_STATE.folders.length+' folders loaded ✓','success');
         }).catch(function(err){
