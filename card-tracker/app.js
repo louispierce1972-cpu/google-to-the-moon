@@ -4699,6 +4699,24 @@ function _buildLineNumsHTML(count, pinnedLines) {
     return html;
 }
 
+// Shift pinned line numbers when lines are added/removed at a given position
+function _shiftPinnedLines(tab, editLine, delta) {
+    if (!tab || !tab.pinnedLines || !tab.pinnedLines.length || delta === 0) return;
+    const newPinned = [];
+    for (const pin of tab.pinnedLines) {
+        if (pin < editLine) {
+            // Lines before the edit point — don't move
+            newPinned.push(pin);
+        } else {
+            // Lines at or after the edit point — shift by delta
+            const shifted = pin + delta;
+            if (shifted >= 1) newPinned.push(shifted);
+            // If shifted < 1, the line was deleted — remove the pin
+        }
+    }
+    tab.pinnedLines = newPinned;
+}
+
 function _rebuildLineNums(textarea) {
     const nums = (textarea.value || '').split('\n').length;
     const tab = _getActiveNoteTab();
@@ -4798,7 +4816,28 @@ function renderNotes() {
 
     const textarea = document.getElementById('notes-textarea');
     let _notesSaveTimer = null;
+    // Track line count & cursor line BEFORE each edit to shift pins correctly
+    let _prevLineCount = (textarea.value || '').split('\n').length;
+    let _prevCursorLine = 1;
+    // Capture state before ANY input change (keypress, paste, cut, undo/redo)
+    textarea.addEventListener('beforeinput', () => {
+        _prevLineCount = (textarea.value || '').split('\n').length;
+        // Determine which line the cursor is on (1-indexed)
+        const textBefore = textarea.value.substring(0, textarea.selectionStart);
+        _prevCursorLine = textBefore.split('\n').length;
+    });
     textarea.addEventListener('input', () => {
+        const newLineCount = (textarea.value || '').split('\n').length;
+        const delta = newLineCount - _prevLineCount;
+        if (delta !== 0) {
+            const tab = _getActiveNoteTab();
+            // editLine: the line AFTER the cursor — that's where content shifts
+            // If Enter pressed on line 3, lines 4+ shift down by 1
+            // If Backspace merges line 4 into 3, lines 4+ shift up by 1
+            const editLine = _prevCursorLine + (delta > 0 ? 1 : 0);
+            _shiftPinnedLines(tab, editLine, delta);
+        }
+        _prevLineCount = newLineCount;
         _rebuildLineNums(textarea);
         const si = document.querySelector('.notes-saved-info');
         if (si) si.textContent = 'Editing...';
