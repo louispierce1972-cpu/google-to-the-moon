@@ -1584,7 +1584,7 @@ function _anShowDetail(bin, data, prevData) {
 // ═══════════════════════════════════════════
 
 const _CK = {
-    mode: 'proxy',        // proxy | bin | card | ip | auto | glue | generator
+    mode: 'proxy',        // proxy | bin | card | ip | auto | glue | cc-glue | generator
     proxyProto: 'socks5', // socks5 | http | https
     tabs: {
         proxy: { input: '', output: '' },
@@ -1593,6 +1593,7 @@ const _CK = {
         ip:    { input: '', output: '' },
         auto:  { input: '', output: '' },
         glue:  { input: '', output: '' },
+        'cc-glue': { input: '', output: '' },
         generator: { input: '', output: '' },
     },
     // GLUE multi-step state
@@ -1606,6 +1607,23 @@ const _CK = {
         remainingCards: [],
         remainingIdentities: [],
         format: 'numbered',    // numbered | plain | compact
+    },
+    // CC-GLUE state (card splitting by BIN)
+    ccGlue: {
+        step: 1,                // 1=paste cards, 2=BIN overview, 3=generate
+        cardsRaw: '',
+        parsedCards: [],         // [{ccn, mm, yy, cvv, bin, network}]
+        binGroups: {},           // { binPrefix: [card, card, ...] }
+        selectedBins: new Set(), // which bins are selected for generation
+        batchSize: 5,            // how many cards per batch
+        batchIndex: {},          // { binPrefix: currentIndex } — round-robin tracker
+        generatedBatches: [],    // history of generated batches
+        currentBatch: [],        // latest generated batch
+        usedBase: [],            // array of CC numbers from JSON base (previously used)
+        usedBaseFileName: '',    // name of loaded JSON file
+        usedBaseCount: 0,        // how many cards in the base
+        dedupeEnabled: true,     // whether to remove cards found in usedBase
+        dedupeStats: { total: 0, removed: 0, clean: 0 },
     },
     // GENERATOR state
     generator: {
@@ -2161,6 +2179,454 @@ function _ckFormatAllRecords() {
 function _ckGlueReset() {
     _CK.glue = { step: 1, cardsRaw: '', identityRaw: '', parsedCards: [], parsedIdentities: [], records: [], remainingCards: [], remainingIdentities: [], format: 'numbered' };
 }
+
+/* ══════════════════════════════════════════════════
+   CC-GLUE — Split cards by BIN & generate mixed lists
+   ══════════════════════════════════════════════════ */
+
+function _ccGlueReset() {
+    _CK.ccGlue = {
+        step: 1, cardsRaw: '', parsedCards: [], binGroups: {},
+        selectedBins: new Set(), batchSize: 5, batchIndex: {},
+        generatedBatches: [], currentBatch: [],
+        usedBase: _CK.ccGlue?.usedBase || [],
+        usedBaseFileName: _CK.ccGlue?.usedBaseFileName || '',
+        usedBaseCount: _CK.ccGlue?.usedBaseCount || 0,
+        dedupeEnabled: true,
+        dedupeStats: { total: 0, removed: 0, clean: 0 },
+    };
+}
+
+/* Load used-base from localStorage on init */
+function _ccGlueLoadBase() {
+    try {
+        const raw = localStorage.getItem('ct_ccglue_base');
+        if (raw) {
+            const d = JSON.parse(raw);
+            _CK.ccGlue.usedBase = d.cards || [];
+            _CK.ccGlue.usedBaseFileName = d.fileName || '';
+            _CK.ccGlue.usedBaseCount = _CK.ccGlue.usedBase.length;
+        }
+    } catch { /* ignore */ }
+}
+
+function _ccGlueSaveBase() {
+    try {
+        localStorage.setItem('ct_ccglue_base', JSON.stringify({
+            cards: _CK.ccGlue.usedBase,
+            fileName: _CK.ccGlue.usedBaseFileName,
+        }));
+    } catch { /* quota */ }
+}
+
+/* Parse JSON from Telegram export — extract all CC numbers */
+function _ccGlueParseJSON(data) {
+    const messages = Array.isArray(data) ? data : (data.messages || []);
+    const ccSet = new Set();
+    messages.forEach(msg => {
+        if (!msg) return;
+        let text = '';
+        if (typeof msg.text === 'string') text = msg.text;
+        else if (Array.isArray(msg.text)) text = msg.text.map(t => typeof t === 'string' ? t : (t.text || '')).join('');
+        else if (typeof msg === 'string') text = msg;
+        // Extract all 13-19 digit numbers
+        const matches = text.match(/\b\d{13,19}\b/g);
+        if (matches) matches.forEach(n => ccSet.add(n));
+    });
+    return [...ccSet];
+}
+
+/* Parse pasted card list, dedupe against usedBase */
+function _ccGlueParseCards(text) {
+    const cards = _ckExtractCards(text); // reuse existing extractor
+    const g = _CK.ccGlue;
+    const baseSet = new Set(g.usedBase.map(n => n.replace(/[\s\-]/g, '')));
+    const total = cards.length;
+    let removed = 0;
+    const clean = [];
+    cards.forEach(c => {
+        const num = c.ccn.replace(/[\s\-]/g, '');
+        if (g.dedupeEnabled && baseSet.has(num)) { removed++; return; }
+        clean.push(c);
+    });
+    g.dedupeStats = { total, removed, clean: clean.length };
+    return clean;
+}
+
+/* Group cards by BIN (first 6 digits) */
+function _ccGlueGroupByBin(cards) {
+    const groups = {};
+    cards.forEach(c => {
+        const bin = c.ccn.replace(/[\s\-]/g, '').slice(0, 6);
+        if (!groups[bin]) groups[bin] = [];
+        groups[bin].push(c);
+    });
+    return groups;
+}
+
+/* Generate a batch using round-robin across selected bins */
+function _ccGlueGenerate() {
+    const g = _CK.ccGlue;
+    const bins = [...g.selectedBins].filter(b => g.binGroups[b] && g.binGroups[b].length > 0);
+    if (bins.length === 0) return [];
+    const batch = [];
+    const size = Math.min(g.batchSize, 100);
+    let robin = 0;
+    for (let i = 0; i < size; i++) {
+        const bin = bins[robin % bins.length];
+        const pool = g.binGroups[bin];
+        const idx = (g.batchIndex[bin] || 0) % pool.length;
+        batch.push({ ...pool[idx], _bin: bin });
+        g.batchIndex[bin] = idx + 1;
+        robin++;
+    }
+    g.currentBatch = batch;
+    g.generatedBatches.push([...batch]);
+    return batch;
+}
+
+/* Format batch for output */
+function _ccGlueFormatBatch(batch) {
+    return batch.map(c => `${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`).join('\n');
+}
+
+/* ── CC-GLUE Render ── */
+function _renderCCGlue() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.style.display = 'none'; bar.innerHTML = '';
+    const g = _CK.ccGlue;
+
+    const stepLabels = ['', '1 · PASTE CARDS', '2 · BIN OVERVIEW', '3 · GENERATE'];
+    const stepIcons = ['', '💳', '📊', '🃏'];
+    const modeIcons = { proxy:'🌐', bin:'🔢', card:'💳', ip:'📡', auto:'🔍', glue:'🔗', 'cc-glue':'🃏', generator:'📄' };
+    const modeLabels = { proxy:'Proxy', bin:'BIN', card:'Card', ip:'IP', auto:'Auto', glue:'Glue', 'cc-glue':'CC Glue', generator:'Generator' };
+
+    area.innerHTML = `
+    <div class="ck-container">
+        <div class="ck-header">
+            <div class="ck-title">
+                <span class="ck-icon">🃏</span>
+                <span>CC GLUE</span>
+                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Склейка по BIN</span>
+            </div>
+            <div class="ck-modes">
+                ${Object.keys(modeIcons).map(m => `
+                    <button class="ck-mode-btn ${_CK.mode === m ? 'active' : ''}" data-mode="${m}">
+                        <span class="ck-mode-icon">${modeIcons[m]}</span>
+                        <span class="ck-mode-label">${modeLabels[m]}</span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+        <div class="glue-steps">
+            ${[1,2,3].map(s => `
+                <div class="glue-step ${g.step === s ? 'active' : ''} ${g.step > s ? 'done' : ''}" data-step="${s}">
+                    <span class="glue-step-num">${g.step > s ? '✓' : s}</span>
+                    <span class="glue-step-label">${stepLabels[s]}</span>
+                </div>
+                ${s < 3 ? '<div class="glue-step-line' + (g.step > s ? ' done' : '') + '"></div>' : ''}
+            `).join('')}
+        </div>
+        ${g.step === 1 ? _renderCCGlueStep1() : ''}
+        ${g.step === 2 ? _renderCCGlueStep2() : ''}
+        ${g.step === 3 ? _renderCCGlueStep3() : ''}
+    </div>`;
+    _bindCCGlueEvents();
+}
+
+function _renderCCGlueStep1() {
+    const g = _CK.ccGlue;
+    const count = g.parsedCards.length;
+    const ds = g.dedupeStats;
+    return `
+        <div class="glue-workspace">
+            <div class="ccg-base-bar">
+                <div class="ccg-base-info">
+                    <span class="ccg-base-icon">📂</span>
+                    <span class="ccg-base-label">Used Base:</span>
+                    <span class="ccg-base-count ${g.usedBaseCount > 0 ? 'ccg-base-loaded' : ''}">${g.usedBaseCount > 0 ? `${g.usedBaseCount} cards (${g.usedBaseFileName})` : 'Not loaded'}</span>
+                </div>
+                <div class="ccg-base-actions">
+                    <label class="ck-action-btn ck-btn-copy" style="cursor:pointer">
+                        📁 Load JSON
+                        <input type="file" id="ccg-load-json" accept=".json" hidden>
+                    </label>
+                    ${g.usedBaseCount > 0 ? '<button class="ck-action-btn ck-btn-danger" id="ccg-clear-base">✕ Clear</button>' : ''}
+                    <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:#94a3b8;cursor:pointer">
+                        <input type="checkbox" id="ccg-dedupe-toggle" ${g.dedupeEnabled ? 'checked' : ''} style="accent-color:#818cf8">
+                        Dedupe
+                    </label>
+                </div>
+            </div>
+            ${ds.removed > 0 ? `<div class="ccg-dedupe-alert">⚠ Found <b>${ds.removed}</b> cards from used base — removed. Clean: <b>${ds.clean}</b> of ${ds.total}</div>` : ''}
+            <div class="ck-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">💳 PASTE CARDS</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${count > 0 ? 'ck-count-active' : ''}">${count} cards found</span>
+                        <button class="ck-action-btn" id="ccg-paste-1">📋 Paste</button>
+                        <button class="ck-action-btn ck-btn-danger" id="ccg-clear-1">✕</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea" id="ccg-input-1" placeholder="Paste cards in ANY format:\n\n4242424242424242|03|27|111\n5326102343559988|05|28|222\n2712850012345678 09 27 333\n\nAll formats supported • Duplicates removed\nCards from Used Base will be excluded">${g.cardsRaw}</textarea>
+            </div>
+            <div class="glue-bottom-bar">
+                <button class="glue-btn-secondary" id="ccg-reset">↺ Reset</button>
+                <div class="glue-spacer"></div>
+                <button class="glue-btn-primary" id="ccg-next-1" ${!count ? 'disabled' : ''}>
+                    Split by BIN →
+                    ${count > 0 ? `<span class="glue-badge">${count}</span>` : ''}
+                </button>
+            </div>
+        </div>`;
+}
+
+function _renderCCGlueStep2() {
+    const g = _CK.ccGlue;
+    const bins = Object.keys(g.binGroups).sort((a,b) => g.binGroups[b].length - g.binGroups[a].length);
+    const totalCards = g.parsedCards.length;
+    const selectedCount = g.selectedBins.size;
+    const selectedCards = [...g.selectedBins].reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
+
+    return `
+        <div class="glue-workspace">
+            <div class="glue-info-bar">
+                <span class="glue-info-icon">💳</span>
+                <span>${totalCards} cards → ${bins.length} unique BINs</span>
+                <span style="margin-left:auto;font-size:10px;color:#6b7280">Selected: ${selectedCount} BINs (${selectedCards} cards)</span>
+            </div>
+            <div class="ccg-bin-controls">
+                <button class="ck-action-btn ck-btn-copy" id="ccg-select-all">✓ Select All</button>
+                <button class="ck-action-btn" id="ccg-deselect-all">✕ Deselect</button>
+                <div style="flex:1"></div>
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8">
+                    Batch size:
+                    <input type="number" id="ccg-batch-size" value="${g.batchSize}" min="1" max="100" style="width:60px;height:26px;padding:2px 6px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;text-align:center;font-family:inherit">
+                </label>
+            </div>
+            <div class="ccg-bin-grid">
+                ${bins.map(bin => {
+                    const cards = g.binGroups[bin];
+                    const net = cards[0]?.network || getCardType(cards[0]?.ccn || '');
+                    const sel = g.selectedBins.has(bin);
+                    return `
+                    <div class="ccg-bin-card ${sel ? 'selected' : ''}" data-bin="${bin}">
+                        <div class="ccg-bin-check">
+                            <input type="checkbox" ${sel ? 'checked' : ''} data-bincheck="${bin}" style="accent-color:#818cf8">
+                        </div>
+                        <div class="ccg-bin-num">${bin}</div>
+                        <div class="ccg-bin-net">${net || '—'}</div>
+                        <div class="ccg-bin-cnt">${cards.length}</div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <div class="glue-bottom-bar">
+                <button class="glue-btn-secondary" id="ccg-back-2">← Back</button>
+                <div class="glue-spacer"></div>
+                <button class="glue-btn-primary" id="ccg-next-2" ${selectedCount === 0 ? 'disabled' : ''}>
+                    Generate →
+                    ${selectedCount > 0 ? `<span class="glue-badge">${selectedCount} BINs</span>` : ''}
+                </button>
+            </div>
+        </div>`;
+}
+
+function _renderCCGlueStep3() {
+    const g = _CK.ccGlue;
+    const output = g.currentBatch.length > 0 ? _ccGlueFormatBatch(g.currentBatch) : '';
+    const selBins = [...g.selectedBins];
+    const totalAvail = selBins.reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
+    const generated = g.generatedBatches.length;
+
+    return `
+        <div class="glue-workspace">
+            <div class="glue-info-bar">
+                <span class="glue-info-icon">🃏</span>
+                <span>${selBins.length} BINs selected · ${totalAvail} cards available</span>
+                <span style="margin-left:auto;font-size:10px;color:#6b7280">Batches: ${generated}</span>
+            </div>
+            <div class="ccg-gen-controls">
+                <button class="glue-btn-primary" id="ccg-generate" style="padding:8px 20px;font-size:12px">
+                    ⚡ Generate Batch
+                    <span class="glue-badge">${g.batchSize}</span>
+                </button>
+                <button class="ck-action-btn ck-btn-copy" id="ccg-copy-batch" ${!output ? 'disabled' : ''}>📋 Copy</button>
+                <button class="ck-action-btn" id="ccg-to-notes" ${!output ? 'disabled' : ''}>📝 Notes</button>
+                <button class="ck-action-btn" id="ccg-export-txt" ${!output ? 'disabled' : ''}>💾 .txt</button>
+            </div>
+            <div class="ck-panel" style="flex:1">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">📤 GENERATED BATCH</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${g.currentBatch.length > 0 ? 'ck-count-active' : ''}">${g.currentBatch.length} cards</span>
+                    </div>
+                </div>
+                <textarea class="ck-textarea ck-output-text" id="ccg-output" readonly placeholder="Click 'Generate Batch' to create a mixed-BIN list">${output}</textarea>
+            </div>
+            ${g.currentBatch.length > 0 ? `
+            <div class="ccg-batch-bins">
+                ${g.currentBatch.map(c => `<span class="ccg-batch-bin-tag">${c._bin} · ${c.ccn.replace(/[\s-]/g,'').slice(-4)}</span>`).join('')}
+            </div>` : ''}
+            <div class="glue-bottom-bar">
+                <button class="glue-btn-secondary" id="ccg-back-3">← Back to BINs</button>
+                <div class="glue-spacer"></div>
+                <button class="glue-btn-secondary" id="ccg-reset-all">↺ New Session</button>
+            </div>
+        </div>`;
+}
+
+function _bindCCGlueEvents() {
+    const area = document.getElementById('content-area');
+    const g = _CK.ccGlue;
+
+    // Mode switch
+    area.querySelectorAll('.ck-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _CK.mode = btn.dataset.mode;
+            if (_CK.mode === 'glue') _renderGlue();
+            else if (_CK.mode === 'cc-glue') _renderCCGlue();
+            else if (_CK.mode === 'generator') _renderGenerator();
+            else renderChecker();
+        });
+    });
+
+    // Step clicks
+    area.querySelectorAll('.glue-step.done').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => { g.step = parseInt(el.dataset.step); _renderCCGlue(); });
+    });
+
+    // ── STEP 1 ──
+    if (g.step === 1) {
+        const inp = document.getElementById('ccg-input-1');
+        inp?.addEventListener('input', () => {
+            g.cardsRaw = inp.value;
+            g.parsedCards = _ccGlueParseCards(inp.value);
+            const cnt = area.querySelector('.ck-count');
+            if (cnt) { cnt.textContent = `${g.parsedCards.length} cards found`; cnt.classList.toggle('ck-count-active', g.parsedCards.length > 0); }
+            const btn = document.getElementById('ccg-next-1');
+            if (btn) { btn.disabled = g.parsedCards.length === 0; }
+        });
+        document.getElementById('ccg-paste-1')?.addEventListener('click', async () => {
+            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted','success'); } catch { toast('Clipboard denied','error'); }
+        });
+        document.getElementById('ccg-clear-1')?.addEventListener('click', () => { g.cardsRaw = ''; g.parsedCards = []; g.dedupeStats = {total:0,removed:0,clean:0}; _renderCCGlue(); });
+        document.getElementById('ccg-next-1')?.addEventListener('click', () => {
+            if (g.parsedCards.length === 0) { toast('No cards found','error'); return; }
+            g.binGroups = _ccGlueGroupByBin(g.parsedCards);
+            g.selectedBins = new Set(Object.keys(g.binGroups));
+            g.batchIndex = {};
+            toast(`${g.parsedCards.length} cards → ${Object.keys(g.binGroups).length} BINs`, 'success');
+            g.step = 2; _renderCCGlue();
+        });
+        document.getElementById('ccg-reset')?.addEventListener('click', () => { _ccGlueReset(); _renderCCGlue(); });
+
+        // JSON base load
+        document.getElementById('ccg-load-json')?.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    const cards = _ccGlueParseJSON(data);
+                    g.usedBase = cards;
+                    g.usedBaseFileName = file.name;
+                    g.usedBaseCount = cards.length;
+                    _ccGlueSaveBase();
+                    // Re-parse to apply dedupe
+                    if (g.cardsRaw) {
+                        g.parsedCards = _ccGlueParseCards(g.cardsRaw);
+                    }
+                    toast(`Loaded ${cards.length} cards from ${file.name}`, 'success');
+                    _renderCCGlue();
+                } catch (err) { toast(`Invalid JSON: ${err.message}`, 'error'); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+        document.getElementById('ccg-clear-base')?.addEventListener('click', () => {
+            g.usedBase = []; g.usedBaseFileName = ''; g.usedBaseCount = 0;
+            _ccGlueSaveBase();
+            if (g.cardsRaw) g.parsedCards = _ccGlueParseCards(g.cardsRaw);
+            toast('Base cleared', 'info');
+            _renderCCGlue();
+        });
+        document.getElementById('ccg-dedupe-toggle')?.addEventListener('change', e => {
+            g.dedupeEnabled = e.target.checked;
+            if (g.cardsRaw) { g.parsedCards = _ccGlueParseCards(g.cardsRaw); _renderCCGlue(); }
+        });
+    }
+
+    // ── STEP 2 ──
+    if (g.step === 2) {
+        area.querySelectorAll('.ccg-bin-card').forEach(card => {
+            card.addEventListener('click', e => {
+                if (e.target.type === 'checkbox') return;
+                const bin = card.dataset.bin;
+                if (g.selectedBins.has(bin)) g.selectedBins.delete(bin); else g.selectedBins.add(bin);
+                _renderCCGlue();
+            });
+        });
+        area.querySelectorAll('[data-bincheck]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const bin = cb.dataset.bincheck;
+                if (cb.checked) g.selectedBins.add(bin); else g.selectedBins.delete(bin);
+                _renderCCGlue();
+            });
+        });
+        document.getElementById('ccg-select-all')?.addEventListener('click', () => {
+            g.selectedBins = new Set(Object.keys(g.binGroups));
+            _renderCCGlue();
+        });
+        document.getElementById('ccg-deselect-all')?.addEventListener('click', () => {
+            g.selectedBins.clear(); _renderCCGlue();
+        });
+        document.getElementById('ccg-batch-size')?.addEventListener('input', e => {
+            g.batchSize = Math.max(1, Math.min(100, parseInt(e.target.value) || 5));
+        });
+        document.getElementById('ccg-back-2')?.addEventListener('click', () => { g.step = 1; _renderCCGlue(); });
+        document.getElementById('ccg-next-2')?.addEventListener('click', () => {
+            if (g.selectedBins.size === 0) { toast('Select at least one BIN','error'); return; }
+            g.batchIndex = {};
+            g.generatedBatches = [];
+            g.currentBatch = [];
+            g.step = 3; _renderCCGlue();
+        });
+    }
+
+    // ── STEP 3 ──
+    if (g.step === 3) {
+        document.getElementById('ccg-generate')?.addEventListener('click', () => {
+            _ccGlueGenerate();
+            _renderCCGlue();
+            toast(`Generated ${g.currentBatch.length} cards from ${g.selectedBins.size} BINs`, 'success');
+        });
+        document.getElementById('ccg-copy-batch')?.addEventListener('click', () => {
+            const text = _ccGlueFormatBatch(g.currentBatch);
+            navigator.clipboard.writeText(text).then(() => toast('Copied!','success')).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!','success'); });
+        });
+        document.getElementById('ccg-to-notes')?.addEventListener('click', () => {
+            const text = '═══ CC GLUE BATCH ═══\n' + new Date().toLocaleString() + '\n\n' + _ccGlueFormatBatch(g.currentBatch);
+            const newTab = { id: 'tab-' + Date.now(), title: 'CC Glue ' + new Date().toLocaleTimeString(), content: text, pinned: false, tag: null, created: Date.now(), scrollPos: 0 };
+            STATE.notesTabs.push(newTab); STATE.notesActiveTab = newTab.id; save();
+            toast(`${g.currentBatch.length} cards → Notes`, 'success');
+        });
+        document.getElementById('ccg-export-txt')?.addEventListener('click', () => {
+            const text = _ccGlueFormatBatch(g.currentBatch);
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `cc-glue-batch-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(a.href);
+            toast('File downloaded', 'success');
+        });
+        document.getElementById('ccg-back-3')?.addEventListener('click', () => { g.step = 2; _renderCCGlue(); });
+        document.getElementById('ccg-reset-all')?.addEventListener('click', () => { _ccGlueReset(); _renderCCGlue(); toast('Session reset', 'info'); });
+    }
+}
+
+// Load base on startup
+try { _ccGlueLoadBase(); } catch {}
 
 /* ──────────────────────────────────────────
    GLUE — Render UI
@@ -2846,7 +3312,7 @@ function _renderGenerator() {
 
     // Bind events
     area.querySelectorAll('.ck-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => { _CK.mode = btn.dataset.mode; if (_CK.mode === 'glue') _renderGlue(); else if (_CK.mode === 'generator') _renderGenerator(); else renderChecker(); });
+        btn.addEventListener('click', () => { _CK.mode = btn.dataset.mode; if (_CK.mode === 'glue') _renderGlue(); else if (_CK.mode === 'cc-glue') _renderCCGlue(); else if (_CK.mode === 'generator') _renderGenerator(); else renderChecker(); });
     });
     area.querySelectorAll('[data-billtype]').forEach(btn => {
         btn.addEventListener('click', () => { gen.type = btn.dataset.billtype; gen.billData = null; _renderGenerator(); });
@@ -2940,6 +3406,8 @@ function _renderGenerator() {
 function renderChecker() {
     // Route to GLUE renderer if in glue mode
     if (_CK.mode === 'glue') { _renderGlue(); return; }
+    // Route to CC-GLUE renderer
+    if (_CK.mode === 'cc-glue') { _renderCCGlue(); return; }
     // Route to GENERATOR renderer
     if (_CK.mode === 'generator') { _renderGenerator(); return; }
 
@@ -2948,8 +3416,8 @@ function renderChecker() {
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', generator: '📄' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', generator: 'Generator' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', 'cc-glue': '🃏', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', 'cc-glue': 'CC Glue', generator: 'Generator' };
     const modePlaceholders = {
         proxy: 'Paste any text containing proxies — they will be extracted automatically\n\nSupported formats:\n• user:pass@host:port\n• host:port:user:pass\n• user:pass:host:port\n• protocol://user:pass@host:port\n• host:port\n• IP:PORT from logs, JSON, HTML\n\nGarbage text is ignored automatically',
         bin: 'Paste any text — BINs will be extracted automatically\n\n4242424242424242|11|26|777\nCard: 5326 1023 4355 9988\nCC: 4111111111111111 Exp: 05/26 CVV: 456\nRandom log text with 5454781003037335...\n\nAll formats supported • Duplicates removed\nOutput: /bin 424242',
