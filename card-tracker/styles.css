@@ -12697,6 +12697,13 @@ tr.row-selected td {
     text-align: right;
 }
 
+.ccg-cnt-zero { color: #6b7280; }
+
+.ccg-bin-empty {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
 /* Generation controls */
 .ccg-gen-controls {
     display: flex;

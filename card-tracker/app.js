@@ -2264,20 +2264,27 @@ function _ccGlueGroupByBin(cards) {
     return groups;
 }
 
-/* Generate a batch using round-robin across selected bins */
+/* Generate a batch — REMOVES cards from pool */
 function _ccGlueGenerate() {
     const g = _CK.ccGlue;
-    const bins = [...g.selectedBins].filter(b => g.binGroups[b] && g.binGroups[b].length > 0);
-    if (bins.length === 0) return [];
+    let bins = [...g.selectedBins].filter(b => g.binGroups[b] && g.binGroups[b].length > 0);
+    if (bins.length === 0) { toast('No cards left in selected BINs', 'error'); return []; }
     const batch = [];
     const size = Math.min(g.batchSize, 100);
     let robin = 0;
-    for (let i = 0; i < size; i++) {
+    let safety = 0;
+    while (batch.length < size && bins.length > 0 && safety < size + bins.length) {
+        safety++;
         const bin = bins[robin % bins.length];
         const pool = g.binGroups[bin];
-        const idx = (g.batchIndex[bin] || 0) % pool.length;
-        batch.push({ ...pool[idx], _bin: bin });
-        g.batchIndex[bin] = idx + 1;
+        if (!pool || pool.length === 0) {
+            g.selectedBins.delete(bin);
+            bins = bins.filter(b => b !== bin);
+            if (bins.length === 0) break;
+            continue;
+        }
+        const card = pool.splice(0, 1)[0]; // REMOVE from pool
+        batch.push({ ...card, _bin: bin });
         robin++;
     }
     g.currentBatch = batch;
@@ -2385,96 +2392,77 @@ function _renderCCGlueStep1() {
 function _renderCCGlueStep2() {
     const g = _CK.ccGlue;
     const bins = Object.keys(g.binGroups).sort((a,b) => g.binGroups[b].length - g.binGroups[a].length);
-    const totalCards = g.parsedCards.length;
+    const totalRemaining = bins.reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
     const selectedCount = g.selectedBins.size;
     const selectedCards = [...g.selectedBins].reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
+    const output = g.currentBatch.length > 0 ? _ccGlueFormatBatch(g.currentBatch) : '';
+    const generated = g.generatedBatches.length;
+    const baseCount = g.usedBaseCount;
 
     return `
         <div class="glue-workspace">
+            ${baseCount > 0 ? `<div class="ccg-dedupe-alert" style="background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.2);color:#6ee7b7">📂 JSON Base: <b>${baseCount}</b> cards (${g.usedBaseFileName}) · ${g.dedupeStats.removed > 0 ? `<span style="color:#fbbf24">⚠ ${g.dedupeStats.removed} removed</span>` : '✓ clean'}</div>` : ''}
             <div class="glue-info-bar">
                 <span class="glue-info-icon">💳</span>
-                <span>${totalCards} cards → ${bins.length} unique BINs</span>
-                <span style="margin-left:auto;font-size:10px;color:#6b7280">Selected: ${selectedCount} BINs (${selectedCards} cards)</span>
+                <span>${totalRemaining} cards left · ${bins.length} BINs</span>
+                <span style="margin-left:auto;font-size:10px;color:#6b7280">Selected: ${selectedCount} BINs (${selectedCards} cards) · Batches: ${generated}</span>
             </div>
             <div class="ccg-bin-controls">
-                <button class="ck-action-btn ck-btn-copy" id="ccg-select-all">✓ Select All</button>
-                <button class="ck-action-btn" id="ccg-deselect-all">✕ Deselect</button>
+                <button class="ck-action-btn ck-btn-copy" id="ccg-select-all">✓ All</button>
+                <button class="ck-action-btn" id="ccg-deselect-all">✕ None</button>
                 <div style="flex:1"></div>
                 <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8">
-                    Batch size:
-                    <input type="number" id="ccg-batch-size" value="${g.batchSize}" min="1" max="100" style="width:60px;height:26px;padding:2px 6px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;text-align:center;font-family:inherit">
+                    Batch:
+                    <input type="number" id="ccg-batch-size" value="${g.batchSize}" min="1" max="100" style="width:50px;height:26px;padding:2px 6px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;text-align:center;font-family:inherit">
                 </label>
+                <button class="glue-btn-primary" id="ccg-generate" style="padding:6px 16px;font-size:11px" ${selectedCount === 0 ? 'disabled' : ''}>
+                    ⚡ Generate
+                    <span class="glue-badge">${g.batchSize}</span>
+                </button>
             </div>
             <div class="ccg-bin-grid">
                 ${bins.map(bin => {
                     const cards = g.binGroups[bin];
+                    const cnt = cards?.length || 0;
                     const net = cards[0]?.network || getCardType(cards[0]?.ccn || '');
                     const sel = g.selectedBins.has(bin);
+                    const empty = cnt === 0;
                     return `
-                    <div class="ccg-bin-card ${sel ? 'selected' : ''}" data-bin="${bin}">
+                    <div class="ccg-bin-card ${sel ? 'selected' : ''} ${empty ? 'ccg-bin-empty' : ''}" data-bin="${bin}">
                         <div class="ccg-bin-check">
-                            <input type="checkbox" ${sel ? 'checked' : ''} data-bincheck="${bin}" style="accent-color:#818cf8">
+                            <input type="checkbox" ${sel ? 'checked' : ''} ${empty ? 'disabled' : ''} data-bincheck="${bin}" style="accent-color:#818cf8">
                         </div>
                         <div class="ccg-bin-num">${bin}</div>
                         <div class="ccg-bin-net">${net || '—'}</div>
-                        <div class="ccg-bin-cnt">${cards.length}</div>
+                        <div class="ccg-bin-cnt ${empty ? 'ccg-cnt-zero' : ''}">${cnt}</div>
                     </div>`;
                 }).join('')}
             </div>
-            <div class="glue-bottom-bar">
-                <button class="glue-btn-secondary" id="ccg-back-2">← Back</button>
-                <div class="glue-spacer"></div>
-                <button class="glue-btn-primary" id="ccg-next-2" ${selectedCount === 0 ? 'disabled' : ''}>
-                    Generate →
-                    ${selectedCount > 0 ? `<span class="glue-badge">${selectedCount} BINs</span>` : ''}
-                </button>
-            </div>
-        </div>`;
-}
-
-function _renderCCGlueStep3() {
-    const g = _CK.ccGlue;
-    const output = g.currentBatch.length > 0 ? _ccGlueFormatBatch(g.currentBatch) : '';
-    const selBins = [...g.selectedBins];
-    const totalAvail = selBins.reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
-    const generated = g.generatedBatches.length;
-
-    return `
-        <div class="glue-workspace">
-            <div class="glue-info-bar">
-                <span class="glue-info-icon">🃏</span>
-                <span>${selBins.length} BINs selected · ${totalAvail} cards available</span>
-                <span style="margin-left:auto;font-size:10px;color:#6b7280">Batches: ${generated}</span>
-            </div>
-            <div class="ccg-gen-controls">
-                <button class="glue-btn-primary" id="ccg-generate" style="padding:8px 20px;font-size:12px">
-                    ⚡ Generate Batch
-                    <span class="glue-badge">${g.batchSize}</span>
-                </button>
-                <button class="ck-action-btn ck-btn-copy" id="ccg-copy-batch" ${!output ? 'disabled' : ''}>📋 Copy</button>
-                <button class="ck-action-btn" id="ccg-to-notes" ${!output ? 'disabled' : ''}>📝 Notes</button>
-                <button class="ck-action-btn" id="ccg-export-txt" ${!output ? 'disabled' : ''}>💾 .txt</button>
-            </div>
-            <div class="ck-panel" style="flex:1">
+            ${output ? `
+            <div class="ck-panel" style="max-height:200px">
                 <div class="ck-panel-header">
-                    <span class="ck-panel-title">📤 GENERATED BATCH</span>
+                    <span class="ck-panel-title">📤 BATCH #${generated}</span>
                     <div class="ck-panel-actions">
-                        <span class="ck-count ${g.currentBatch.length > 0 ? 'ck-count-active' : ''}">${g.currentBatch.length} cards</span>
+                        <span class="ck-count ck-count-active">${g.currentBatch.length} cards</span>
+                        <button class="ck-action-btn ck-btn-copy" id="ccg-copy-batch">📋 Copy</button>
+                        <button class="ck-action-btn" id="ccg-to-notes">📝 Notes</button>
+                        <button class="ck-action-btn" id="ccg-export-txt">💾 .txt</button>
                     </div>
                 </div>
-                <textarea class="ck-textarea ck-output-text" id="ccg-output" readonly placeholder="Click 'Generate Batch' to create a mixed-BIN list">${output}</textarea>
+                <textarea class="ck-textarea ck-output-text" id="ccg-output" readonly style="min-height:60px;max-height:140px">${output}</textarea>
             </div>
-            ${g.currentBatch.length > 0 ? `
             <div class="ccg-batch-bins">
                 ${g.currentBatch.map(c => `<span class="ccg-batch-bin-tag">${c._bin} · ${c.ccn.replace(/[\s-]/g,'').slice(-4)}</span>`).join('')}
             </div>` : ''}
             <div class="glue-bottom-bar">
-                <button class="glue-btn-secondary" id="ccg-back-3">← Back to BINs</button>
+                <button class="glue-btn-secondary" id="ccg-back-2">← Back</button>
                 <div class="glue-spacer"></div>
                 <button class="glue-btn-secondary" id="ccg-reset-all">↺ New Session</button>
             </div>
         </div>`;
 }
+
+function _renderCCGlueStep3() { return _renderCCGlueStep2(); }
 
 function _bindCCGlueEvents() {
     const area = document.getElementById('content-area');
@@ -2577,7 +2565,7 @@ function _bindCCGlueEvents() {
             });
         });
         document.getElementById('ccg-select-all')?.addEventListener('click', () => {
-            g.selectedBins = new Set(Object.keys(g.binGroups));
+            g.selectedBins = new Set(Object.keys(g.binGroups).filter(b => g.binGroups[b]?.length > 0));
             _renderCCGlue();
         });
         document.getElementById('ccg-deselect-all')?.addEventListener('click', () => {
@@ -2587,21 +2575,12 @@ function _bindCCGlueEvents() {
             g.batchSize = Math.max(1, Math.min(100, parseInt(e.target.value) || 5));
         });
         document.getElementById('ccg-back-2')?.addEventListener('click', () => { g.step = 1; _renderCCGlue(); });
-        document.getElementById('ccg-next-2')?.addEventListener('click', () => {
-            if (g.selectedBins.size === 0) { toast('Select at least one BIN','error'); return; }
-            g.batchIndex = {};
-            g.generatedBatches = [];
-            g.currentBatch = [];
-            g.step = 3; _renderCCGlue();
-        });
-    }
-
-    // ── STEP 3 ──
-    if (g.step === 3) {
+        document.getElementById('ccg-reset-all')?.addEventListener('click', () => { _ccGlueReset(); _renderCCGlue(); toast('Session reset', 'info'); });
+        // Generate + export (on same screen)
         document.getElementById('ccg-generate')?.addEventListener('click', () => {
             _ccGlueGenerate();
             _renderCCGlue();
-            toast(`Generated ${g.currentBatch.length} cards from ${g.selectedBins.size} BINs`, 'success');
+            if (g.currentBatch.length > 0) toast(`Generated ${g.currentBatch.length} cards`, 'success');
         });
         document.getElementById('ccg-copy-batch')?.addEventListener('click', () => {
             const text = _ccGlueFormatBatch(g.currentBatch);
@@ -2620,8 +2599,6 @@ function _bindCCGlueEvents() {
             a.download = `cc-glue-batch-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(a.href);
             toast('File downloaded', 'success');
         });
-        document.getElementById('ccg-back-3')?.addEventListener('click', () => { g.step = 2; _renderCCGlue(); });
-        document.getElementById('ccg-reset-all')?.addEventListener('click', () => { _ccGlueReset(); _renderCCGlue(); toast('Session reset', 'info'); });
     }
 }
 
