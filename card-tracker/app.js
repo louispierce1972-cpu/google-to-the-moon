@@ -1609,7 +1609,7 @@ const _CK = {
     },
     // GENERATOR state
     generator: {
-        type: 'tepco',         // tepco | water | creditcard
+        type: 'tepco',         // tepco | water | creditcard | bankstatement
         name: '',
         postalCode: '',
         streetAddress: '',
@@ -2780,6 +2780,8 @@ function _renderGenerator() {
     if (_CK.generator.type === 'driverlicense') { _renderDriverLicenseGenerator(); return; }
     // Route to ZIP Processor
     if (_CK.generator.type === 'zipprocessor') { _renderZipProcessor(); return; }
+    // Route to Bank Statement generator
+    if (_CK.generator.type === 'bankstatement') { _renderBankStatementGenerator(); return; }
 
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
@@ -2814,6 +2816,7 @@ function _renderGenerator() {
             <button class="ck-proto-btn ${gen.type === 'creditcard' ? 'active' : ''}" data-billtype="creditcard">💳 Credit Card</button>
             <button class="ck-proto-btn ${gen.type === 'driverlicense' ? 'active' : ''}" data-billtype="driverlicense">🪪 Driver License</button>
             <button class="ck-proto-btn ${gen.type === 'zipprocessor' ? 'active' : ''}" data-billtype="zipprocessor">📦 ZIP Processor</button>
+            <button class="ck-proto-btn ${gen.type === 'bankstatement' ? 'active' : ''}" data-billtype="bankstatement">🏦 Bank Statement</button>
         </div>
 
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">

@@ -13636,3 +13636,77 @@ tr.row-selected td {
 .zp-counter-match{color:#4ade80!important}
 .zp-counter-over{color:#fbbf24!important}
 .zp-counter-under{color:#6b7280}
+
+/* ═══════════════════════════════════════════
+   BANK STATEMENT GENERATOR
+   ═══════════════════════════════════════════ */
+.bs-form{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px}
+.bs-form-row{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap}
+.bs-fg{flex:1;min-width:120px;display:flex;flex-direction:column;gap:2px}
+.bs-fg-sm{flex:0 0 auto;min-width:80px}
+.bs-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.bs-input{height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit;box-sizing:border-box;width:100%}
+.bs-input:focus{border-color:rgba(129,140,248,.4)}
+.bs-select{height:28px;padding:2px 6px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit}
+.bs-country-btn{padding:4px 12px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,.1);border-radius:4px;background:rgba(255,255,255,.06);color:#9ca3af;cursor:pointer;font-family:inherit;transition:all .12s}
+.bs-country-btn:hover{background:rgba(255,255,255,.1)}
+.bs-country-btn.active{background:rgba(129,140,248,.15);border-color:rgba(129,140,248,.4);color:#a5b4fc}
+.bs-logo-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#9ca3af;cursor:pointer;transition:all .15s;white-space:nowrap;height:28px}
+.bs-logo-btn:hover{background:rgba(255,255,255,.1)}
+.bs-gen-btn{height:28px;padding:0 16px;font-size:11px;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;background:#818cf8;color:#fff;transition:all .15s}
+.bs-gen-btn:hover{background:#6366f1}
+.bs-pdf-btn{height:28px;padding:0 14px;font-size:11px;font-weight:700;border:1px solid rgba(34,197,94,.3);border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;background:rgba(34,197,94,.15);color:#4ade80;transition:all .15s}
+.bs-pdf-btn:hover{background:rgba(34,197,94,.25)}
+
+/* A4 Page Preview */
+.bs-preview-wrap{margin-top:10px;overflow:auto;background:#888;border-radius:8px;padding:20px;display:flex;justify-content:center}
+.bs-page{width:794px;min-height:1123px;background:#fff;padding:36px 40px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222;font-size:11px;line-height:1.4;box-shadow:0 4px 20px rgba(0,0,0,.3);box-sizing:border-box}
+
+/* Header */
+.bs-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
+.bs-header-left{flex-shrink:0}
+.bs-header-right{text-align:right}
+.bs-bank-name{font-size:14px;font-weight:700;color:#222}
+.bs-bank-addr{font-size:9px;color:#666;margin-top:2px}
+.bs-bank-contact{font-size:9px;color:#888;margin-top:1px}
+.bs-logo-img{max-height:50px;max-width:180px;object-fit:contain}
+.bs-logo-placeholder{padding:8px 20px;border-radius:4px;color:#fff;font-weight:800;font-size:16px;letter-spacing:2px;text-align:center}
+
+/* Info Grid */
+.bs-info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:10px 0}
+.bs-info-col{}
+.bs-info-label{font-size:8px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:.5px;margin-bottom:1px}
+.bs-info-val{font-size:11px;color:#222}
+.bs-info-name{font-size:13px;font-weight:700;color:#111}
+
+/* Divider */
+.bs-divider{height:1px;background:linear-gradient(90deg,#ddd,#bbb,#ddd);margin:8px 0}
+
+/* Summary */
+.bs-summary{display:flex;gap:12px;margin:8px 0;flex-wrap:wrap}
+.bs-sum-item{flex:1;min-width:100px;padding:8px 12px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:4px;text-align:center}
+.bs-sum-label{font-size:8px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:.5px}
+.bs-sum-val{font-size:14px;font-weight:700;color:#222;margin-top:2px}
+.bs-sum-closing{background:#1e3a5f;border-color:#1e3a5f}
+.bs-sum-closing .bs-sum-label{color:rgba(255,255,255,.7)}
+.bs-sum-closing .bs-sum-val{color:#fff}
+
+/* Section Title */
+.bs-section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#444;margin:8px 0 4px;padding-bottom:3px;border-bottom:2px solid #222}
+
+/* Transaction Table */
+.bs-table{width:100%;border-collapse:collapse}
+.bs-th{text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#666;padding:4px 6px;border-bottom:1px solid #ddd}
+.bs-th-r{text-align:right}
+.bs-td{padding:3px 6px;font-size:10px;color:#333;border-bottom:1px solid #f0f0f0}
+.bs-td-r{text-align:right;font-family:'Courier New',monospace;font-size:10px}
+.bs-tx-credit{color:#16a34a}
+.bs-tx-debit{color:#dc2626}
+.bs-table tbody tr:hover{background:#fafafa}
+.bs-table tbody tr:nth-child(even){background:#fcfcfc}
+
+/* Footer */
+.bs-footer{display:flex;gap:16px;align-items:flex-start;margin-top:8px;padding-top:8px;border-top:1px solid #ddd}
+.bs-footer-left{flex:1}
+.bs-footer-center{flex:0 0 auto;text-align:center}
+.bs-footer-right{flex:1.5;text-align:right}
