@@ -101,38 +101,43 @@ function _bsGen(){
 }
 
 function _bsPreview(){
-    var bank=_bsB(),isJP=_BS.country==='japan';
-    var fullAddr=_BS.address1+(_BS.address2?'\n'+_BS.address2:'')+'\n'+_BS.city+', '+_BS.state+' '+_BS.zip;
+    var bank=_bsB(),S='style',dateStr=_bsD(new Date());
     var fromD=new Date(_BS.dateFrom),toD=new Date(_BS.dateTo);
-    var periodStr=_bsD(fromD).split(' ').slice(1).join('/')+'-'+_bsD(toD).split(' ').slice(1).join('/');
     var card4=_BS.cardNumber.replace(/\s/g,'').slice(-4);
-    var logo=_BS.logoImage?'<img src="'+_BS.logoImage+'" style="max-height:45px;max-width:200px;object-fit:contain">':'<div style="background:'+bank.color+';color:#fff;font-weight:800;font-size:18px;padding:8px 18px;border-radius:4px;letter-spacing:1px;display:inline-flex;align-items:center;gap:8px">'+_bsE(bank.short)+'</div>';
-    var dateStr=_bsD(new Date());
-    // Tx rows
-    var rows='';
+    var logo=_BS.logoImage?'<img src="'+_BS.logoImage+'" '+S+'="max-height:42px;max-width:180px;object-fit:contain">':'<div '+S+'="display:inline-flex;align-items:center;gap:8px"><div '+S+'="width:36px;height:36px;background:'+bank.color+';border-radius:4px"></div><div '+S+'="font-size:20px;font-weight:700;color:'+bank.color+'">'+_bsE(bank.short)+'</div></div>';
+    var rows='',idx=0;
     _BS.transactions.forEach(function(tx){
         var amtS=tx.type==='credit'?_bsF(tx.amount):'-'+_bsF(tx.amount);
-        var sub='';
-        if(tx.card)sub+='<br><span class="bs2-sub">Card xx'+tx.card+'</span>';
-        sub+='<br><span class="bs2-sub">Value Date: '+_bsD(tx.date)+'</span>';
-        rows+='<tr><td class="bs2-td">'+_bsD(tx.date)+'</td><td class="bs2-td">'+_bsE(tx.desc)+sub+'</td><td class="bs2-td bs2-r">'+amtS+'</td><td class="bs2-td bs2-r">'+_bsF(tx.balance)+'</td></tr>';
-    });
-
-    return '<div class="bs2-wrap"><div class="bs2-page" id="bs-page">'+
-    '<div class="bs2-top"><div class="bs2-top-l">'+logo+'<div class="bs2-bank-sub">'+_bsE(bank.name)+'<br>'+_bsE(bank.sub)+'</div></div>'+
-    '<div class="bs2-top-r"><b>Account Number</b><br>'+_bsE(_BS.routingNumber)+' '+_bsE(_BS.accountNumber)+'<br><b>Page</b><br>1 of 1</div></div>'+
-    '<div class="bs2-addr">'+_bsE(_BS.holderName)+'<br>'+_bsE(_BS.address1)+(_BS.address2?'<br>'+_bsE(_BS.address2):'')+'<br>'+_bsE(_BS.city)+', '+_bsE(_BS.state)+' '+_bsE(_BS.zip)+'</div>'+
-    '<div class="bs2-date">'+dateStr+'</div>'+
-    '<div class="bs2-greeting">Dear '+_bsE(_BS.holderName)+',</div>'+
-    '<div class="bs2-intro">Here\'s your account information and a list of transactions from '+periodStr+'.</div>'+
-    '<table class="bs2-info"><tr><td class="bs2-info-l">Account name</td><td class="bs2-info-v">'+_bsE(_BS.holderName)+'</td></tr>'+
-    '<tr><td class="bs2-info-l">'+_bsE(bank.bsbLabel)+'</td><td class="bs2-info-v">'+_bsE(_BS.routingNumber)+'</td></tr>'+
-    '<tr><td class="bs2-info-l">Account number</td><td class="bs2-info-v">'+_bsE(_BS.accountNumber)+'</td></tr>'+
-    '<tr><td class="bs2-info-l">Account type</td><td class="bs2-info-v">'+_bsE(_BS.accountType)+'</td></tr>'+
-    '<tr><td class="bs2-info-l">Date opened</td><td class="bs2-info-v">'+_bsE(_BS.dateOpened)+'</td></tr></table>'+
-    '<table class="bs2-table"><thead><tr><th class="bs2-th">Date</th><th class="bs2-th">Transaction details</th><th class="bs2-th bs2-r">Amount</th><th class="bs2-th bs2-r">Balance</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div class="bs2-footer"><div class="bs2-footer-l">Created '+dateStr+'<br>While this letter is accurate at the time it\'s produced,<br>we\'re not responsible for any reliance on this information.</div><div class="bs2-footer-r">Transaction Summary v1.0</div></div>'+
-    '</div></div>';
+        var bg=idx%2?'background:#f9f9f9;':'';
+        var det=_bsE(tx.desc);
+        if(tx.card)det+='<br><span '+S+'="color:#555;font-size:10px">Card xx'+tx.card+'</span>';
+        det+='<br><span '+S+'="color:#555;font-size:10px">Value Date: '+_bsD(tx.date)+'</span>';
+        rows+='<tr '+S+'="'+bg+'"><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;white-space:nowrap;vertical-align:top">'+_bsD(tx.date)+'</td><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;vertical-align:top;line-height:1.5">'+det+'</td><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;text-align:right;white-space:nowrap;vertical-align:top">'+amtS+'</td><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;text-align:right;white-space:nowrap;vertical-align:top;font-weight:500">'+_bsF(tx.balance)+'</td></tr>';idx++;});
+    var tIn=0,tOut=0;_BS.transactions.forEach(function(tx){if(tx.type==='credit')tIn+=tx.amount;else tOut+=tx.amount;});
+    var P='<div class="bs2-wrap"><div id="bs-page" '+S+'="width:794px;min-height:1123px;background:#fff;padding:0;font-family:Arial,Helvetica,sans-serif;color:#222;box-shadow:0 4px 24px rgba(0,0,0,.35);box-sizing:border-box">';
+    P+='<div '+S+'="height:4px;background:'+bank.color+'"></div><div '+S+'="padding:32px 44px 24px">';
+    P+='<div '+S+'="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><div>'+logo+'<div '+S+'="font-size:9px;color:#777;margin-top:4px;line-height:1.4">'+_bsE(bank.name)+'<br>'+_bsE(bank.addr)+'</div></div>';
+    P+='<div '+S+'="text-align:right;border:1px solid #ccc;padding:10px 16px;border-radius:2px;min-width:180px"><div '+S+'="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Account Number</div><div '+S+'="font-size:14px;font-weight:700;letter-spacing:1px">'+_bsE(_BS.routingNumber)+' '+_bsE(_BS.accountNumber)+'</div><div '+S+'="font-size:9px;color:#666;margin-top:6px;text-transform:uppercase;letter-spacing:1px">Page</div><div '+S+'="font-size:12px;font-weight:600">1 of 1</div></div></div>';
+    P+='<div '+S+'="height:1px;background:#ddd;margin:16px 0"></div>';
+    P+='<div '+S+'="margin:20px 0 16px"><div '+S+'="font-size:13px;font-weight:700;line-height:1.6">'+_bsE(_BS.holderName)+'</div><div '+S+'="font-size:11px;color:#333;line-height:1.6">'+_bsE(_BS.address1)+(_BS.address2?'<br>'+_bsE(_BS.address2):'')+'<br>'+_bsE(_BS.city)+', '+_bsE(_BS.state)+' '+_bsE(_BS.zip)+'</div></div>';
+    P+='<div '+S+'="font-size:11px;color:#333;margin-bottom:16px">'+dateStr+'</div>';
+    P+='<div '+S+'="font-size:11px;margin-bottom:6px">Dear <b>'+_bsE(_BS.holderName)+'</b>,</div>';
+    P+='<div '+S+'="font-size:11px;color:#444;margin-bottom:20px">Here\'s your account information and a list of transactions from '+_bsD(fromD)+' to '+_bsD(toD)+'.</div>';
+    P+='<div '+S+'="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:3px;padding:14px 18px;margin-bottom:22px"><table '+S+'="border-collapse:collapse"><tbody>';
+    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Account name</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.holderName)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">'+_bsE(bank.bsbLabel)+'</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.routingNumber)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Account number</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.accountNumber)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Account type</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.accountType)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Date opened</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.dateOpened)+'</td></tr></tbody></table></div>';
+    P+='<div '+S+'="display:flex;margin-bottom:4px">';
+    P+='<div '+S+'="flex:1;background:#f0f7ff;border:1px solid #d0dff0;padding:10px 14px;text-align:center;border-radius:3px 0 0 3px"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:2px">Opening Balance</div><div '+S+'="font-size:15px;font-weight:700">'+_bsF(_BS.openingBalance)+'</div></div>';
+    P+='<div '+S+'="flex:1;background:#f0fff0;border:1px solid #c0e8c0;border-left:0;padding:10px 14px;text-align:center"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:2px">Total Credits</div><div '+S+'="font-size:15px;font-weight:700;color:#16a34a">+'+_bsF(tIn)+'</div></div>';
+    P+='<div '+S+'="flex:1;background:#fff5f5;border:1px solid #f0c0c0;border-left:0;padding:10px 14px;text-align:center"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:2px">Total Debits</div><div '+S+'="font-size:15px;font-weight:700;color:#dc2626">-'+_bsF(tOut)+'</div></div>';
+    P+='<div '+S+'="flex:1;background:'+bank.color+';padding:10px 14px;text-align:center;border-radius:0 3px 3px 0"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.7);margin-bottom:2px">Closing Balance</div><div '+S+'="font-size:15px;font-weight:700;color:#fff">'+_bsF(_BS.closingBalance)+'</div></div></div>';
+    P+='<table '+S+'="width:100%;border-collapse:collapse"><thead><tr><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:left">Date</th><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:left">Transaction details</th><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:right">Amount</th><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:right">Balance</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    P+='<div '+S+'="margin-top:24px;padding-top:12px;border-top:1px solid #ccc;display:flex;justify-content:space-between;align-items:flex-end"><div '+S+'="font-size:8px;color:#999;line-height:1.5">Created '+dateStr+'<br>While this letter is accurate at the time it\'s produced,<br>we\'re not responsible for any reliance on this information.</div><div '+S+'="font-size:9px;color:#aaa">Transaction Summary v1.0</div></div>';
+    P+='</div></div></div>';
+    return P;
 }
 
 function _renderBankStatementGenerator(){
