@@ -324,7 +324,7 @@ function _zipLoadFile(file){
                 }
             });
 
-            var folderNames=Object.keys(folderSet).sort();
+            var folderNames=Object.keys(folderSet).sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});});
             folderNames.forEach(function(n){_ZIP_STATE.folders.push(folderSet[n]);});
             _renderZipProcessor();
             toast(_ZIP_STATE.folders.length+' folders loaded ✓','success');
