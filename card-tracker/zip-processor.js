@@ -313,9 +313,10 @@ function _zipLoadFile(file){
 
             var folderSet={};
             var folderOrder=[];
+            var _skipFolders={'__MACOSX':1,'.DS_Store':1,'.Spotlight-V100':1,'.Trashes':1,'.fseventsd':1,'__pycache__':1,'.git':1};
             zip.forEach(function(path,entry){
                 var parts=path.split('/');
-                if(parts.length>=2 && parts[0]){
+                if(parts.length>=2 && parts[0] && !_skipFolders[parts[0]] && parts[0].charAt(0)!=='.'){
                     if(!folderSet[parts[0]]){
                         folderSet[parts[0]]={origName:parts[0],newName:parts[0],files:[],txtContent:''};
                         folderOrder.push(parts[0]);
