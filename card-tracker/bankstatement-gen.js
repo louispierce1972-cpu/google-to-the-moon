@@ -1,359 +1,189 @@
-// ═══════════════════════════════════════════
-//  BANK STATEMENT GENERATOR v1
-//  USA + Japan — A4 format, realistic transactions
-// ═══════════════════════════════════════════
+// BANK STATEMENT GENERATOR v2 — Commonwealth Bank style
+var _BS={country:'usa',bank:'chase',holderName:'JOHN DOE',cardNumber:'4242 4242 4242 4242',
+accountNumber:'',routingNumber:'',address1:'123 Main Street',address2:'Apt 4B',
+city:'New York',state:'NY',zip:'10001',dateFrom:'',dateTo:'',logoImage:null,
+generated:false,transactions:[],openingBalance:0,closingBalance:0,
+accountType:'Checking',dateOpened:'',jpLang:50};
 
-var _BS = {
-    country: 'usa',
-    bank: 'chase',
-    holderName: 'JOHN DOE',
-    cardNumber: '4242 4242 4242 4242',
-    accountNumber: '',
-    routingNumber: '',
-    address1: '123 Main Street',
-    address2: 'Apt 4B',
-    city: 'New York',
-    state: 'NY',
-    zip: '10001',
-    dateFrom: '',
-    dateTo: '',
-    logoImage: null,
-    generated: false,
-    transactions: [],
-    openingBalance: 0,
-    closingBalance: 0
-};
+var _BS_BANKS={
+usa:{
+chase:{name:'JPMorgan Chase Bank, N.A.',short:'Chase',sub:'Member FDIC',addr:'270 Park Avenue, New York, NY 10017',phone:'1-800-935-9935',web:'chase.com',color:'#0b3d91',currency:'$',bsbLabel:'Routing Number'},
+boa:{name:'Bank of America, N.A.',short:'Bank of America',sub:'Member FDIC',addr:'100 N Tryon St, Charlotte, NC 28255',phone:'1-800-432-1000',web:'bankofamerica.com',color:'#012169',currency:'$',bsbLabel:'Routing Number'},
+wells:{name:'Wells Fargo Bank, N.A.',short:'Wells Fargo',sub:'Member FDIC',addr:'420 Montgomery St, San Francisco, CA 94104',phone:'1-800-869-3557',web:'wellsfargo.com',color:'#d71e28',currency:'$',bsbLabel:'Routing Number'},
+citi:{name:'Citibank, N.A.',short:'Citibank',sub:'Member FDIC',addr:'388 Greenwich St, New York, NY 10013',phone:'1-800-374-9700',web:'citibank.com',color:'#003B70',currency:'$',bsbLabel:'Routing Number'}
+},
+japan:{
+mufg:{name:'三菱UFJ銀行','short':'MUFG Bank',sub:'MUFG Bank, Ltd.',addr:'2-7-1 Marunouchi, Chiyoda-ku, Tokyo',phone:'0120-860-777',web:'bk.mufg.jp',color:'#cc0000',currency:'¥',bsbLabel:'Branch Code'},
+smbc:{name:'三井住友銀行',short:'SMBC',sub:'Sumitomo Mitsui Banking Corp.',addr:'1-1-2 Marunouchi, Chiyoda-ku, Tokyo',phone:'0120-28-6079',web:'smbc.co.jp',color:'#00a650',currency:'¥',bsbLabel:'Branch Code'},
+mizuho:{name:'みずほ銀行',short:'Mizuho',sub:'Mizuho Bank, Ltd.',addr:'1-5-5 Otemachi, Chiyoda-ku, Tokyo',phone:'0120-3242-86',web:'mizuhobank.co.jp',color:'#1e3c72',currency:'¥',bsbLabel:'Branch Code'},
+rakuten:{name:'楽天銀行',short:'Rakuten Bank',sub:'Rakuten Bank, Ltd.',addr:'Shinagawa Seaside Rakuten Tower, Tokyo',phone:'0120-691-036',web:'rakuten-bank.co.jp',color:'#bf0000',currency:'¥',bsbLabel:'Branch Code'}
+}};
 
-// ─── BANK PRESETS ───
-var _BS_BANKS = {
-    usa: {
-        chase:    { name:'JPMorgan Chase Bank, N.A.', short:'Chase', addr:'270 Park Avenue, New York, NY 10017', phone:'1-800-935-9935', web:'chase.com', color:'#0b3d91', currency:'$' },
-        boa:      { name:'Bank of America, N.A.', short:'Bank of America', addr:'100 N Tryon St, Charlotte, NC 28255', phone:'1-800-432-1000', web:'bankofamerica.com', color:'#012169', currency:'$' },
-        wells:    { name:'Wells Fargo Bank, N.A.', short:'Wells Fargo', addr:'420 Montgomery St, San Francisco, CA 94104', phone:'1-800-869-3557', web:'wellsfargo.com', color:'#d71e28', currency:'$' },
-        citi:     { name:'Citibank, N.A.', short:'Citibank', addr:'388 Greenwich St, New York, NY 10013', phone:'1-800-374-9700', web:'citibank.com', color:'#003B70', currency:'$' }
-    },
-    japan: {
-        mufg:     { name:'三菱UFJ銀行 (MUFG Bank, Ltd.)', short:'MUFG', addr:'2-7-1 Marunouchi, Chiyoda-ku, Tokyo 100-8388', phone:'0120-860-777', web:'bk.mufg.jp', color:'#cc0000', currency:'¥' },
-        smbc:     { name:'三井住友銀行 (SMBC)', short:'SMBC', addr:'1-1-2 Marunouchi, Chiyoda-ku, Tokyo 100-0005', phone:'0120-28-6079', web:'smbc.co.jp', color:'#00a650', currency:'¥' },
-        mizuho:   { name:'みずほ銀行 (Mizuho Bank, Ltd.)', short:'Mizuho', addr:'1-5-5 Otemachi, Chiyoda-ku, Tokyo 100-8176', phone:'0120-3242-86', web:'mizuhobank.co.jp', color:'#1e3c72', currency:'¥' },
-        rakuten:  { name:'楽天銀行 (Rakuten Bank, Ltd.)', short:'Rakuten Bank', addr:'Shinagawa Seaside Rakuten Tower, Tokyo 140-0002', phone:'0120-691-036', web:'rakuten-bank.co.jp', color:'#bf0000', currency:'¥' }
-    }
-};
+var _BS_TX={
+usa:{
+grocery:['WALMART SUPERCENTER','TARGET STORE','KROGER','WHOLE FOODS MKT','TRADER JOES','COSTCO WHSE','SAFEWAY','ALDI','PUBLIX SUPER MKT'],
+gas:['SHELL SERVICE STN','CHEVRON','EXXONMOBIL','BP AMOCO','COSTCO GAS'],
+restaurant:['MCDONALDS','STARBUCKS','CHIPOTLE','CHICK-FIL-A','DOMINOS PIZZA','SUBWAY','PANERA BREAD'],
+utility:['CONSOLIDATED EDISON','PACIFIC GAS ELEC','AT&T WIRELESS','T-MOBILE','VERIZON WIRELESS','COMCAST CABLE'],
+sub:['NETFLIX.COM','SPOTIFY USA','AMAZON PRIME','APPLE.COM/BILL','GOOGLE *YOUTUBE','HULU'],
+shop:['AMAZON.COM','BEST BUY','HOME DEPOT','LOWES','MACYS','NORDSTROM','NIKE.COM'],
+transfer:['ZELLE PAYMENT','VENMO CASHOUT','PAYPAL TRANSFER','WIRE TRANSFER'],
+medical:['CVS PHARMACY','WALGREENS','RITE AID'],
+income:['PAYROLL DIRECT DEP','EMPLOYER DIRECT DEP','ACH CREDIT']
+},
+japan:{
+grocery:{en:['AEON STORE','SEVEN ELEVEN','FAMILY MART','LAWSON','LIFE SUPERMARKET','SEIYU','SEIJO ISHII'],jp:['イオン','セブンイレブン','ファミリーマート','ローソン','ライフ','西友','成城石井']},
+gas:{en:['ENEOS GAS STN','IDEMITSU','COSMO OIL'],jp:['ENEOS','出光','コスモ石油']},
+restaurant:{en:['MCDONALDS JP','STARBUCKS JP','SUKIYA','YOSHINOYA','MATSUYA','GUSTO','SAIZERIYA'],jp:['マクドナルド','スターバックス','すき家','吉野家','松屋','ガスト','サイゼリヤ']},
+utility:{en:['TOKYO ELECTRIC POWER','TOKYO GAS CO','NTT DOCOMO','SOFTBANK MOBILE','AU/KDDI','TOKYO WATERWORKS','NHK BROADCAST FEE'],jp:['東京電力','東京ガス','NTTドコモ','ソフトバンク','au/KDDI','東京都水道局','NHK受信料']},
+sub:{en:['NETFLIX','SPOTIFY','AMAZON PRIME','APPLE','YOUTUBE PREMIUM'],jp:['Netflix','Spotify','Amazon Prime','Apple','YouTube Premium']},
+shop:{en:['AMAZON CO JP','RAKUTEN ICHIBA','YODOBASHI CAMERA','BIC CAMERA','UNIQLO','MUJI','NITORI'],jp:['Amazon.co.jp','楽天市場','ヨドバシカメラ','ビックカメラ','ユニクロ','無印良品','ニトリ']},
+transfer:{en:['BANK TRANSFER','ATM DEPOSIT','ATM WITHDRAWAL','DIRECT DEBIT','SALARY TRANSFER'],jp:['振込','ATM入金','ATM出金','口座振替','給与振込']},
+medical:{en:['MATSUMOTO KIYOSHI','TSURUHA DRUG','SUGI PHARMACY'],jp:['マツモトキヨシ','ツルハドラッグ','スギ薬局']},
+income:{en:['SALARY DEPOSIT','BONUS PAYMENT','INTEREST CREDIT','TRANSFER CREDIT'],jp:['給与','賞与','利息','振込入金']}
+}};
 
-// ─── MERCHANT DATA ───
-var _BS_MERCHANTS = {
-    usa: {
-        grocery: ['WALMART SUPERCENTER','TARGET STORE','KROGER','WHOLE FOODS MKT','TRADER JOES','COSTCO WHSE','SAFEWAY','ALDI','PUBLIX SUPER MKT','HEB GROCERY'],
-        gas: ['SHELL SERVICE STN','CHEVRON','EXXONMOBIL','BP AMOCO','COSTCO GAS','SUNOCO','MARATHON PETRO'],
-        restaurant: ['MCDONALDS','STARBUCKS','CHIPOTLE','CHICK-FIL-A','DOMINOS PIZZA','SUBWAY','PANERA BREAD','OLIVE GARDEN','APPLEBEES'],
-        utility: ['CONSOLIDATED EDISON','PACIFIC GAS ELEC','DUKE ENERGY','AT&T WIRELESS','T-MOBILE','VERIZON WIRELESS','COMCAST CABLE','SPECTRUM'],
-        subscription: ['NETFLIX.COM','SPOTIFY USA','AMAZON PRIME','APPLE.COM/BILL','GOOGLE *YOUTUBE','HULU','DISNEY PLUS','HBO MAX'],
-        shopping: ['AMAZON.COM','BEST BUY','HOME DEPOT','LOWES','MACYS','NORDSTROM','NIKE.COM','APPLE STORE'],
-        transfer: ['ZELLE PAYMENT','VENMO CASHOUT','PAYPAL TRANSFER','WIRE TRANSFER','ACH DEPOSIT','DIRECT DEPOSIT'],
-        medical: ['CVS PHARMACY','WALGREENS','RITE AID','QUEST DIAGNOSTICS'],
-        income: ['PAYROLL DIRECT DEP','EMPLOYER DIRECT DEP','ACH CREDIT','INTEREST PAYMENT']
-    },
-    japan: {
-        grocery: ['イオン','セブンイレブン','ファミリーマート','ローソン','まいばすけっと','ライフ','西友','成城石井','サミット'],
-        gas: ['ENEOS','出光','コスモ石油','昭和シェル'],
-        restaurant: ['マクドナルド','スターバックス','すき家','吉野家','松屋','ガスト','サイゼリヤ','ココイチ'],
-        utility: ['東京電力','東京ガス','NTTドコモ','ソフトバンク','au/KDDI','東京都水道局','NHK受信料'],
-        subscription: ['Netflix','Spotify','Amazon Prime','Apple','YouTube Premium','楽天モバイル'],
-        shopping: ['Amazon.co.jp','楽天市場','ヨドバシカメラ','ビックカメラ','ユニクロ','無印良品','ニトリ'],
-        transfer: ['振込','ATM入金','ATM出金','口座振替','給与振込'],
-        medical: ['マツモトキヨシ','ツルハドラッグ','スギ薬局'],
-        income: ['給与','賞与','利息','振込入金']
-    }
-};
+function _bsB(){return _BS_BANKS[_BS.country]?.[_BS.bank]||_BS_BANKS.usa.chase;}
+function _bsF(a){var b=_bsB();if(b.currency==='¥')return b.currency+Math.round(Math.abs(a)).toLocaleString();return b.currency+Math.abs(a).toFixed(2);}
+function _bsD(d){var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return d.getDate().toString().padStart(2,'0')+' '+mm[d.getMonth()]+' '+d.getFullYear();}
+function _bsR(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function _bsRF(a,b){return Math.random()*(b-a)+a;}
+function _bsP(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function _bsE(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
 
-function _bsGetBank(){
-    return _BS_BANKS[_BS.country]?.[_BS.bank] || _BS_BANKS.usa.chase;
-}
-
-function _bsFmt(amount){
-    var bank=_bsGetBank();
-    if(bank.currency==='¥') return bank.currency+Math.round(amount).toLocaleString();
-    return bank.currency+Math.abs(amount).toFixed(2);
-}
-
-function _bsDateStr(d){
+function _bsPickTx(cat){
+    var m=_BS_TX[_BS.country];if(!m)m=_BS_TX.usa;
     if(_BS.country==='japan'){
-        return d.getFullYear()+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getDate().toString().padStart(2,'0');
+        var c=m[cat];if(!c)c=m.grocery;
+        var useJP=Math.random()*100<_BS.jpLang;
+        return useJP?_bsP(c.jp):_bsP(c.en);
     }
-    return (d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getDate().toString().padStart(2,'0')+'/'+d.getFullYear();
+    var arr=m[cat];return arr?_bsP(arr):_bsP(m.grocery);
 }
 
-function _bsRand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
-function _bsRandF(min,max){return Math.random()*(max-min)+min;}
-function _bsPick(arr){return arr[Math.floor(Math.random()*arr.length)];}
-
-function _bsGenerateTransactions(){
-    var from=new Date(_BS.dateFrom);
-    var to=new Date(_BS.dateTo);
-    if(isNaN(from.getTime())||isNaN(to.getTime())){
-        to=new Date(); from=new Date(); from.setDate(from.getDate()-30);
-    }
+function _bsGen(){
+    var from=new Date(_BS.dateFrom),to=new Date(_BS.dateTo);
+    if(isNaN(from.getTime())||isNaN(to.getTime())){to=new Date();from=new Date();from.setDate(from.getDate()-30);}
     var days=Math.ceil((to-from)/(1000*60*60*24));
-    if(days<1) days=30;
-    if(days>60) days=60;
-
-    var m=_BS_MERCHANTS[_BS.country]||_BS_MERCHANTS.usa;
+    if(days<1)days=30;if(days>60)days=60;
     var isJP=_BS.country==='japan';
-    var txns=[];
-    var bal=isJP?_bsRand(300000,2500000):_bsRandF(2500,15000);
+    var txns=[],bal=isJP?_bsR(300000,2500000):_bsRF(2500,15000);
     _BS.openingBalance=bal;
-
-    // Income 1-2 times
-    var paydays=[_bsRand(1,5),_bsRand(15,20)];
-    paydays.forEach(function(pd){
-        var d=new Date(from); d.setDate(from.getDate()+pd);
-        if(d<=to){
-            var amt=isJP?_bsRand(180000,450000):_bsRandF(2200,5500);
-            txns.push({date:new Date(d),desc:_bsPick(m.income),amount:amt,type:'credit'});
-        }
+    var card4=_BS.cardNumber.replace(/\s/g,'').slice(-4);
+    // Income
+    [_bsR(1,5),_bsR(15,20)].forEach(function(pd){
+        var d=new Date(from);d.setDate(from.getDate()+pd);
+        if(d<=to){var amt=isJP?_bsR(180000,450000):_bsRF(2200,5500);
+        txns.push({date:new Date(d),desc:_bsPickTx('income'),card:null,amount:amt,type:'credit'});}
     });
-
-    // Generate daily spending
     for(var day=0;day<days;day++){
-        var d=new Date(from); d.setDate(from.getDate()+day);
-        if(d>to) break;
-        var txCount=_bsRand(0,3);
-        for(var t=0;t<txCount;t++){
-            var cat,amt,desc;
-            var r=Math.random();
-            if(r<0.25){cat='grocery';amt=isJP?_bsRand(500,8000):_bsRandF(15,180);}
-            else if(r<0.35){cat='gas';amt=isJP?_bsRand(3000,7000):_bsRandF(25,75);}
-            else if(r<0.50){cat='restaurant';amt=isJP?_bsRand(300,3000):_bsRandF(5,55);}
-            else if(r<0.58){cat='utility';amt=isJP?_bsRand(3000,25000):_bsRandF(50,250);}
-            else if(r<0.65){cat='subscription';amt=isJP?_bsRand(500,2000):_bsRandF(5,20);}
-            else if(r<0.78){cat='shopping';amt=isJP?_bsRand(1000,30000):_bsRandF(15,300);}
-            else if(r<0.85){cat='transfer';amt=isJP?_bsRand(5000,50000):_bsRandF(50,500);}
-            else{cat='medical';amt=isJP?_bsRand(500,5000):_bsRandF(10,80);}
-            desc=_bsPick(m[cat]||m.grocery);
-            if(!isJP) amt=Math.round(amt*100)/100;
-            txns.push({date:new Date(d),desc:desc,amount:amt,type:'debit'});
+        var d=new Date(from);d.setDate(from.getDate()+day);if(d>to)break;
+        var n=_bsR(0,3);
+        for(var t=0;t<n;t++){
+            var cat,amt,r=Math.random();
+            if(r<0.25){cat='grocery';amt=isJP?_bsR(500,8000):_bsRF(15,180);}
+            else if(r<0.35){cat='gas';amt=isJP?_bsR(3000,7000):_bsRF(25,75);}
+            else if(r<0.50){cat='restaurant';amt=isJP?_bsR(300,3000):_bsRF(5,55);}
+            else if(r<0.58){cat='utility';amt=isJP?_bsR(3000,25000):_bsRF(50,250);}
+            else if(r<0.65){cat='sub';amt=isJP?_bsR(500,2000):_bsRF(5,20);}
+            else if(r<0.78){cat='shop';amt=isJP?_bsR(1000,30000):_bsRF(15,300);}
+            else if(r<0.85){cat='transfer';amt=isJP?_bsR(5000,50000):_bsRF(50,500);}
+            else{cat='medical';amt=isJP?_bsR(500,5000):_bsRF(10,80);}
+            if(!isJP)amt=Math.round(amt*100)/100;
+            var useCard=cat!=='transfer'&&cat!=='income'&&Math.random()>0.3;
+            txns.push({date:new Date(d),desc:_bsPickTx(cat),card:useCard?card4:null,amount:amt,type:'debit'});
         }
     }
-
-    // Sort by date
     txns.sort(function(a,b){return a.date-b.date;});
-
-    // Calculate running balance
-    var running=_BS.openingBalance;
-    txns.forEach(function(tx){
-        if(tx.type==='credit') running+=tx.amount;
-        else running-=tx.amount;
-        tx.balance=running;
-    });
-    _BS.closingBalance=running;
-    _BS.transactions=txns;
-    _BS.generated=true;
+    var run=_BS.openingBalance;
+    txns.forEach(function(tx){if(tx.type==='credit')run+=tx.amount;else run-=tx.amount;tx.balance=run;});
+    _BS.closingBalance=run;_BS.transactions=txns;_BS.generated=true;
 }
 
-// ─── RENDER ───
+function _bsPreview(){
+    var bank=_bsB(),isJP=_BS.country==='japan';
+    var fullAddr=_BS.address1+(_BS.address2?'\n'+_BS.address2:'')+'\n'+_BS.city+', '+_BS.state+' '+_BS.zip;
+    var fromD=new Date(_BS.dateFrom),toD=new Date(_BS.dateTo);
+    var periodStr=_bsD(fromD).split(' ').slice(1).join('/')+'-'+_bsD(toD).split(' ').slice(1).join('/');
+    var card4=_BS.cardNumber.replace(/\s/g,'').slice(-4);
+    var logo=_BS.logoImage?'<img src="'+_BS.logoImage+'" style="max-height:45px;max-width:200px;object-fit:contain">':'<div style="background:'+bank.color+';color:#fff;font-weight:800;font-size:18px;padding:8px 18px;border-radius:4px;letter-spacing:1px;display:inline-flex;align-items:center;gap:8px">'+_bsE(bank.short)+'</div>';
+    var dateStr=_bsD(new Date());
+    // Tx rows
+    var rows='';
+    _BS.transactions.forEach(function(tx){
+        var amtS=tx.type==='credit'?_bsF(tx.amount):'-'+_bsF(tx.amount);
+        var sub='';
+        if(tx.card)sub+='<br><span class="bs2-sub">Card xx'+tx.card+'</span>';
+        sub+='<br><span class="bs2-sub">Value Date: '+_bsD(tx.date)+'</span>';
+        rows+='<tr><td class="bs2-td">'+_bsD(tx.date)+'</td><td class="bs2-td">'+_bsE(tx.desc)+sub+'</td><td class="bs2-td bs2-r">'+amtS+'</td><td class="bs2-td bs2-r">'+_bsF(tx.balance)+'</td></tr>';
+    });
+
+    return '<div class="bs2-wrap"><div class="bs2-page" id="bs-page">'+
+    '<div class="bs2-top"><div class="bs2-top-l">'+logo+'<div class="bs2-bank-sub">'+_bsE(bank.name)+'<br>'+_bsE(bank.sub)+'</div></div>'+
+    '<div class="bs2-top-r"><b>Account Number</b><br>'+_bsE(_BS.routingNumber)+' '+_bsE(_BS.accountNumber)+'<br><b>Page</b><br>1 of 1</div></div>'+
+    '<div class="bs2-addr">'+_bsE(_BS.holderName)+'<br>'+_bsE(_BS.address1)+(_BS.address2?'<br>'+_bsE(_BS.address2):'')+'<br>'+_bsE(_BS.city)+', '+_bsE(_BS.state)+' '+_bsE(_BS.zip)+'</div>'+
+    '<div class="bs2-date">'+dateStr+'</div>'+
+    '<div class="bs2-greeting">Dear '+_bsE(_BS.holderName)+',</div>'+
+    '<div class="bs2-intro">Here\'s your account information and a list of transactions from '+periodStr+'.</div>'+
+    '<table class="bs2-info"><tr><td class="bs2-info-l">Account name</td><td class="bs2-info-v">'+_bsE(_BS.holderName)+'</td></tr>'+
+    '<tr><td class="bs2-info-l">'+_bsE(bank.bsbLabel)+'</td><td class="bs2-info-v">'+_bsE(_BS.routingNumber)+'</td></tr>'+
+    '<tr><td class="bs2-info-l">Account number</td><td class="bs2-info-v">'+_bsE(_BS.accountNumber)+'</td></tr>'+
+    '<tr><td class="bs2-info-l">Account type</td><td class="bs2-info-v">'+_bsE(_BS.accountType)+'</td></tr>'+
+    '<tr><td class="bs2-info-l">Date opened</td><td class="bs2-info-v">'+_bsE(_BS.dateOpened)+'</td></tr></table>'+
+    '<table class="bs2-table"><thead><tr><th class="bs2-th">Date</th><th class="bs2-th">Transaction details</th><th class="bs2-th bs2-r">Amount</th><th class="bs2-th bs2-r">Balance</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="bs2-footer"><div class="bs2-footer-l">Created '+dateStr+'<br>While this letter is accurate at the time it\'s produced,<br>we\'re not responsible for any reliance on this information.</div><div class="bs2-footer-r">Transaction Summary v1.0</div></div>'+
+    '</div></div>';
+}
+
 function _renderBankStatementGenerator(){
-    var area=document.getElementById('content-area');
-    var bar=document.getElementById('stats-bar');
+    var area=document.getElementById('content-area'),bar=document.getElementById('stats-bar');
     bar.style.display='none';bar.innerHTML='';
     var gen=_CK.generator;
     var mi={proxy:'🌐',bin:'🔢',card:'💳',ip:'📡',auto:'🔍',glue:'🔗',generator:'📄'};
     var ml={proxy:'Proxy',bin:'BIN',card:'Card',ip:'IP',auto:'Auto',glue:'Glue',generator:'Generator'};
     var mh='';for(var k in mi)mh+='<button class="ck-mode-btn '+(_CK.mode===k?'active':'')+'" data-mode="'+k+'"><span class="ck-mode-icon">'+mi[k]+'</span><span class="ck-mode-label">'+ml[k]+'</span></button>';
-
-    // Default dates
     if(!_BS.dateFrom){var df=new Date();df.setDate(df.getDate()-30);_BS.dateFrom=df.toISOString().slice(0,10);}
     if(!_BS.dateTo){_BS.dateTo=new Date().toISOString().slice(0,10);}
-    if(!_BS.accountNumber) _BS.accountNumber=_bsRand(100000000,999999999).toString();
-    if(!_BS.routingNumber) _BS.routingNumber=_bsRand(100000000,299999999).toString();
-
-    var bankOpts='';
-    var banks=_BS_BANKS[_BS.country]||{};
-    for(var bk in banks) bankOpts+='<option value="'+bk+'"'+(_BS.bank===bk?' selected':'')+'>'+banks[bk].short+'</option>';
-
-    var countryBtns='<button class="bs-country-btn'+(_BS.country==='usa'?' active':'')+'" data-bscountry="usa">🇺🇸 USA</button>'+
-        '<button class="bs-country-btn'+(_BS.country==='japan'?' active':'')+'" data-bscountry="japan">🇯🇵 Japan</button>';
-
+    if(!_BS.accountNumber)_BS.accountNumber=_bsR(10000000,99999999).toString();
+    if(!_BS.routingNumber)_BS.routingNumber=_bsR(100000,999999).toString();
+    if(!_BS.dateOpened){var o=new Date();o.setFullYear(o.getFullYear()-_bsR(1,5));_BS.dateOpened=_bsD(o);}
+    var bOpts='';var banks=_BS_BANKS[_BS.country]||{};
+    for(var bk in banks)bOpts+='<option value="'+bk+'"'+(_BS.bank===bk?' selected':'')+'>'+banks[bk].short+'</option>';
+    var jpSlider=_BS.country==='japan'?'<div class="bs-fg bs-fg-sm" style="min-width:160px"><label class="bs-label">JP/EN Mix: '+_BS.jpLang+'% JP</label><input type="range" min="0" max="100" value="'+_BS.jpLang+'" id="bs-jplang" style="width:100%"></div>':'';
     area.innerHTML=
     '<div class="ck-container">'+
-        '<div class="ck-header"><div class="ck-title"><span class="ck-icon">🏦</span><span>BANK STATEMENT</span></div><div class="ck-modes">'+mh+'</div></div>'+
-        '<div class="ck-proto-bar"><span class="ck-proto-label">Type:</span>'+
-            '<button class="ck-proto-btn '+(gen.type==='tepco'?'active':'')+'" data-billtype="tepco">⚡ TEPCO</button>'+
-            '<button class="ck-proto-btn '+(gen.type==='water'?'active':'')+'" data-billtype="water">💧 Water</button>'+
-            '<button class="ck-proto-btn '+(gen.type==='creditcard'?'active':'')+'" data-billtype="creditcard">💳 Credit Card</button>'+
-            '<button class="ck-proto-btn '+(gen.type==='driverlicense'?'active':'')+'" data-billtype="driverlicense">🪪 Driver License</button>'+
-            '<button class="ck-proto-btn '+(gen.type==='bankstatement'?'active':'')+'" data-billtype="bankstatement">🏦 Bank Statement</button>'+
-            '<button class="ck-proto-btn '+(gen.type==='zipprocessor'?'active':'')+'" data-billtype="zipprocessor">📦 ZIP Processor</button>'+
-        '</div>'+
-        // Form
-        '<div class="bs-form">'+
-            '<div class="bs-form-row">'+countryBtns+'<select class="bs-select" id="bs-bank">'+bankOpts+'</select>'+
-            '<label class="bs-logo-btn" id="bs-logo-label">'+(_BS.logoImage?'✅ Logo':'📁 Logo')+'<input type="file" id="bs-logo-input" accept="image/*" hidden></label></div>'+
-            '<div class="bs-form-row">'+
-                '<div class="bs-fg"><label class="bs-label">Full Name</label><input class="bs-input" id="bs-name" value="'+_bsEsc(_BS.holderName)+'" placeholder="JOHN DOE"></div>'+
-                '<div class="bs-fg"><label class="bs-label">Card Number</label><input class="bs-input" id="bs-card" value="'+_bsEsc(_BS.cardNumber)+'" placeholder="4242 4242 4242 4242"></div>'+
-            '</div>'+
-            '<div class="bs-form-row">'+
-                '<div class="bs-fg"><label class="bs-label">Account #</label><input class="bs-input" id="bs-acct" value="'+_bsEsc(_BS.accountNumber)+'"></div>'+
-                '<div class="bs-fg bs-fg-sm"><label class="bs-label">Routing #</label><input class="bs-input" id="bs-routing" value="'+_bsEsc(_BS.routingNumber)+'"></div>'+
-            '</div>'+
-            '<div class="bs-form-row">'+
-                '<div class="bs-fg"><label class="bs-label">Address Line 1</label><input class="bs-input" id="bs-addr1" value="'+_bsEsc(_BS.address1)+'" placeholder="123 Main St"></div>'+
-                '<div class="bs-fg bs-fg-sm"><label class="bs-label">Address Line 2</label><input class="bs-input" id="bs-addr2" value="'+_bsEsc(_BS.address2)+'" placeholder="Apt 4B"></div>'+
-            '</div>'+
-            '<div class="bs-form-row">'+
-                '<div class="bs-fg"><label class="bs-label">City</label><input class="bs-input" id="bs-city" value="'+_bsEsc(_BS.city)+'"></div>'+
-                '<div class="bs-fg bs-fg-sm"><label class="bs-label">State</label><input class="bs-input" id="bs-state" value="'+_bsEsc(_BS.state)+'"></div>'+
-                '<div class="bs-fg bs-fg-sm"><label class="bs-label">ZIP</label><input class="bs-input" id="bs-zip" value="'+_bsEsc(_BS.zip)+'"></div>'+
-            '</div>'+
-            '<div class="bs-form-row">'+
-                '<div class="bs-fg bs-fg-sm"><label class="bs-label">Date From</label><input type="date" class="bs-input" id="bs-from" value="'+_BS.dateFrom+'"></div>'+
-                '<div class="bs-fg bs-fg-sm"><label class="bs-label">Date To</label><input type="date" class="bs-input" id="bs-to" value="'+_BS.dateTo+'"></div>'+
-                '<button class="bs-gen-btn" id="bs-generate">⚡ GENERATE STATEMENT</button>'+
-                (_BS.generated?'<button class="bs-pdf-btn" id="bs-download-pdf">📄 Download PDF</button>':'')+
-            '</div>'+
-        '</div>'+
-        // Preview
-        (_BS.generated?_bsRenderPreview():'')+
-    '</div>';
-
-    _bsBindEvents();
+    '<div class="ck-header"><div class="ck-title"><span class="ck-icon">🏦</span><span>BANK STATEMENT</span></div><div class="ck-modes">'+mh+'</div></div>'+
+    '<div class="ck-proto-bar"><span class="ck-proto-label">Type:</span>'+
+    '<button class="ck-proto-btn '+(gen.type==='tepco'?'active':'')+'" data-billtype="tepco">⚡ TEPCO</button>'+
+    '<button class="ck-proto-btn '+(gen.type==='water'?'active':'')+'" data-billtype="water">💧 Water</button>'+
+    '<button class="ck-proto-btn '+(gen.type==='creditcard'?'active':'')+'" data-billtype="creditcard">💳 Credit Card</button>'+
+    '<button class="ck-proto-btn '+(gen.type==='driverlicense'?'active':'')+'" data-billtype="driverlicense">🪪 Driver License</button>'+
+    '<button class="ck-proto-btn '+(gen.type==='bankstatement'?'active':'')+'" data-billtype="bankstatement">🏦 Bank Statement</button>'+
+    '<button class="ck-proto-btn '+(gen.type==='zipprocessor'?'active':'')+'" data-billtype="zipprocessor">📦 ZIP Processor</button></div>'+
+    '<div class="bs-form">'+
+    '<div class="bs-form-row"><button class="bs-country-btn'+(_BS.country==='usa'?' active':'')+'" data-bscountry="usa">🇺🇸 USA</button><button class="bs-country-btn'+(_BS.country==='japan'?' active':'')+'" data-bscountry="japan">🇯🇵 Japan</button><select class="bs-select" id="bs-bank">'+bOpts+'</select><label class="bs-logo-btn">'+(_BS.logoImage?'✅ Logo':'📁 Logo')+'<input type="file" id="bs-logo-input" accept="image/*" hidden></label>'+jpSlider+'</div>'+
+    '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">Full Name</label><input class="bs-input" id="bs-name" value="'+_bsE(_BS.holderName)+'"></div><div class="bs-fg"><label class="bs-label">Card Number</label><input class="bs-input" id="bs-card" value="'+_bsE(_BS.cardNumber)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Account Type</label><input class="bs-input" id="bs-actype" value="'+_bsE(_BS.accountType)+'"></div></div>'+
+    '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">Account #</label><input class="bs-input" id="bs-acct" value="'+_bsE(_BS.accountNumber)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Routing/BSB</label><input class="bs-input" id="bs-routing" value="'+_bsE(_BS.routingNumber)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Date Opened</label><input class="bs-input" id="bs-opened" value="'+_bsE(_BS.dateOpened)+'"></div></div>'+
+    '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">Address Line 1</label><input class="bs-input" id="bs-addr1" value="'+_bsE(_BS.address1)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Address Line 2</label><input class="bs-input" id="bs-addr2" value="'+_bsE(_BS.address2)+'"></div></div>'+
+    '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">City</label><input class="bs-input" id="bs-city" value="'+_bsE(_BS.city)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">State</label><input class="bs-input" id="bs-state" value="'+_bsE(_BS.state)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">ZIP</label><input class="bs-input" id="bs-zip" value="'+_bsE(_BS.zip)+'"></div></div>'+
+    '<div class="bs-form-row"><div class="bs-fg bs-fg-sm"><label class="bs-label">Date From</label><input type="date" class="bs-input" id="bs-from" value="'+_BS.dateFrom+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Date To</label><input type="date" class="bs-input" id="bs-to" value="'+_BS.dateTo+'"></div><button class="bs-gen-btn" id="bs-generate">⚡ GENERATE</button>'+(_BS.generated?'<button class="bs-pdf-btn" id="bs-dl-png">📥 Download PNG</button>':'')+'</div></div>'+
+    (_BS.generated?_bsPreview():'')+'</div>';
+    _bsBind();
 }
 
-function _bsEsc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
-
-function _bsRenderPreview(){
-    var bank=_bsGetBank();
-    var cur=bank.currency;
-    var isJP=_BS.country==='japan';
-    var fullAddr=_BS.address1+(_BS.address2?', '+_BS.address2:'')+', '+_BS.city+', '+_BS.state+' '+_BS.zip;
-    var maskedCard='****  ****  ****  '+_BS.cardNumber.replace(/\s/g,'').slice(-4);
-    var fromD=new Date(_BS.dateFrom); var toD=new Date(_BS.dateTo);
-    var periodStr=_bsDateStr(fromD)+' — '+_bsDateStr(toD);
-
-    // Logo
-    var logoHtml=_BS.logoImage?'<img src="'+_BS.logoImage+'" class="bs-logo-img">':'<div class="bs-logo-placeholder" style="background:'+bank.color+'">'+bank.short+'</div>';
-
-    // Transaction rows
-    var txRows='';
-    _BS.transactions.forEach(function(tx){
-        var amtStr=tx.type==='credit'?'+'+_bsFmt(tx.amount):'-'+_bsFmt(tx.amount);
-        var cls=tx.type==='credit'?'bs-tx-credit':'bs-tx-debit';
-        txRows+='<tr><td class="bs-td">'+_bsDateStr(tx.date)+'</td><td class="bs-td">'+_bsEsc(tx.desc)+'</td><td class="bs-td bs-td-r '+cls+'">'+amtStr+'</td><td class="bs-td bs-td-r">'+_bsFmt(tx.balance)+'</td></tr>';
-    });
-
-    // Summary
-    var totalCredits=0,totalDebits=0;
-    _BS.transactions.forEach(function(tx){if(tx.type==='credit')totalCredits+=tx.amount;else totalDebits+=tx.amount;});
-
-    return '<div class="bs-preview-wrap"><div class="bs-page" id="bs-page">'+
-        // Header
-        '<div class="bs-header">'+
-            '<div class="bs-header-left">'+logoHtml+'</div>'+
-            '<div class="bs-header-right"><div class="bs-bank-name">'+_bsEsc(bank.name)+'</div><div class="bs-bank-addr">'+_bsEsc(bank.addr)+'</div><div class="bs-bank-contact">'+bank.phone+' | '+bank.web+'</div></div>'+
-        '</div>'+
-        '<div class="bs-divider"></div>'+
-        // Account Info — TOP (name + card + address)
-        '<div class="bs-info-grid">'+
-            '<div class="bs-info-col"><div class="bs-info-label">Account Holder</div><div class="bs-info-val bs-info-name">'+_bsEsc(_BS.holderName)+'</div><div class="bs-info-val">'+_bsEsc(fullAddr)+'</div></div>'+
-            '<div class="bs-info-col"><div class="bs-info-label">Account Number</div><div class="bs-info-val">'+_bsEsc(_BS.accountNumber)+'</div>'+
-            '<div class="bs-info-label" style="margin-top:4px">Card Number</div><div class="bs-info-val">'+maskedCard+'</div></div>'+
-            '<div class="bs-info-col"><div class="bs-info-label">Statement Period</div><div class="bs-info-val">'+periodStr+'</div>'+
-            '<div class="bs-info-label" style="margin-top:4px">Page</div><div class="bs-info-val">1 of 1</div></div>'+
-        '</div>'+
-        '<div class="bs-divider"></div>'+
-        // Summary
-        '<div class="bs-summary">'+
-            '<div class="bs-sum-item"><div class="bs-sum-label">Opening Balance</div><div class="bs-sum-val">'+_bsFmt(_BS.openingBalance)+'</div></div>'+
-            '<div class="bs-sum-item"><div class="bs-sum-label">Total Credits</div><div class="bs-sum-val bs-tx-credit">+'+_bsFmt(totalCredits)+'</div></div>'+
-            '<div class="bs-sum-item"><div class="bs-sum-label">Total Debits</div><div class="bs-sum-val bs-tx-debit">-'+_bsFmt(totalDebits)+'</div></div>'+
-            '<div class="bs-sum-item bs-sum-closing"><div class="bs-sum-label">Closing Balance</div><div class="bs-sum-val">'+_bsFmt(_BS.closingBalance)+'</div></div>'+
-        '</div>'+
-        '<div class="bs-divider"></div>'+
-        // Transaction table
-        '<div class="bs-section-title">TRANSACTION DETAILS</div>'+
-        '<table class="bs-table"><thead><tr><th class="bs-th">Date</th><th class="bs-th">Description</th><th class="bs-th bs-th-r">Amount</th><th class="bs-th bs-th-r">Balance</th></tr></thead><tbody>'+txRows+'</tbody></table>'+
-        '<div class="bs-divider" style="margin-top:12px"></div>'+
-        // Footer — BOTTOM (name + card + address again)
-        '<div class="bs-footer">'+
-            '<div class="bs-footer-left"><div class="bs-info-label">Account Holder</div><div class="bs-info-val bs-info-name">'+_bsEsc(_BS.holderName)+'</div><div class="bs-info-val" style="font-size:9px">'+_bsEsc(fullAddr)+'</div></div>'+
-            '<div class="bs-footer-center"><div class="bs-info-label">Card</div><div class="bs-info-val">'+maskedCard+'</div></div>'+
-            '<div class="bs-footer-right"><div class="bs-info-val" style="font-size:8px;color:#888">This statement is a summary of your account activity. Please review and report any discrepancies within 60 days.</div><div class="bs-info-val" style="font-size:8px;color:#aaa;margin-top:4px">'+_bsEsc(bank.name)+' | Member FDIC</div></div>'+
-        '</div>'+
-    '</div></div>';
-}
-
-// ─── EVENTS ───
-function _bsBindEvents(){
-    var area=document.getElementById('content-area');
-    var gen=_CK.generator;
-
+function _bsBind(){
+    var area=document.getElementById('content-area'),gen=_CK.generator;
     area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
     area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_renderGenerator();});});
-
-    // Country buttons
-    area.querySelectorAll('[data-bscountry]').forEach(function(b){b.addEventListener('click',function(){
-        _BS.country=b.dataset.bscountry;
-        var banks=Object.keys(_BS_BANKS[_BS.country]||{});
-        _BS.bank=banks[0]||'chase';
-        _BS.generated=false;
-        _renderBankStatementGenerator();
-    });});
-
-    // Bank select
-    var bankSel=document.getElementById('bs-bank');
-    if(bankSel) bankSel.addEventListener('change',function(){_BS.bank=this.value;_BS.generated=false;_renderBankStatementGenerator();});
-
-    // Logo upload
-    var logoInp=document.getElementById('bs-logo-input');
-    if(logoInp) logoInp.addEventListener('change',function(e){
-        var f=e.target.files[0]; if(!f)return;
-        var r=new FileReader();
-        r.onload=function(ev){_BS.logoImage=ev.target.result;_renderBankStatementGenerator();};
-        r.readAsDataURL(f);
+    area.querySelectorAll('[data-bscountry]').forEach(function(b){b.addEventListener('click',function(){_BS.country=b.dataset.bscountry;var bks=Object.keys(_BS_BANKS[_BS.country]||{});_BS.bank=bks[0]||'chase';_BS.generated=false;_renderBankStatementGenerator();});});
+    var bs=document.getElementById('bs-bank');if(bs)bs.addEventListener('change',function(){_BS.bank=this.value;_BS.generated=false;_renderBankStatementGenerator();});
+    var li=document.getElementById('bs-logo-input');if(li)li.addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){_BS.logoImage=ev.target.result;_renderBankStatementGenerator();};r.readAsDataURL(f);});
+    var jp=document.getElementById('bs-jplang');if(jp)jp.addEventListener('input',function(){_BS.jpLang=parseInt(this.value);this.parentElement.querySelector('.bs-label').textContent='JP/EN Mix: '+_BS.jpLang+'% JP';});
+    var flds={'bs-name':'holderName','bs-card':'cardNumber','bs-acct':'accountNumber','bs-routing':'routingNumber','bs-addr1':'address1','bs-addr2':'address2','bs-city':'city','bs-state':'state','bs-zip':'zip','bs-from':'dateFrom','bs-to':'dateTo','bs-actype':'accountType','bs-opened':'dateOpened'};
+    for(var id in flds)(function(i,k){var el=document.getElementById(i);if(el)el.addEventListener('input',function(){_BS[k]=this.value;});})(id,flds[id]);
+    var gb=document.getElementById('bs-generate');if(gb)gb.addEventListener('click',function(){for(var i in flds){var el=document.getElementById(i);if(el)_BS[flds[i]]=el.value;}_bsGen();_renderBankStatementGenerator();toast(_BS.transactions.length+' transactions ✓','success');});
+    var dl=document.getElementById('bs-dl-png');if(dl)dl.addEventListener('click',function(){
+        var pg=document.getElementById('bs-page');if(!pg)return;toast('Rendering PNG...','info');
+        html2canvas(pg,{scale:2,useCORS:true,backgroundColor:'#ffffff'}).then(function(c){var a=document.createElement('a');a.download='BankStatement_'+_BS.holderName.replace(/\s+/g,'_')+'.png';a.href=c.toDataURL('image/png');a.click();toast('PNG downloaded ✓','success');}).catch(function(e){toast('Error: '+e.message,'error');});
     });
-
-    // Form inputs
-    var fields={
-        'bs-name':'holderName','bs-card':'cardNumber','bs-acct':'accountNumber','bs-routing':'routingNumber',
-        'bs-addr1':'address1','bs-addr2':'address2','bs-city':'city','bs-state':'state','bs-zip':'zip',
-        'bs-from':'dateFrom','bs-to':'dateTo'
-    };
-    for(var id in fields){
-        (function(fid,key){
-            var el=document.getElementById(fid);
-            if(el) el.addEventListener('input',function(){_BS[key]=this.value;});
-        })(id,fields[id]);
-    }
-
-    // Generate
-    var genBtn=document.getElementById('bs-generate');
-    if(genBtn) genBtn.addEventListener('click',function(){
-        // Read all fields
-        for(var id in fields){var el=document.getElementById(id);if(el)_BS[fields[id]]=el.value;}
-        _bsGenerateTransactions();
-        _renderBankStatementGenerator();
-        toast(_BS.transactions.length+' transactions generated ✓','success');
-    });
-
-    // PDF download
-    var pdfBtn=document.getElementById('bs-download-pdf');
-    if(pdfBtn) pdfBtn.addEventListener('click',_bsDownloadPDF);
-}
-
-// ─── PDF EXPORT ───
-function _bsDownloadPDF(){
-    var page=document.getElementById('bs-page');
-    if(!page){toast('Generate first','error');return;}
-    toast('Generating PDF...','info');
-    html2canvas(page,{scale:2,useCORS:true,backgroundColor:'#ffffff'}).then(function(canvas){
-        var imgData=canvas.toDataURL('image/png');
-        var JPDF=window.jspdf&&window.jspdf.jsPDF?window.jspdf.jsPDF:(window.jsPDF||null);
-        if(!JPDF){toast('jsPDF library not loaded','error');return;}
-        var pdf=new JPDF({orientation:'portrait',unit:'mm',format:'a4'});
-        var w=210,h=canvas.height*w/canvas.width;
-        if(h>297){h=297;w=canvas.width*h/canvas.height;}
-        pdf.addImage(imgData,'PNG',0,0,w,h);
-        pdf.save('bank_statement_'+_BS.holderName.replace(/\s+/g,'_')+'.pdf');
-        toast('PDF downloaded ✓','success');
-    }).catch(function(e){console.error(e);toast('PDF error: '+e.message,'error');});
 }
