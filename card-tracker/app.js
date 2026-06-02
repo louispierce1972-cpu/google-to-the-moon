@@ -1681,6 +1681,22 @@ function _ckExtractCards(text) {
         const line = lines[i];
         if (!line.trim()) continue;
 
+        // ── Strategy 0: 3-line card format (number / date / cvv on separate lines) ──
+        // Detects: line1=card number only, line2=MM/YY(YY) only, line3=CVV only
+        const trimmed = line.trim().replace(/[\s\-]/g, '');
+        if (/^\d{13,19}$/.test(trimmed) && i + 2 < lines.length) {
+            const line2 = lines[i + 1].trim();
+            const line3 = lines[i + 2].trim();
+            const dateMatch = line2.match(/^(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})$/);
+            const cvvMatch = line3.match(/^(\d{3,4})$/);
+            if (dateMatch && cvvMatch) {
+                if (addCard(trimmed, dateMatch[1], dateMatch[2], cvvMatch[1])) {
+                    i += 2; // skip date and cvv lines
+                    continue;
+                }
+            }
+        }
+
         // ── Strategy 1: Standard delimited (pipe/colon/slash/space/tab) ──
         const stdRe = /(\d[\d\s\-]{11,22}\d)\s*[\|:\/\\\s\t]+\s*(0?[1-9]|1[0-2])\s*[\|:\/\\\s\t]+\s*(\d{2}|\d{4})\s*[\|:\/\\\s\t]+\s*(\d{3,4})/;
         const stdM = line.match(stdRe);
