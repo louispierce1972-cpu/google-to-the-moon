@@ -12294,6 +12294,94 @@ tr.row-selected td {
 .ck-history-count { color: #818cf8; font-weight: 600; font-family: var(--font-mono, monospace); }
 .ck-history-time { color: var(--text-dim, #4b5563); font-size: 10px; }
 
+/* ── BIN Export — 3-panel layout ── */
+.ck-bin-workspace {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.ck-bin-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.ck-bin-chips {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 5px;
+    padding: 10px 12px;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.ck-bin-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 7px;
+    background: rgba(255,255,255,0.03);
+    color: var(--text-secondary, #94a3b8);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.ck-bin-chip:hover {
+    background: rgba(129,140,248,0.08);
+    border-color: rgba(129,140,248,0.3);
+    color: #c7d2fe;
+}
+
+.ck-bin-chip.selected {
+    background: linear-gradient(135deg, rgba(129,140,248,0.18), rgba(99,102,241,0.12));
+    border-color: rgba(129,140,248,0.5);
+    color: #c7d2fe;
+    box-shadow: 0 0 10px rgba(129,140,248,0.12);
+}
+
+.ck-bin-chip-icon {
+    font-size: 10px;
+    line-height: 1;
+}
+
+.ck-bin-chip-num {
+    letter-spacing: 0.04em;
+}
+
+.ck-bin-chip-count {
+    font-size: 9px;
+    color: var(--text-muted, #6b7280);
+    font-weight: 700;
+}
+
+.ck-bin-chip.selected .ck-bin-chip-count {
+    color: #34d399;
+}
+
+.ck-bin-toggle-all {
+    color: #818cf8 !important;
+    border-color: rgba(129,140,248,0.25) !important;
+    font-weight: 700 !important;
+}
+
+.ck-bin-toggle-all:hover {
+    background: rgba(129,140,248,0.1) !important;
+    color: #a5b4fc !important;
+}
+
+.ck-export-panel .ck-output-text {
+    color: #a78bfa;
+    background: rgba(167,139,250,0.03);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .ck-workspace {
@@ -12317,6 +12405,13 @@ tr.row-selected td {
     }
     .ck-modes {
         overflow-x: auto;
+    }
+    .ck-bin-workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    .ck-bin-chips {
+        max-height: 200px;
     }
 }
 

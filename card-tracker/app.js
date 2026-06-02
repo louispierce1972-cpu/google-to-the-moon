@@ -1588,7 +1588,7 @@ const _CK = {
     proxyProto: 'socks5', // socks5 | http | https
     tabs: {
         proxy: { input: '', output: '' },
-        bin:   { input: '', output: '' },
+        bin:   { input: '', output: '', binGroups: {}, selectedBins: new Set(), binCards: [] },
         card:  { input: '', output: '' },
         ip:    { input: '', output: '' },
         auto:  { input: '', output: '' },
@@ -1999,10 +1999,27 @@ function _ckProcess() {
             result = _ckExtractProxies(input, _CK.proxyProto);
             countLabel = `${result.length} proxies`;
             break;
-        case 'bin':
+        case 'bin': {
             result = _ckExtractBins(input);
-            countLabel = `${result.length} unique BINs`;
+            // Also parse full cards and group by BIN for export
+            const binCards = _ckExtractCards(input);
+            const binGroups = {};
+            binCards.forEach(c => {
+                const bin6 = c.ccn.slice(0, 6);
+                if (!binGroups[bin6]) binGroups[bin6] = [];
+                binGroups[bin6].push(c);
+            });
+            tab.binGroups = binGroups;
+            tab.binCards = binCards;
+            // Preserve selected bins that still exist, reset others
+            const validBins = new Set(Object.keys(binGroups));
+            tab.selectedBins = new Set([...tab.selectedBins].filter(b => validBins.has(b)));
+            const netStats2 = {};
+            binCards.forEach(c => { netStats2[c.network || '??'] = (netStats2[c.network || '??'] || 0) + 1; });
+            const parts2 = Object.entries(netStats2).map(([k,v]) => `${v} ${k}`);
+            countLabel = `${result.length} unique BINs` + (parts2.length ? ` • ${binCards.length} cards • ${parts2.join(', ')}` : '');
             break;
+        }
         case 'card': {
             const cards = _ckExtractCards(input);
             result = cards.map(c => `${c.ccn} ${c.mm} ${c.yy} ${c.cvv}`);
@@ -3540,6 +3557,68 @@ function renderChecker() {
         </div>
         ` : ''}
 
+        ${_CK.mode === 'bin' && Object.keys(tab.binGroups || {}).length > 0 ? (() => {
+            // ── BIN MODE: 3-panel layout ──
+            const bg = tab.binGroups;
+            const sel = tab.selectedBins;
+            const sortedBins = Object.keys(bg).sort();
+            const totalSelected = sortedBins.filter(b => sel.has(b)).reduce((s, b) => s + bg[b].length, 0);
+            const allSelected = sortedBins.length > 0 && sortedBins.every(b => sel.has(b));
+            // Build export cards text
+            let exportLines = [];
+            sortedBins.filter(b => sel.has(b)).forEach(bin => {
+                bg[bin].forEach(c => exportLines.push(`${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`));
+            });
+            const exportText = exportLines.join('\n');
+            return `
+        <div class="ck-workspace ck-bin-workspace">
+            <div class="ck-panel ck-input-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">${modeIcons[_CK.mode]} INPUT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count" id="ck-input-count">0 lines</span>
+                        <button class="ck-action-btn" id="ck-paste-btn" title="Paste from clipboard">📋 Paste</button>
+                        <button class="ck-action-btn ck-btn-danger" id="ck-clear-btn" title="Clear input">✕</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea" id="ck-input" placeholder="${modePlaceholders[_CK.mode]}">${tab.input || ''}</textarea>
+            </div>
+
+            <div class="ck-panel ck-bin-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">🔢 BINs <span class="ck-count ck-count-active">${sortedBins.length}</span></span>
+                    <div class="ck-panel-actions">
+                        <button class="ck-action-btn ck-bin-toggle-all" id="ck-bin-toggle-all" title="${allSelected ? 'Deselect All' : 'Select All'}">${allSelected ? '☐ None' : '☑ All'}</button>
+                        <button class="ck-action-btn ck-btn-copy" id="ck-copy-btn" title="Copy BINs" ${!outLines ? 'disabled' : ''}>📋</button>
+                    </div>
+                </div>
+                <div class="ck-bin-chips" id="ck-bin-chips">
+                    ${sortedBins.map(bin => {
+                        const cards = bg[bin];
+                        const isSelected = sel.has(bin);
+                        const network = cards[0]?.network || '??';
+                        const netIcon = network === 'VISA' ? '💙' : network === 'MASTERCARD' ? '🧡' : network === 'AMEX' ? '💜' : network === 'JCB' ? '💚' : '⬜';
+                        return `<button class="ck-bin-chip ${isSelected ? 'selected' : ''}" data-bin="${bin}" title="${network} • ${cards.length} cards">
+                            <span class="ck-bin-chip-icon">${netIcon}</span>
+                            <span class="ck-bin-chip-num">${bin}</span>
+                            <span class="ck-bin-chip-count">×${cards.length}</span>
+                        </button>`;
+                    }).join('')}
+                </div>
+            </div>
+
+            <div class="ck-panel ck-output-panel ck-export-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">📤 EXPORT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${totalSelected > 0 ? 'ck-count-active' : ''}" id="ck-output-count">${totalSelected} cards</span>
+                        <button class="ck-action-btn ck-btn-copy" id="ck-export-copy" title="Copy selected cards" ${!totalSelected ? 'disabled' : ''}>📋 Copy</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea ck-output-text" id="ck-output" readonly placeholder="Select BINs to export cards...">${exportText}</textarea>
+            </div>
+        </div>`;
+        })() : `
         <div class="ck-workspace">
             <div class="ck-panel ck-input-panel">
                 <div class="ck-panel-header">
@@ -3570,7 +3649,7 @@ function renderChecker() {
                 </div>
                 <textarea class="ck-textarea ck-output-text" id="ck-output" readonly placeholder="Formatted output will appear here...">${tab.output || ''}</textarea>
             </div>
-        </div>
+        </div>`}
 
         ${_CK.history.length > 0 ? `
         <div class="ck-history">
@@ -3641,10 +3720,61 @@ function renderChecker() {
     document.getElementById('ck-clear-btn')?.addEventListener('click', () => {
         _CK.tabs[_CK.mode].input = '';
         _CK.tabs[_CK.mode].output = '';
+        if (_CK.mode === 'bin') {
+            _CK.tabs.bin.binGroups = {};
+            _CK.tabs.bin.selectedBins = new Set();
+            _CK.tabs.bin.binCards = [];
+        }
         renderChecker();
     });
 
-    // Convert button
+    // ── BIN Mode: chip selection, toggle-all, export ──
+    if (_CK.mode === 'bin') {
+        // BIN chip click — toggle selection
+        area.querySelectorAll('.ck-bin-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const bin = chip.dataset.bin;
+                const sel = _CK.tabs.bin.selectedBins;
+                if (sel.has(bin)) sel.delete(bin);
+                else sel.add(bin);
+                renderChecker();
+            });
+        });
+
+        // Toggle All / None
+        document.getElementById('ck-bin-toggle-all')?.addEventListener('click', () => {
+            const tab = _CK.tabs.bin;
+            const sortedBins = Object.keys(tab.binGroups);
+            const allSelected = sortedBins.length > 0 && sortedBins.every(b => tab.selectedBins.has(b));
+            if (allSelected) {
+                tab.selectedBins = new Set();
+            } else {
+                tab.selectedBins = new Set(sortedBins);
+            }
+            renderChecker();
+        });
+
+        // Export copy button
+        document.getElementById('ck-export-copy')?.addEventListener('click', () => {
+            const outputEl = document.getElementById('ck-output');
+            const text = outputEl?.value;
+            if (!text) { toast('Select BINs first', 'warning'); return; }
+            navigator.clipboard.writeText(text).then(() => {
+                const count = text.split('\n').filter(l => l.trim()).length;
+                toast(`${count} cards copied!`, 'success');
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                toast('Cards copied!', 'success');
+            });
+        });
+    }
+
+    // Convert button (not shown in BIN mode when bins are displayed)
     document.getElementById('ck-convert-btn')?.addEventListener('click', () => {
         _ckSaveInput();
         if (!_CK.tabs[_CK.mode].input.trim()) {
