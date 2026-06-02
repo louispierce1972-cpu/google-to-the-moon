@@ -3739,6 +3739,41 @@ function renderChecker() {
                 else sel.add(bin);
                 renderChecker();
             });
+            // Right-click → copy /bin format
+            chip.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                const bin = chip.dataset.bin;
+                const binText = `/bin ${bin}`;
+                // Remove any existing bin context menu
+                document.querySelectorAll('.ck-bin-ctx').forEach(el => el.remove());
+                // Create mini context menu
+                const ctx = document.createElement('div');
+                ctx.className = 'ck-bin-ctx';
+                ctx.innerHTML = `<button class="ck-bin-ctx-item">📋 Copy <span style="color:#a78bfa;font-family:var(--font-mono,'JetBrains Mono',monospace)">${binText}</span></button>`;
+                ctx.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+                ctx.style.top = Math.min(e.clientY, window.innerHeight - 40) + 'px';
+                document.body.appendChild(ctx);
+                // Click item → copy & close
+                ctx.querySelector('.ck-bin-ctx-item').addEventListener('click', () => {
+                    navigator.clipboard.writeText(binText).then(() => {
+                        toast(`Copied: ${binText}`, 'success');
+                    }).catch(() => {
+                        const ta = document.createElement('textarea');
+                        ta.value = binText;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        toast(`Copied: ${binText}`, 'success');
+                    });
+                    ctx.remove();
+                });
+                // Dismiss on click outside
+                const dismiss = (ev) => {
+                    if (!ctx.contains(ev.target)) { ctx.remove(); document.removeEventListener('click', dismiss); }
+                };
+                setTimeout(() => document.addEventListener('click', dismiss), 10);
+            });
         });
 
         // Toggle All / None

@@ -12382,6 +12382,47 @@ tr.row-selected td {
     background: rgba(167,139,250,0.03);
 }
 
+/* BIN chip context menu */
+.ck-bin-ctx {
+    position: fixed;
+    z-index: 9999;
+    background: rgba(17,20,33,0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(129,140,248,0.25);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 16px rgba(129,140,248,0.1);
+    animation: ckCtxIn 0.12s ease;
+}
+
+@keyframes ckCtxIn {
+    from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.ck-bin-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+}
+
+.ck-bin-ctx-item:hover {
+    background: rgba(129,140,248,0.12);
+    color: #c7d2fe;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .ck-workspace {
