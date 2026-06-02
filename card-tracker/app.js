@@ -1697,6 +1697,49 @@ function _ckExtractCards(text) {
             }
         }
 
+        // ── Strategy 0b: Multi-line labeled format (emoji/text prefixed) ──
+        // Handles formats like:
+        // 💳 CC: 5217 2930 1979 5094
+        // 📅 Validity: 01/29
+        // 🔐 CVV: 295
+        const ccnInLine = line.match(/(\d[\d\s\-]{11,22}\d)/);
+        if (ccnInLine) {
+            const potCcn = ccnInLine[1].replace(/[\s\-]/g, '');
+            if (potCcn.length >= 13 && potCcn.length <= 19 && !seen.has(potCcn)) {
+                let lMM = null, lYY = null, lCVV = null;
+                let lastConsumed = i;
+                const searchEnd = Math.min(i + 5, lines.length);
+                for (let j = i + 1; j < searchEnd; j++) {
+                    const nl = lines[j].trim();
+                    if (!nl) continue;
+                    // Stop if we hit another card number
+                    const nlClean = nl.replace(/[\s\-]/g, '');
+                    if (/\d{13,19}/.test(nlClean.replace(/[^\d]/g, '')) && nl.match(/(\d[\d\s\-]{11,22}\d)/)) {
+                        // Check it's actually a card number, not just digits in a label
+                        const possibleCard = nl.match(/(\d[\d\s\-]{11,22}\d)/);
+                        if (possibleCard && possibleCard[1].replace(/[\s\-]/g, '').length >= 13) break;
+                    }
+                    // Date: "📅 Validity: 01/29", "Exp: 01/29", "Date: 01/2029", "valid thru 01/29"
+                    if (!lMM || !lYY) {
+                        const dateM = nl.match(/(?:validity|valid(?:\s*thru)?|exp(?:ir[yation]*)?|date|срок|fecha|vencimiento|дата)[\s:=]*\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i);
+                        if (dateM) { lMM = dateM[1]; lYY = dateM[2]; lastConsumed = j; continue; }
+                    }
+                    // CVV: "🔐 CVV: 295", "CVC: 123", "Security Code: 456"
+                    if (!lCVV) {
+                        const cvvM = nl.match(/(?:cvv2?|cvc2?|cid|код|security\s*code|sec\.?\s*code|cvn)[\s:=]*\s*(\d{3,4})\b/i);
+                        if (cvvM) { lCVV = cvvM[1]; lastConsumed = j; continue; }
+                    }
+                    if (lMM && lYY && lCVV) break;
+                }
+                if (lMM && lYY && lCVV) {
+                    if (addCard(potCcn, lMM, lYY, lCVV)) {
+                        i = lastConsumed;
+                        continue;
+                    }
+                }
+            }
+        }
+
         // ── Strategy 1: Standard delimited (pipe/colon/slash/space/tab) ──
         const stdRe = /(\d[\d\s\-]{11,22}\d)\s*[\|:\/\\\s\t]+\s*(0?[1-9]|1[0-2])\s*[\|:\/\\\s\t]+\s*(\d{2}|\d{4})\s*[\|:\/\\\s\t]+\s*(\d{3,4})/;
         const stdM = line.match(stdRe);
@@ -3592,17 +3635,24 @@ function renderChecker() {
                         <button class="ck-action-btn ck-btn-copy" id="ck-copy-btn" title="Copy BINs" ${!outLines ? 'disabled' : ''}>📋</button>
                     </div>
                 </div>
-                <div class="ck-bin-chips" id="ck-bin-chips">
+                <div class="ck-bin-list" id="ck-bin-chips">
                     ${sortedBins.map(bin => {
                         const cards = bg[bin];
                         const isSelected = sel.has(bin);
                         const network = cards[0]?.network || '??';
                         const netIcon = network === 'VISA' ? '💙' : network === 'MASTERCARD' ? '🧡' : network === 'AMEX' ? '💜' : network === 'JCB' ? '💚' : '⬜';
-                        return `<button class="ck-bin-chip ${isSelected ? 'selected' : ''}" data-bin="${bin}" title="${network} • ${cards.length} cards">
-                            <span class="ck-bin-chip-icon">${netIcon}</span>
-                            <span class="ck-bin-chip-num">${bin}</span>
-                            <span class="ck-bin-chip-count">×${cards.length}</span>
-                        </button>`;
+                        // Check BIN cache for instant info
+                        const cached = BIN_CACHE[bin];
+                        const flag = cached && cached.country ? isoToFlag(cached.country) : '';
+                        const bankText = cached && !cached.error ? [cached.brand, cached.type, cached.level].filter(Boolean).join(' ') : '';
+                        const bankName = cached && !cached.error && cached.bank ? cached.bank : '';
+                        const countryName = cached && !cached.error && cached.country ? (COUNTRY_DB[cached.country.toUpperCase()] || cached.country) : '';
+                        return `<div class="ck-bin-row ${isSelected ? 'selected' : ''}" data-bin="${bin}" title="${network} • ${cards.length} cards">
+                            <span class="ck-bin-row-icon">${netIcon}</span>
+                            <span class="ck-bin-row-num">${bin}</span>
+                            <span class="ck-bin-row-count">×${cards.length}</span>
+                            <span class="ck-bin-row-info" id="bin-info-${bin}">${cached ? (flag ? flag + ' ' : '') + (bankText ? '<span class=\"ck-bin-row-type\">' + bankText + '</span>' : '') + (bankName ? ' <span class=\"ck-bin-row-bank\">' + bankName + '</span>' : '') : '<span class=\"ck-bin-row-loading\">⏳</span>'}</span>
+                        </div>`;
                     }).join('')}
                 </div>
             </div>
@@ -3728,10 +3778,10 @@ function renderChecker() {
         renderChecker();
     });
 
-    // ── BIN Mode: chip selection, toggle-all, export ──
+    // ── BIN Mode: row selection, toggle-all, export, BIN lookup ──
     if (_CK.mode === 'bin') {
-        // BIN chip click — toggle selection
-        area.querySelectorAll('.ck-bin-chip').forEach(chip => {
+        // BIN row click — toggle selection
+        area.querySelectorAll('.ck-bin-row').forEach(chip => {
             chip.addEventListener('click', () => {
                 const bin = chip.dataset.bin;
                 const sel = _CK.tabs.bin.selectedBins;
@@ -3806,6 +3856,33 @@ function renderChecker() {
                 document.body.removeChild(ta);
                 toast('Cards copied!', 'success');
             });
+        });
+
+        // ── Async BIN Lookup: fetch info for uncached BINs ──
+        area.querySelectorAll('.ck-bin-row').forEach(row => {
+            const bin = row.dataset.bin;
+            if (!BIN_CACHE[bin]) {
+                lookupBin(bin).then(info => {
+                    const infoEl = document.getElementById(`bin-info-${bin}`);
+                    if (!infoEl) return;
+                    if (!info || info.error) {
+                        infoEl.innerHTML = '<span class="ck-bin-row-na">—</span>';
+                        return;
+                    }
+                    const flag = info.country ? isoToFlag(info.country) : '';
+                    const typeStr = [info.brand, info.type, info.level].filter(Boolean).join(' ');
+                    const bankStr = info.bank || '';
+                    let html = '';
+                    if (flag) html += flag + ' ';
+                    if (typeStr) html += `<span class="ck-bin-row-type">${typeStr}</span>`;
+                    if (bankStr) html += ` <span class="ck-bin-row-bank">${bankStr}</span>`;
+                    infoEl.innerHTML = html || '<span class="ck-bin-row-na">—</span>';
+                    infoEl.classList.add('ck-bin-row-loaded');
+                }).catch(() => {
+                    const infoEl = document.getElementById(`bin-info-${bin}`);
+                    if (infoEl) infoEl.innerHTML = '<span class="ck-bin-row-na">—</span>';
+                });
+            }
         });
     }
 
