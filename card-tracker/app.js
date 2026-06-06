@@ -3299,87 +3299,120 @@ function _renderWaterBillHTML(d, font) {
     const p = d.provider;
     const c = p.color;
     const fm = n => '$' + Number(n).toFixed(2);
+    // Generate a simple SVG barcode from the barcode string
+    const barcodeStr = d.barcode || '';
+    let barcodeSvgBars = '';
+    const barcodeW = 380;
+    const barcodeH = 50;
+    const totalChars = barcodeStr.length || 40;
+    const barW = barcodeW / (totalChars * 2);
+    for (let i = 0; i < totalChars; i++) {
+        const charCode = barcodeStr.charCodeAt(i) || 48;
+        const thick = (charCode % 3 === 0) ? barW * 1.8 : barW;
+        const x = i * (barcodeW / totalChars);
+        if (charCode % 2 === 0 || charCode % 5 === 0) {
+            barcodeSvgBars += `<rect x="${x}" y="0" width="${thick}" height="${barcodeH}" fill="#000"/>`;
+        }
+    }
+    const barcodeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${barcodeW}" height="${barcodeH}" viewBox="0 0 ${barcodeW} ${barcodeH}">${barcodeSvgBars}</svg>`;
     return `
-<div id="water-bill-render" style="width:794px;min-height:1060px;background:#fff;font-family:'${f}',Arial,sans-serif;color:#222;font-size:13px;line-height:1.5;box-sizing:border-box;padding-bottom:30px">
-  <!-- TOP HEADER BAR -->
-  <div style="display:flex;align-items:center;background:${c};color:#fff;padding:8px 20px;font-size:12px;gap:2px">
-    <div style="flex:1;border-right:1px solid rgba(255,255,255,.3);padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Account number</div><div style="font-weight:700">${d.acct}</div></div>
-    <div style="flex:1;border-right:1px solid rgba(255,255,255,.3);padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Bill number</div><div style="font-weight:700">${d.billNo}</div></div>
-    <div style="flex:1;border-right:1px solid rgba(255,255,255,.3);padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Bill date</div><div style="font-weight:700">${d.billDate}</div></div>
-    <div style="flex:.5;padding:6px 14px"><div style="font-size:9px;opacity:.8;margin-bottom:2px">Page</div><div style="font-weight:700">1 of 1</div></div>
-    <div style="margin-left:auto;text-align:right;padding:6px 0">
-      <div style="font-size:22px;font-weight:900;letter-spacing:1.5px">${p.name.toUpperCase()}</div>
+<div id="water-bill-render" style="width:794px;min-height:1123px;background:#fff;font-family:'${f}',Arial,sans-serif;color:#222;font-size:13px;line-height:1.5;box-sizing:border-box;padding-bottom:30px">
+  <!-- TOP HEADER -->
+  <div style="display:flex;align-items:center;padding:22px 36px 0;gap:0">
+    <div style="display:flex;flex:1;border:1.5px solid ${c};border-radius:3px;overflow:hidden;background:#fff">
+      <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Account number</div><div style="font-weight:700;font-size:13px;color:#111">${d.acct}</div></div>
+      <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Bill number</div><div style="font-weight:700;font-size:13px;color:#111">${d.billNo}</div></div>
+      <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Bill date</div><div style="font-weight:700;font-size:13px;color:#111">${d.billDate}</div></div>
+      <div style="flex:0.55;padding:7px 14px"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Page</div><div style="font-weight:700;font-size:13px;color:#111">1 of 1</div></div>
+    </div>
+    <div style="margin-left:28px;display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <div style="width:32px;height:32px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
+      <div style="font-size:22px;font-weight:900;color:${c};letter-spacing:1px">${p.name.toUpperCase()}</div>
     </div>
   </div>
 
   <!-- GREETING -->
-  <div style="padding:24px 36px 12px;font-size:15px">Hello <b>${d.name}</b>, this page gives you a quick summary of your bill.</div>
+  <div style="padding:24px 36px 14px;font-size:14px">Hello <b>${d.name}</b>, this page gives you a quick summary of your bill.</div>
 
   <!-- MAIN TWO-COLUMN BODY -->
-  <div style="display:flex;padding:8px 36px 0;gap:40px">
+  <div style="display:flex;padding:8px 36px 0;gap:44px">
     <!-- LEFT COLUMN -->
     <div style="flex:1;min-width:0">
-      <div style="font-size:24px;font-weight:300;color:#333;border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:14px">What is the total due?</div>
-      <div style="font-size:36px;font-weight:700;color:#222;padding:10px 0">${fm(d.totalToPay)}</div>
-      ${d.pastDue > 0 ? `<div style="display:flex;gap:8px;align-items:flex-start;margin:10px 0"><span style="color:${c};font-size:20px;font-weight:700">→</span><div style="font-size:13px;line-height:1.5"><b>Please pay past due balance of<br>${fm(d.pastDue)} immediately</b><br>Then please pay ${fm(d.totalToPay)} by the<br>required payment date of <b>${d.dueDate}</b></div></div>` : `<div style="font-size:13px;color:#555;margin:10px 0;line-height:1.6">Please pay <b>${fm(d.totalToPay)}</b> by the<br>required payment date of <b>${d.dueDate}</b></div>`}
-      <div style="font-size:11px;color:#999;margin-top:12px">See page 1 for ways to pay</div>
+      <div style="font-size:26px;font-weight:300;color:#333;margin-bottom:18px">What is the total due?</div>
+      <div style="background:#f4f4f4;padding:14px 18px;margin-bottom:6px">
+        <div style="font-size:38px;font-weight:700;color:#111;line-height:1.1">${fm(d.totalToPay)}</div>
+      </div>
+      ${d.pastDue > 0 ? `<div style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;padding-left:2px"><span style="color:${c};font-size:18px;font-weight:900;line-height:1.3">→</span><div style="font-size:13px;line-height:1.6"><b>Please pay past due balance of<br>${fm(d.pastDue)} immediately</b><br>Then please pay ${fm(d.totalToPay)}&nbsp; by the<br>required payment date of <b>${d.dueDate}</b></div></div>` : `<div style="font-size:13px;color:#444;margin:10px 0;line-height:1.7">Please pay <b>${fm(d.totalToPay)}</b> by the<br>required payment date of <b>${d.dueDate}</b></div>`}
+      <div style="font-size:11px;color:#999;margin-top:14px">See page 1 for ways to pay</div>
       <!-- SAVINGS BANNER -->
-      <div style="background:#2e7d32;color:#fff;border-radius:6px;padding:12px 16px;margin-top:20px;display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px">🏷️</span>
+      <div style="background:#2e7d32;color:#fff;border-radius:6px;padding:12px 16px;margin-top:22px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🏷️</span>
         <span style="font-size:15px;font-weight:600">You saved ${fm(d.savedAmt)} on this bill</span>
       </div>
     </div>
 
     <!-- RIGHT COLUMN -->
     <div style="flex:1.15;min-width:0">
-      <div style="font-size:24px;font-weight:300;color:#333;border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:14px">What makes up my total?</div>
+      <div style="font-size:26px;font-weight:300;color:#333;margin-bottom:18px">What makes up my total?</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><td colspan="2" style="font-weight:700;padding:8px 0;border-bottom:1px solid #ccc"><span>Account summary</span><span style="float:right">$</span></td></tr>
-        <tr><td style="padding:5px 0">Balance from last bill</td><td style="text-align:right;padding:5px 0">${d.prevBal.toFixed(2)}</td></tr>
-        <tr><td style="padding:5px 0">Your payments - thank you</td><td style="text-align:right;padding:5px 0">${d.paidAmt > 0 ? '-' + d.paidAmt.toFixed(2) : '0.00'}</td></tr>
-        ${d.adj !== 0 ? `<tr><td style="padding:5px 0">Adjustments</td><td style="text-align:right;padding:5px 0">${d.adj.toFixed(2)}</td></tr>` : ''}
-        <tr><td style="padding:6px 0;font-weight:700;border-top:1px solid #eee">Balance brought forward</td><td style="text-align:right;padding:6px 0;font-weight:700;border-top:1px solid #eee">${d.balFwd.toFixed(2)}</td></tr>
-        <tr><td colspan="2" style="font-weight:700;padding:10px 0 6px;border-top:2px solid #222;border-bottom:1px solid #ccc"><span>This bill</span><span style="float:right">$</span></td></tr>
-        <tr><td style="padding:5px 0;padding-left:10px">💧 Water Services</td><td style="text-align:right;padding:5px 0">${d.waterSvc.toFixed(2)}</td></tr>
-        <tr><td style="padding:5px 0;padding-left:10px">🚿 Sewer Services</td><td style="text-align:right;padding:5px 0">${d.sewerSvc.toFixed(2)}</td></tr>
-        ${d.taxAmt > 0 ? `<tr><td style="padding:4px 0;font-size:11px;color:#666;padding-left:14px">Total (Includes ${fm(d.taxAmt)} tax)</td><td style="text-align:right;padding:4px 0">${d.totalBill.toFixed(2)}</td></tr>` : `<tr><td style="padding:4px 0;font-size:11px;color:#666;padding-left:14px">Total</td><td style="text-align:right;padding:4px 0">${d.totalBill.toFixed(2)}</td></tr>`}
-        <tr><td style="padding:8px 10px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:4px 0 0 4px">Total to pay</td><td style="text-align:right;padding:8px 10px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:0 4px 4px 0">${fm(d.totalToPay)}</td></tr>
+        <tr><td colspan="2" style="font-weight:700;padding:8px 0 6px;border-bottom:2px solid ${c}"><span>Account summary</span><span style="float:right">$</span></td></tr>
+        <tr><td style="padding:7px 0;border-bottom:1px solid #e0e0e0">Balance from last bill</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.prevBal.toFixed(2)}</td></tr>
+        <tr><td style="padding:7px 0;border-bottom:1px solid #e0e0e0">Your payments - thank you</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.paidAmt > 0 ? '-' + d.paidAmt.toFixed(2) : '0.00'}</td></tr>
+        ${d.adj !== 0 ? `<tr><td style="padding:7px 0;border-bottom:1px solid #e0e0e0">Adjustments</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.adj.toFixed(2)}</td></tr>` : ''}
+        <tr><td style="padding:8px 0;font-weight:700">Balance brought forward</td><td style="text-align:right;padding:8px 0;font-weight:700">${d.balFwd.toFixed(2)}</td></tr>
+        <tr><td colspan="2" style="font-weight:700;padding:10px 0 6px;border-bottom:2px solid ${c}"><span>This bill</span><span style="float:right">$</span></td></tr>
+        <tr><td style="padding:7px 0 7px 14px;border-bottom:1px solid #e0e0e0"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0288d1;margin-right:8px;vertical-align:middle"></span>Water Services</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.waterSvc.toFixed(2)}</td></tr>
+        <tr><td style="padding:7px 0 7px 14px;border-bottom:1px solid #e0e0e0"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#78909c;margin-right:8px;vertical-align:middle"></span>Sewer Services</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.sewerSvc.toFixed(2)}</td></tr>
+        ${d.taxAmt > 0 ? `<tr><td style="padding:5px 0 5px 18px;font-size:11px;color:#666;border-bottom:1px solid #e0e0e0">Total (Includes ${fm(d.taxAmt)} tax)</td><td style="text-align:right;padding:5px 0;border-bottom:1px solid #e0e0e0">${d.totalBill.toFixed(2)}</td></tr>` : `<tr><td style="padding:5px 0 5px 18px;font-size:11px;color:#666;border-bottom:1px solid #e0e0e0">Total</td><td style="text-align:right;padding:5px 0;border-bottom:1px solid #e0e0e0">${d.totalBill.toFixed(2)}</td></tr>`}
+        <tr><td style="padding:10px 12px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:4px 0 0 4px">Total to pay</td><td style="text-align:right;padding:10px 12px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:0 4px 4px 0">${fm(d.totalToPay)}</td></tr>
       </table>
-      <div style="font-size:11px;color:#555;margin-top:12px;line-height:1.5">Any payments we received and processed after ${d.dueDate}<br>will show on your next bill.</div>
-      <div style="font-size:11px;color:#555;margin-top:6px;line-height:1.5">Chat with us! For other ways to reach ${p.name},<br>visit <b style="color:${c}">${p.web}</b></div>
-      <div style="font-size:11px;color:#999;margin-top:4px">See page 2 for other ways to contact us ›</div>
+      <div style="font-size:11px;color:#555;margin-top:14px;line-height:1.6">Any payments we received and processed after ${d.dueDate}<br>will show on your next bill.</div>
+      <div style="font-size:11px;color:#555;margin-top:8px;line-height:1.6">Chat with us! For other ways to reach ${p.name},<br>visit <b style="color:${c};text-decoration:underline">${p.web}</b></div>
+      <div style="font-size:11px;color:#999;margin-top:5px">See page 2 for other ways to contact us ›</div>
     </div>
   </div>
 
   <!-- FOOTER SEPARATOR -->
-  <hr style="border:none;border-top:1px dashed #bbb;margin:30px 36px">
+  <hr style="border:none;border-top:1px dashed #bbb;margin:34px 36px 20px">
 
   <!-- PAYMENT STUB -->
-  <div style="padding:0 36px 20px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-      <div style="font-size:18px;font-weight:900;color:${c};letter-spacing:1px">${p.name.toUpperCase()}</div>
-      <div style="text-align:right;font-size:12px;line-height:1.8">
-        <div>Your account number: <b>${d.acct}</b></div>
-        <div><b>Total amount due:</b> <b>${fm(d.totalToPay)}</b></div>
-        <div>Required Payment Date: <b>${d.dueDate}</b></div>
+  <div style="padding:0 36px 24px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:24px;height:24px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
+        <span style="font-size:15px;font-weight:900;color:${c};letter-spacing:0.5px">${p.name.toUpperCase()}</span>
+      </div>
+      <table style="border-collapse:collapse;font-size:12px;text-align:right">
+        <tr><td style="padding:2px 12px 2px 0;color:#444">Your account number:</td><td style="padding:2px 0;font-weight:700">${d.acct}</td></tr>
+        <tr><td style="padding:2px 12px 2px 0;font-weight:700">Total amount due:</td><td style="padding:2px 0;font-weight:700">${fm(d.totalToPay)}</td></tr>
+        <tr><td style="padding:2px 12px 2px 0;color:#444">Required Payment Date:</td><td style="padding:2px 0;font-weight:700">${d.dueDate}</td></tr>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:12px">
+      <div style="flex:1">
+        <div style="font-size:10px;color:#333;margin-bottom:6px">${d.postalCode}</div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px">IMPORTANT</div>
+        <div style="font-size:10px;color:#555;line-height:1.6;margin-bottom:0;max-width:420px">Payment due upon receipt. Payment must be received on or before the Required Payment Date to avoid a Late Payment Charge. Please make the cheque payable to ${p.name} (9 digit account number) and write your account number on the front of the cheque. Return this stub with your payment.</div>
+      </div>
+      <div style="flex-shrink:0;margin-left:20px;text-align:left">
+        <div style="font-size:11px;color:#444;margin-bottom:6px">Amount of your payment:</div>
+        <div style="border:1.5px solid #333;padding:8px 14px;min-width:120px;font-size:14px;font-weight:600;color:#555">$</div>
       </div>
     </div>
-    <div style="font-size:10px;color:#333;margin-bottom:6px">${d.postalCode}</div>
-    <div style="font-size:11px;font-weight:700;margin-bottom:6px">IMPORTANT</div>
-    <div style="font-size:10px;color:#555;line-height:1.5;margin-bottom:16px">Payment due upon receipt. Payment must be received on or before the Required Payment Date to<br>avoid a Late Payment Charge. Please make the cheque payable to ${p.name} (9 digit account number)<br>and write your account number on the front of the cheque. Return this stub with your payment.</div>
-    <div style="text-align:center;font-size:11px;color:#888;margin-bottom:16px">########</div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px">
+    <div style="text-align:center;font-size:11px;color:#888;margin:18px 0 14px">########</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div style="font-size:11px;line-height:1.7">
         <div style="font-weight:700">${p.name}</div>
         <div>${d.poBox}</div>
         <div>${d.poCity}</div>
       </div>
-      <div style="text-align:right;font-size:11px;line-height:1.7">
+      <div style="font-size:11px;line-height:1.7">
         <div style="font-weight:700">${d.name}</div>
         <div style="white-space:pre-line">${d.address}</div>
       </div>
     </div>
-    <div style="text-align:center;font-family:'Courier New',monospace;font-size:14px;letter-spacing:3px;margin-top:20px;color:#333">${d.barcode}</div>
+    <div style="text-align:center;margin-top:24px">${barcodeSvg}</div>
+    <div style="text-align:center;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-top:4px;color:#333">${d.barcode}</div>
   </div>
 </div>`;
 }
