@@ -3382,10 +3382,12 @@ function _renderWaterBillHTML(d, font) {
         <div style="width:24px;height:24px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
         <span style="font-size:15px;font-weight:900;color:${c};letter-spacing:0.5px">${p.name.toUpperCase()}</span>
       </div>
-      <table style="border-collapse:collapse;font-size:12px;text-align:right">
-        <tr><td style="padding:2px 12px 2px 0;color:#444">Your account number:</td><td style="padding:2px 0;font-weight:700">${d.acct}</td></tr>
-        <tr><td style="padding:2px 12px 2px 0;font-weight:700">Total amount due:</td><td style="padding:2px 0;font-weight:700">${fm(d.totalToPay)}</td></tr>
-        <tr><td style="padding:2px 12px 2px 0;color:#444">Required Payment Date:</td><td style="padding:2px 0;font-weight:700">${d.dueDate}</td></tr>
+      <table style="border-collapse:collapse;font-size:12px;min-width:320px">
+        <tr><td style="padding:3px 18px 3px 0;color:#444;text-align:left;white-space:nowrap">Your account number:</td><td style="padding:3px 0;font-weight:700;text-align:right">${d.acct}</td></tr>
+        <tr><td style="padding:3px 18px 3px 0;color:#444;text-align:left;white-space:nowrap">Total amount due:</td><td style="padding:3px 0;font-weight:700;text-align:right">${fm(d.totalToPay)}</td></tr>
+        <tr><td style="padding:3px 18px 3px 0;color:#444;text-align:left;white-space:nowrap">Required Payment Date:</td><td style="padding:3px 0;font-weight:700;text-align:right">${d.dueDate}</td></tr>
+        <tr><td colspan="2" style="padding:0;border-bottom:1.5px solid #333;height:6px"></td></tr>
+        <tr><td style="padding:5px 18px 3px 0;font-weight:800;font-size:13px;text-align:left;white-space:nowrap">TOTAL:</td><td style="padding:5px 0 3px;font-weight:800;font-size:14px;text-align:right">${fm(d.totalToPay)}</td></tr>
       </table>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:12px">
