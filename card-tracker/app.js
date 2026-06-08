@@ -3398,7 +3398,7 @@ function _renderWaterBillHTML(d, font) {
       </div>
       <div style="flex-shrink:0;margin-left:20px;text-align:left">
         <div style="font-size:11px;color:#444;margin-bottom:6px">Amount of your payment:</div>
-        <div style="border:1.5px solid #333;padding:8px 14px;min-width:120px;font-size:14px;font-weight:600;color:#555">$</div>
+        <div style="border:1.5px solid #333;padding:8px 14px;min-width:120px;font-size:14px;font-weight:600;color:#222">${fm(d.totalToPay)}</div>
       </div>
     </div>
     <div style="text-align:center;font-size:11px;color:#888;margin:18px 0 14px">########</div>
