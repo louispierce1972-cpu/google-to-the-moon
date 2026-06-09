@@ -5046,28 +5046,43 @@ function _getActiveNoteTab() {
     return STATE.notesTabs.find(t => t.id === STATE.notesActiveTab) || STATE.notesTabs[0];
 }
 
+// Get plain text content from the rich-text editor div
+function _getEditorText(editor) {
+    if (!editor) return '';
+    // Convert <br> and block elements to newlines, then strip all tags
+    let html = editor.innerHTML;
+    // Replace <br>, </div><div>, </p><p> with newlines
+    html = html.replace(/<br\s*\/?>/gi, '\n');
+    html = html.replace(/<\/div><div/gi, '\n<div');
+    html = html.replace(/<\/p><p/gi, '\n<p');
+    // Strip remaining tags
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent;
+}
+
 function _saveActiveTab() {
-    const textarea = document.getElementById('notes-textarea');
-    if (!textarea) return;
+    const editor = document.getElementById('notes-editor');
+    if (!editor) return;
     const tab = _getActiveNoteTab();
     if (tab) {
-        tab.content = textarea.value;
-        tab.scrollPos = textarea.scrollTop;
+        tab.content = editor.innerHTML; // store HTML to preserve colors
+        tab.scrollPos = editor.scrollTop;
     }
-    STATE.notes = textarea.value;
+    STATE.notes = editor.innerHTML;
     STATE.notesLastSaved = Date.now();
     save();
 }
 
 function _saveAllTabs() {
-    const textarea = document.getElementById('notes-textarea');
-    if (textarea) {
+    const editor = document.getElementById('notes-editor');
+    if (editor) {
         const tab = _getActiveNoteTab();
         if (tab) {
-            tab.content = textarea.value;
-            tab.scrollPos = textarea.scrollTop;
+            tab.content = editor.innerHTML;
+            tab.scrollPos = editor.scrollTop;
         }
-        STATE.notes = textarea.value;
+        STATE.notes = editor.innerHTML;
     }
     STATE.notesLastSaved = Date.now();
     save();
@@ -5079,7 +5094,7 @@ function _buildLineNumsHTML(count, pinnedLines) {
     let html = '';
     for (let i = 1; i <= count; i++) {
         const isPinned = pinSet.has(i);
-        html += `<div class="nl-row${isPinned ? ' nl-pinned' : ''}" data-line="${i}"><span class="nl-pin">${isPinned ? '📌' : ''}</span><span class="nl-num">${i}</span></div>`;
+        html += `<div class="nl-row${isPinned ? ' nl-pinned' : ''}" data-line="${i}"><span class="nl-pin">${isPinned ? '\u{1F4CC}' : ''}</span><span class="nl-num">${i}</span></div>`;
     }
     return html;
 }
@@ -5090,23 +5105,27 @@ function _shiftPinnedLines(tab, editLine, delta) {
     const newPinned = [];
     for (const pin of tab.pinnedLines) {
         if (pin < editLine) {
-            // Lines before the edit point — don't move
             newPinned.push(pin);
         } else {
-            // Lines at or after the edit point — shift by delta
             const shifted = pin + delta;
             if (shifted >= 1) newPinned.push(shifted);
-            // If shifted < 1, the line was deleted — remove the pin
         }
     }
     tab.pinnedLines = newPinned;
 }
 
-function _rebuildLineNums(textarea) {
-    const nums = (textarea.value || '').split('\n').length;
+function _rebuildLineNums(editorOrCount) {
     const tab = _getActiveNoteTab();
     const container = document.getElementById('notes-line-nums');
     if (!container) return;
+    let nums;
+    if (typeof editorOrCount === 'number') {
+        nums = editorOrCount;
+    } else {
+        // It's a DOM element (editor div) — get plain text line count
+        const text = _getEditorText(editorOrCount);
+        nums = (text || '').split('\n').length;
+    }
     container.innerHTML = _buildLineNumsHTML(nums, tab?.pinnedLines);
     _wireLinePinClicks(container);
 }
@@ -5126,7 +5145,7 @@ function _wireLinePinClicks(container) {
             } else {
                 tab.pinnedLines.push(lineNum);
                 row.classList.add('nl-pinned');
-                row.querySelector('.nl-pin').textContent = '📌';
+                row.querySelector('.nl-pin').textContent = '\u{1F4CC}';
             }
             save();
         });
@@ -5140,11 +5159,17 @@ function renderNotes() {
     if (!activeTab.pinnedLines) activeTab.pinnedLines = [];
 
     const tabs = [...STATE.notesTabs];
+    // content is HTML (may contain color spans), count lines from plain text
     const content = activeTab.content || '';
-    const lines = content.split('\n');
-    const lineCount = lines.length || 1;
+    const plainText = (() => {
+        // Quick strip for line counting — don't render to DOM here
+        let t = content.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div><div/gi, '\n').replace(/<\/p><p/gi, '\n');
+        return t.replace(/<[^>]+>/g, '');
+    })();
+    const lineCount = plainText.split('\n').length || 1;
     const lineNumsHTML = _buildLineNumsHTML(lineCount, activeTab.pinnedLines);
 
+    // ── Tab bar (horizontal scrollable row) ──
     let tabsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
         return `<button class="nt-tab ${isActive ? 'active' : ''}" data-tab="${t.id}">
@@ -5152,35 +5177,42 @@ function renderNotes() {
             ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
         </button>`;
     }).join('');
-    tabsHTML += `<button class="nt-new-tab" id="nt-new-tab">+</button>`;
+    tabsHTML += `<button class="nt-new-tab" id="nt-new-tab" title="New tab">+</button>`;
 
-    // Build dropdown items separately to avoid nested template literal issues
-    const dropdownItemsHTML = tabs.map(t => {
-        const linesCount = (t.content || '').split('\n').length;
+    // ── Sidebar item list (full, for the drawer) ──
+    const sidebarItemsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
-        return '<button class="nt-dropdown-item ' + (isActive ? 'active' : '') + '" data-tab="' + t.id + '">'
-            + (isActive ? '✓ ' : '') + t.title + ' <span class="nt-item-lines">(' + linesCount + ' lines)</span>'
-            + '</button>';
+        const linesCount = (t.content || '').split('\n').length;
+        return `<div class="nt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
+            <span class="nt-sidebar-item-title">${t.title}</span>
+            <span class="nt-sidebar-item-lines">${linesCount}L</span>
+            ${tabs.length > 1 ? `<button class="nt-sidebar-item-close" data-tab="${t.id}" title="Close">×</button>` : ''}
+        </div>`;
     }).join('');
 
-    tabsHTML += `
-        <div class="nt-dropdown-wrap">
-            <button class="nt-dropdown-btn" id="nt-all-notes-btn">All Notes (${tabs.length}) ▾</button>
-            <div class="nt-dropdown-menu hidden" id="nt-all-notes-menu">
-                <div class="nt-dropdown-list">${dropdownItemsHTML}</div>
-                <div class="nt-dropdown-divider"></div>
-                <div class="nt-dropdown-actions">
-                    <button class="nt-dropdown-action" id="nt-close-all">Close All</button>
-                    <button class="nt-dropdown-action" id="nt-close-others">Close Others</button>
-                </div>
-            </div>
-        </div>
-    `;
-
     area.innerHTML = `
+        <!-- Sidebar overlay (backdrop) -->
+        <div class="nt-sidebar-overlay" id="nt-sidebar-overlay"></div>
+
+        <!-- Sidebar drawer -->
+        <div class="nt-sidebar" id="nt-sidebar">
+            <div class="nt-sidebar-header">
+                <span class="nt-sidebar-title">📝 All Tabs (${tabs.length})</span>
+                <button class="nt-sidebar-close" id="nt-sidebar-close">×</button>
+            </div>
+            <div class="nt-sidebar-new">
+                <button class="nt-sidebar-new-btn" id="nt-sidebar-new-btn">+ New Tab</button>
+            </div>
+            <div class="nt-sidebar-list" id="nt-sidebar-list">${sidebarItemsHTML}</div>
+        </div>
+
         <div class="notes-container">
             <div class="nt-tab-bar">
-                <div class="nt-tabs-scroll">${tabsHTML}</div>
+                <div class="nt-tabs-scroll">
+                    <!-- Sidebar toggle -->
+                    <button class="nt-sidebar-toggle" id="nt-sidebar-open" title="All tabs">☰ Tabs</button>
+                    ${tabsHTML}
+                </div>
                 <div class="nt-toolbar-right">
                     <button class="nt-tool-btn" id="notes-clear-btn" title="Clear current tab">CLEAR</button>
                     <button class="nt-tool-btn" id="notes-save-btn">SAVE</button>
@@ -5188,7 +5220,7 @@ function renderNotes() {
             </div>
             <div class="notes-editor-wrap">
                 <div class="notes-line-numbers" id="notes-line-nums">${lineNumsHTML}</div>
-                <textarea class="notes-editor" id="notes-textarea" style="font-size:${STATE.notesFontSize}px" placeholder="Write notes...">${content}</textarea>
+                <div class="notes-editor" id="notes-editor" contenteditable="true" spellcheck="false" style="font-size:${STATE.notesFontSize}px" data-placeholder="Write notes..."></div>
             </div>
             <div class="notes-status-bar">
                 <span class="notes-saved-info">${lineCount} lines</span>
@@ -5196,52 +5228,241 @@ function renderNotes() {
         </div>
     `;
 
-    // Wire pin clicks on line numbers
-    _wireLinePinClicks(document.getElementById('notes-line-nums'));
+    // ── Sidebar open/close ──
+    const sidebar = document.getElementById('nt-sidebar');
+    const overlay = document.getElementById('nt-sidebar-overlay');
+    const openSidebar = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
+    const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); };
+    document.getElementById('nt-sidebar-open')?.addEventListener('click', openSidebar);
+    document.getElementById('nt-sidebar-close')?.addEventListener('click', closeSidebar);
+    overlay?.addEventListener('click', closeSidebar);
 
-    const textarea = document.getElementById('notes-textarea');
-    let _notesSaveTimer = null;
-    // Track line count & cursor line BEFORE each edit to shift pins correctly
-    let _prevLineCount = (textarea.value || '').split('\n').length;
-    let _prevCursorLine = 1;
-    // Capture state before ANY input change (keypress, paste, cut, undo/redo)
-    textarea.addEventListener('beforeinput', () => {
-        _prevLineCount = (textarea.value || '').split('\n').length;
-        // Determine which line the cursor is on (1-indexed)
-        const textBefore = textarea.value.substring(0, textarea.selectionStart);
-        _prevCursorLine = textBefore.split('\n').length;
-    });
-    textarea.addEventListener('input', () => {
-        const newLineCount = (textarea.value || '').split('\n').length;
-        const delta = newLineCount - _prevLineCount;
-        if (delta !== 0) {
-            const tab = _getActiveNoteTab();
-            // editLine: the line AFTER the cursor — that's where content shifts
-            // If Enter pressed on line 3, lines 4+ shift down by 1
-            // If Backspace merges line 4 into 3, lines 4+ shift up by 1
-            const editLine = _prevCursorLine + (delta > 0 ? 1 : 0);
-            _shiftPinnedLines(tab, editLine, delta);
-        }
-        _prevLineCount = newLineCount;
-        _rebuildLineNums(textarea);
-        const si = document.querySelector('.notes-saved-info');
-        if (si) si.textContent = 'Editing...';
-        clearTimeout(_notesSaveTimer);
-        _notesSaveTimer = setTimeout(() => {
+    // ── Sidebar: switch tab ──
+    document.querySelectorAll('.nt-sidebar-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            if (e.target.classList.contains('nt-sidebar-item-close')) return;
             _saveActiveTab();
-            const nums = (textarea.value || '').split('\n').length;
-            if (si) si.textContent = nums + ' lines';
-        }, 600);
+            STATE.notesActiveTab = item.dataset.tab;
+            save();
+            closeSidebar();
+            renderNotes();
+        });
     });
-    textarea.addEventListener('scroll', () => {
-        document.getElementById('notes-line-nums').scrollTop = textarea.scrollTop;
+
+    // ── Sidebar: close tab ──
+    document.querySelectorAll('.nt-sidebar-item-close').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tabId = btn.dataset.tab;
+            if (STATE.notesTabs.length <= 1) return;
+            const tab = STATE.notesTabs.find(t => t.id === tabId);
+            if (tab && tab.content && tab.content.trim()) {
+                if (!confirm(`Close "${tab.title}"?`)) return;
+            }
+            STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
+            if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+            save();
+            closeSidebar();
+            renderNotes();
+        });
     });
-    if (activeTab.scrollPos) {
-        textarea.scrollTop = activeTab.scrollPos;
-        document.getElementById('notes-line-nums').scrollTop = activeTab.scrollPos;
+
+    // ── Sidebar: new tab ──
+    const _createNewTab = () => {
+        _saveActiveTab();
+        const newTab = {
+            id: 'tab-' + Date.now(),
+            title: 'Tab ' + (STATE.notesTabs.length + 1),
+            content: '', pinned: false, tag: null,
+            created: Date.now(), scrollPos: 0
+        };
+        STATE.notesTabs.unshift(newTab);
+        STATE.notesActiveTab = newTab.id;
+        save();
+        closeSidebar();
+        renderNotes();
+    };
+    document.getElementById('nt-sidebar-new-btn')?.addEventListener('click', _createNewTab);
+
+    // ── Set initial content into editor AFTER HTML is in DOM ──
+    const editor = document.getElementById('notes-editor');
+    if (editor) {
+        editor.innerHTML = content; // Set HTML content (preserves colored spans)
+        if (!content) editor.innerHTML = ''; // empty state shows placeholder via CSS
     }
 
-    // Tab switching
+    // ── Wire pin clicks on line numbers ──
+    _wireLinePinClicks(document.getElementById('notes-line-nums'));
+
+    let _notesSaveTimer = null;
+    let _prevLineCount = lineCount;
+    let _prevCursorLine = 1;
+    let _prevCursorCol = 0;
+
+    // Helper: get cursor line + col from a contenteditable div using Selection API
+    function _getEditorCursorPos() {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return { line: 1, col: 0 };
+        const range = sel.getRangeAt(0);
+        const preRange = document.createRange();
+        preRange.setStart(editor, 0);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const textBefore = preRange.toString();
+        const lines = textBefore.split('\n');
+        return { line: lines.length, col: lines[lines.length - 1].length };
+    }
+
+    if (editor) {
+        editor.addEventListener('keydown', () => {
+            // Capture BEFORE state for pin shifting
+            const text = _getEditorText(editor);
+            _prevLineCount = text.split('\n').length;
+            const pos = _getEditorCursorPos();
+            _prevCursorLine = pos.line;
+            _prevCursorCol = pos.col;
+        });
+
+        editor.addEventListener('input', () => {
+            const newText = _getEditorText(editor);
+            const newLineCount = newText.split('\n').length;
+            const delta = newLineCount - _prevLineCount;
+            if (delta !== 0) {
+                const tab = _getActiveNoteTab();
+                // If cursor was at col 0 (start of line) and Enter was pressed,
+                // the current line and everything on it shifts down.
+                let editLine;
+                if (delta > 0) {
+                    editLine = _prevCursorCol === 0 ? _prevCursorLine : _prevCursorLine + 1;
+                } else {
+                    editLine = _prevCursorLine;
+                }
+                _shiftPinnedLines(tab, editLine, delta);
+            }
+            _prevLineCount = newLineCount;
+            _rebuildLineNums(editor);
+            const si = document.querySelector('.notes-saved-info');
+            if (si) si.textContent = 'Editing...';
+            clearTimeout(_notesSaveTimer);
+            _notesSaveTimer = setTimeout(() => {
+                _saveActiveTab();
+                if (si) si.textContent = newLineCount + ' lines';
+            }, 600);
+        });
+
+        editor.addEventListener('scroll', () => {
+            const lineNums = document.getElementById('notes-line-nums');
+            if (lineNums) lineNums.scrollTop = editor.scrollTop;
+        });
+
+        if (activeTab.scrollPos) {
+            editor.scrollTop = activeTab.scrollPos;
+            const lineNums = document.getElementById('notes-line-nums');
+            if (lineNums) lineNums.scrollTop = activeTab.scrollPos;
+        }
+
+        // ── Right-click color context menu ──
+        const NOTE_COLORS = [
+            { label: 'Red',    color: '#ef4444' },
+            { label: 'Orange', color: '#f97316' },
+            { label: 'Yellow', color: '#eab308' },
+            { label: 'Green',  color: '#22c55e' },
+            { label: 'Blue',   color: '#3b82f6' },
+            { label: 'Purple', color: '#a855f7' },
+            { label: 'Cyan',   color: '#06b6d4' },
+            { label: 'Pink',   color: '#ec4899' },
+            { label: 'White',  color: '#f1f5f9' },
+        ];
+
+        function _removeNotesCtxMenu() {
+            const old = document.getElementById('notes-ctx-menu');
+            if (old) old.remove();
+        }
+
+        editor.addEventListener('contextmenu', (e) => {
+            const sel = window.getSelection();
+            const selText = sel ? sel.toString() : '';
+            if (!selText) return; // no selection — use default browser menu
+            e.preventDefault();
+            _removeNotesCtxMenu();
+
+            const menu = document.createElement('div');
+            menu.id = 'notes-ctx-menu';
+            menu.className = 'notes-ctx-menu';
+
+            const header = document.createElement('div');
+            header.className = 'nctx-header';
+            header.textContent = '\uD83C\uDFA8 Text Color';
+            menu.appendChild(header);
+
+            const swatches = document.createElement('div');
+            swatches.className = 'nctx-swatches';
+            NOTE_COLORS.forEach(({ label, color }) => {
+                const sw = document.createElement('button');
+                sw.className = 'nctx-swatch';
+                sw.title = label;
+                sw.style.background = color;
+                sw.addEventListener('mousedown', (ev) => {
+                    ev.preventDefault(); // keep selection
+                    editor.focus();
+                    // execCommand applies color to the current selection
+                    document.execCommand('styleWithCSS', false, true);
+                    document.execCommand('foreColor', false, color);
+                    _removeNotesCtxMenu();
+                    // Trigger save
+                    editor.dispatchEvent(new Event('input'));
+                    toast(`Color: ${label}`, 'success');
+                });
+                swatches.appendChild(sw);
+            });
+            menu.appendChild(swatches);
+
+            const divider = document.createElement('div');
+            divider.className = 'nctx-divider';
+            menu.appendChild(divider);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'nctx-remove';
+            removeBtn.textContent = '\u2715 Remove color';
+            removeBtn.addEventListener('mousedown', (ev) => {
+                ev.preventDefault();
+                editor.focus();
+                document.execCommand('styleWithCSS', false, true);
+                document.execCommand('foreColor', false, '');
+                // Remove inline color style from selected spans
+                const selNow = window.getSelection();
+                if (selNow && selNow.rangeCount) {
+                    const range = selNow.getRangeAt(0);
+                    const fragment = range.extractContents();
+                    fragment.querySelectorAll('[style*="color"]').forEach(el => {
+                        el.style.removeProperty('color');
+                        if (!el.style.cssText.trim()) el.replaceWith(...el.childNodes);
+                    });
+                    range.insertNode(fragment);
+                }
+                _removeNotesCtxMenu();
+                editor.dispatchEvent(new Event('input'));
+            });
+            menu.appendChild(removeBtn);
+
+            document.body.appendChild(menu);
+            const mw = menu.offsetWidth, mh = menu.offsetHeight;
+            let x = e.clientX, y = e.clientY;
+            if (x + mw > window.innerWidth - 8) x = window.innerWidth - mw - 8;
+            if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+
+            const _closeMenu = (ev) => {
+                if (!menu.contains(ev.target)) {
+                    _removeNotesCtxMenu();
+                    document.removeEventListener('mousedown', _closeMenu);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', _closeMenu), 0);
+        });
+    }
+
+    // ── Tab bar: switch tab ──
     area.querySelectorAll('.nt-tab').forEach(btn => {
         btn.addEventListener('click', (e) => {
             if (e.target.classList.contains('nt-tab-close')) return;
@@ -5252,7 +5473,7 @@ function renderNotes() {
         });
     });
 
-    // Tab close
+    // ── Tab bar: close tab ──
     area.querySelectorAll('.nt-tab-close').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -5263,15 +5484,13 @@ function renderNotes() {
                 if (!confirm(`Close "${tab.title}"?`)) return;
             }
             STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
-            if (STATE.notesActiveTab === tabId) {
-                STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
-            }
+            if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
             save();
             renderNotes();
         });
     });
 
-    // Tab rename — inline edit on click
+    // ── Tab rename on double-click ──
     area.querySelectorAll('.nt-tab-title').forEach(span => {
         span.addEventListener('dblclick', (e) => {
             e.stopPropagation();
@@ -5280,21 +5499,16 @@ function renderNotes() {
             if (!tab) return;
             span.contentEditable = 'true';
             span.focus();
-            // Select all text
             const range = document.createRange();
             range.selectNodeContents(span);
             const sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(range);
-
             const finish = () => {
                 span.contentEditable = 'false';
                 const newName = span.textContent.trim();
-                if (newName && newName !== tab.title) {
-                    tab.title = newName;
-                    save();
-                }
-                span.textContent = tab.title; // reset if empty
+                if (newName && newName !== tab.title) { tab.title = newName; save(); }
+                span.textContent = tab.title;
             };
             span.addEventListener('blur', finish, { once: true });
             span.addEventListener('keydown', (ev) => {
@@ -5304,28 +5518,11 @@ function renderNotes() {
         });
     });
 
-    // New tab
-    document.getElementById('nt-new-tab')?.addEventListener('click', () => {
-        _saveActiveTab();
-        const newTab = {
-            id: 'tab-' + Date.now(),
-            title: 'Tab ' + (STATE.notesTabs.length + 1),
-            content: '',
-            pinned: false,
-            tag: null,
-            created: Date.now(),
-            scrollPos: 0
-        };
-        STATE.notesTabs.unshift(newTab);
-        STATE.notesActiveTab = newTab.id;
-        save();
-        renderNotes();
-    });
+    // ── New tab (+ button in tab bar) ──
+    document.getElementById('nt-new-tab')?.addEventListener('click', _createNewTab);
 
-    // Toolbar
+    // ── Toolbar ──
     document.getElementById('notes-save-btn')?.addEventListener('click', _saveAllTabs);
-
-    // Clear current tab
     document.getElementById('notes-clear-btn')?.addEventListener('click', () => {
         const tab = _getActiveNoteTab();
         if (!tab) return;
@@ -5337,31 +5534,20 @@ function renderNotes() {
         toast('Tab cleared', 'info');
     });
 
-    // Highlight selected text
+    // ── Highlight selected text (bold wrap) ──
     document.getElementById('notes-highlight-btn')?.addEventListener('click', () => {
-        const ta = document.getElementById('notes-textarea');
-        if (!ta) return;
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        if (start === end) { toast('Select text first', 'warning'); return; }
-        const text = ta.value;
-        const selected = text.slice(start, end);
-        // Toggle: if already wrapped, unwrap
-        if (text.slice(start - 1, start) === '«' && text.slice(end, end + 1) === '»') {
-            ta.value = text.slice(0, start - 1) + selected + text.slice(end + 1);
-            ta.selectionStart = start - 1;
-            ta.selectionEnd = end - 1;
-        } else {
-            ta.value = text.slice(0, start) + '«' + selected + '»' + text.slice(end);
-            ta.selectionStart = start;
-            ta.selectionEnd = end + 2;
-        }
-        ta.dispatchEvent(new Event('input'));
-        ta.focus();
+        const ed = document.getElementById('notes-editor');
+        if (!ed) return;
+        const sel = window.getSelection();
+        if (!sel || !sel.toString()) { toast('Select text first', 'warning'); return; }
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('bold', false, null);
+        ed.dispatchEvent(new Event('input'));
+        ed.focus();
     });
 
-    // Paste image from clipboard
-    document.getElementById('notes-textarea')?.addEventListener('paste', (e) => {
+    // ── Image paste into contenteditable editor ──
+    document.getElementById('notes-editor')?.addEventListener('paste', (e) => {
         const items = e.clipboardData?.items;
         if (!items) return;
         for (const item of items) {
@@ -5370,12 +5556,25 @@ function renderNotes() {
                 const blob = item.getAsFile();
                 const reader = new FileReader();
                 reader.onload = () => {
-                    const ta = document.getElementById('notes-textarea');
-                    const pos = ta.selectionStart;
-                    const marker = `\n[IMG:${reader.result}]\n`;
-                    ta.value = ta.value.slice(0, pos) + marker + ta.value.slice(pos);
-                    ta.selectionStart = ta.selectionEnd = pos + marker.length;
-                    ta.dispatchEvent(new Event('input'));
+                    const ed = document.getElementById('notes-editor');
+                    if (!ed) return;
+                    const img = document.createElement('img');
+                    img.src = reader.result;
+                    img.style.maxWidth = '100%';
+                    img.style.borderRadius = '4px';
+                    img.style.margin = '4px 0';
+                    const sel = window.getSelection();
+                    if (sel && sel.rangeCount) {
+                        const range = sel.getRangeAt(0);
+                        range.deleteContents();
+                        range.insertNode(img);
+                        range.setStartAfter(img);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    } else {
+                        ed.appendChild(img);
+                    }
+                    ed.dispatchEvent(new Event('input'));
                     toast('Image pasted', 'success');
                 };
                 reader.readAsDataURL(blob);
@@ -5383,45 +5582,6 @@ function renderNotes() {
             }
         }
     });
-
-    // Dropdown events
-    const allNotesBtn = document.getElementById('nt-all-notes-btn');
-    const allNotesMenu = document.getElementById('nt-all-notes-menu');
-    if (allNotesBtn && allNotesMenu) {
-        allNotesBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            allNotesMenu.classList.toggle('hidden');
-        });
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.nt-dropdown-wrap')) {
-                allNotesMenu.classList.add('hidden');
-            }
-        });
-        allNotesMenu.querySelectorAll('.nt-dropdown-item').forEach(item => {
-            item.addEventListener('click', () => {
-                _saveActiveTab();
-                STATE.notesActiveTab = item.dataset.tab;
-                save();
-                renderNotes();
-            });
-        });
-        document.getElementById('nt-close-all')?.addEventListener('click', () => {
-            if (!confirm('Close all tabs?')) return;
-            const newTab = { id: 'tab-' + Date.now(), title: 'Main', content: '', created: Date.now(), scrollPos: 0 };
-            STATE.notesTabs = [newTab];
-            STATE.notesActiveTab = newTab.id;
-            save();
-            renderNotes();
-        });
-        document.getElementById('nt-close-others')?.addEventListener('click', () => {
-            const active = STATE.notesTabs.find(t => t.id === STATE.notesActiveTab);
-            if (!active) return;
-            if (!confirm('Close all other tabs?')) return;
-            STATE.notesTabs = [active];
-            save();
-            renderNotes();
-        });
-    }
 }
 
 function renderFooter(count, page, totalPages) {
@@ -5558,14 +5718,14 @@ function renderAll() {
 function navigate(view, country) {
     // Auto-save active notes tab before leaving notes view
     if (STATE.currentView === 'notes') {
-        const textarea = document.getElementById('notes-textarea');
-        if (textarea) {
+        const editor = document.getElementById('notes-editor');
+        if (editor) {
             const tab = STATE.notesTabs.find(t => t.id === STATE.notesActiveTab);
             if (tab) {
-                tab.content = textarea.value;
-                tab.scrollPos = textarea.scrollTop;
+                tab.content = editor.innerHTML;
+                tab.scrollPos = editor.scrollTop;
             }
-            STATE.notes = textarea.value;
+            STATE.notes = editor.innerHTML;
             STATE.notesLastSaved = Date.now();
             save();
         }
@@ -7409,7 +7569,8 @@ document.getElementById('next-page').addEventListener('click', () => {
 
 // ──── NOTES ────
 window.saveNotes = function () {
-    STATE.notes = document.getElementById('notes-textarea')?.value || '';
+    const editor = document.getElementById('notes-editor');
+    if (editor) STATE.notes = editor.innerHTML;
     save();
     toast('Notes saved', 'success');
 };
@@ -8042,8 +8203,8 @@ load();
 
 // ──── NOTES FUNCTIONS ────
 function saveNotesAction() {
-    const textarea = document.getElementById('notes-textarea');
-    if (textarea) STATE.notes = textarea.value;
+    const editor = document.getElementById('notes-editor');
+    if (editor) STATE.notes = editor.innerHTML;
     STATE.notesLastSaved = Date.now();
     save();
     const info = document.querySelector('.notes-saved-info');
@@ -8084,8 +8245,8 @@ function importNotesAction() {
 
 function changeNotesFontSize(delta) {
     STATE.notesFontSize = Math.max(10, Math.min(24, STATE.notesFontSize + delta));
-    const textarea = document.getElementById('notes-textarea');
-    if (textarea) textarea.style.fontSize = STATE.notesFontSize + 'px';
+    const editor = document.getElementById('notes-editor');
+    if (editor) editor.style.fontSize = STATE.notesFontSize + 'px';
     const display = document.getElementById('notes-font-size-display');
     if (display) display.textContent = STATE.notesFontSize;
 }
@@ -10467,47 +10628,38 @@ function renderParserResults(geoFilter) {
     if (!el) return;
 
     let list = PARSER_STATE.collected;
-    if (list.length === 0) { el.innerHTML = '<div class="empty-state"><p>No cards found</p></div>'; return; }
+    if (list.length === 0) { el.innerHTML = '<div class="pres-empty">No cards found after all filters</div>'; return; }
 
-    // Update stats bar
     _updateStatsBar();
 
-    // GEO — use only the resolved ISO-2 code (detectedGeo)
-    // c.country is a raw text name like "Canada" and must NOT be used directly as a code
+    // ── GEO map ──
     const geoMap = {};
     list.forEach(c => {
         const geo = (c.detectedGeo || '').toUpperCase();
         if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1;
     });
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
-    const countryFlags = { US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹', IL: '🇮🇱', SG: '🇸🇬', NZ: '🇳🇿', ZA: '🇿🇦', TR: '🇹🇷' };
-    const countryNames = { US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE', AU: 'Australia', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', BR: 'Brazil', MX: 'Mexico', JP: 'Japan', KR: 'South Korea', IN: 'India', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria', BE: 'Belgium', IE: 'Ireland', PT: 'Portugal', IL: 'Israel', SG: 'Singapore', NZ: 'New Zealand', ZA: 'South Africa', TR: 'Turkey' };
+    const countryFlags = { US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',AE:'🇦🇪',AU:'🇦🇺',IT:'🇮🇹',ES:'🇪🇸',NL:'🇳🇱',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',IE:'🇮🇪',PT:'🇵🇹',IL:'🇮🇱',SG:'🇸🇬',NZ:'🇳🇿',ZA:'🇿🇦',TR:'🇹🇷' };
+    const countryNames = { US:'United States',CA:'Canada',GB:'United Kingdom',DE:'Germany',FR:'France',AE:'UAE',AU:'Australia',IT:'Italy',ES:'Spain',NL:'Netherlands',BR:'Brazil',MX:'Mexico',JP:'Japan',KR:'South Korea',IN:'India',SE:'Sweden',NO:'Norway',DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',BE:'Belgium',IE:'Ireland',PT:'Portugal',IL:'Israel',SG:'Singapore',NZ:'New Zealand',ZA:'South Africa',TR:'Turkey' };
 
-    // Apply GEO filter — only match against detectedGeo (ISO-2 code)
     const activeGeo = geoFilter || '';
     let displayList = activeGeo ? list.filter(c => (c.detectedGeo || '').toUpperCase() === activeGeo) : list;
 
-    // (translated)
+    // Test mode
     let testModeActive = PARSER_STATE.testMode;
-    let testModeCards = 0;
-    let testModeBins = 0;
+    let testModeCards = 0, testModeBins = 0;
     if (testModeActive) {
-        // (translated)
         displayList = _applyTestMode(displayList, false);
         testModeCards = displayList.length;
-        // Count results
-        const uniqueBins = new Set(displayList.map(c => c.bin));
-        testModeBins = uniqueBins.size;
+        testModeBins = new Set(displayList.map(c => c.bin)).size;
     }
-
-    // (translated)
-    const testStatEl = document.getElementById('ps-test-mode');
-    if (testStatEl) {
-        testStatEl.style.display = testModeActive ? 'inline' : 'none';
-        const cardsEl = document.getElementById('ps-test-cards');
-        const binsEl = document.getElementById('ps-test-bins');
-        if (cardsEl) cardsEl.textContent = testModeCards;
-        if (binsEl) binsEl.textContent = testModeBins;
+    const testEl = document.getElementById('ps-test-mode');
+    if (testEl) {
+        testEl.style.display = testModeActive ? 'inline' : 'none';
+        const cardsEl2 = document.getElementById('ps-test-cards');
+        const binsEl2 = document.getElementById('ps-test-bins');
+        if (cardsEl2) cardsEl2.textContent = testModeCards;
+        if (binsEl2) binsEl2.textContent = testModeBins;
     }
 
     // Sort
@@ -10515,69 +10667,131 @@ function renderParserResults(geoFilter) {
     const binCounts = {};
     displayList.forEach(c => { binCounts[c.bin] = (binCounts[c.bin] || 0) + 1; });
     let sortedDisplay = [...displayList];
-    if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin] || 0) - (binCounts[a.bin] || 0));
-    else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin] || 0) - (binCounts[b.bin] || 0));
+    if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin]||0) - (binCounts[a.bin]||0));
+    else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin]||0) - (binCounts[b.bin]||0));
 
-    // (translated)
     const displayCount = displayList.length;
-    const summaryHtml = `<div class="parser-summary">
-        <span class="ps-item">Clean: <strong>${list.length}</strong></span>
-        ${testModeActive ? `<span class="ps-item" style="color:#60a5fa">🧪 Test Mode: <strong>${testModeCards}</strong> cards (<strong>${testModeBins}</strong> BINs)</span>` : ''}
-    </div>`;
 
-    // (translated)
-    const importHtml = `<div class="parser-action-bar">
-        <button class="pz-btn pz-btn-import" id="parser-import-btn">📝 EXPORT TO NOTES (${displayCount})</button>
-    </div>`;
+    // ── GEO chips ──
+    const geoChips = `
+        <button class="pres-geo-chip ${!activeGeo ? 'active' : ''}" data-geo="">ALL <span>${list.length}</span></button>
+        ${geoList.map(([code, cnt]) =>
+            `<button class="pres-geo-chip ${code === activeGeo ? 'active' : ''}" data-geo="${code}">
+                ${countryFlags[code] || '🏳'} ${code} <span>${cnt}</span>
+            </button>`
+        ).join('')}`;
 
-    // GEO dropdown
-    const geoHtml = `<div class="parser-geo-filter"><label>GEO</label>
-        <select id="parser-geo-select"><option value="">ALL (${list.length})</option>
-        ${geoList.map(([code, cnt]) => `<option value="${code}" ${code === activeGeo ? 'selected' : ''}>${countryFlags[code] || '🏳️'} ${countryNames[code] || code} (${cnt})</option>`).join('')}
-        </select></div>`;
-
-    // BIN analytics (compact)
+    // ── BIN analytics cards ──
     const binAnalytics = {};
-    displayList.forEach(c => { if (!binAnalytics[c.bin]) binAnalytics[c.bin] = { count: 0, bank: c.bank || '' }; binAnalytics[c.bin].count++; });
-    const sortedBins = Object.entries(binAnalytics).map(([bin, d]) => ({ bin, count: d.count, bank: d.bank })).sort((a, b) => b.count - a.count);
-    const binRows = sortedBins.slice(0, 30).map(b => `<div class="parser-bin-row"><span class="parser-bin-val">${b.bin}</span><span class="parser-bin-bank">${b.bank.length > 20 ? b.bank.slice(0, 20) + '…' : (b.bank || '—')}</span><span class="parser-bin-cnt">${b.count}</span></div>`).join('');
+    displayList.forEach(c => {
+        if (!binAnalytics[c.bin]) binAnalytics[c.bin] = { count: 0, bank: c.bank || '' };
+        binAnalytics[c.bin].count++;
+    });
+    const sortedBins = Object.entries(binAnalytics)
+        .map(([bin, d]) => ({ bin, count: d.count, bank: d.bank }))
+        .sort((a, b) => b.count - a.count);
 
-    // Table rows
+    const binCards = sortedBins.map(b => {
+        const bankShort = b.bank.length > 22 ? b.bank.slice(0, 22) + '…' : (b.bank || '—');
+        return `<div class="pres-bin-card" data-bin="${b.bin}">
+            <div class="pres-bin-top">
+                <span class="pres-bin-num">${b.bin}</span>
+                <span class="pres-bin-count">${b.count}</span>
+            </div>
+            <div class="pres-bin-bank">${bankShort}</div>
+            <div class="pres-bin-actions">
+                <button class="pres-bin-export-btn" data-bin="${b.bin}" title="Export this BIN to Notes">📝</button>
+                <button class="pres-bin-copy-btn" data-bin="${b.bin}" title="Copy this BIN cards">📋</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    // ── Table rows ──
     const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
     const rows = sortedDisplay.map(c => {
         const globalIdx = PARSER_STATE.collected.indexOf(c);
-        // Use only the resolved ISO-2 code for GEO display
         const geoCode = (c.detectedGeo || '').toUpperCase();
         const geoFlag = countryFlags[geoCode] || '';
         const geoDisplay = geoCode ? `${geoFlag} ${geoCode}` : '—';
-        const bankDisplay = c.bank ? (c.bank.length > 25 ? c.bank.slice(0, 25) + '…' : c.bank) : '—';
+        const bankDisplay = c.bank ? (c.bank.length > 22 ? c.bank.slice(0, 22) + '…' : c.bank) : '—';
+        const cardFmt = formatCardBin(c.cc);
         return `<tr>
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(globalIdx) ? 'checked' : ''} data-idx="${globalIdx}" class="parser-check"></td>
             <td class="pc-holder">${c.name.toUpperCase()} ${c.surname.toUpperCase()}</td>
-            <td class="pc-card">${formatCardBin(c.cc)}</td>
-            <td class="pc-bank" title="${c.bank || ''}" style="font-size:10px;color:#9ca3af;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bankDisplay}</td>
+            <td class="pc-card">${cardFmt}</td>
+            <td class="pc-bank" title="${c.bank || ''}">${bankDisplay}</td>
             <td class="pc-exp">${c.validity}</td>
             <td class="pc-bin">${c.bin}</td>
             <td class="pc-geo">${geoDisplay}</td>
         </tr>`;
     }).join('');
 
-    el.innerHTML = `${summaryHtml}${importHtml}
-        <div class="parser-toolbar">${geoHtml}
-            <label class="parser-checkbox"><input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length ? 'checked' : ''}> Select All (${PARSER_STATE.selected.size})</label>
-        </div>
-        <div class="parser-bin-analytics"><div class="parser-bin-analytics-header"><span>📊 BIN Analytics (${sortedBins.length})</span></div>
-            <div class="parser-bin-analytics-grid"><div class="parser-bin-row parser-bin-header-row"><span class="parser-bin-val">BIN</span><span class="parser-bin-bank">BANK</span><span class="parser-bin-cnt">COUNT</span></div>${binRows}</div>
-        </div>
-        <div class="parser-table-wrap"><table class="data-table parser-table">
-            <colgroup><col style="width:28px"><col style="width:16%"><col style="width:15%"><col style="width:16%"><col style="width:48px"><col style="width:10%"><col style="width:42px"></colgroup>
-            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>BANK</th><th>EXP</th><th class="parser-sort-th" id="parser-sort-bin" title="Sort by BIN">BIN ${binSortIcon}</th><th>GEO</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table></div>`;
+    el.innerHTML = `
+    <div class="pres-wrap">
 
-    // Events
+        <!-- Top bar: summary + export -->
+        <div class="pres-topbar">
+            <div class="pres-topbar-left">
+                <span class="pres-total-badge">${displayCount} cards</span>
+                ${testModeActive ? `<span class="pres-test-badge">🧪 TEST: ${testModeCards} / ${testModeBins} BINs</span>` : ''}
+            </div>
+            <div class="pres-topbar-right">
+                <label class="pres-selall-label">
+                    <input type="checkbox" id="parser-select-all" ${PARSER_STATE.selected.size === displayList.length && displayList.length > 0 ? 'checked' : ''}>
+                    Select all
+                </label>
+                <button class="pres-btn pres-btn-export" id="parser-import-btn">📝 Export to Notes (${displayCount})</button>
+            </div>
+        </div>
+
+        <!-- GEO filter chips -->
+        ${geoList.length > 0 ? `<div class="pres-geo-row" id="pres-geo-chips">${geoChips}</div>` : ''}
+
+        <!-- BIN grid -->
+        ${sortedBins.length > 0 ? `
+        <div class="pres-bins-section">
+            <div class="pres-section-label">BINs (${sortedBins.length}) — click 📝/📋 to export a single BIN</div>
+            <div class="pres-bins-grid">${binCards}</div>
+        </div>` : ''}
+
+        <!-- Cards table -->
+        <div class="pres-table-wrap">
+            <table class="pres-table">
+                <colgroup>
+                    <col style="width:28px">
+                    <col style="width:15%">
+                    <col style="width:16%">
+                    <col style="width:18%">
+                    <col style="width:52px">
+                    <col style="width:72px">
+                    <col style="width:52px">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>NAME</th>
+                        <th>CARD</th>
+                        <th>BANK</th>
+                        <th>EXP</th>
+                        <th class="pres-sort-th" id="parser-sort-bin">BIN ${binSortIcon}</th>
+                        <th>GEO</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+
+    </div>`;
+
+    // ── Events ──
+
+    // Checkboxes
     el.querySelectorAll('.parser-check').forEach(cb => {
-        cb.addEventListener('change', () => { const idx = parseInt(cb.dataset.idx); if (cb.checked) PARSER_STATE.selected.add(idx); else PARSER_STATE.selected.delete(idx); });
+        cb.addEventListener('change', () => {
+            const idx = parseInt(cb.dataset.idx);
+            if (cb.checked) PARSER_STATE.selected.add(idx);
+            else PARSER_STATE.selected.delete(idx);
+        });
     });
 
     document.getElementById('parser-select-all')?.addEventListener('change', (e) => {
@@ -10586,13 +10800,57 @@ function renderParserResults(geoFilter) {
         el.querySelectorAll('.parser-check').forEach(cb => cb.checked = e.target.checked);
     });
 
-
-
+    // Export all
     document.getElementById('parser-import-btn')?.addEventListener('click', importToProject);
-    document.getElementById('parser-geo-select')?.addEventListener('change', (e) => renderParserResults(e.target.value));
+
+    // Sort by BIN
     document.getElementById('parser-sort-bin')?.addEventListener('click', () => {
         PARSER_STATE.sortBy = PARSER_STATE.sortBy === 'bin-desc' ? 'bin-asc' : 'bin-desc';
         renderParserResults(activeGeo);
+    });
+
+    // GEO chips
+    el.querySelectorAll('.pres-geo-chip').forEach(chip => {
+        chip.addEventListener('click', () => renderParserResults(chip.dataset.geo));
+    });
+
+    // ── Per-BIN export/copy ──
+    const buildBinLines = (binVal) => {
+        return displayList
+            .filter(c => c.bin === binVal)
+            .map(c => `${(c.cc||'').replace(/\s/g,'')} ${(c.mm||'').padStart(2,'0')} ${c.yy||''} ${c.cvv||'000'}`)
+            .join('\n');
+    };
+
+    el.querySelectorAll('.pres-bin-export-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const binVal = btn.dataset.bin;
+            const binCards2 = displayList.filter(c => c.bin === binVal);
+            if (!binCards2.length) { toast('No cards for this BIN', 'info'); return; }
+            const block = buildBinLines(binVal);
+            const newTab = {
+                id: 'tab-bin-' + Date.now(),
+                title: `BIN ${binVal} (${binCards2.length})`,
+                content: block,
+                pinned: false, tag: null,
+                created: Date.now(), scrollPos: 0
+            };
+            STATE.notesTabs.unshift(newTab);
+            STATE.notesActiveTab = newTab.id;
+            save();
+            toast(`BIN ${binVal}: ${binCards2.length} cards → Notes`, 'success');
+        });
+    });
+
+    el.querySelectorAll('.pres-bin-copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const binVal = btn.dataset.bin;
+            const text = buildBinLines(binVal);
+            const cnt = displayList.filter(c => c.bin === binVal).length;
+            navigator.clipboard?.writeText(text).then(() => toast(`BIN ${binVal}: ${cnt} cards copied`, 'success'));
+        });
     });
 }
 
@@ -10732,9 +10990,9 @@ function addCollectedToCards() {
        NOTES HELPER FUNCTIONS
        ═══════════════════════════════════════════ */
     function saveNotesAction() {
-        const textarea = document.getElementById('notes-textarea');
-        if (!textarea) return;
-        STATE.notes = textarea.value;
+        const editor = document.getElementById('notes-editor');
+        if (!editor) return;
+        STATE.notes = editor.innerHTML;
         STATE.notesLastSaved = new Date().toISOString();
         save();
         toast('Notes saved', 'success');
@@ -10744,8 +11002,8 @@ function addCollectedToCards() {
 
     function changeNotesFontSize(delta) {
         STATE.notesFontSize = Math.max(10, Math.min(24, (STATE.notesFontSize || 14) + delta));
-        const textarea = document.getElementById('notes-textarea');
-        if (textarea) textarea.style.fontSize = STATE.notesFontSize + 'px';
+        const editor = document.getElementById('notes-editor');
+        if (editor) editor.style.fontSize = STATE.notesFontSize + 'px';
         const display = document.getElementById('notes-font-size-display');
         if (display) display.textContent = STATE.notesFontSize;
         save();
@@ -10760,10 +11018,14 @@ function addCollectedToCards() {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                const textarea = document.getElementById('notes-textarea');
-                if (textarea) {
-                    textarea.value += (textarea.value ? '\n' : '') + ev.target.result;
-                    textarea.dispatchEvent(new Event('input'));
+                const editor = document.getElementById('notes-editor');
+                if (editor) {
+                    // Append text as a new paragraph
+                    const text = ev.target.result;
+                    const p = document.createElement('div');
+                    p.textContent = text;
+                    editor.appendChild(p);
+                    editor.dispatchEvent(new Event('input'));
                 }
                 toast('Imported: ' + file.name, 'success');
             };
@@ -10773,12 +11035,13 @@ function addCollectedToCards() {
     }
 
     function exportNotesAction() {
-        const textarea = document.getElementById('notes-textarea');
-        if (!textarea || !textarea.value.trim()) {
+        const editor = document.getElementById('notes-editor');
+        const text = editor ? _getEditorText(editor) : (STATE.notes || '');
+        if (!text.trim()) {
             toast('Notes are empty', 'error');
             return;
         }
-        const blob = new Blob([textarea.value], { type: 'text/plain' });
+        const blob = new Blob([text], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

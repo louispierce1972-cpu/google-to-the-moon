@@ -3262,13 +3262,29 @@ textarea {
     font-family: var(--font-mono);
     font-size: var(--fs-md);
     line-height: var(--lh-relaxed);
-    resize: none;
     min-height: 0;
-    tab-size: 4
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    tab-size: 4;
+    cursor: text;
+    caret-color: var(--text-primary);
 }
 
-.notes-editor::placeholder {
-    color: var(--text-dim)
+/* Placeholder for contenteditable when empty */
+.notes-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--text-dim);
+    pointer-events: none;
+    font-style: italic;
+}
+
+/* Keep normal text color by default inside notes editor */
+.notes-editor * {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
 }
 
 .notes-status-bar {
@@ -3279,6 +3295,89 @@ textarea {
     font-size: 10px;
     font-family: var(--font-mono);
     flex-shrink: 0
+}
+
+/* ═══════ NOTES COLOR CONTEXT MENU ═══════ */
+.notes-ctx-menu {
+    position: fixed;
+    z-index: 9999;
+    background: var(--bg-elevated, #1a1a2e);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 200px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+    animation: nctxIn 0.12s cubic-bezier(.34,1.56,.64,1) forwards;
+    user-select: none;
+}
+
+@keyframes nctxIn {
+    from { opacity: 0; transform: scale(0.93) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1)   translateY(0);     }
+}
+
+.nctx-header {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.5px;
+    color: var(--text-muted, #888);
+    text-transform: uppercase;
+    padding: 2px 4px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    margin-bottom: 8px;
+}
+
+.nctx-swatches {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 0 2px 6px;
+}
+
+.nctx-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.1s, border-color 0.1s, box-shadow 0.1s;
+    flex-shrink: 0;
+}
+
+.nctx-swatch:hover {
+    transform: scale(1.25);
+    border-color: rgba(255,255,255,0.5);
+    box-shadow: 0 0 8px currentColor;
+}
+
+.nctx-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 4px 0;
+}
+
+.nctx-remove {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    color: var(--text-muted, #888);
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: left;
+    transition: background 0.1s, color 0.1s;
+}
+
+.nctx-remove:hover {
+    background: rgba(239,68,68,0.12);
+    color: #ef4444;
 }
 
 /* ═══════ GLOBAL MINIMALISM ═══════ */
@@ -14076,5 +14175,92 @@ tr.row-selected td {
 .bs-stat-lbl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px}
 .bs-stat-removed .bs-stat-val{color:#f87171}
 .bs-stat-clean .bs-stat-val{color:#4ade80}
+
+/* ═══════ PARSER RESULTS (new light design) ═══════ */
+.pres-wrap{display:flex;flex-direction:column;gap:14px;padding:14px 16px}
+.pres-empty{padding:40px;text-align:center;color:var(--text-dim);font-size:13px}
+
+/* Top bar */
+.pres-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pres-topbar-left{display:flex;align-items:center;gap:8px}
+.pres-topbar-right{display:flex;align-items:center;gap:8px}
+.pres-total-badge{background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.25);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;letter-spacing:.3px}
+.pres-test-badge{background:rgba(59,130,246,.12);color:#60a5fa;border-radius:20px;padding:3px 10px;font-size:11px}
+.pres-selall-label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary);cursor:pointer;white-space:nowrap}
+.pres-btn{border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);transition:all .15s}
+.pres-btn-export{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.25)}
+.pres-btn-export:hover{background:rgba(74,222,128,.25)}
+
+/* GEO chips */
+.pres-geo-row{display:flex;flex-wrap:wrap;gap:5px}
+.pres-geo-chip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text-secondary);cursor:pointer;transition:all .15s;white-space:nowrap}
+.pres-geo-chip span{font-size:10px;opacity:.7;margin-left:2px}
+.pres-geo-chip:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
+.pres-geo-chip.active{background:rgba(99,102,241,.18);border-color:rgba(99,102,241,.4);color:#a5b4fc;font-weight:600}
+
+/* BIN section */
+.pres-bins-section{display:flex;flex-direction:column;gap:7px}
+.pres-section-label{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px}
+.pres-bins-grid{display:flex;flex-wrap:wrap;gap:7px}
+.pres-bin-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:8px 10px;min-width:110px;cursor:default;transition:border-color .15s}
+.pres-bin-card:hover{border-color:rgba(255,255,255,.15)}
+.pres-bin-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px}
+.pres-bin-num{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--text-primary)}
+.pres-bin-count{background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700}
+.pres-bin-bank{font-size:10px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;margin-bottom:6px}
+.pres-bin-actions{display:flex;gap:4px}
+.pres-bin-export-btn,.pres-bin-copy-btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;transition:all .12s;line-height:1.4}
+.pres-bin-export-btn:hover{background:rgba(74,222,128,.15);border-color:rgba(74,222,128,.3)}
+.pres-bin-copy-btn:hover{background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.3)}
+
+/* Table */
+.pres-table-wrap{overflow-x:auto;border:1px solid rgba(255,255,255,.07);border-radius:8px}
+.pres-table{width:100%;border-collapse:collapse;font-size:12px}
+.pres-table thead tr{background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.08)}
+.pres-table th{padding:7px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim);white-space:nowrap}
+.pres-table tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .12s}
+.pres-table tbody tr:hover{background:rgba(255,255,255,.03)}
+.pres-table td{padding:6px 10px;vertical-align:middle;color:var(--text-secondary)}
+.pres-sort-th{cursor:pointer;user-select:none}
+.pres-sort-th:hover{color:var(--text-primary)}
+
+/* ═══════ NOTES — YELLOW ACTIVE TAB + SIDEBAR ═══════ */
+/* Override active tab to yellow */
+.nt-tab.active{background:rgba(234,179,8,.18) !important;border-color:rgba(234,179,8,.5) !important;color:#facc15 !important;font-weight:700}
+.nt-tab.active .nt-tab-title{color:#facc15}
+
+/* New tab button */
+.nt-new-tab{background:none;border:1px dashed rgba(255,255,255,.15);border-radius:5px;color:var(--text-dim);font-size:15px;font-weight:300;padding:2px 10px;cursor:pointer;transition:all .15s;line-height:1.4}
+.nt-new-tab:hover{border-color:rgba(234,179,8,.5);color:#facc15;background:rgba(234,179,8,.06)}
+
+/* Sidebar drawer toggle button */
+.nt-sidebar-toggle{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--text-secondary);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;transition:all .15s;white-space:nowrap;margin-right:4px}
+.nt-sidebar-toggle:hover{background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.35);color:#facc15}
+
+/* Sidebar overlay */
+.nt-sidebar-overlay{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s}
+.nt-sidebar-overlay.open{opacity:1;pointer-events:auto}
+
+/* Sidebar drawer */
+.nt-sidebar{position:fixed;top:0;left:-300px;width:280px;height:100vh;background:#111214;border-right:1px solid rgba(255,255,255,.1);z-index:901;display:flex;flex-direction:column;transition:left .22s cubic-bezier(.16,1,.3,1);box-shadow:4px 0 24px rgba(0,0,0,.5)}
+.nt-sidebar.open{left:0}
+.nt-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.nt-sidebar-title{font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px}
+.nt-sidebar-close{background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.nt-sidebar-close:hover{color:var(--text-primary)}
+.nt-sidebar-list{flex:1;overflow-y:auto;padding:8px 0}
+.nt-sidebar-new{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:4px}
+.nt-sidebar-new-btn{flex:1;background:rgba(234,179,8,.12);border:1px dashed rgba(234,179,8,.3);border-radius:6px;color:#facc15;font-size:12px;font-weight:600;padding:6px;cursor:pointer;transition:all .15s;font-family:var(--font-sans)}
+.nt-sidebar-new-btn:hover{background:rgba(234,179,8,.2)}
+.nt-sidebar-item{display:flex;align-items:center;padding:8px 16px;cursor:pointer;transition:background .12s;gap:8px;border-left:2px solid transparent}
+.nt-sidebar-item:hover{background:rgba(255,255,255,.05)}
+.nt-sidebar-item.active{background:rgba(234,179,8,.08);border-left-color:#facc15}
+.nt-sidebar-item-title{flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nt-sidebar-item.active .nt-sidebar-item-title{color:#facc15;font-weight:600}
+.nt-sidebar-item-lines{font-size:10px;color:var(--text-dim);flex-shrink:0}
+.nt-sidebar-item-close{background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0 2px;opacity:0;transition:opacity .12s}
+.nt-sidebar-item:hover .nt-sidebar-item-close{opacity:1}
+.nt-sidebar-item-close:hover{color:#f87171}
+
 
 
