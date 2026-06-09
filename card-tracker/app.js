@@ -5049,16 +5049,9 @@ function _getActiveNoteTab() {
 // Get plain text content from the rich-text editor div
 function _getEditorText(editor) {
     if (!editor) return '';
-    // Convert <br> and block elements to newlines, then strip all tags
-    let html = editor.innerHTML;
-    // Replace <br>, </div><div>, </p><p> with newlines
-    html = html.replace(/<br\s*\/?>/gi, '\n');
-    html = html.replace(/<\/div><div/gi, '\n<div');
-    html = html.replace(/<\/p><p/gi, '\n<p');
-    // Strip remaining tags
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent;
+    // innerText correctly maps the visual line structure of contenteditable
+    // (handles <div>, <br>, <p> all properly as the browser renders them)
+    return editor.innerText || '';
 }
 
 function _saveActiveTab() {
@@ -5122,9 +5115,12 @@ function _rebuildLineNums(editorOrCount) {
     if (typeof editorOrCount === 'number') {
         nums = editorOrCount;
     } else {
-        // It's a DOM element (editor div) — get plain text line count
+        // It's a DOM element (editor div) — use innerText line count
         const text = _getEditorText(editorOrCount);
-        nums = (text || '').split('\n').length;
+        const splitLines = (text || '').split('\n');
+        // innerText may append a trailing '\n' on some browsers — trim it
+        if (splitLines.length > 1 && splitLines[splitLines.length - 1] === '') splitLines.pop();
+        nums = splitLines.length || 1;
     }
     container.innerHTML = _buildLineNumsHTML(nums, tab?.pinnedLines);
     _wireLinePinClicks(container);
@@ -5295,7 +5291,8 @@ function renderNotes() {
     _wireLinePinClicks(document.getElementById('notes-line-nums'));
 
     let _notesSaveTimer = null;
-    let _prevLineCount = lineCount;
+    // Initialize from actual rendered text (not the pre-parsed estimate)
+    let _prevLineCount = editor ? (_getEditorText(editor).split('\n').filter((_, i, a) => !(i === a.length - 1 && _ === '')).length || 1) : lineCount;
     let _prevCursorLine = 1;
     let _prevCursorCol = 0;
 
@@ -5316,7 +5313,9 @@ function renderNotes() {
         editor.addEventListener('keydown', () => {
             // Capture BEFORE state for pin shifting
             const text = _getEditorText(editor);
-            _prevLineCount = text.split('\n').length;
+            const kLines = text.split('\n');
+            if (kLines.length > 1 && kLines[kLines.length - 1] === '') kLines.pop();
+            _prevLineCount = kLines.length || 1;
             const pos = _getEditorCursorPos();
             _prevCursorLine = pos.line;
             _prevCursorCol = pos.col;
@@ -5324,7 +5323,9 @@ function renderNotes() {
 
         editor.addEventListener('input', () => {
             const newText = _getEditorText(editor);
-            const newLineCount = newText.split('\n').length;
+            const iLines = newText.split('\n');
+            if (iLines.length > 1 && iLines[iLines.length - 1] === '') iLines.pop();
+            const newLineCount = iLines.length || 1;
             const delta = newLineCount - _prevLineCount;
             if (delta !== 0) {
                 const tab = _getActiveNoteTab();
