@@ -8584,7 +8584,7 @@ function renderParser() {
                 <div class="parser-filter-level">
                     <span class="parser-filter-level-label">NETWORK</span>
                     <div class="parser-filter-level-btns">
-                        ${['VISA','MASTERCARD','AMEX','DISCOVER','UNIONPAY'].map(t =>
+                        ${['VISA','MASTERCARD','AMEX','DISCOVER','UNIONPAY','JCB'].map(t =>
                             `<button class="parser-level-btn${PARSER_STATE.filters.filterPaymentSystems.has(t) ? ' active' : ''}" data-filter-network="${t}">${t}</button>`
                         ).join('')}
                     </div>
@@ -8599,11 +8599,15 @@ function renderParser() {
 
         <!-- ACTION BAR -->
         <div class="pz-actions">
-            <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'}>⚡ PARSE & CLEAN</button>
-            <button class="pz-btn pz-btn-dim" id="parser-clear-btn">CLEAR</button>
-            <button class="pz-btn pz-btn-trash" id="parser-trash-btn">🗑 TRASH (${(STATE.trashCards || []).length})</button>
-            <button class="pz-btn pz-btn-valid" id="parser-valid-btn">✅ VALID CARDS</button>
-            <button class="pz-btn pz-btn-today" id="parser-today-btn">📅 TODAY CARDS</button>
+            <button class="pz-btn pz-btn-primary" id="parser-parse-btn" ${hasBase ? '' : 'disabled'} title="Extract cards from loaded file, apply filters, remove trash/workspace/duplicates">
+                ⚡ PARSE &amp; CLEAN
+                <span class="pz-btn-hint">extract → filter → dedupe</span>
+            </button>
+            <button class="pz-btn pz-btn-dim" id="parser-clear-btn" title="Clear all loaded files and results">✕ CLEAR</button>
+            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" title="Manage dead/invalid card blacklist">🗑 TRASH (${(STATE.trashCards || []).length})</button>
+            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" title="View cards verified as ALIVE by checker">✅ VALID CARDS</button>
+            <button class="pz-btn pz-btn-today" id="parser-today-btn" title="Show cards from today's messages">📅 TODAY CARDS</button>
+            <button class="pz-btn pz-btn-subtract" id="parser-subtract-btn" title="Subtract a JSON base from your card list — removes already known cards">⊖ BASE SUBTRACT</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -8804,6 +8808,13 @@ function renderParser() {
     _initTrashTabs();        // (translated)
     _initTodayCardsModal(); // (translated)
     _initValidCardsModal();
+    _initBaseSubtractModal();
+
+    // Base subtract button
+    document.getElementById('parser-subtract-btn')?.addEventListener('click', () => {
+        const overlay = document.getElementById('base-subtract-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+    });
 
     // (translated)
     if (VALID_STATE.cards.length > 0) {
@@ -9369,13 +9380,144 @@ function _renderCMLLists() {
     }
 }
 
-/**
- * (translated)
- * (translated)
- * (translated)
- * (translated)
- * status: 'alive' | 'dead' | 'invalid'
- */
+// ═══════════════════════════════════════════════════════════════════
+// BASE SUBTRACT — вычитание одной базы из другой
+// ═══════════════════════════════════════════════════════════════════
+
+let _bsBaseSet = null; // Set<string> — нормализованные номера из JSON-файла
+let _bsBaseFileName = '';
+let _bsBaseCardCount = 0;
+
+function _initBaseSubtractModal() {
+    const overlay = document.getElementById('base-subtract-overlay');
+    if (!overlay) return;
+
+    const closeBtn    = overlay.querySelector('.bs-close');
+    const dropZone    = document.getElementById('bs-drop-zone');
+    const fileInput   = document.getElementById('bs-file-input');
+    const baseInfo    = document.getElementById('bs-base-info');
+    const textarea    = document.getElementById('bs-textarea');
+    const extractBtn  = document.getElementById('bs-extract-btn');
+    const clearBtn    = document.getElementById('bs-clear-btn');
+    const statsEl     = document.getElementById('bs-stats');
+    const resultBox   = document.getElementById('bs-result-box');
+    const resultArea  = document.getElementById('bs-result-area');
+    const copyBtn     = document.getElementById('bs-copy-btn');
+
+    const closeModal = () => overlay.classList.add('hidden');
+    closeBtn?.addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    // ── Drag & Drop / Click for JSON base ──
+    dropZone?.addEventListener('click', () => fileInput?.click());
+    dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('bs-drag-over'); });
+    dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('bs-drag-over'));
+    dropZone?.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('bs-drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) _bsLoadFile(file, baseInfo, dropZone);
+    });
+    fileInput?.addEventListener('change', () => {
+        if (fileInput.files[0]) _bsLoadFile(fileInput.files[0], baseInfo, dropZone);
+    });
+
+    // ── Extract & Subtract ──
+    extractBtn?.addEventListener('click', () => {
+        const raw = textarea?.value || '';
+        if (!raw.trim()) { toast('Paste your card list first', 'warning'); return; }
+        if (!_bsBaseSet || _bsBaseSet.size === 0) { toast('Load a JSON base file first', 'warning'); return; }
+
+        // Extract all card numbers from pasted text
+        const lines = raw.split(/\r?\n/);
+        const extracted = []; // {line, cc}
+        const seen = new Set();
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            // Try pipe format first, then standalone number
+            const m = trimmed.match(/(\d{13,19})/);
+            if (!m) return;
+            const cc = m[1];
+            if (seen.has(cc)) return;
+            seen.add(cc);
+            extracted.push({ line: trimmed, cc });
+        });
+
+        if (extracted.length === 0) { toast('No card numbers found in pasted text', 'error'); return; }
+
+        // Subtract base
+        const clean   = extracted.filter(c => !_bsBaseSet.has(c.cc));
+        const removed = extracted.filter(c =>  _bsBaseSet.has(c.cc));
+
+        // Show stats
+        if (statsEl) {
+            statsEl.style.display = 'flex';
+            statsEl.innerHTML = `
+                <div class="bs-stat"><span class="bs-stat-val">${extracted.length}</span><span class="bs-stat-lbl">Total input</span></div>
+                <div class="bs-stat bs-stat-removed"><span class="bs-stat-val">${removed.length}</span><span class="bs-stat-lbl">Removed (in base)</span></div>
+                <div class="bs-stat bs-stat-clean"><span class="bs-stat-val">${clean.length}</span><span class="bs-stat-lbl">Clean result</span></div>
+            `;
+        }
+
+        // Show result
+        const resultText = clean.map(c => c.line).join('\n');
+        if (resultArea) resultArea.value = resultText;
+        if (resultBox)  resultBox.style.display = 'block';
+        if (copyBtn)    copyBtn.dataset.text = resultText;
+
+        toast(`Done: ${removed.length} removed, ${clean.length} clean cards left`, removed.length > 0 ? 'success' : 'info');
+    });
+
+    // ── Copy result ──
+    copyBtn?.addEventListener('click', () => {
+        const text = resultArea?.value || '';
+        if (!text) { toast('Nothing to copy', 'info'); return; }
+        navigator.clipboard?.writeText(text).then(() => toast(`Copied ${text.split('\n').filter(Boolean).length} cards`, 'success'));
+    });
+
+    // ── Clear ──
+    clearBtn?.addEventListener('click', () => {
+        _bsBaseSet = null;
+        _bsBaseFileName = '';
+        _bsBaseCardCount = 0;
+        if (textarea)  textarea.value = '';
+        if (resultArea) resultArea.value = '';
+        if (statsEl)   { statsEl.style.display = 'none'; statsEl.innerHTML = ''; }
+        if (resultBox) resultBox.style.display = 'none';
+        if (baseInfo)  { baseInfo.textContent = 'No base loaded'; baseInfo.className = 'bs-base-info'; }
+        if (dropZone)  dropZone.querySelector('.bs-drop-text') && (dropZone.querySelector('.bs-drop-text').textContent = 'Drop JSON base or click');
+        toast('Cleared', 'info');
+    });
+}
+
+function _bsLoadFile(file, baseInfoEl, dropZone) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            const numbers = extractAllCardNumbersFromJSON(data);
+            _bsBaseSet = numbers;
+            _bsBaseFileName = file.name;
+            _bsBaseCardCount = numbers.size;
+
+            if (baseInfoEl) {
+                baseInfoEl.textContent = `✅ ${file.name} — ${numbers.size.toLocaleString()} card numbers loaded`;
+                baseInfoEl.className = 'bs-base-info bs-base-info-ok';
+            }
+            const dropText = dropZone?.querySelector('.bs-drop-text');
+            if (dropText) dropText.textContent = `✅ ${file.name}`;
+            toast(`Base loaded: ${numbers.size.toLocaleString()} card numbers`, 'success');
+        } catch (err) {
+            if (baseInfoEl) { baseInfoEl.textContent = '❌ Invalid JSON file'; baseInfoEl.className = 'bs-base-info bs-base-info-err'; }
+            toast('Invalid JSON file', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+
 function _parseCheckerOutput(text) {
     const lines = text.split(/\r?\n/);
     const results = [];
