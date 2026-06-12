@@ -3815,14 +3815,58 @@ function renderChecker() {
 
     // ── BIN Mode: row selection, toggle-all, export, BIN lookup ──
     if (_CK.mode === 'bin') {
-        // BIN row click — toggle selection
+        // Helper: update BIN UI in-place without full re-render (preserves scroll)
+        function _ckUpdateBinUI() {
+            const tab = _CK.tabs.bin;
+            const bg = tab.binGroups;
+            const sel = tab.selectedBins;
+            const sortedBins = Object.keys(bg).sort();
+
+            // Update row selected classes
+            area.querySelectorAll('.ck-bin-row').forEach(row => {
+                row.classList.toggle('selected', sel.has(row.dataset.bin));
+            });
+
+            // Rebuild export text
+            let exportLines = [];
+            sortedBins.filter(b => sel.has(b)).forEach(bin => {
+                bg[bin].forEach(c => exportLines.push(`${c.ccn}|${c.mm}|${c.yy}|${c.cvv}`));
+            });
+            const totalSelected = sortedBins.filter(b => sel.has(b)).reduce((s, b) => s + bg[b].length, 0);
+            const exportText = exportLines.join('\n');
+
+            // Update export textarea
+            const outputEl = document.getElementById('ck-output');
+            if (outputEl) outputEl.value = exportText;
+
+            // Update export count
+            const countEl = document.getElementById('ck-output-count');
+            if (countEl) {
+                countEl.textContent = `${totalSelected} cards`;
+                countEl.classList.toggle('ck-count-active', totalSelected > 0);
+            }
+
+            // Update export copy button disabled state
+            const copyBtn = document.getElementById('ck-export-copy');
+            if (copyBtn) copyBtn.disabled = !totalSelected;
+
+            // Update Toggle All button
+            const allSelected = sortedBins.length > 0 && sortedBins.every(b => sel.has(b));
+            const toggleBtn = document.getElementById('ck-bin-toggle-all');
+            if (toggleBtn) {
+                toggleBtn.textContent = allSelected ? '☐ None' : '☑ All';
+                toggleBtn.title = allSelected ? 'Deselect All' : 'Select All';
+            }
+        }
+
+        // BIN row click — toggle selection (in-place, no scroll jump)
         area.querySelectorAll('.ck-bin-row').forEach(chip => {
             chip.addEventListener('click', () => {
                 const bin = chip.dataset.bin;
                 const sel = _CK.tabs.bin.selectedBins;
                 if (sel.has(bin)) sel.delete(bin);
                 else sel.add(bin);
-                renderChecker();
+                _ckUpdateBinUI();
             });
             // Right-click → copy /bin format
             chip.addEventListener('contextmenu', (e) => {
@@ -3861,7 +3905,7 @@ function renderChecker() {
             });
         });
 
-        // Toggle All / None
+        // Toggle All / None (in-place update)
         document.getElementById('ck-bin-toggle-all')?.addEventListener('click', () => {
             const tab = _CK.tabs.bin;
             const sortedBins = Object.keys(tab.binGroups);
@@ -3871,7 +3915,7 @@ function renderChecker() {
             } else {
                 tab.selectedBins = new Set(sortedBins);
             }
-            renderChecker();
+            _ckUpdateBinUI();
         });
 
         // Export copy button
