@@ -3298,6 +3298,10 @@ function _renderWaterBillHTML(d, font) {
     const p = d.provider;
     const c = p.color;
     const fm = n => '$' + Number(n).toFixed(2);
+    // Dynamic font size for provider name to prevent layout overflow
+    const provName = p.name.toUpperCase();
+    const headerFontSize = provName.length > 30 ? 13 : provName.length > 24 ? 15 : provName.length > 18 ? 17 : 20;
+    const footerFontSize = provName.length > 30 ? 11 : provName.length > 24 ? 12 : 14;
 
     return `
 <div id="water-bill-render" style="width:794px;min-height:1123px;background:#fff;font-family:'${f}',Arial,sans-serif;color:#222;font-size:13px;line-height:1.5;box-sizing:border-box;padding-bottom:30px">
@@ -3309,9 +3313,9 @@ function _renderWaterBillHTML(d, font) {
       <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Bill date</div><div style="font-weight:700;font-size:13px;color:#111">${d.billDate}</div></div>
       <div style="flex:0.55;padding:7px 14px"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Page</div><div style="font-weight:700;font-size:13px;color:#111">1 of 1</div></div>
     </div>
-    <div style="margin-left:28px;display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <div style="margin-left:28px;display:flex;align-items:center;gap:8px;flex-shrink:0;max-width:300px">
       <div style="width:32px;height:32px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
-      <div style="font-size:22px;font-weight:900;color:${c};letter-spacing:1px">${p.name.toUpperCase()}</div>
+      <div style="font-size:${headerFontSize}px;font-weight:900;color:${c};letter-spacing:0.5px;line-height:1.2">${provName}</div>
     </div>
   </div>
 
@@ -3362,9 +3366,9 @@ function _renderWaterBillHTML(d, font) {
   <!-- PAYMENT STUB -->
   <div style="padding:0 36px 24px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;max-width:320px">
         <div style="width:24px;height:24px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
-        <span style="font-size:15px;font-weight:900;color:${c};letter-spacing:0.5px">${p.name.toUpperCase()}</span>
+        <span style="font-size:${footerFontSize}px;font-weight:900;color:${c};letter-spacing:0.3px;line-height:1.2">${provName}</span>
       </div>
       <table style="border-collapse:collapse;font-size:12px;min-width:320px">
         <tr><td style="padding:3px 18px 3px 0;color:#444;text-align:left;white-space:nowrap">Your account number:</td><td style="padding:3px 0;font-weight:700;text-align:right">${d.acct}</td></tr>
@@ -3454,8 +3458,8 @@ function _renderGenerator() {
             <input type="text" id="gen-street" placeholder="Street Address" value="${gen.streetAddress}" style="flex:1.5;min-width:150px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             <input type="text" id="gen-city" placeholder="City" value="${gen.city}" style="width:100px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             ${gen.type === 'water' ? `
-            <select id="gen-state" style="width:80px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
-                ${US_STATES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} — ${US_WATER_PROVIDERS[s].name}</option>`).join('')}
+            <select id="gen-state" style="width:200px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+                ${US_STATES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${US_STATE_NAMES[s]}) — ${US_WATER_PROVIDERS[s].name}</option>`).join('')}
             </select>` : `
             <select id="gen-pref" style="width:80px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
                 ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
