@@ -3298,24 +3298,22 @@ function _renderWaterBillHTML(d, font) {
     const p = d.provider;
     const c = p.color;
     const fm = n => '$' + Number(n).toFixed(2);
-    // Dynamic font size for provider name to prevent layout overflow
     const provName = p.name.toUpperCase();
-    const headerFontSize = provName.length > 30 ? 13 : provName.length > 24 ? 15 : provName.length > 18 ? 17 : 20;
     const footerFontSize = provName.length > 30 ? 11 : provName.length > 24 ? 12 : 14;
 
     return `
 <div id="water-bill-render" style="width:794px;min-height:1123px;background:#fff;font-family:'${f}',Arial,sans-serif;color:#222;font-size:13px;line-height:1.5;box-sizing:border-box;padding-bottom:30px">
   <!-- TOP HEADER -->
-  <div style="display:flex;align-items:center;padding:22px 36px 0;gap:0">
-    <div style="display:flex;flex:1;border:1.5px solid ${c};border-radius:3px;overflow:hidden;background:#fff">
+  <div style="padding:22px 36px 0">
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px">
+      <div style="width:28px;height:28px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
+      <div style="font-size:15px;font-weight:900;color:${c};letter-spacing:0.5px">${provName}</div>
+    </div>
+    <div style="display:flex;border:1.5px solid ${c};border-radius:3px;overflow:hidden;background:#fff">
       <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Account number</div><div style="font-weight:700;font-size:13px;color:#111">${d.acct}</div></div>
       <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Bill number</div><div style="font-weight:700;font-size:13px;color:#111">${d.billNo}</div></div>
       <div style="flex:1;padding:7px 14px;border-right:1px solid ${c}"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Bill date</div><div style="font-weight:700;font-size:13px;color:#111">${d.billDate}</div></div>
       <div style="flex:0.55;padding:7px 14px"><div style="font-size:9px;color:${c};margin-bottom:1px;letter-spacing:0.3px">Page</div><div style="font-weight:700;font-size:13px;color:#111">1 of 1</div></div>
-    </div>
-    <div style="margin-left:28px;display:flex;align-items:center;gap:8px;flex-shrink:0;max-width:300px">
-      <div style="width:32px;height:32px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg></div>
-      <div style="font-size:${headerFontSize}px;font-weight:900;color:${c};letter-spacing:0.5px;line-height:1.2">${provName}</div>
     </div>
   </div>
 
