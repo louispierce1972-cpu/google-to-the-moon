@@ -3283,14 +3283,13 @@ function _generateWaterBillData(gen) {
     const poBox = `PO Box ${_genRand(1000,9999)}`;
     const poCity = ['Camden, NJ 08101','Trenton, NJ 08650','Atlanta, GA 30348','Dallas, TX 75284','Chicago, IL 60677','Denver, CO 80271'][_genRand(0,5)];
     const postalCode = `##POSTAL${String(_genRand(10000,99999))} ${String(_genRand(100000000,999999999))}`;
-    const barcode = String(_genRand(10000000000000,99999999999999)) + 'TT' + '0'.repeat(25) + '001';
     return {
         provider: prov, state: st, stateName: US_STATE_NAMES[st] || st,
         name: gen.name.toUpperCase(), address: fullAddr,
         acct, billNo, billDate: fmtD(billDate), dueDate: fmtPay(dueDate),
         waterSvc, sewerSvc, totalBill, taxAmt, taxPct,
         prevBal, paidAmt, adj, balFwd, pastDue, totalToPay,
-        savedAmt, poBox, poCity, postalCode, barcode
+        savedAmt, poBox, poCity, postalCode
     };
 }
 
@@ -3299,22 +3298,7 @@ function _renderWaterBillHTML(d, font) {
     const p = d.provider;
     const c = p.color;
     const fm = n => '$' + Number(n).toFixed(2);
-    // Generate a simple SVG barcode from the barcode string
-    const barcodeStr = d.barcode || '';
-    let barcodeSvgBars = '';
-    const barcodeW = 380;
-    const barcodeH = 50;
-    const totalChars = barcodeStr.length || 40;
-    const barW = barcodeW / (totalChars * 2);
-    for (let i = 0; i < totalChars; i++) {
-        const charCode = barcodeStr.charCodeAt(i) || 48;
-        const thick = (charCode % 3 === 0) ? barW * 1.8 : barW;
-        const x = i * (barcodeW / totalChars);
-        if (charCode % 2 === 0 || charCode % 5 === 0) {
-            barcodeSvgBars += `<rect x="${x}" y="0" width="${thick}" height="${barcodeH}" fill="#000"/>`;
-        }
-    }
-    const barcodeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${barcodeW}" height="${barcodeH}" viewBox="0 0 ${barcodeW} ${barcodeH}">${barcodeSvgBars}</svg>`;
+
     return `
 <div id="water-bill-render" style="width:794px;min-height:1123px;background:#fff;font-family:'${f}',Arial,sans-serif;color:#222;font-size:13px;line-height:1.5;box-sizing:border-box;padding-bottom:30px">
   <!-- TOP HEADER -->
@@ -3413,8 +3397,7 @@ function _renderWaterBillHTML(d, font) {
         <div style="white-space:pre-line">${d.address}</div>
       </div>
     </div>
-    <div style="text-align:center;margin-top:24px">${barcodeSvg}</div>
-    <div style="text-align:center;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;margin-top:4px;color:#333">${d.barcode}</div>
+
   </div>
 </div>`;
 }
