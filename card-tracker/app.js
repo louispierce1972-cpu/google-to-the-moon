@@ -732,9 +732,12 @@ function renderTopNav() {
     if (badge) badge.textContent = STATE.trash.length || '';
 }
 
-// Top nav tab clicks
+// Top nav tab clicks (anchor tags — prevent default to avoid double hash update)
 document.querySelectorAll('.tn-tab').forEach(tab => {
-    tab.addEventListener('click', () => navigate(tab.dataset.view));
+    tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigate(tab.dataset.view);
+    });
 });
 
 // Country dropdown
@@ -5745,6 +5748,46 @@ function renderAll() {
 }
 
 // ──── NAVIGATION ────
+// ──── HASH ROUTING ────
+// Maps friendly hash names ↔ internal view names
+const HASH_TO_VIEW = {
+    'workspace':     'cards',
+    'all-cards':     'all-cards',
+    'documents':     'global-docs',
+    'parser':        'new-cards',
+    'checker':       'checker',
+    'notes':         'notes',
+    'analytics':     'analytics',
+    'trash':         'trash',
+    'google-format': 'google-format',
+    'domain':        'domain',
+};
+const VIEW_TO_HASH = Object.fromEntries(
+    Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
+);
+
+function _getViewFromHash() {
+    const raw = (window.location.hash || '').replace(/^#/, '').toLowerCase();
+    return HASH_TO_VIEW[raw] || null;
+}
+
+function _setHashSilent(view) {
+    const h = VIEW_TO_HASH[view] || 'workspace';
+    // Avoid triggering hashchange listener
+    window._hashNav = true;
+    window.location.hash = '#' + h;
+    setTimeout(() => { window._hashNav = false; }, 50);
+}
+
+// Listen for browser back/forward navigation
+window.addEventListener('hashchange', () => {
+    if (window._hashNav) return; // skip our own updates
+    const view = _getViewFromHash();
+    if (view && view !== STATE.currentView) {
+        navigate(view);
+    }
+});
+
 function navigate(view, country) {
     // Auto-save active notes tab before leaving notes view
     if (STATE.currentView === 'notes') {
@@ -5765,6 +5808,8 @@ function navigate(view, country) {
     STATE.page = 1;
     STATE.search = '';
     document.getElementById('search-input').value = '';
+    // Update URL hash so this view has a direct link
+    _setHashSilent(view);
     renderAll();
 }
 
@@ -8178,7 +8223,9 @@ function doLogin() {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         load();
-        navigate('cards', 'canada');
+        // Navigate to hash-specified view or default workspace
+        const hashView = _getViewFromHash();
+        navigate(hashView || 'cards', 'canada');
         toast('Welcome back, Admin!', 'success');
     } else {
         document.getElementById('login-error').textContent = 'Invalid username or password';
@@ -8207,7 +8254,9 @@ document.querySelector('.btn-login').addEventListener('click', (e) => {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('app').classList.remove('hidden');
             load();
-            navigate('cards', 'canada');
+            // Navigate to hash-specified view or default workspace
+            const hashView = _getViewFromHash();
+            navigate(hashView || 'cards', 'canada');
         }
     } catch (e) { /* no valid session */ }
 })();

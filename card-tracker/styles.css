@@ -408,7 +408,9 @@ textarea {
     padding: 8px 10px;
     cursor: pointer;
     white-space: nowrap;
-    line-height: 1
+    line-height: 1;
+    text-decoration: none;
+    display: inline-block
 }
 
 .tn-tab:hover {

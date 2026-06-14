@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=16">
+    <link rel="stylesheet" href="styles.css?v=17">
 </head>
 <body>
     <!-- LOGIN SCREEN -->
@@ -60,16 +60,16 @@
                 </div>
             </div>
             <div class="tn-tabs" id="tn-tabs">
-                <button class="tn-tab active" data-view="cards">Workspace</button>
-                <button class="tn-tab" data-view="all-cards">All Cards</button>
-                <button class="tn-tab" data-view="global-docs">Documents</button>
-                <button class="tn-tab" data-view="new-cards">Parser</button>
-                <button class="tn-tab" data-view="checker">Checker</button>
-                <button class="tn-tab" data-view="notes">Notes</button>
-                <button class="tn-tab" data-view="analytics">Analytics</button>
-                <button class="tn-tab" data-view="trash">Trash <span id="badge-trash" class="tn-badge">0</span></button>
-                <button class="tn-tab" data-view="google-format">Google Format</button>
-                <button class="tn-tab" data-view="domain">Domain</button>
+                <a class="tn-tab active" data-view="cards" href="#workspace">Workspace</a>
+                <a class="tn-tab" data-view="all-cards" href="#all-cards">All Cards</a>
+                <a class="tn-tab" data-view="global-docs" href="#documents">Documents</a>
+                <a class="tn-tab" data-view="new-cards" href="#parser">Parser</a>
+                <a class="tn-tab" data-view="checker" href="#checker">Checker</a>
+                <a class="tn-tab" data-view="notes" href="#notes">Notes</a>
+                <a class="tn-tab" data-view="analytics" href="#analytics">Analytics</a>
+                <a class="tn-tab" data-view="trash" href="#trash">Trash <span id="badge-trash" class="tn-badge">0</span></a>
+                <a class="tn-tab" data-view="google-format" href="#google-format">Google Format</a>
+                <a class="tn-tab" data-view="domain" href="#domain">Domain</a>
             </div>
             <div class="tn-right">
                 <input type="text" id="search-input" class="tn-search" placeholder="Search..." autocomplete="off">
@@ -918,7 +918,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="app.js?v=34"></script>
+    <script src="app.js?v=35"></script>
     <script src="creditcard-gen.js?v=2"></script>
     <script src="dl-data.js?v=1"></script>
     <script src="driverlicense-gen.js?v=3"></script>
