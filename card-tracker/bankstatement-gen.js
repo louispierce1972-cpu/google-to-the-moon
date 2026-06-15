@@ -10,7 +10,8 @@ japan:{
 mufg:{name:'三菱UFJ銀行','short':'MUFG Bank',sub:'MUFG Bank, Ltd.',addr:'2-7-1 Marunouchi, Chiyoda-ku, Tokyo',phone:'0120-860-777',web:'bk.mufg.jp',color:'#cc0000',currency:'¥',bsbLabel:'Branch Code'},
 smbc:{name:'三井住友銀行',short:'SMBC',sub:'Sumitomo Mitsui Banking Corp.',addr:'1-1-2 Marunouchi, Chiyoda-ku, Tokyo',phone:'0120-28-6079',web:'smbc.co.jp',color:'#00a650',currency:'¥',bsbLabel:'Branch Code'},
 mizuho:{name:'みずほ銀行',short:'Mizuho',sub:'Mizuho Bank, Ltd.',addr:'1-5-5 Otemachi, Chiyoda-ku, Tokyo',phone:'0120-3242-86',web:'mizuhobank.co.jp',color:'#1e3c72',currency:'¥',bsbLabel:'Branch Code'},
-rakuten:{name:'楽天銀行',short:'Rakuten Bank',sub:'Rakuten Bank, Ltd.',addr:'Shinagawa Seaside Rakuten Tower, Tokyo',phone:'0120-691-036',web:'rakuten-bank.co.jp',color:'#bf0000',currency:'¥',bsbLabel:'Branch Code'}
+rakuten:{name:'楽天銀行',short:'Rakuten Bank',sub:'Rakuten Bank, Ltd.',addr:'Shinagawa Seaside Rakuten Tower, Tokyo',phone:'0120-691-036',web:'rakuten-bank.co.jp',color:'#bf0000',currency:'¥',bsbLabel:'Branch Code'},
+jcb:{name:'JCBクレジット',short:'JCB Credit',sub:'JCB Co., Ltd.',addr:'5-1-22 Minami-Aoyama, Minato-ku, Tokyo',phone:'0120-015-870',web:'jcb.co.jp',color:'#00308F',currency:'¥',bsbLabel:'Branch Code'}
 }};
 
 var _BS_TX={
