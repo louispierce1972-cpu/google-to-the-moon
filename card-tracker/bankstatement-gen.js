@@ -93,7 +93,7 @@ function _bsPreview(){
         rows+='<tr '+S+'="'+bg+'"><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;white-space:nowrap;vertical-align:middle;color:#555">'+_bsD(tx.date)+'</td><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;vertical-align:middle">'+det+'</td><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right;white-space:nowrap;vertical-align:middle;'+amtColor+'">'+amtS+'</td><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right;white-space:nowrap;vertical-align:middle;font-weight:500">'+_bsF(tx.balance)+'</td></tr>';idx++;});
     var tIn=0,tOut=0;_BS.transactions.forEach(function(tx){if(tx.type==='credit')tIn+=tx.amount;else tOut+=tx.amount;});
     // Japanese address format: 〒postal, Prefecture City Street
-    var addrLine='〒'+_bsE(_BS.zip)+' '+_bsE(_BS.state)+_bsE(_BS.city)+_bsE(_BS.address1)+(_BS.address2?' '+_bsE(_BS.address2):'');
+    var addrLine='〒'+_bsE(_BS.zip)+' '+_bsE(_BS.state)+' '+_bsE(_BS.city)+' '+_bsE(_BS.address1)+(_BS.address2?' '+_bsE(_BS.address2):'');
     var P='<div class="bs2-wrap"><div id="bs-page" '+S+'="width:794px;min-height:1123px;background:#fff;padding:0;font-family:\'Hiragino Kaku Gothic Pro\',\'Meiryo\',Arial,sans-serif;color:#222;box-shadow:0 4px 24px rgba(0,0,0,.35);box-sizing:border-box">';
     // Top color bar
     P+='<div '+S+'="height:3px;background:'+bank.color+'"></div>';
