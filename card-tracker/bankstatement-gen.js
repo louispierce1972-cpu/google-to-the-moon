@@ -1,17 +1,11 @@
-// BANK STATEMENT GENERATOR v2 — Commonwealth Bank style
-var _BS={country:'usa',bank:'chase',holderName:'JOHN DOE',cardNumber:'4242 4242 4242 4242',
-accountNumber:'',routingNumber:'',address1:'123 Main Street',address2:'Apt 4B',
-city:'New York',state:'NY',zip:'10001',dateFrom:'',dateTo:'',logoImage:null,
+// BANK STATEMENT GENERATOR v2 — Japan only (Google verification)
+var _BS={country:'japan',bank:'mufg',holderName:'SAYO YAMATANI',cardNumber:'3540 **** **** 1016',
+accountNumber:'',routingNumber:'',address1:'2-15-4 Karasuma',address2:'Nakagyo-ku',
+city:'Kyoto',state:'Kyoto',zip:'604-8152',dateFrom:'',dateTo:'',logoImage:null,
 generated:false,transactions:[],openingBalance:0,closingBalance:0,
 accountType:'Checking',dateOpened:'',jpLang:50};
 
 var _BS_BANKS={
-usa:{
-chase:{name:'JPMorgan Chase Bank, N.A.',short:'Chase',sub:'Member FDIC',addr:'270 Park Avenue, New York, NY 10017',phone:'1-800-935-9935',web:'chase.com',color:'#0b3d91',currency:'$',bsbLabel:'Routing Number'},
-boa:{name:'Bank of America, N.A.',short:'Bank of America',sub:'Member FDIC',addr:'100 N Tryon St, Charlotte, NC 28255',phone:'1-800-432-1000',web:'bankofamerica.com',color:'#012169',currency:'$',bsbLabel:'Routing Number'},
-wells:{name:'Wells Fargo Bank, N.A.',short:'Wells Fargo',sub:'Member FDIC',addr:'420 Montgomery St, San Francisco, CA 94104',phone:'1-800-869-3557',web:'wellsfargo.com',color:'#d71e28',currency:'$',bsbLabel:'Routing Number'},
-citi:{name:'Citibank, N.A.',short:'Citibank',sub:'Member FDIC',addr:'388 Greenwich St, New York, NY 10013',phone:'1-800-374-9700',web:'citibank.com',color:'#003B70',currency:'$',bsbLabel:'Routing Number'}
-},
 japan:{
 mufg:{name:'三菱UFJ銀行','short':'MUFG Bank',sub:'MUFG Bank, Ltd.',addr:'2-7-1 Marunouchi, Chiyoda-ku, Tokyo',phone:'0120-860-777',web:'bk.mufg.jp',color:'#cc0000',currency:'¥',bsbLabel:'Branch Code'},
 smbc:{name:'三井住友銀行',short:'SMBC',sub:'Sumitomo Mitsui Banking Corp.',addr:'1-1-2 Marunouchi, Chiyoda-ku, Tokyo',phone:'0120-28-6079',web:'smbc.co.jp',color:'#00a650',currency:'¥',bsbLabel:'Branch Code'},
@@ -20,17 +14,6 @@ rakuten:{name:'楽天銀行',short:'Rakuten Bank',sub:'Rakuten Bank, Ltd.',addr:
 }};
 
 var _BS_TX={
-usa:{
-grocery:['WALMART SUPERCENTER','TARGET STORE','KROGER','WHOLE FOODS MKT','TRADER JOES','COSTCO WHSE','SAFEWAY','ALDI','PUBLIX SUPER MKT'],
-gas:['SHELL SERVICE STN','CHEVRON','EXXONMOBIL','BP AMOCO','COSTCO GAS'],
-restaurant:['MCDONALDS','STARBUCKS','CHIPOTLE','CHICK-FIL-A','DOMINOS PIZZA','SUBWAY','PANERA BREAD'],
-utility:['CONSOLIDATED EDISON','PACIFIC GAS ELEC','AT&T WIRELESS','T-MOBILE','VERIZON WIRELESS','COMCAST CABLE'],
-sub:['NETFLIX.COM','SPOTIFY USA','AMAZON PRIME','APPLE.COM/BILL','GOOGLE *YOUTUBE','HULU'],
-shop:['AMAZON.COM','BEST BUY','HOME DEPOT','LOWES','MACYS','NORDSTROM','NIKE.COM'],
-transfer:['ZELLE PAYMENT','VENMO CASHOUT','PAYPAL TRANSFER','WIRE TRANSFER'],
-medical:['CVS PHARMACY','WALGREENS','RITE AID'],
-income:['PAYROLL DIRECT DEP','EMPLOYER DIRECT DEP','ACH CREDIT']
-},
 japan:{
 grocery:{en:['AEON STORE','SEVEN ELEVEN','FAMILY MART','LAWSON','LIFE SUPERMARKET','SEIYU','SEIJO ISHII'],jp:['イオン','セブンイレブン','ファミリーマート','ローソン','ライフ','西友','成城石井']},
 gas:{en:['ENEOS GAS STN','IDEMITSU','COSMO OIL'],jp:['ENEOS','出光','コスモ石油']},
@@ -43,7 +26,7 @@ medical:{en:['MATSUMOTO KIYOSHI','TSURUHA DRUG','SUGI PHARMACY'],jp:['マツモ�
 income:{en:['SALARY DEPOSIT','BONUS PAYMENT','INTEREST CREDIT','TRANSFER CREDIT'],jp:['給与','賞与','利息','振込入金']}
 }};
 
-function _bsB(){return _BS_BANKS[_BS.country]?.[_BS.bank]||_BS_BANKS.usa.chase;}
+function _bsB(){return _BS_BANKS.japan[_BS.bank]||_BS_BANKS.japan.mufg;}
 function _bsF(a){var b=_bsB();if(b.currency==='¥')return b.currency+Math.round(Math.abs(a)).toLocaleString();return b.currency+Math.abs(a).toFixed(2);}
 function _bsD(d){var mm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return d.getDate().toString().padStart(2,'0')+' '+mm[d.getMonth()]+' '+d.getFullYear();}
 function _bsR(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
@@ -52,13 +35,10 @@ function _bsP(arr){return arr[Math.floor(Math.random()*arr.length)];}
 function _bsE(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
 
 function _bsPickTx(cat){
-    var m=_BS_TX[_BS.country];if(!m)m=_BS_TX.usa;
-    if(_BS.country==='japan'){
-        var c=m[cat];if(!c)c=m.grocery;
-        var useJP=Math.random()*100<_BS.jpLang;
-        return useJP?_bsP(c.jp):_bsP(c.en);
-    }
-    var arr=m[cat];return arr?_bsP(arr):_bsP(m.grocery);
+    var m=_BS_TX.japan;
+    var c=m[cat];if(!c)c=m.grocery;
+    var useJP=Math.random()*100<_BS.jpLang;
+    return useJP?_bsP(c.jp):_bsP(c.en);
 }
 
 function _bsGen(){
@@ -66,30 +46,28 @@ function _bsGen(){
     if(isNaN(from.getTime())||isNaN(to.getTime())){to=new Date();from=new Date();from.setDate(from.getDate()-30);}
     var days=Math.ceil((to-from)/(1000*60*60*24));
     if(days<1)days=30;if(days>60)days=60;
-    var isJP=_BS.country==='japan';
-    var txns=[],bal=isJP?_bsR(300000,2500000):_bsRF(2500,15000);
+    var txns=[],bal=_bsR(300000,2500000);
     _BS.openingBalance=bal;
     var card4=_BS.cardNumber.replace(/\s/g,'').slice(-4);
     // Income
     [_bsR(1,5),_bsR(15,20)].forEach(function(pd){
         var d=new Date(from);d.setDate(from.getDate()+pd);
-        if(d<=to){var amt=isJP?_bsR(180000,450000):_bsRF(2200,5500);
+        if(d<=to){var amt=_bsR(180000,450000);
         txns.push({date:new Date(d),desc:_bsPickTx('income'),card:null,amount:amt,type:'credit'});}
     });
     for(var day=0;day<days;day++){
         var d=new Date(from);d.setDate(from.getDate()+day);if(d>to)break;
-        var n=_bsR(0,3);
+        var n=_bsR(1,4);
         for(var t=0;t<n;t++){
             var cat,amt,r=Math.random();
-            if(r<0.25){cat='grocery';amt=isJP?_bsR(500,8000):_bsRF(15,180);}
-            else if(r<0.35){cat='gas';amt=isJP?_bsR(3000,7000):_bsRF(25,75);}
-            else if(r<0.50){cat='restaurant';amt=isJP?_bsR(300,3000):_bsRF(5,55);}
-            else if(r<0.58){cat='utility';amt=isJP?_bsR(3000,25000):_bsRF(50,250);}
-            else if(r<0.65){cat='sub';amt=isJP?_bsR(500,2000):_bsRF(5,20);}
-            else if(r<0.78){cat='shop';amt=isJP?_bsR(1000,30000):_bsRF(15,300);}
-            else if(r<0.85){cat='transfer';amt=isJP?_bsR(5000,50000):_bsRF(50,500);}
-            else{cat='medical';amt=isJP?_bsR(500,5000):_bsRF(10,80);}
-            if(!isJP)amt=Math.round(amt*100)/100;
+            if(r<0.25){cat='grocery';amt=_bsR(500,8000);}
+            else if(r<0.35){cat='gas';amt=_bsR(3000,7000);}
+            else if(r<0.50){cat='restaurant';amt=_bsR(300,3000);}
+            else if(r<0.58){cat='utility';amt=_bsR(3000,25000);}
+            else if(r<0.65){cat='sub';amt=_bsR(500,2000);}
+            else if(r<0.78){cat='shop';amt=_bsR(1000,30000);}
+            else if(r<0.85){cat='transfer';amt=_bsR(5000,50000);}
+            else{cat='medical';amt=_bsR(500,5000);}
             var useCard=cat!=='transfer'&&cat!=='income'&&Math.random()>0.3;
             txns.push({date:new Date(d),desc:_bsPickTx(cat),card:useCard?card4:null,amount:amt,type:'debit'});
         }
@@ -104,38 +82,51 @@ function _bsPreview(){
     var bank=_bsB(),S='style',dateStr=_bsD(new Date());
     var fromD=new Date(_BS.dateFrom),toD=new Date(_BS.dateTo);
     var card4=_BS.cardNumber.replace(/\s/g,'').slice(-4);
-    var logo=_BS.logoImage?'<img src="'+_BS.logoImage+'" '+S+'="max-height:42px;max-width:180px;object-fit:contain">':'<div '+S+'="display:inline-flex;align-items:center;gap:8px"><div '+S+'="width:36px;height:36px;background:'+bank.color+';border-radius:4px"></div><div '+S+'="font-size:20px;font-weight:700;color:'+bank.color+'">'+_bsE(bank.short)+'</div></div>';
+    var logo=_BS.logoImage?'<img src="'+_BS.logoImage+'" '+S+'="max-height:38px;max-width:160px;object-fit:contain">':'<div '+S+'="display:inline-flex;align-items:center;gap:6px"><div '+S+'="width:32px;height:32px;background:'+bank.color+';border-radius:3px"></div><div '+S+'="font-size:18px;font-weight:700;color:'+bank.color+'">'+_bsE(bank.short)+'</div></div>';
     var rows='',idx=0;
     _BS.transactions.forEach(function(tx){
         var amtS=tx.type==='credit'?_bsF(tx.amount):'-'+_bsF(tx.amount);
-        var bg=idx%2?'background:#f9f9f9;':'';
+        var amtColor=tx.type==='credit'?'color:#16a34a;':'color:#222;';
+        var bg=idx%2?'background:#fafafa;':'';
         var det=_bsE(tx.desc);
-        if(tx.card)det+='<br><span '+S+'="color:#555;font-size:10px">Card xx'+tx.card+'</span>';
-        det+='<br><span '+S+'="color:#555;font-size:10px">Value Date: '+_bsD(tx.date)+'</span>';
-        rows+='<tr '+S+'="'+bg+'"><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;white-space:nowrap;vertical-align:top">'+_bsD(tx.date)+'</td><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;vertical-align:top;line-height:1.5">'+det+'</td><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;text-align:right;white-space:nowrap;vertical-align:top">'+amtS+'</td><td '+S+'="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-size:11px;text-align:right;white-space:nowrap;vertical-align:top;font-weight:500">'+_bsF(tx.balance)+'</td></tr>';idx++;});
+        if(tx.card)det+=' <span '+S+'="color:#888;font-size:9px">(xx'+tx.card+')</span>';
+        rows+='<tr '+S+'="'+bg+'"><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;white-space:nowrap;vertical-align:middle;color:#555">'+_bsD(tx.date)+'</td><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;vertical-align:middle">'+det+'</td><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right;white-space:nowrap;vertical-align:middle;'+amtColor+'">'+amtS+'</td><td '+S+'="padding:5px 10px;border-bottom:1px solid #eee;font-size:10px;text-align:right;white-space:nowrap;vertical-align:middle;font-weight:500">'+_bsF(tx.balance)+'</td></tr>';idx++;});
     var tIn=0,tOut=0;_BS.transactions.forEach(function(tx){if(tx.type==='credit')tIn+=tx.amount;else tOut+=tx.amount;});
-    var P='<div class="bs2-wrap"><div id="bs-page" '+S+'="width:794px;min-height:1123px;background:#fff;padding:0;font-family:Arial,Helvetica,sans-serif;color:#222;box-shadow:0 4px 24px rgba(0,0,0,.35);box-sizing:border-box">';
-    P+='<div '+S+'="height:4px;background:'+bank.color+'"></div><div '+S+'="padding:32px 44px 24px">';
-    P+='<div '+S+'="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><div>'+logo+'<div '+S+'="font-size:9px;color:#777;margin-top:4px;line-height:1.4">'+_bsE(bank.name)+'<br>'+_bsE(bank.addr)+'</div></div>';
-    P+='<div '+S+'="text-align:right;border:1px solid #ccc;padding:10px 16px;border-radius:2px;min-width:180px"><div '+S+'="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Account Number</div><div '+S+'="font-size:14px;font-weight:700;letter-spacing:1px">'+_bsE(_BS.routingNumber)+' '+_bsE(_BS.accountNumber)+'</div><div '+S+'="font-size:9px;color:#666;margin-top:6px;text-transform:uppercase;letter-spacing:1px">Page</div><div '+S+'="font-size:12px;font-weight:600">1 of 1</div></div></div>';
-    P+='<div '+S+'="height:1px;background:#ddd;margin:16px 0"></div>';
-    P+='<div '+S+'="margin:20px 0 16px"><div '+S+'="font-size:13px;font-weight:700;line-height:1.6">'+_bsE(_BS.holderName)+'</div><div '+S+'="font-size:11px;color:#333;line-height:1.6">'+_bsE(_BS.address1)+(_BS.address2?'<br>'+_bsE(_BS.address2):'')+'<br>'+_bsE(_BS.city)+', '+_bsE(_BS.state)+' '+_bsE(_BS.zip)+'</div></div>';
-    P+='<div '+S+'="font-size:11px;color:#333;margin-bottom:16px">'+dateStr+'</div>';
-    P+='<div '+S+'="font-size:11px;margin-bottom:6px">Dear <b>'+_bsE(_BS.holderName)+'</b>,</div>';
-    P+='<div '+S+'="font-size:11px;color:#444;margin-bottom:20px">Here\'s your account information and a list of transactions from '+_bsD(fromD)+' to '+_bsD(toD)+'.</div>';
-    P+='<div '+S+'="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:3px;padding:14px 18px;margin-bottom:22px"><table '+S+'="border-collapse:collapse"><tbody>';
-    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Account name</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.holderName)+'</td></tr>';
-    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">'+_bsE(bank.bsbLabel)+'</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.routingNumber)+'</td></tr>';
-    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Account number</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.accountNumber)+'</td></tr>';
-    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Account type</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.accountType)+'</td></tr>';
-    P+='<tr><td '+S+'="font-size:11px;font-weight:700;padding:3px 24px 3px 0;color:#333">Date opened</td><td '+S+'="font-size:11px;padding:3px 0">'+_bsE(_BS.dateOpened)+'</td></tr></tbody></table></div>';
-    P+='<div '+S+'="display:flex;margin-bottom:4px">';
-    P+='<div '+S+'="flex:1;background:#f0f7ff;border:1px solid #d0dff0;padding:10px 14px;text-align:center;border-radius:3px 0 0 3px"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:2px">Opening Balance</div><div '+S+'="font-size:15px;font-weight:700">'+_bsF(_BS.openingBalance)+'</div></div>';
-    P+='<div '+S+'="flex:1;background:#f0fff0;border:1px solid #c0e8c0;border-left:0;padding:10px 14px;text-align:center"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:2px">Total Credits</div><div '+S+'="font-size:15px;font-weight:700;color:#16a34a">+'+_bsF(tIn)+'</div></div>';
-    P+='<div '+S+'="flex:1;background:#fff5f5;border:1px solid #f0c0c0;border-left:0;padding:10px 14px;text-align:center"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:2px">Total Debits</div><div '+S+'="font-size:15px;font-weight:700;color:#dc2626">-'+_bsF(tOut)+'</div></div>';
-    P+='<div '+S+'="flex:1;background:'+bank.color+';padding:10px 14px;text-align:center;border-radius:0 3px 3px 0"><div '+S+'="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.7);margin-bottom:2px">Closing Balance</div><div '+S+'="font-size:15px;font-weight:700;color:#fff">'+_bsF(_BS.closingBalance)+'</div></div></div>';
-    P+='<table '+S+'="width:100%;border-collapse:collapse"><thead><tr><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:left">Date</th><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:left">Transaction details</th><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:right">Amount</th><th '+S+'="background:#ffcc00;color:#222;font-weight:700;font-size:11px;padding:8px 12px;text-align:right">Balance</th></tr></thead><tbody>'+rows+'</tbody></table>';
-    P+='<div '+S+'="margin-top:24px;padding-top:12px;border-top:1px solid #ccc;display:flex;justify-content:space-between;align-items:flex-end"><div '+S+'="font-size:8px;color:#999;line-height:1.5">Created '+dateStr+'<br>While this letter is accurate at the time it\'s produced,<br>we\'re not responsible for any reliance on this information.</div><div '+S+'="font-size:9px;color:#aaa">Transaction Summary v1.0</div></div>';
+    // Japanese address format: 〒postal, Prefecture City Street
+    var addrLine='〒'+_bsE(_BS.zip)+' '+_bsE(_BS.state)+_bsE(_BS.city)+_bsE(_BS.address1)+(_BS.address2?' '+_bsE(_BS.address2):'');
+    var P='<div class="bs2-wrap"><div id="bs-page" '+S+'="width:794px;min-height:1123px;background:#fff;padding:0;font-family:\'Hiragino Kaku Gothic Pro\',\'Meiryo\',Arial,sans-serif;color:#222;box-shadow:0 4px 24px rgba(0,0,0,.35);box-sizing:border-box">';
+    // Top color bar
+    P+='<div '+S+'="height:3px;background:'+bank.color+'"></div>';
+    // Header
+    P+='<div '+S+'="padding:20px 36px 14px;display:flex;justify-content:space-between;align-items:flex-start">';
+    P+='<div>'+logo+'<div '+S+'="font-size:8px;color:#999;margin-top:3px;line-height:1.3">'+_bsE(bank.name)+' / '+_bsE(bank.sub)+'<br>'+_bsE(bank.addr)+'<br>Tel: '+_bsE(bank.phone)+'</div></div>';
+    P+='<div '+S+'="text-align:right;border:1px solid #ddd;padding:8px 14px;border-radius:2px;min-width:170px;background:#fafafa"><div '+S+'="font-size:8px;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:1px">口座番号 / Account No.</div><div '+S+'="font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px">'+_bsE(_BS.routingNumber)+' '+_bsE(_BS.accountNumber)+'</div><div '+S+'="font-size:8px;color:#888;letter-spacing:.8px">Page 1 of 1</div></div></div>';
+    // Divider
+    P+='<div '+S+'="height:1px;background:#e0e0e0;margin:0 36px"></div>';
+    // Account holder + info side by side
+    P+='<div '+S+'="padding:14px 36px 10px;display:flex;gap:24px">';
+    // Left: holder info
+    P+='<div '+S+'="flex:1"><div '+S+'="font-size:12px;font-weight:700;margin-bottom:3px">'+_bsE(_BS.holderName)+'</div><div '+S+'="font-size:10px;color:#444;line-height:1.5">'+addrLine+'</div><div '+S+'="font-size:9px;color:#888;margin-top:6px">'+dateStr+'</div></div>';
+    // Right: account summary box
+    P+='<div '+S+'="min-width:240px;background:#f7f7f7;border:1px solid #e5e5e5;border-radius:3px;padding:10px 14px"><table '+S+'="border-collapse:collapse;width:100%">';
+    P+='<tr><td '+S+'="font-size:9px;font-weight:600;padding:2px 12px 2px 0;color:#555">口座名義</td><td '+S+'="font-size:9px;padding:2px 0">'+_bsE(_BS.holderName)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:9px;font-weight:600;padding:2px 12px 2px 0;color:#555">'+_bsE(bank.bsbLabel)+'</td><td '+S+'="font-size:9px;padding:2px 0">'+_bsE(_BS.routingNumber)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:9px;font-weight:600;padding:2px 12px 2px 0;color:#555">口座番号</td><td '+S+'="font-size:9px;padding:2px 0">'+_bsE(_BS.accountNumber)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:9px;font-weight:600;padding:2px 12px 2px 0;color:#555">口座種別</td><td '+S+'="font-size:9px;padding:2px 0">'+_bsE(_BS.accountType)+'</td></tr>';
+    P+='<tr><td '+S+'="font-size:9px;font-weight:600;padding:2px 12px 2px 0;color:#555">開設日</td><td '+S+'="font-size:9px;padding:2px 0">'+_bsE(_BS.dateOpened)+'</td></tr>';
+    P+='</table></div></div>';
+    // Period note
+    P+='<div '+S+'="padding:0 36px 8px;font-size:9px;color:#666">取引明細期間: '+_bsD(fromD)+' — '+_bsD(toD)+'</div>';
+    // Balance summary strip
+    P+='<div '+S+'="display:flex;margin:0 36px 6px;border-radius:3px;overflow:hidden;border:1px solid #e0e0e0">';
+    P+='<div '+S+'="flex:1;background:#f8f9fa;padding:7px 10px;text-align:center;border-right:1px solid #e0e0e0"><div '+S+'="font-size:7px;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:1px">前回残高 / Opening</div><div '+S+'="font-size:13px;font-weight:700">'+_bsF(_BS.openingBalance)+'</div></div>';
+    P+='<div '+S+'="flex:1;background:#f0faf0;padding:7px 10px;text-align:center;border-right:1px solid #e0e0e0"><div '+S+'="font-size:7px;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:1px">入金合計 / Credits</div><div '+S+'="font-size:13px;font-weight:700;color:#16a34a">+'+_bsF(tIn)+'</div></div>';
+    P+='<div '+S+'="flex:1;background:#fef5f5;padding:7px 10px;text-align:center;border-right:1px solid #e0e0e0"><div '+S+'="font-size:7px;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:1px">出金合計 / Debits</div><div '+S+'="font-size:13px;font-weight:700;color:#dc2626">-'+_bsF(tOut)+'</div></div>';
+    P+='<div '+S+'="flex:1;background:'+bank.color+';padding:7px 10px;text-align:center"><div '+S+'="font-size:7px;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.7);margin-bottom:1px">現在残高 / Balance</div><div '+S+'="font-size:13px;font-weight:700;color:#fff">'+_bsF(_BS.closingBalance)+'</div></div></div>';
+    // Transaction table
+    P+='<div '+S+'="padding:0 36px"><table '+S+'="width:100%;border-collapse:collapse"><thead><tr><th '+S+'="background:'+bank.color+';color:#fff;font-weight:600;font-size:9px;padding:6px 10px;text-align:left">日付 / Date</th><th '+S+'="background:'+bank.color+';color:#fff;font-weight:600;font-size:9px;padding:6px 10px;text-align:left">取引内容 / Details</th><th '+S+'="background:'+bank.color+';color:#fff;font-weight:600;font-size:9px;padding:6px 10px;text-align:right">金額 / Amount</th><th '+S+'="background:'+bank.color+';color:#fff;font-weight:600;font-size:9px;padding:6px 10px;text-align:right">残高 / Balance</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    // Footer
+    P+='<div '+S+'="margin:16px 36px 0;padding-top:10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;align-items:flex-end"><div '+S+'="font-size:7px;color:#aaa;line-height:1.4">発行日: '+dateStr+' / Issue date<br>本明細書は発行時点の情報に基づいて作成されています。<br>This statement is accurate at the time of issue.<br>'+_bsE(bank.name)+' — '+_bsE(bank.web)+'</div><div '+S+'="font-size:8px;color:#bbb">'+_bsE(bank.short)+' Statement</div></div>';
     P+='</div></div></div>';
     return P;
 }
@@ -166,7 +157,7 @@ function _renderBankStatementGenerator(){
     '<button class="ck-proto-btn '+(gen.type==='bankstatement'?'active':'')+'" data-billtype="bankstatement">🏦 Bank Statement</button>'+
     '<button class="ck-proto-btn '+(gen.type==='zipprocessor'?'active':'')+'" data-billtype="zipprocessor">📦 ZIP Processor</button></div>'+
     '<div class="bs-form">'+
-    '<div class="bs-form-row"><button class="bs-country-btn'+(_BS.country==='usa'?' active':'')+'" data-bscountry="usa">🇺🇸 USA</button><button class="bs-country-btn'+(_BS.country==='japan'?' active':'')+'" data-bscountry="japan">🇯🇵 Japan</button><select class="bs-select" id="bs-bank">'+bOpts+'</select><label class="bs-logo-btn">'+(_BS.logoImage?'✅ Logo':'📁 Logo')+'<input type="file" id="bs-logo-input" accept="image/*" hidden></label>'+jpSlider+'</div>'+
+    '<div class="bs-form-row"><button class="bs-country-btn active" disabled>🇯🇵 Japan</button><select class="bs-select" id="bs-bank">'+bOpts+'</select><label class="bs-logo-btn">'+(_BS.logoImage?'✅ Logo':'📁 Logo')+'<input type="file" id="bs-logo-input" accept="image/*" hidden></label>'+jpSlider+'</div>'+
     '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">Full Name</label><input class="bs-input" id="bs-name" value="'+_bsE(_BS.holderName)+'"></div><div class="bs-fg"><label class="bs-label">Card Number</label><input class="bs-input" id="bs-card" value="'+_bsE(_BS.cardNumber)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Account Type</label><input class="bs-input" id="bs-actype" value="'+_bsE(_BS.accountType)+'"></div></div>'+
     '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">Account #</label><input class="bs-input" id="bs-acct" value="'+_bsE(_BS.accountNumber)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Routing/BSB</label><input class="bs-input" id="bs-routing" value="'+_bsE(_BS.routingNumber)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Date Opened</label><input class="bs-input" id="bs-opened" value="'+_bsE(_BS.dateOpened)+'"></div></div>'+
     '<div class="bs-form-row"><div class="bs-fg"><label class="bs-label">Address Line 1</label><input class="bs-input" id="bs-addr1" value="'+_bsE(_BS.address1)+'"></div><div class="bs-fg bs-fg-sm"><label class="bs-label">Address Line 2</label><input class="bs-input" id="bs-addr2" value="'+_bsE(_BS.address2)+'"></div></div>'+
@@ -180,7 +171,7 @@ function _bsBind(){
     var area=document.getElementById('content-area'),gen=_CK.generator;
     area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
     area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_renderGenerator();});});
-    area.querySelectorAll('[data-bscountry]').forEach(function(b){b.addEventListener('click',function(){_BS.country=b.dataset.bscountry;var bks=Object.keys(_BS_BANKS[_BS.country]||{});_BS.bank=bks[0]||'chase';_BS.generated=false;_renderBankStatementGenerator();});});
+    // Japan-only — no country switching needed
     var bs=document.getElementById('bs-bank');if(bs)bs.addEventListener('change',function(){_BS.bank=this.value;_BS.generated=false;_renderBankStatementGenerator();});
     var li=document.getElementById('bs-logo-input');if(li)li.addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){_BS.logoImage=ev.target.result;_renderBankStatementGenerator();};r.readAsDataURL(f);});
     var jp=document.getElementById('bs-jplang');if(jp)jp.addEventListener('input',function(){_BS.jpLang=parseInt(this.value);this.parentElement.querySelector('.bs-label').textContent='JP/EN Mix: '+_BS.jpLang+'% JP';});
