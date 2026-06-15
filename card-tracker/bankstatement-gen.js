@@ -1,4 +1,4 @@
-// BANK STATEMENT GENERATOR v2 — Japan only (Google verification)
+// BANK STATEMENT GENERATOR v2 — Japan only (Google verification) // deploy:2026-06-15
 var _BS={country:'japan',bank:'mufg',holderName:'SAYO YAMATANI',cardNumber:'3540 **** **** 1016',
 accountNumber:'',routingNumber:'',address1:'2-15-4 Karasuma',address2:'Nakagyo-ku',
 city:'Kyoto',state:'Kyoto',zip:'604-8152',dateFrom:'',dateTo:'',logoImage:null,
