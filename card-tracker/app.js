@@ -252,6 +252,9 @@ function save() {
         localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
         localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
 
+        // ── Persist selected country ──
+        localStorage.setItem('ct_current_country', STATE.currentCountry);
+
         // ── Merge notes tabs with other browser tabs before saving ──
         // 1) Tabs in localStorage but NOT in our STATE → created by another tab, append them
         // 2) Tabs in both → sync title/content from storage if we're not actively editing them
@@ -314,6 +317,14 @@ function load() {
         if (saved) STATE.countries = JSON.parse(saved);
         const settings = localStorage.getItem('ct_settings');
         if (settings) STATE.settings = JSON.parse(settings);
+
+        // ── Restore selected country ──
+        const savedCountry = localStorage.getItem('ct_current_country');
+        if (savedCountry && STATE.countries.some(c => c.id === savedCountry)) {
+            STATE.currentCountry = savedCountry;
+        } else if (STATE.countries.length > 0) {
+            STATE.currentCountry = STATE.countries[0].id;
+        }
 
         // Load trashCards
         const trashCardsRaw = localStorage.getItem('ct_trash_cards');
@@ -903,20 +914,15 @@ function renderStats() {
     }
 
     if (STATE.currentView === 'all-cards') {
-        const cards = getFilteredCards();
-        const totalUse = cards.reduce((s, c) => s + (c._cardUsage || 1), 0);
-        const avgUse = cards.length > 0 ? (totalUse / cards.length).toFixed(1) : '0';
-        // (translated)
-        const uniqueBins = new Set(cards.map(c => getBin(c.cardNumber))).size;
+        const totalCards = STATE.cards.length;
+        const uniqueBins = new Set(STATE.cards.map(c => getBin(c.cardNumber))).size;
         // Cards only in All Cards (not Workspace)
         const standaloneCount = STATE.cards.filter(c => c.standaloneCard).length;
         const standaloneStatHtml = standaloneCount > 0
             ? `<div class="stat-card minic"><span class="stat-label">Cards Only</span><span class="stat-value">${standaloneCount}</span></div>`
             : '';
         bar.innerHTML = `
-            <div class="stat-card total"><span class="stat-label">Cards</span><span class="stat-value">${cards.length}</span></div>
-            <div class="stat-card card-add"><span class="stat-label">Use</span><span class="stat-value">${totalUse}</span></div>
-            <div class="stat-card run-ads"><span class="stat-label">Avg</span><span class="stat-value">${avgUse}</span></div>
+            <div class="stat-card total"><span class="stat-label">Cards</span><span class="stat-value">${totalCards}</span></div>
             <div class="stat-card top-bins"><span class="stat-label">BINs</span><span class="stat-value">${uniqueBins}</span></div>
             ${standaloneStatHtml}
         `;
@@ -4887,14 +4893,27 @@ function renderContent() {
     }
 }
 
-// ═══════ ALL CARDS — Aggregate Render ═══════
+// ═══════ ALL CARDS — BIN-Grouped Accordion View ═══════
+// Track which BIN groups are expanded
+let _expandedBins = new Set();
+
 function renderAllCards() {
     const area = document.getElementById('content-area');
-    const cards = getFilteredCards(); // already grouped by cardNumber
-    const totalUse = cards.reduce((s, c) => s + (c._cardUsage || 1), 0);
-    const avgUse = cards.length > 0 ? (totalUse / cards.length).toFixed(1) : '0';
+    // Use all cards (not the grouped-by-cardNumber from getFilteredCards)
+    let allCards = [...STATE.cards];
 
-    if (cards.length === 0) {
+    // Apply search filter
+    if (STATE.search.length >= 2) {
+        const s = STATE.search.toLowerCase();
+        allCards = allCards.filter(c =>
+            (c.name + ' ' + c.surname).toLowerCase().includes(s) ||
+            c.cardNumber.includes(s) ||
+            getBin(c.cardNumber).includes(s) ||
+            (c.notes || '').toLowerCase().includes(s)
+        );
+    }
+
+    if (allCards.length === 0) {
         area.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">
@@ -4907,58 +4926,125 @@ function renderAllCards() {
         return;
     }
 
-    const start = (STATE.page - 1) * STATE.perPage;
-    const pageCards = cards.slice(start, start + STATE.perPage);
-    const totalPages = Math.max(1, Math.ceil(cards.length / STATE.perPage));
+    // Group by BIN (first 6 digits)
+    const binGroups = {};
+    allCards.forEach(c => {
+        const bin = getBin(c.cardNumber);
+        if (!binGroups[bin]) binGroups[bin] = [];
+        binGroups[bin].push(c);
+    });
 
-    const getUseColor = (use) => {
-        if (use <= 1) return '';
-        if (use <= 3) return 'color: var(--green)';
-        if (use <= 6) return 'color: var(--amber)';
+    // Sort groups: most cards first (desc), then by BIN number
+    let sortedBins = Object.entries(binGroups).sort((a, b) => {
+        if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+        return a[0].localeCompare(b[0]);
+    });
+
+    const totalBins = sortedBins.length;
+    const totalCards = allCards.length;
+
+    // Paginate BIN groups
+    const start = (STATE.page - 1) * STATE.perPage;
+    const pageBins = sortedBins.slice(start, start + STATE.perPage);
+    const totalPages = Math.max(1, Math.ceil(totalBins / STATE.perPage));
+
+    const getUseColor = (count) => {
+        if (count <= 1) return '';
+        if (count <= 3) return 'color: var(--green)';
+        if (count <= 6) return 'color: var(--amber)';
         return 'color: var(--red)';
     };
 
-    // Count how many times each BIN appears across all cards
-    const binUsageMap = {};
-    STATE.cards.forEach(c => {
-        const b = getBin(c.cardNumber);
-        if (b) binUsageMap[b] = (binUsageMap[b] || 0) + 1;
-    });
-
-    let rows = pageCards.map((c, idx) => {
-        const bin = getBin(c.cardNumber);
-        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+    let rowsHtml = '';
+    pageBins.forEach(([bin, cards]) => {
+        const isExpanded = _expandedBins.has(bin);
         const info = getBinInfo(bin);
         const binTxt = formatBinInfoText(info);
-        const useCount = c._cardUsage || 1;
-        const binUseCount = binUsageMap[bin] || 1;
-        const lastDate = c._lastDate || c.date || '—';
-        const cardNum = c.cardNumber.replace(/\s/g, '');
-        // Numbering starts at 1 for each page
-        const rowNum = idx + 1;
+        const cardCount = cards.length;
 
-        return `
-        <tr class="ac-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}" data-id="${c.id}" data-cardnum="${cardNum}">
-            <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
+        // Aggregate status counts
+        const aCount = cards.filter(c => c.cardAdd).length;
+        const rCount = cards.filter(c => c.runAds).length;
+        const vCount = cards.filter(c => c.verified).length;
+
+        // Find latest date in group
+        let lastDate = '';
+        cards.forEach(c => {
+            if (!c.date) return;
+            const p = c.date.split('.');
+            const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date;
+            if (d > lastDate) lastDate = d;
+        });
+        if (lastDate && lastDate.includes('-')) {
+            const pp = lastDate.split('-');
+            lastDate = `${pp[2]}.${pp[1]}.${pp[0]}`;
+        }
+
+        // Collect unique countries/flags
+        const countryFlags = [...new Set(cards.map(c => {
+            const co = STATE.countries.find(co => co.id === c.country);
+            return co ? co.flag : '';
+        }))].filter(Boolean).join(' ');
+
+        // BIN header row (accordion trigger)
+        rowsHtml += `
+        <tr class="ac-bin-header ${isExpanded ? 'expanded' : ''}" data-bin="${bin}" onclick="_toggleBinGroup('${bin}')">
+            <td class="td-num">
+                <span class="bin-expand-icon">${isExpanded ? '▾' : '▸'}</span>
+            </td>
             <td>
                 <div class="card-cell">
-                    <span class="card-name"><span class="flag">${flag}</span> ${maskCard(c.cardNumber)}</span>
+                    <span class="card-name">
+                        <span class="flag">${countryFlags}</span>
+                        <span class="bin-group-bin">${bin}</span>
+                        <span class="bin-group-count">${cardCount} cards</span>
+                    </span>
                     ${binTxt ? `<span class="bin-info">${binTxt}</span>` : ''}
                 </div>
             </td>
             <td class="bin-cell">${bin}</td>
-            <td class="use-cell" style="${getUseColor(useCount)}">${useCount}x</td>
-            <td class="use-cell" style="${getUseColor(binUseCount)}">${binUseCount}</td>
+            <td class="use-cell" style="${getUseColor(cardCount)}">${cardCount}</td>
+            <td class="use-cell" style="${getUseColor(cardCount)}">${cardCount}</td>
             <td>
                 <div class="status-btns">
-                    <span class="status-btn btn-a ${c.cardAdd ? 'active' : ''}">A</span>
-                    <span class="status-btn btn-r ${c.runAds ? 'active' : ''}">R</span>
-                    <span class="status-btn btn-v ${c.verified ? 'active' : ''}">V</span>
+                    <span class="status-btn btn-a ${aCount > 0 ? 'active' : ''}">${aCount}</span>
+                    <span class="status-btn btn-r ${rCount > 0 ? 'active' : ''}">${rCount}</span>
+                    <span class="status-btn btn-v ${vCount > 0 ? 'active' : ''}">${vCount}</span>
                 </div>
             </td>
-            <td class="date-cell">${lastDate}</td>
+            <td class="date-cell">${lastDate || '—'}</td>
         </tr>`;
-    }).join('');
+
+        // Expanded child rows
+        if (isExpanded) {
+            cards.forEach(c => {
+                const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+                const cardDate = c.date || '—';
+                const useCount = 1; // individual card = 1 usage in this context
+                rowsHtml += `
+                <tr class="ac-row ac-child-row" data-id="${c.id}" data-cardnum="${c.cardNumber.replace(/\s/g, '')}">
+                    <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
+                    <td>
+                        <div class="card-cell">
+                            <span class="card-name"><span class="flag">${flag}</span> ${maskCard(c.cardNumber)}</span>
+                            <span class="bin-child-name">${(c.name || '')} ${(c.surname || '')}</span>
+                        </div>
+                    </td>
+                    <td class="bin-cell">${bin}</td>
+                    <td class="use-cell">1x</td>
+                    <td class="use-cell">${cardCount}</td>
+                    <td>
+                        <div class="status-btns">
+                            <span class="status-btn btn-a ${c.cardAdd ? 'active' : ''}">A</span>
+                            <span class="status-btn btn-r ${c.runAds ? 'active' : ''}">R</span>
+                            <span class="status-btn btn-v ${c.verified ? 'active' : ''}">V</span>
+                        </div>
+                    </td>
+                    <td class="date-cell">${cardDate}</td>
+                </tr>`;
+            });
+        }
+    });
 
     const sortIcon = (field) => {
         if (STATE.sortField !== field) return '↕';
@@ -4969,37 +5055,33 @@ function renderAllCards() {
         <table class="data-table ac-table">
             <thead>
                 <tr>
-                    <th><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
-                    <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
-                    <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
-                    <th class="sortable" data-sort="status">Use ${sortIcon('status')}</th>
+                    <th style="width:36px"></th>
+                    <th>Card / BIN Group</th>
+                    <th>BIN</th>
+                    <th>Cards</th>
                     <th>BIN Use</th>
                     <th>Status</th>
-                    <th class="sortable" data-sort="date">Last ${sortIcon('date')}</th>
+                    <th>Last</th>
                 </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rowsHtml}</tbody>
         </table>
     `;
 
-    // Attach sort handlers
-    area.querySelectorAll('.sortable').forEach(th => {
-        th.addEventListener('click', (e) => {
-            if (e.target.classList.contains('col-resize-handle')) return;
-            const field = th.dataset.sort;
-            if (STATE.sortField === field) {
-                STATE.sortDir = STATE.sortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                STATE.sortField = field;
-                STATE.sortDir = 'asc';
-            }
-            renderContent();
-        });
-    });
-
     initColumnResize(area.querySelector('.data-table'), 'allcards');
-    renderFooter(cards.length, STATE.page, totalPages);
+    renderFooter(totalBins, STATE.page, totalPages);
 }
+
+// Toggle BIN group expand/collapse
+window._toggleBinGroup = function(bin) {
+    if (_expandedBins.has(bin)) {
+        _expandedBins.delete(bin);
+    } else {
+        _expandedBins.add(bin);
+    }
+    renderAllCards();
+    renderStats();
+};
 
 // All Cards detail drawer toggle
 // All Cards drawer removed — no expand on click
@@ -5893,7 +5975,10 @@ function navigate(view, country) {
         }
     }
     STATE.currentView = view;
-    if (country) STATE.currentCountry = country;
+    if (country) {
+        STATE.currentCountry = country;
+        localStorage.setItem('ct_current_country', country);
+    }
     STATE.page = 1;
     STATE.search = '';
     document.getElementById('search-input').value = '';
@@ -5916,7 +6001,7 @@ window.deleteCountry = function (id) {
     STATE.countries = STATE.countries.filter(c => c.id !== id);
     save();
     if (STATE.currentCountry === id) {
-        const next = STATE.countries[0]?.id || 'canada';
+        const next = STATE.countries[0]?.id || '';
         navigate('cards', next);
     } else {
         renderAll();
@@ -8314,7 +8399,7 @@ function doLogin() {
         load();
         // Navigate to hash-specified view or default workspace
         const hashView = _getViewFromHash();
-        navigate(hashView || 'cards', 'canada');
+        navigate(hashView || 'cards', STATE.currentCountry);
         toast('Welcome back, Admin!', 'success');
     } else {
         document.getElementById('login-error').textContent = 'Invalid username or password';
@@ -8345,7 +8430,7 @@ document.querySelector('.btn-login').addEventListener('click', (e) => {
             load();
             // Navigate to hash-specified view or default workspace
             const hashView = _getViewFromHash();
-            navigate(hashView || 'cards', 'canada');
+            navigate(hashView || 'cards', STATE.currentCountry);
         }
     } catch (e) { /* no valid session */ }
 })();
