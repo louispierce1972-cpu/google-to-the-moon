@@ -1807,7 +1807,7 @@ function _ckExtractCards(text) {
                     }
                     // Date: "📅 Validity: 01/29", "Exp: 01/29", "Date: 01/2029", "valid thru 01/29"
                     if (!lMM || !lYY) {
-                        const dateM = nl.match(/(?:validity|valid(?:\s*thru|\s*through|\s*until|\s*to)?|exp(?:ir[yation]*)?|date|срок|fecha|vencimiento|дата|до|validade|gültig|scadenza|有効期限|유효기간)[\s:=]*\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i);
+                        const dateM = nl.match(/(?:validity|valid(?:\s*thru|\s*through|\s*until|\s*to)?|exp(?:ir\w*)?|date|срок|fecha|vencimiento|дата|до|validade|gültig|scadenza|有効期限|유효기간)[\s:=]*\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i);
                         if (dateM) { lMM = dateM[1]; lYY = dateM[2]; lastConsumed = j; continue; }
                         // Also try bare date on its own line: "01/29", "03-2027"
                         if (!lMM || !lYY) {
@@ -1872,7 +1872,7 @@ function _ckExtractCards(text) {
         let mm = null, yy = null, cvv = null;
 
         // Labeled Exp: MM/YY — covers EN/RU/JP/ES/PT/FR/DE/IT labels
-        const expRe = /(?:exp(?:ir[yation]*)?|valid(?:ity|\s*thru|\s*through|\s*until|\s*till|\s*to)?|vencimiento|vence|validade|date\s*d[e']?\s*expiration|gültig|scadenza|有効期限|유효기간|تاريخ\s*الانتهاء|срок|дата|до)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i;
+        const expRe = /(?:exp(?:ir\w*)?|valid(?:ity|\s*thru|\s*through|\s*until|\s*till|\s*to)?|vencimiento|vence|validade|date\s*d[e']?\s*expiration|gültig|scadenza|有効期限|유효기간|تاريخ\s*الانتهاء|срок|дата|до)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i;
         const expM = line.match(expRe);
         if (expM) { mm = expM[1]; yy = expM[2]; }
 
