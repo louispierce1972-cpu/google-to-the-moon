@@ -251,6 +251,43 @@ function save() {
     try {
         localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
         localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
+
+        // ── Merge notes tabs with other browser tabs before saving ──
+        // 1) Tabs in localStorage but NOT in our STATE → created by another tab, append them
+        // 2) Tabs in both → sync title/content from storage if we're not actively editing them
+        try {
+            const storedRaw = localStorage.getItem('ct_notes_tabs');
+            if (storedRaw) {
+                const storedTabs = JSON.parse(storedRaw);
+                if (Array.isArray(storedTabs)) {
+                    const localIds = new Set(STATE.notesTabs.map(t => t.id));
+                    const storedMap = new Map(storedTabs.map(t => [t.id, t]));
+                    const activeEditing = STATE.notesActiveTab;
+
+                    // Sync titles/content for tabs we're not editing right now
+                    for (const localTab of STATE.notesTabs) {
+                        const remote = storedMap.get(localTab.id);
+                        if (remote && localTab.id !== activeEditing) {
+                            // Pick up title renames from other tabs
+                            if (remote.title !== localTab.title) {
+                                localTab.title = remote.title;
+                            }
+                            // Pick up content updates for non-active tabs
+                            if (remote.content !== localTab.content) {
+                                localTab.content = remote.content;
+                            }
+                        }
+                    }
+
+                    // Append tabs created by other browser tabs
+                    const foreignTabs = storedTabs.filter(t => !localIds.has(t.id));
+                    if (foreignTabs.length > 0) {
+                        STATE.notesTabs = [...STATE.notesTabs, ...foreignTabs];
+                    }
+                }
+            }
+        } catch (_) { /* merge failed — save our own tabs anyway */ }
+
         localStorage.setItem('ct_notes_tabs', JSON.stringify(STATE.notesTabs));
         localStorage.setItem('activeNoteTab', STATE.notesActiveTab);
         localStorage.setItem('ct_notes', STATE.notes);
@@ -8331,6 +8368,58 @@ document.addEventListener('keydown', (e) => {
 
 // ──── INIT ────
 load();
+
+// ──── CROSS-TAB NOTES SYNC ────
+// When another browser tab saves notes to localStorage, pick up the changes
+// so tabs, renames, and content stay in sync across all open instances.
+window.addEventListener('storage', (e) => {
+    if (e.key !== 'ct_notes_tabs' && e.key !== 'activeNoteTab') return;
+
+    try {
+        if (e.key === 'ct_notes_tabs' && e.newValue) {
+            const incomingTabs = JSON.parse(e.newValue);
+            if (!Array.isArray(incomingTabs) || incomingTabs.length === 0) return;
+
+            // If user is currently editing (notes-editor exists and has focus),
+            // preserve the in-memory content of the active tab before overwriting
+            const editor = document.getElementById('notes-editor');
+            const activeId = STATE.notesActiveTab;
+            let localEditContent = null;
+
+            if (editor && document.activeElement === editor) {
+                localEditContent = editor.innerHTML;
+            }
+
+            // Replace state with incoming tabs
+            STATE.notesTabs = incomingTabs;
+
+            // Restore local unsaved edits for the active tab if user was editing
+            if (localEditContent !== null && activeId) {
+                const myTab = STATE.notesTabs.find(t => t.id === activeId);
+                if (myTab) {
+                    myTab.content = localEditContent;
+                }
+            }
+
+            // If the active tab no longer exists (was deleted in other tab), switch
+            if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
+                STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+            }
+
+            // Re-render if currently on Notes view
+            if (STATE.currentView === 'notes') {
+                renderNotes();
+            }
+        }
+
+        if (e.key === 'activeNoteTab' && e.newValue) {
+            // Only update the stored active tab reference, don't switch the view
+            // (each browser tab can have its own active note tab)
+        }
+    } catch (err) {
+        console.warn('Notes cross-tab sync error:', err);
+    }
+});
 
 // ──── NOTES FUNCTIONS ────
 function saveNotesAction() {
