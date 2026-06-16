@@ -5212,7 +5212,8 @@ function renderNotes() {
         const isActive = t.id === STATE.notesActiveTab;
         const linesCount = (t.content || '').split('\n').length;
         return `<div class="nt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
-            <span class="nt-sidebar-item-title">${t.title}</span>
+            <span class="nt-sidebar-item-title" data-tab="${t.id}">${t.title}</span>
+            <button class="nt-sidebar-item-rename" data-tab="${t.id}" title="Rename">✏️</button>
             <span class="nt-sidebar-item-lines">${linesCount}L</span>
             ${tabs.length > 1 ? `<button class="nt-sidebar-item-close" data-tab="${t.id}" title="Close">×</button>` : ''}
         </div>`;
@@ -5269,11 +5270,62 @@ function renderNotes() {
     document.querySelectorAll('.nt-sidebar-item').forEach(item => {
         item.addEventListener('click', (e) => {
             if (e.target.classList.contains('nt-sidebar-item-close')) return;
+            if (e.target.classList.contains('nt-sidebar-item-rename')) return;
+            if (e.target.classList.contains('nt-sidebar-item-title') && e.target.contentEditable === 'true') return;
             _saveActiveTab();
             STATE.notesActiveTab = item.dataset.tab;
             save();
             closeSidebar();
             renderNotes();
+        });
+    });
+
+    // ── Sidebar: rename tab (pencil button click or double-click on title) ──
+    const _startSidebarRename = (titleSpan) => {
+        const tabId = titleSpan.dataset.tab;
+        const tab = STATE.notesTabs.find(t => t.id === tabId);
+        if (!tab) return;
+        if (titleSpan.contentEditable === 'true') return; // already editing
+        titleSpan.contentEditable = 'true';
+        titleSpan.classList.add('editing');
+        titleSpan.focus();
+        const range = document.createRange();
+        range.selectNodeContents(titleSpan);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        const finish = () => {
+            titleSpan.contentEditable = 'false';
+            titleSpan.classList.remove('editing');
+            const newName = titleSpan.textContent.trim();
+            if (newName && newName !== tab.title) {
+                tab.title = newName;
+                save();
+                // Also update matching tab bar title if visible
+                const tabBarTitle = document.querySelector(`.nt-tab-title[data-tab="${tabId}"]`);
+                if (tabBarTitle) tabBarTitle.textContent = newName;
+            }
+            titleSpan.textContent = tab.title;
+        };
+        titleSpan.addEventListener('blur', finish, { once: true });
+        titleSpan.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); titleSpan.blur(); }
+            if (ev.key === 'Escape') { titleSpan.textContent = tab.title; titleSpan.blur(); }
+        });
+    };
+
+    document.querySelectorAll('.nt-sidebar-item-rename').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const titleSpan = btn.parentElement.querySelector('.nt-sidebar-item-title');
+            if (titleSpan) _startSidebarRename(titleSpan);
+        });
+    });
+
+    document.querySelectorAll('.nt-sidebar-item-title').forEach(span => {
+        span.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            _startSidebarRename(span);
         });
     });
 

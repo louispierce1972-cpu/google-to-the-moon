@@ -14260,9 +14260,14 @@ tr.row-selected td {
 .nt-sidebar-item-title{flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nt-sidebar-item.active .nt-sidebar-item-title{color:#facc15;font-weight:600}
 .nt-sidebar-item-lines{font-size:10px;color:var(--text-dim);flex-shrink:0}
+.nt-sidebar-item-rename{background:none;border:none;font-size:12px;cursor:pointer;padding:0 2px;opacity:0;transition:opacity .12s;flex-shrink:0;line-height:1}
+.nt-sidebar-item:hover .nt-sidebar-item-rename{opacity:.6}
+.nt-sidebar-item-rename:hover{opacity:1!important;transform:scale(1.15)}
+.nt-sidebar-item-title.editing{background:rgba(255,255,255,.08);border-radius:3px;padding:1px 4px;outline:1px solid rgba(234,179,8,.4);color:#facc15;cursor:text;overflow:visible;text-overflow:clip;white-space:pre}
 .nt-sidebar-item-close{background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:0 2px;opacity:0;transition:opacity .12s}
 .nt-sidebar-item:hover .nt-sidebar-item-close{opacity:1}
 .nt-sidebar-item-close:hover{color:#f87171}
+.nt-tab-title[contenteditable="true"]{background:rgba(255,255,255,.08);border-radius:3px;padding:1px 4px;outline:1px solid rgba(234,179,8,.4);color:#facc15;cursor:text}
 
 /* ═══════ PARSER — 4 auxiliary buttons always active ═══════ */
 /* TODAY CARDS */
