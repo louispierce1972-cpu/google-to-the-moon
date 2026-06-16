@@ -1705,6 +1705,46 @@ const _CK = {
 function _ckExtractCards(text) {
     const cards = [];
     const seen = new Set();
+
+    // ── Pre-normalize exotic formats into pipe-delimited lines ──
+    // JSON objects: {"cc":"4242...","exp_month":"03","exp_year":"27","cvv":"111"}
+    text = text.replace(/\{[^}]*?"(?:cc|card|card_number|number|pan|cardnumber|card_no)"[^}]*?\}/gi, function(block) {
+        const cc = block.match(/(?:cc|card|card_number|number|pan|cardnumber|card_no)"\s*:\s*"?(\d[\d\s\-]{11,22}\d)"?/i);
+        const mm = block.match(/(?:exp_?month|month|mm|exp_mm)"\s*:\s*"?(\d{1,2})"?/i);
+        const yy = block.match(/(?:exp_?year|year|yy|yyyy|exp_yy|exp_yyyy)"\s*:\s*"?(\d{2,4})"?/i);
+        const cv = block.match(/(?:cvv|cvc|cvv2|cvc2|cid|security_code|sec)"\s*:\s*"?(\d{3,4})"?/i);
+        // Combined exp: "exp":"03/27" or "expiry":"0327"
+        const expC = block.match(/(?:exp|expiry|expiration|valid)"\s*:\s*"?(0?[1-9]|1[0-2])\/?(\d{2,4})"?/i);
+        const m = mm ? mm[1] : (expC ? expC[1] : null);
+        const y = yy ? yy[1] : (expC ? expC[2] : null);
+        if (cc && m && y && cv) return '\n' + cc[1].replace(/[\s\-]/g,'') + '|' + m + '|' + y + '|' + cv[1] + '\n';
+        return block;
+    });
+
+    // Query strings: cc=4242...&month=03&year=27&cvv=111 / card[number]=...&card[exp_month]=...
+    text = text.replace(/(?:cc|card(?:\[number\])?|number|pan)=(\d[\d\s\-]{11,22}\d)[&;].*?(?:month|exp_?month|card\[exp_?month\]|mm)=(\d{1,2})[&;].*?(?:year|exp_?year|card\[exp_?year\]|yy)=(\d{2,4})[&;].*?(?:cvv|cvc|cvv2|card\[cvc\]|security_code)=(\d{3,4})/gi, function(_, c, m, y, v) {
+        return '\n' + c.replace(/[\s\-]/g,'') + '|' + m + '|' + y + '|' + v + '\n';
+    });
+
+    // HTML entities and tags
+    text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#?\w+;/g, ' ');
+    text = text.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(?:div|p|tr|li)>/gi, '\n').replace(/<[^>]+>/g, ' ');
+
+    // URL-encoded: %7C = |, %2F = /, etc
+    if (text.includes('%')) { try { text = decodeURIComponent(text); } catch(_) {} }
+
+    // Semicolon and tilde delimiters → pipe
+    text = text.replace(/(\d{13,19})\s*[;~]\s*(\d{1,2})\s*[;~]\s*(\d{2,4})\s*[;~]\s*(\d{3,4})/g, '$1|$2|$3|$4');
+
+    // Combined MMYY after card: 4242...|0327|111 → 4242...|03|27|111
+    text = text.replace(/(\d{13,19})\s*([|:;])\s*(0[1-9]|1[0-2])(2[4-9]|3[0-9])\s*\2\s*(\d{3,4})/g, '$1|$3|$4|$5');
+
+    // Checker output status suffixes: ...|LIVE|..., ...|DEAD, ...|APPROVED, CCN|MM|YYYY|CVV|STATUS
+    text = text.replace(/\|\s*(?:LIVE|DEAD|APPROVED|DECLINED|INVALID|ERROR|DIE|CHARGED|UNKNOWN|CCN|Valid|Invalid|Success|Failed|Active|Blocked|Hold)[^\n]*/gi, '');
+
+    // With holder name: CCN|MM|YY|CVV|Name → strip name
+    text = text.replace(/(\d{3,4})\|[A-Za-z][A-Za-z\s]+$/gm, '$1');
+
     const lines = text.split(/\n/);
 
     function addCard(ccn, mm, yy, cvv) {
@@ -1767,13 +1807,23 @@ function _ckExtractCards(text) {
                     }
                     // Date: "📅 Validity: 01/29", "Exp: 01/29", "Date: 01/2029", "valid thru 01/29"
                     if (!lMM || !lYY) {
-                        const dateM = nl.match(/(?:validity|valid(?:\s*thru)?|exp(?:ir[yation]*)?|date|срок|fecha|vencimiento|дата)[\s:=]*\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i);
+                        const dateM = nl.match(/(?:validity|valid(?:\s*thru|\s*through|\s*until|\s*to)?|exp(?:ir[yation]*)?|date|срок|fecha|vencimiento|дата|до|validade|gültig|scadenza|有効期限|유효기간)[\s:=]*\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i);
                         if (dateM) { lMM = dateM[1]; lYY = dateM[2]; lastConsumed = j; continue; }
+                        // Also try bare date on its own line: "01/29", "03-2027"
+                        if (!lMM || !lYY) {
+                            const bareDateM = nl.match(/^\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})\s*$/);
+                            if (bareDateM) { lMM = bareDateM[1]; lYY = bareDateM[2]; lastConsumed = j; continue; }
+                        }
                     }
                     // CVV: "🔐 CVV: 295", "CVC: 123", "Security Code: 456"
                     if (!lCVV) {
-                        const cvvM = nl.match(/(?:cvv2?|cvc2?|cid|код|security\s*code|sec\.?\s*code|cvn)[\s:=]*\s*(\d{3,4})\b/i);
+                        const cvvM = nl.match(/(?:cvv2?|cvc2?|cid|код|security\s*code|sec\.?\s*code|cvn|ccv|card\s*code|verification|código|codice|コード|セキュリティ|رمز)[\s:=]*\s*(\d{3,4})\b/i);
                         if (cvvM) { lCVV = cvvM[1]; lastConsumed = j; continue; }
+                        // Also try bare CVV on its own line: "295", "1234"
+                        if (!lCVV) {
+                            const bareCvvM = nl.match(/^\s*(\d{3,4})\s*$/);
+                            if (bareCvvM) { lCVV = bareCvvM[1]; lastConsumed = j; continue; }
+                        }
                     }
                     if (lMM && lYY && lCVV) break;
                 }
@@ -1791,6 +1841,24 @@ function _ckExtractCards(text) {
         const stdM = line.match(stdRe);
         if (stdM) { addCard(stdM[1], stdM[2], stdM[3], stdM[4]); continue; }
 
+        // ── Strategy 1b: Comma / semicolon / equals / tilde delimited ──
+        // 4242424242424242,03,27,111 or 4242...;03;27;111 or 4242...=03=27=111
+        const csvRe = /(\d[\d\s\-]{11,22}\d)\s*[,;=~]+\s*(0?[1-9]|1[0-2])\s*[,;=~]+\s*(\d{2}|\d{4})\s*[,;=~]+\s*(\d{3,4})/;
+        const csvM = line.match(csvRe);
+        if (csvM) { addCard(csvM[1], csvM[2], csvM[3], csvM[4]); continue; }
+
+        // ── Strategy 1c: Combined date MMYY — CCN|MMYY|CVV ──
+        // 4242424242424242|0327|111 → MM=03, YY=27
+        const mmyyRe = /(\d[\d\s\-]{11,22}\d)\s*[\|:\/\\,;~\s]+\s*(0[1-9]|1[0-2])(2[4-9]|3[0-9])\s*[\|:\/\\,;~\s]+\s*(\d{3,4})/;
+        const mmyyM = line.match(mmyyRe);
+        if (mmyyM) { addCard(mmyyM[1], mmyyM[2], mmyyM[3], mmyyM[4]); continue; }
+
+        // ── Strategy 1d: Date as MM/YY then CVV — CCN EXP CVV inline ──
+        // 4242424242424242 03/27 111
+        const expInlineRe = /(\d[\d\s\-]{11,22}\d)\s+(?:exp(?:iry)?[:=\s]*)?(\d{1,2})\s*[\/\-\.]\s*(\d{2,4})\s+(\d{3,4})/i;
+        const expInM = line.match(expInlineRe);
+        if (expInM) { addCard(expInM[1], expInM[2], expInM[3], expInM[4]); continue; }
+
         // ── Strategy 2: Labeled formats ──
         // Find card number first
         const ccnRe = /(\d[\d\s\-]{11,22}\d)/;
@@ -1803,25 +1871,25 @@ function _ckExtractCards(text) {
 
         let mm = null, yy = null, cvv = null;
 
-        // Labeled Exp: MM/YY
-        const expRe = /(?:exp(?:ir[yation]*)?|valid(?:ity)?|срок)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i;
+        // Labeled Exp: MM/YY — covers EN/RU/JP/ES/PT/FR/DE/IT labels
+        const expRe = /(?:exp(?:ir[yation]*)?|valid(?:ity|\s*thru|\s*through|\s*until|\s*till|\s*to)?|vencimiento|vence|validade|date\s*d[e']?\s*expiration|gültig|scadenza|有効期限|유효기간|تاريخ\s*الانتهاء|срок|дата|до)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\s*[\/\-\.]\s*(\d{2,4})/i;
         const expM = line.match(expRe);
         if (expM) { mm = expM[1]; yy = expM[2]; }
 
         // Labeled Month
         if (!mm) {
-            const mmRe = /(?:month|mm|mes|месяц)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\b/i;
+            const mmRe = /(?:month|exp_?month|card_month|mm|mes|mois|monat|mese|月|월|месяц|شهر)\s*[:\s=]+\s*(0?[1-9]|1[0-2])\b/i;
             const mmM = line.match(mmRe);
             if (mmM) mm = mmM[1];
         }
         // Labeled Year
         if (!yy) {
-            const yyRe = /(?:year|yy|yyyy|ano|год)\s*[:\s=]+\s*(\d{2,4})\b/i;
+            const yyRe = /(?:year|exp_?year|card_year|yy|yyyy|ano|année|jahr|anno|年|년|год|سنة)\s*[:\s=]+\s*(\d{2,4})\b/i;
             const yyM = line.match(yyRe);
             if (yyM) yy = yyM[1];
         }
-        // Labeled CVV
-        const cvvRe = /(?:cvv2?|cvc2?|cid|код|security\s*code)\s*[:\s=]+\s*(\d{3,4})\b/i;
+        // Labeled CVV — covers all known labels
+        const cvvRe = /(?:cvv2?|cvc2?|cid|cvn|ccv|sec(?:urity)?\s*(?:code|num(?:ber)?)|verification\s*(?:code|value|num)|card\s*code|código|codice|コード|セキュリティ|код|رمز)\s*[:\s=]+\s*(\d{3,4})\b/i;
         const cvvM = line.match(cvvRe);
         if (cvvM) cvv = cvvM[1];
 
@@ -3632,7 +3700,7 @@ function renderChecker() {
     const modePlaceholders = {
         proxy: 'Paste any text containing proxies — they will be extracted automatically\n\nSupported formats:\n• user:pass@host:port\n• host:port:user:pass\n• user:pass:host:port\n• protocol://user:pass@host:port\n• host:port\n• IP:PORT from logs, JSON, HTML\n\nGarbage text is ignored automatically',
         bin: 'Paste any text — BINs will be extracted automatically\n\n4242424242424242|11|26|777\nCard: 5326 1023 4355 9988\nCC: 4111111111111111 Exp: 05/26 CVV: 456\nRandom log text with 5454781003037335...\n\nAll formats supported • Duplicates removed\nOutput: /bin 424242',
-        card: 'Paste ANY text — cards will be extracted automatically\n\nSupported formats:\n• 4242424242424242|03|27|111\n• 4242424242424242:03:27:111\n• 4242424242424242 03 27 111\n• 4242424242424242/03/27/111\n• Card: 4242... Exp: 03/27 CVV: 111\n• CC: 4242... MM: 03 YY: 27 CVC: 111\n• Mixed text with emoji 🔥 and garbage\n\nAuto-detects network • Deduplicates • Cleans garbage',
+        card: 'Paste ANY text — cards will be extracted automatically\n\nSupported formats:\n• 4242424242424242|03|27|111   (pipe)\n• 4242424242424242:03:27:111   (colon)\n• 4242424242424242 03 27 111   (space)\n• 4242424242424242,03,27,111   (CSV)\n• 4242424242424242;03;27;111   (semicolon)\n• 4242424242424242~03~27~111   (tilde)\n• 4242424242424242|0327|111    (MMYY combined)\n• 4242424242424242 03/27 111   (date inline)\n• 4242...|03|2027|111|LIVE     (checker output)\n• {"cc":"4242...","mm":"03"...} (JSON)\n• cc=4242...&month=03&year=27   (query string)\n• Card: 4242... Exp: 03/27 CVV: 111\n• 💳 CC: 4242...  📅 Exp: 03/27  🔐 CVV: 111\n• Multi-line blocks (number/date/cvv)\n• HTML, URL-encoded, mixed garbage\n\n40+ formats • Auto-detect network • Deduplicates',
         ip: 'Paste any text — valid IPv4 addresses will be extracted\n\nExamples:\n192.168.1.1\nProxy: 56.233.33.4:8080\n{"ip": "10.0.0.1", "port": 3000}\n<div>Server: 172.16.0.5</div>\n\nValidated (0-255 per octet) • Duplicates removed\nOutput: /ip 192.168.1.1',
         auto: 'Paste ANY chaotic text — all data types will be extracted\n\nAuto-detects:\n• 💳 Cards (all formats)\n• 🔢 BINs (unique)\n• 📡 IP addresses (validated)\n• 🌐 Proxies\n\nPerfect for Ctrl+A from websites, logs, chat exports',
     };
