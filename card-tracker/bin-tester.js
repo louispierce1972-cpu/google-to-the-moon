@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════
-   BIN TESTER — Test BINs for Google
+   BIN TESTER — Test BINs for Google v2
    ═══════════════════════════════════════════ */
 
-// BIN Tester persistent state
+// Persistent state
 if (!STATE._bt) {
     try {
         const saved = localStorage.getItem('ct_bin_tester');
@@ -11,46 +11,50 @@ if (!STATE._bt) {
 }
 if (!STATE._bt) {
     STATE._bt = {
-        cards: [],        // All loaded cards: { id, num, mm, yy, cvv, bin, status: null }
-        workCards: [],     // Cards taken to work: { id, num, mm, yy, cvv, bin, status: 'pending'|'added'|'failed'|'blocked' }
-        history: [],       // History of completed batches
-        view: 'load',     // 'load' | 'bins' | 'work' | 'results'
+        cards: [],
+        workCards: [],
+        history: [],
+        view: 'load',
     };
 }
 
 function _btSave() {
-    try {
-        localStorage.setItem('ct_bin_tester', JSON.stringify(STATE._bt));
-    } catch { /* quota */ }
+    try { localStorage.setItem('ct_bin_tester', JSON.stringify(STATE._bt)); } catch {}
 }
 
 function _btParseLine(line) {
-    const trimmed = line.trim();
-    if (!trimmed) return null;
-    const parts = trimmed.split(/[\s|:;,]+/);
-    let cardNum = null, mm = '', yy = '', cvv = '';
+    const t = line.trim();
+    if (!t) return null;
+    const parts = t.split(/[\s|:;,]+/);
+    let num = null, mm = '', yy = '', cvv = '';
     for (let i = 0; i < parts.length; i++) {
-        const clean = parts[i].replace(/[-\.]/g, '');
-        if (!cardNum && /^\d{13,19}$/.test(clean)) {
-            cardNum = clean;
+        const c = parts[i].replace(/[-\.]/g, '');
+        if (!num && /^\d{13,19}$/.test(c)) {
+            num = c;
             if (parts[i+1] && /^\d{1,2}$/.test(parts[i+1])) mm = parts[i+1].padStart(2,'0');
-            if (parts[i+2] && /^\d{2,4}$/.test(parts[i+2])) {
-                yy = parts[i+2]; if (yy.length===4) yy = yy.slice(2);
-            }
+            if (parts[i+2] && /^\d{2,4}$/.test(parts[i+2])) { yy = parts[i+2]; if (yy.length===4) yy=yy.slice(2); }
             if (parts[i+3] && /^\d{3,4}$/.test(parts[i+3])) cvv = parts[i+3];
             break;
         }
     }
-    if (!cardNum) return null;
-    const bin = cardNum.slice(0, 6);
-    return { id: 'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), num: cardNum, mm, yy, cvv, bin, status: null };
+    if (!num) return null;
+    return { id: 'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), num, mm, yy, cvv, bin: num.slice(0,6), status: null };
+}
+
+// Sets of nums already used
+function _btUsedNums() {
+    const s = new Set();
+    STATE._bt.workCards.forEach(c => s.add(c.num));
+    STATE._bt.history.forEach(c => s.add(c.num));
+    return s;
 }
 
 function renderBinTester() {
     const area = document.getElementById('content-area');
     const bt = STATE._bt;
+    const used = _btUsedNums();
 
-    // Get BIN groups
+    // BIN groups
     const binGroups = {};
     bt.cards.forEach(c => {
         if (!binGroups[c.bin]) binGroups[c.bin] = [];
@@ -59,449 +63,434 @@ function renderBinTester() {
     const binEntries = Object.entries(binGroups).sort((a,b) => b[1].length - a[1].length);
     const totalCards = bt.cards.length;
     const totalBins = binEntries.length;
+    const totalAvail = bt.cards.filter(c => !used.has(c.num)).length;
 
-    // Work stats
-    const workTotal = bt.workCards.length;
-    const workAdded = bt.workCards.filter(c => c.status === 'added').length;
-    const workFailed = bt.workCards.filter(c => c.status === 'failed').length;
-    const workBlocked = bt.workCards.filter(c => c.status === 'blocked').length;
-    const workPending = bt.workCards.filter(c => c.status === 'pending').length;
-
-    // BIN results from history + current work
-    const binResults = {};
-    [...bt.history, ...bt.workCards.filter(c => c.status && c.status !== 'pending')].forEach(c => {
-        if (!binResults[c.bin]) binResults[c.bin] = { added: 0, failed: 0, blocked: 0, total: 0 };
-        binResults[c.bin].total++;
-        if (c.status === 'added') binResults[c.bin].added++;
-        if (c.status === 'failed') binResults[c.bin].failed++;
-        if (c.status === 'blocked') binResults[c.bin].blocked++;
+    // BIN results
+    const binRes = {};
+    bt.history.forEach(c => {
+        if (!binRes[c.bin]) binRes[c.bin] = {added:0,failed:0,blocked:0,total:0};
+        binRes[c.bin].total++;
+        if (c.status==='added') binRes[c.bin].added++;
+        if (c.status==='failed') binRes[c.bin].failed++;
+        if (c.status==='blocked') binRes[c.bin].blocked++;
     });
 
-    let html = `<div class="bt-page">`;
+    const wk = bt.workCards;
+    const wAdded = wk.filter(c=>c.status==='added').length;
+    const wFailed = wk.filter(c=>c.status==='failed').length;
+    const wBlocked = wk.filter(c=>c.status==='blocked').length;
+    const wPending = wk.filter(c=>c.status==='pending').length;
 
-    // ── HEADER TOOLBAR ──
-    html += `<div class="bt-toolbar">
+    let h = `<div class="bt-page">`;
+
+    // Toolbar
+    h += `<div class="bt-toolbar">
         <div class="bt-toolbar-left">
             <span class="bt-title">🧪 BIN TESTER</span>
-            <span class="bt-subtitle">Test BINs for Google</span>
         </div>
         <div class="bt-toolbar-right">
-            <span class="bt-stat-pill"><span class="bt-stat-num">${totalCards}</span> cards</span>
-            <span class="bt-stat-pill"><span class="bt-stat-num">${totalBins}</span> BINs</span>
-            ${workTotal > 0 ? `<span class="bt-stat-pill bt-pill-work"><span class="bt-stat-num">${workTotal}</span> in work</span>` : ''}
-            <button class="bt-btn bt-btn-reset" id="bt-reset">🗑 Reset All</button>
+            <span class="bt-stat-pill"><b>${totalCards}</b> cards</span>
+            <span class="bt-stat-pill"><b>${totalBins}</b> BINs</span>
+            <span class="bt-stat-pill" style="color:var(--green)"><b>${totalAvail}</b> avail</span>
+            ${wk.length?`<span class="bt-stat-pill bt-pill-work"><b>${wk.length}</b> in work</span>`:''}
+            <button class="bt-btn bt-btn-reset" id="bt-reset">🗑 Reset</button>
         </div>
     </div>`;
 
-    // ── TAB BAR ──
-    html += `<div class="bt-tab-bar">
-        <button class="bt-tab ${bt.view==='load'?'active':''}" data-btview="load">📥 Load Base</button>
+    // Tabs
+    h += `<div class="bt-tab-bar">
+        <button class="bt-tab ${bt.view==='load'?'active':''}" data-btview="load">📥 Load</button>
         <button class="bt-tab ${bt.view==='bins'?'active':''}" data-btview="bins" ${totalCards===0?'disabled':''}>📊 BINs (${totalBins})</button>
-        <button class="bt-tab ${bt.view==='work'?'active':''}" data-btview="work" ${workTotal===0?'disabled':''}>⚡ Work (${workTotal})</button>
-        <button class="bt-tab ${bt.view==='results'?'active':''}" data-btview="results" ${Object.keys(binResults).length===0?'disabled':''}>📈 Results</button>
+        <button class="bt-tab ${bt.view==='work'?'active':''}" data-btview="work" ${wk.length===0?'disabled':''}>⚡ Work (${wk.length})</button>
+        <button class="bt-tab ${bt.view==='results'?'active':''}" data-btview="results" ${bt.history.length===0?'disabled':''}>📈 Results (${bt.history.length})</button>
     </div>`;
 
-    // ── VIEWS ──
-    if (bt.view === 'load') {
-        html += _btRenderLoad(totalCards, totalBins);
-    } else if (bt.view === 'bins') {
-        html += _btRenderBins(binEntries, binResults);
-    } else if (bt.view === 'work') {
-        html += _btRenderWork(bt.workCards, workAdded, workFailed, workBlocked, workPending);
-    } else if (bt.view === 'results') {
-        html += _btRenderResults(binResults, binEntries);
-    }
+    // Content
+    if (bt.view === 'load') h += _btViewLoad(totalCards, totalBins, totalAvail);
+    else if (bt.view === 'bins') h += _btViewBins(binEntries, binRes, used);
+    else if (bt.view === 'work') h += _btViewWork(wk, wAdded, wFailed, wBlocked, wPending);
+    else if (bt.view === 'results') h += _btViewResults(binRes);
 
-    html += `</div>`;
-    area.innerHTML = html;
-
-    // ── EVENT HANDLERS ──
-    _btBindEvents(binGroups);
+    h += `</div>`;
+    area.innerHTML = h;
+    _btBind(binGroups, used);
 }
 
-function _btRenderLoad(totalCards, totalBins) {
+// ── LOAD VIEW ──
+function _btViewLoad(tc, tb, ta) {
     return `<div class="bt-section">
         <div class="bt-load-area">
             <div class="bt-load-icon">📥</div>
             <h3 class="bt-load-title">Load Card Base</h3>
-            <p class="bt-load-desc">Paste cards (one per line) or load from file</p>
-            <textarea id="bt-input" class="bt-textarea" rows="10" placeholder="4242424242424242 12 28 123&#10;5555555555554444 03 27 456&#10;4111111111111111 05 26 789&#10;&#10;Format: NUMBER MM YY CVV"></textarea>
+            <p class="bt-load-desc">Paste cards or load .txt file</p>
+            <textarea id="bt-input" class="bt-textarea" rows="10" placeholder="4242424242424242 12 28 123&#10;5555555555554444|03|27|456&#10;&#10;Format: NUMBER MM YY CVV"></textarea>
             <div class="bt-load-actions">
-                <label class="bt-btn bt-btn-file">
-                    📁 Load .txt
-                    <input type="file" id="bt-file-input" accept=".txt" hidden>
-                </label>
+                <label class="bt-btn bt-btn-file">📁 Load .txt<input type="file" id="bt-file-input" accept=".txt" hidden></label>
                 <button class="bt-btn bt-btn-primary" id="bt-load-cards">⚡ Load Cards</button>
-                <span id="bt-load-count" class="bt-load-count">${totalCards > 0 ? `${totalCards} cards loaded (${totalBins} BINs)` : ''}</span>
             </div>
+            ${tc > 0 ? `<div class="bt-loaded-info">✅ <b>${tc}</b> cards loaded · <b>${tb}</b> BINs · <b>${ta}</b> available<br>
+                <button class="bt-btn bt-btn-sm" id="bt-go-bins" style="margin-top:8px">→ Go to BINs</button></div>` : ''}
         </div>
     </div>`;
 }
 
-function _btRenderBins(binEntries, binResults) {
-    if (binEntries.length === 0) {
-        return `<div class="bt-empty">No cards loaded. Go to Load Base tab first.</div>`;
-    }
-    let html = `<div class="bt-section">
+// ── BINS VIEW ──
+function _btViewBins(binEntries, binRes, used) {
+    if (!binEntries.length) return `<div class="bt-empty">No cards. Load base first.</div>`;
+
+    let h = `<div class="bt-section">
         <div class="bt-bins-header">
-            <span class="bt-bins-title">BIN Groups</span>
+            <span class="bt-bins-title">Select BINs to take into work</span>
             <div class="bt-bins-actions">
-                <button class="bt-btn bt-btn-sm" id="bt-select-all-bins">Select All</button>
-                <button class="bt-btn bt-btn-sm" id="bt-deselect-all-bins">Deselect All</button>
-                <input type="number" id="bt-take-count" class="bt-take-input" value="1" min="1" max="50" title="Cards per BIN to take">
+                <button class="bt-btn bt-btn-sm" id="bt-sel-all">Select All</button>
+                <button class="bt-btn bt-btn-sm" id="bt-desel-all">Deselect</button>
+                <input type="number" id="bt-take-n" class="bt-take-input" value="1" min="1" max="99" title="Cards per BIN">
                 <span class="bt-take-label">per BIN</span>
-                <button class="bt-btn bt-btn-primary bt-btn-take" id="bt-take-to-work">⚡ Take to Work</button>
+                <button class="bt-btn bt-btn-primary bt-btn-take" id="bt-take">⚡ Take to Work</button>
             </div>
         </div>
         <div class="bt-bins-grid">`;
 
     binEntries.forEach(([bin, cards]) => {
-        const cached = typeof BIN_CACHE !== 'undefined' ? BIN_CACHE[bin] : null;
-        const bankName = cached ? (cached.bank || 'Unknown') : '—';
-        const brand = cached ? (cached.brand || '') : '';
-        const type = cached ? (cached.type || '') : '';
-        const country = cached ? (cached.country || '') : '';
-        const res = binResults[bin];
-        const testedCount = res ? res.total : 0;
-        const successRate = res && res.total > 0 ? Math.round((res.added / res.total) * 100) : null;
-        
-        let statusBadge = '';
-        if (successRate !== null) {
-            const cls = successRate >= 70 ? 'bt-rate-good' : successRate >= 30 ? 'bt-rate-mid' : 'bt-rate-bad';
-            statusBadge = `<span class="bt-bin-rate ${cls}">${successRate}%</span>`;
+        const avail = cards.filter(c => !used.has(c.num)).length;
+        const info = typeof BIN_CACHE!=='undefined' ? BIN_CACHE[bin] : null;
+        const bank = info ? (info.bank||'Unknown') : '—';
+        const brand = info ? (info.brand||'') : '';
+        const type = info ? (info.type||'') : '';
+        const country = info ? (info.country||'') : '';
+        const r = binRes[bin];
+        const tested = r ? r.total : 0;
+        const rate = r && r.total>0 ? Math.round((r.added/r.total)*100) : null;
+
+        let badge = '';
+        if (rate !== null) {
+            const cls = rate>=70?'bt-rate-good':rate>=30?'bt-rate-mid':'bt-rate-bad';
+            badge = `<span class="bt-bin-rate ${cls}">${rate}%</span>`;
         }
 
-        // Count available cards (not yet in work or history)
-        const workNums = new Set(STATE._bt.workCards.map(c => c.num));
-        const histNums = new Set(STATE._bt.history.map(c => c.num));
-        const available = cards.filter(c => !workNums.has(c.num) && !histNums.has(c.num)).length;
-
-        html += `<div class="bt-bin-card" data-bin="${bin}">
+        h += `<div class="bt-bin-card ${avail===0?'bt-bin-exhausted':''}">
             <label class="bt-bin-check-wrap">
-                <input type="checkbox" class="bt-bin-cb" data-bin="${bin}" ${available === 0 ? 'disabled' : ''}>
+                <input type="checkbox" class="bt-bin-cb" data-bin="${bin}" ${avail===0?'disabled':''}>
                 <div class="bt-bin-info">
                     <div class="bt-bin-top">
                         <span class="bt-bin-number">${bin}</span>
-                        ${statusBadge}
-                        ${brand ? `<span class="bt-bin-brand">${brand}</span>` : ''}
+                        ${badge}
+                        ${brand?`<span class="bt-bin-brand">${brand}</span>`:''}
                     </div>
-                    <div class="bt-bin-bank">${bankName}</div>
+                    <div class="bt-bin-bank">${bank}</div>
                     <div class="bt-bin-meta">
-                        ${type ? `<span class="bt-bin-tag">${type}</span>` : ''}
-                        ${country ? `<span class="bt-bin-tag">${country}</span>` : ''}
-                        <span class="bt-bin-count">${cards.length} cards</span>
-                        <span class="bt-bin-avail">${available} avail</span>
-                        ${testedCount > 0 ? `<span class="bt-bin-tested">tested: ${testedCount}</span>` : ''}
+                        ${type?`<span class="bt-bin-tag">${type}</span>`:''}
+                        ${country?`<span class="bt-bin-tag">${country}</span>`:''}
+                        <span class="bt-bin-count">${cards.length} total</span>
+                        <span class="bt-bin-avail ${avail===0?'bt-zero':''}">${avail} avail</span>
+                        ${tested>0?`<span class="bt-bin-tested">tested: ${tested}</span>`:''}
                     </div>
                 </div>
             </label>
         </div>`;
     });
 
-    html += `</div></div>`;
-    return html;
+    h += `</div></div>`;
+    return h;
 }
 
-function _btRenderWork(workCards, added, failed, blocked, pending) {
-    let html = `<div class="bt-section">
+// ── WORK VIEW — full card numbers visible ──
+function _btViewWork(wk, added, failed, blocked, pending) {
+    // Group by BIN
+    const groups = {};
+    wk.forEach((c,i) => {
+        if (!groups[c.bin]) groups[c.bin] = [];
+        groups[c.bin].push({...c, _i: i});
+    });
+
+    let h = `<div class="bt-section">
         <div class="bt-work-header">
             <div class="bt-work-stats">
-                <span class="bt-ws bt-ws-total">${workCards.length} total</span>
-                <span class="bt-ws bt-ws-pending">${pending} pending</span>
-                <span class="bt-ws bt-ws-added">${added} added</span>
-                <span class="bt-ws bt-ws-failed">${failed} failed</span>
-                <span class="bt-ws bt-ws-blocked">${blocked} blocked</span>
+                <span class="bt-ws">${wk.length} total</span>
+                <span class="bt-ws bt-ws-pending">${pending} ⏳</span>
+                <span class="bt-ws bt-ws-added">${added} ✅</span>
+                <span class="bt-ws bt-ws-failed">${failed} ❌</span>
+                <span class="bt-ws bt-ws-blocked">${blocked} 🚫</span>
             </div>
             <div class="bt-work-actions">
-                <button class="bt-btn bt-btn-sm" id="bt-copy-work">📋 Copy Cards</button>
-                <button class="bt-btn bt-btn-sm bt-btn-finish" id="bt-finish-work" ${pending > 0 ? '' : ''}>✅ Finish Batch</button>
+                <button class="bt-btn bt-btn-sm" id="bt-copy-work">📋 Copy All Cards</button>
+                <button class="bt-btn bt-btn-sm" id="bt-copy-pending">📋 Copy Pending</button>
+                <button class="bt-btn bt-btn-finish" id="bt-finish">✅ Finish Batch</button>
                 <button class="bt-btn bt-btn-sm bt-btn-danger" id="bt-cancel-work">✕ Cancel</button>
             </div>
         </div>
+        <div class="bt-work-hint">Click card number to copy · Set status for each card · Finish when done</div>
         <div class="bt-work-list">`;
 
-    // Group work cards by BIN
-    const workBins = {};
-    workCards.forEach((c, idx) => {
-        if (!workBins[c.bin]) workBins[c.bin] = [];
-        workBins[c.bin].push({ ...c, _idx: idx });
-    });
-
-    Object.entries(workBins).forEach(([bin, cards]) => {
-        const cached = typeof BIN_CACHE !== 'undefined' ? BIN_CACHE[bin] : null;
-        const bankName = cached ? (cached.bank || 'Unknown') : '—';
-        html += `<div class="bt-work-bin-group">
+    Object.entries(groups).forEach(([bin, cards]) => {
+        const info = typeof BIN_CACHE!=='undefined' ? BIN_CACHE[bin] : null;
+        const bank = info ? (info.bank||'Unknown') : '—';
+        h += `<div class="bt-work-bin-group">
             <div class="bt-work-bin-header">
                 <span class="bt-work-bin-num">${bin}</span>
-                <span class="bt-work-bin-bank">${bankName}</span>
+                <span class="bt-work-bin-bank">${bank}</span>
                 <span class="bt-work-bin-cnt">${cards.length} cards</span>
             </div>`;
-        
         cards.forEach(c => {
-            const masked = c.num.slice(0,6) + '••••' + c.num.slice(-4);
-            const statusCls = c.status === 'added' ? 'bt-st-added' : c.status === 'failed' ? 'bt-st-failed' : c.status === 'blocked' ? 'bt-st-blocked' : 'bt-st-pending';
-            html += `<div class="bt-work-row ${statusCls}" data-idx="${c._idx}">
-                <span class="bt-work-card-num">${masked}</span>
+            const full = `${c.num} ${c.mm} ${c.yy} ${c.cvv}`;
+            const stCls = c.status==='added'?'bt-st-added':c.status==='failed'?'bt-st-failed':c.status==='blocked'?'bt-st-blocked':'bt-st-pending';
+            h += `<div class="bt-work-row ${stCls}">
+                <span class="bt-work-card-num bt-copyable" data-copy="${full}" title="Click to copy">${c.num}</span>
                 <span class="bt-work-exp">${c.mm}/${c.yy}</span>
+                <span class="bt-work-cvv">${c.cvv}</span>
                 <div class="bt-status-btns">
-                    <button class="bt-sbtn bt-sbtn-added ${c.status==='added'?'active':''}" data-idx="${c._idx}" data-status="added" title="Added to Google">✅</button>
-                    <button class="bt-sbtn bt-sbtn-failed ${c.status==='failed'?'active':''}" data-idx="${c._idx}" data-status="failed" title="Not added">❌</button>
-                    <button class="bt-sbtn bt-sbtn-blocked ${c.status==='blocked'?'active':''}" data-idx="${c._idx}" data-status="blocked" title="Card blocked">🚫</button>
-                    <button class="bt-sbtn bt-sbtn-pending ${c.status==='pending'?'active':''}" data-idx="${c._idx}" data-status="pending" title="Reset to pending">⏳</button>
+                    <button class="bt-sbtn bt-sbtn-added ${c.status==='added'?'active':''}" data-idx="${c._i}" data-status="added">✅</button>
+                    <button class="bt-sbtn bt-sbtn-failed ${c.status==='failed'?'active':''}" data-idx="${c._i}" data-status="failed">❌</button>
+                    <button class="bt-sbtn bt-sbtn-blocked ${c.status==='blocked'?'active':''}" data-idx="${c._i}" data-status="blocked">🚫</button>
                 </div>
             </div>`;
         });
-        html += `</div>`;
+        h += `</div>`;
     });
 
-    html += `</div></div>`;
-    return html;
+    h += `</div></div>`;
+    return h;
 }
 
-function _btRenderResults(binResults, binEntries) {
-    const entries = Object.entries(binResults).sort((a,b) => {
-        const rateA = a[1].total > 0 ? a[1].added / a[1].total : 0;
-        const rateB = b[1].total > 0 ? b[1].added / b[1].total : 0;
-        return rateB - rateA;
+// ── RESULTS VIEW ──
+function _btViewResults(binRes) {
+    const entries = Object.entries(binRes).sort((a,b) => {
+        const ra = a[1].total>0 ? a[1].added/a[1].total : 0;
+        const rb = b[1].total>0 ? b[1].added/b[1].total : 0;
+        return rb - ra;
     });
+    if (!entries.length) return `<div class="bt-empty">No results yet.</div>`;
 
-    if (entries.length === 0) {
-        return `<div class="bt-empty">No results yet. Take cards to work and mark their statuses.</div>`;
-    }
+    let tT=0,tA=0,tF=0,tB=0;
+    entries.forEach(([,r])=>{tT+=r.total;tA+=r.added;tF+=r.failed;tB+=r.blocked;});
+    const rate = tT>0 ? Math.round((tA/tT)*100) : 0;
 
-    // Overall stats
-    let totalTested = 0, totalAdded = 0, totalFailed = 0, totalBlocked = 0;
-    entries.forEach(([, r]) => { totalTested += r.total; totalAdded += r.added; totalFailed += r.failed; totalBlocked += r.blocked; });
-    const overallRate = totalTested > 0 ? Math.round((totalAdded / totalTested) * 100) : 0;
-
-    let html = `<div class="bt-section">
+    let h = `<div class="bt-section">
         <div class="bt-results-summary">
-            <div class="bt-rs-card"><span class="bt-rs-label">Tested</span><span class="bt-rs-value">${totalTested}</span></div>
-            <div class="bt-rs-card bt-rs-added"><span class="bt-rs-label">Added</span><span class="bt-rs-value">${totalAdded}</span></div>
-            <div class="bt-rs-card bt-rs-failed"><span class="bt-rs-label">Failed</span><span class="bt-rs-value">${totalFailed}</span></div>
-            <div class="bt-rs-card bt-rs-blocked"><span class="bt-rs-label">Blocked</span><span class="bt-rs-value">${totalBlocked}</span></div>
-            <div class="bt-rs-card bt-rs-rate"><span class="bt-rs-label">Success</span><span class="bt-rs-value">${overallRate}%</span></div>
+            <div class="bt-rs-card"><span class="bt-rs-label">Tested</span><span class="bt-rs-value">${tT}</span></div>
+            <div class="bt-rs-card bt-rs-added"><span class="bt-rs-label">Added</span><span class="bt-rs-value">${tA}</span></div>
+            <div class="bt-rs-card bt-rs-failed"><span class="bt-rs-label">Failed</span><span class="bt-rs-value">${tF}</span></div>
+            <div class="bt-rs-card bt-rs-blocked"><span class="bt-rs-label">Blocked</span><span class="bt-rs-value">${tB}</span></div>
+            <div class="bt-rs-card bt-rs-rate"><span class="bt-rs-label">Success</span><span class="bt-rs-value">${rate}%</span></div>
         </div>
         <div class="bt-results-actions">
-            <button class="bt-btn bt-btn-sm" id="bt-copy-good-bins">📋 Copy Working BINs</button>
-            <button class="bt-btn bt-btn-sm" id="bt-export-results">📤 Export to Notes</button>
-            <button class="bt-btn bt-btn-sm bt-btn-danger" id="bt-clear-history">🗑 Clear History</button>
+            <button class="bt-btn bt-btn-primary" id="bt-new-batch">🔄 New Batch → BINs</button>
+            <button class="bt-btn bt-btn-sm" id="bt-copy-good">📋 Copy Working BINs</button>
+            <button class="bt-btn bt-btn-sm" id="bt-export-notes">📤 Export to Notes</button>
+            <button class="bt-btn bt-btn-sm bt-btn-danger" id="bt-clear-hist">🗑 Clear History</button>
         </div>
         <div class="bt-results-table">
             <div class="bt-rt-header">
-                <span class="bt-rt-h">BIN</span>
-                <span class="bt-rt-h">Bank</span>
-                <span class="bt-rt-h">Tested</span>
-                <span class="bt-rt-h">Added</span>
-                <span class="bt-rt-h">Failed</span>
-                <span class="bt-rt-h">Blocked</span>
-                <span class="bt-rt-h">Rate</span>
+                <span class="bt-rt-h">BIN</span><span class="bt-rt-h">Bank</span>
+                <span class="bt-rt-h">Tested</span><span class="bt-rt-h">✅</span><span class="bt-rt-h">❌</span><span class="bt-rt-h">🚫</span><span class="bt-rt-h">Rate</span>
             </div>`;
 
     entries.forEach(([bin, r]) => {
-        const rate = r.total > 0 ? Math.round((r.added / r.total) * 100) : 0;
-        const cls = rate >= 70 ? 'bt-rate-good' : rate >= 30 ? 'bt-rate-mid' : 'bt-rate-bad';
-        const cached = typeof BIN_CACHE !== 'undefined' ? BIN_CACHE[bin] : null;
-        const bank = cached ? (cached.bank || '—') : '—';
-        const shortBank = bank.length > 22 ? bank.slice(0,22) + '…' : bank;
-        const barW = Math.max(rate, 3);
-        html += `<div class="bt-rt-row">
-            <span class="bt-rt-bin">${bin}</span>
-            <span class="bt-rt-bank">${shortBank}</span>
+        const rt = r.total>0 ? Math.round((r.added/r.total)*100) : 0;
+        const cls = rt>=70?'bt-rate-good':rt>=30?'bt-rate-mid':'bt-rate-bad';
+        const info = typeof BIN_CACHE!=='undefined' ? BIN_CACHE[bin] : null;
+        const bank = info?(info.bank||'—'):'—';
+        const sb = bank.length>22?bank.slice(0,22)+'…':bank;
+        h += `<div class="bt-rt-row">
+            <span class="bt-rt-bin">${bin}</span><span class="bt-rt-bank">${sb}</span>
             <span class="bt-rt-val">${r.total}</span>
             <span class="bt-rt-val bt-rt-added">${r.added}</span>
             <span class="bt-rt-val bt-rt-failed">${r.failed}</span>
             <span class="bt-rt-val bt-rt-blocked">${r.blocked}</span>
             <span class="bt-rt-rate-cell">
-                <div class="bt-rt-bar"><div class="bt-rt-bar-fill ${cls}" style="width:${barW}%"></div></div>
-                <span class="bt-rt-pct ${cls}">${rate}%</span>
+                <div class="bt-rt-bar"><div class="bt-rt-bar-fill ${cls}" style="width:${Math.max(rt,3)}%"></div></div>
+                <span class="bt-rt-pct ${cls}">${rt}%</span>
             </span>
         </div>`;
     });
 
-    html += `</div></div>`;
-    return html;
+    h += `</div></div>`;
+    return h;
 }
 
-function _btBindEvents(binGroups) {
+// ── EVENT BINDING ──
+function _btBind(binGroups, used) {
     const bt = STATE._bt;
 
-    // Tab switching
-    document.querySelectorAll('.bt-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            if (tab.disabled) return;
-            bt.view = tab.dataset.btview;
-            _btSave();
-            renderBinTester();
+    // Tabs
+    document.querySelectorAll('.bt-tab').forEach(t => {
+        t.addEventListener('click', () => {
+            if (t.disabled) return;
+            bt.view = t.dataset.btview;
+            _btSave(); renderBinTester();
         });
     });
 
     // Reset
     document.getElementById('bt-reset')?.addEventListener('click', () => {
         if (!confirm('Reset all BIN Tester data?')) return;
-        STATE._bt = { cards: [], workCards: [], history: [], view: 'load' };
-        _btSave();
-        renderBinTester();
-        toast('BIN Tester reset', 'success');
+        STATE._bt = { cards:[], workCards:[], history:[], view:'load' };
+        _btSave(); renderBinTester();
+        toast('BIN Tester reset','success');
     });
 
     // Load cards
     document.getElementById('bt-load-cards')?.addEventListener('click', () => {
-        const input = document.getElementById('bt-input');
-        if (!input) return;
-        const raw = input.value.trim();
-        if (!raw) { toast('Paste cards first', 'info'); return; }
-        const lines = raw.split('\n');
+        const inp = document.getElementById('bt-input');
+        if (!inp) return;
+        const raw = inp.value.trim();
+        if (!raw) { toast('Paste cards first','info'); return; }
+        const existing = new Set(bt.cards.map(c=>c.num));
         let added = 0;
-        const existingNums = new Set(bt.cards.map(c => c.num));
-        lines.forEach(line => {
-            const parsed = _btParseLine(line);
-            if (parsed && !existingNums.has(parsed.num)) {
-                bt.cards.push(parsed);
-                existingNums.add(parsed.num);
-                added++;
-            }
+        raw.split('\n').forEach(line => {
+            const p = _btParseLine(line);
+            if (p && !existing.has(p.num)) { bt.cards.push(p); existing.add(p.num); added++; }
         });
-        if (added === 0) { toast('No new cards found', 'info'); return; }
+        if (!added) { toast('No new cards found','info'); return; }
         // Lookup BINs
-        const uniqueBins = new Set(bt.cards.map(c => c.bin));
-        uniqueBins.forEach(bin => { if (typeof lookupBin === 'function') lookupBin(bin); });
+        new Set(bt.cards.map(c=>c.bin)).forEach(b => { if (typeof lookupBin==='function') lookupBin(b); });
         _btSave();
-        toast(`Loaded ${added} cards`, 'success');
-        bt.view = 'bins';
-        renderBinTester();
+        toast(`Loaded ${added} cards`,'success');
+        bt.view = 'bins'; _btSave(); renderBinTester();
     });
 
     // File input
-    document.getElementById('bt-file-input')?.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const ta = document.getElementById('bt-input');
-            if (ta) ta.value = ev.target.result;
-            toast(`File loaded: ${file.name}`, 'success');
-        };
-        reader.readAsText(file);
+    document.getElementById('bt-file-input')?.addEventListener('change', e => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => { const ta = document.getElementById('bt-input'); if (ta) ta.value = ev.target.result; toast('File loaded','success'); };
+        r.readAsText(f);
     });
 
-    // Select all / deselect bins
-    document.getElementById('bt-select-all-bins')?.addEventListener('click', () => {
+    // Go to bins
+    document.getElementById('bt-go-bins')?.addEventListener('click', () => {
+        bt.view = 'bins'; _btSave(); renderBinTester();
+    });
+
+    // Select all / deselect
+    document.getElementById('bt-sel-all')?.addEventListener('click', () => {
         document.querySelectorAll('.bt-bin-cb:not(:disabled)').forEach(cb => cb.checked = true);
     });
-    document.getElementById('bt-deselect-all-bins')?.addEventListener('click', () => {
+    document.getElementById('bt-desel-all')?.addEventListener('click', () => {
         document.querySelectorAll('.bt-bin-cb').forEach(cb => cb.checked = false);
     });
 
     // Take to work
-    document.getElementById('bt-take-to-work')?.addEventListener('click', () => {
+    document.getElementById('bt-take')?.addEventListener('click', () => {
         const checked = [...document.querySelectorAll('.bt-bin-cb:checked')].map(cb => cb.dataset.bin);
-        if (checked.length === 0) { toast('Select BINs first', 'info'); return; }
-        const countPerBin = parseInt(document.getElementById('bt-take-count')?.value || '1', 10);
-        const workNums = new Set(bt.workCards.map(c => c.num));
-        const histNums = new Set(bt.history.map(c => c.num));
+        if (!checked.length) { toast('Select BINs first','info'); return; }
+        const n = parseInt(document.getElementById('bt-take-n')?.value || '1', 10);
+        const usedNow = _btUsedNums();
         let taken = 0;
         checked.forEach(bin => {
-            const available = bt.cards.filter(c => c.bin === bin && !workNums.has(c.num) && !histNums.has(c.num));
-            const toTake = available.slice(0, countPerBin);
-            toTake.forEach(card => {
-                bt.workCards.push({ ...card, status: 'pending' });
-                workNums.add(card.num);
+            const avail = bt.cards.filter(c => c.bin===bin && !usedNow.has(c.num));
+            avail.slice(0, n).forEach(card => {
+                bt.workCards.push({...card, status:'pending'});
+                usedNow.add(card.num);
                 taken++;
             });
         });
-        if (taken === 0) { toast('No available cards in selected BINs', 'info'); return; }
-        bt.view = 'work';
-        _btSave();
-        toast(`Took ${taken} cards to work`, 'success');
+        if (!taken) { toast('No available cards','info'); return; }
+        bt.view = 'work'; _btSave();
+        toast(`Took ${taken} cards to work`,'success');
         renderBinTester();
     });
 
     // Status buttons
     document.querySelectorAll('.bt-sbtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.idx);
-            const status = btn.dataset.status;
-            if (bt.workCards[idx]) {
-                bt.workCards[idx].status = status;
-                _btSave();
-                renderBinTester();
+            const i = parseInt(btn.dataset.idx);
+            const st = btn.dataset.status;
+            if (bt.workCards[i]) {
+                // Toggle: if same status clicked, reset to pending
+                bt.workCards[i].status = bt.workCards[i].status === st ? 'pending' : st;
+                _btSave(); renderBinTester();
             }
         });
     });
 
-    // Copy work cards
+    // Copy card numbers (click to copy individual)
+    document.querySelectorAll('.bt-copyable').forEach(el => {
+        el.addEventListener('click', () => {
+            navigator.clipboard?.writeText(el.dataset.copy);
+            el.classList.add('bt-flash');
+            setTimeout(() => el.classList.remove('bt-flash'), 500);
+            toast('Copied: ' + el.dataset.copy, 'success');
+        });
+    });
+
+    // Copy all work cards
     document.getElementById('bt-copy-work')?.addEventListener('click', () => {
         const lines = bt.workCards.map(c => `${c.num} ${c.mm} ${c.yy} ${c.cvv}`).join('\n');
         navigator.clipboard?.writeText(lines);
-        toast(`Copied ${bt.workCards.length} cards`, 'success');
+        toast(`Copied ${bt.workCards.length} cards`,'success');
+    });
+
+    // Copy pending only
+    document.getElementById('bt-copy-pending')?.addEventListener('click', () => {
+        const pending = bt.workCards.filter(c => c.status==='pending');
+        if (!pending.length) { toast('No pending cards','info'); return; }
+        const lines = pending.map(c => `${c.num} ${c.mm} ${c.yy} ${c.cvv}`).join('\n');
+        navigator.clipboard?.writeText(lines);
+        toast(`Copied ${pending.length} pending cards`,'success');
     });
 
     // Finish batch
-    document.getElementById('bt-finish-work')?.addEventListener('click', () => {
+    document.getElementById('bt-finish')?.addEventListener('click', () => {
         const done = bt.workCards.filter(c => c.status !== 'pending');
-        if (done.length === 0) { toast('Mark card statuses first', 'info'); return; }
+        if (!done.length) { toast('Mark card statuses first','info'); return; }
         bt.history.push(...done);
         bt.workCards = bt.workCards.filter(c => c.status === 'pending');
-        if (bt.workCards.length === 0) bt.view = 'results';
+        bt.view = bt.workCards.length > 0 ? 'work' : 'results';
         _btSave();
-        toast(`Finished ${done.length} cards, moved to history`, 'success');
+        toast(`Finished ${done.length} cards → history`,'success');
         renderBinTester();
     });
 
     // Cancel work
     document.getElementById('bt-cancel-work')?.addEventListener('click', () => {
-        if (!confirm('Cancel current work batch?')) return;
+        if (!confirm('Cancel work? Cards return to pool.')) return;
         bt.workCards = [];
-        bt.view = 'bins';
-        _btSave();
-        renderBinTester();
+        bt.view = 'bins'; _btSave(); renderBinTester();
+    });
+
+    // New batch from results
+    document.getElementById('bt-new-batch')?.addEventListener('click', () => {
+        bt.view = 'bins'; _btSave(); renderBinTester();
     });
 
     // Copy good BINs
-    document.getElementById('bt-copy-good-bins')?.addEventListener('click', () => {
-        const binResults = {};
-        [...bt.history].forEach(c => {
-            if (!binResults[c.bin]) binResults[c.bin] = { added: 0, total: 0 };
-            binResults[c.bin].total++;
-            if (c.status === 'added') binResults[c.bin].added++;
+    document.getElementById('bt-copy-good')?.addEventListener('click', () => {
+        const br = {};
+        bt.history.forEach(c => {
+            if (!br[c.bin]) br[c.bin] = {added:0,total:0};
+            br[c.bin].total++; if (c.status==='added') br[c.bin].added++;
         });
-        const good = Object.entries(binResults).filter(([,r]) => r.total > 0 && (r.added / r.total) >= 0.5).map(([bin]) => bin);
-        if (good.length === 0) { toast('No working BINs found', 'info'); return; }
+        const good = Object.entries(br).filter(([,r])=>r.total>0&&(r.added/r.total)>=0.5).map(([b])=>b);
+        if (!good.length) { toast('No working BINs','info'); return; }
         navigator.clipboard?.writeText(good.join('\n'));
-        toast(`Copied ${good.length} working BINs`, 'success');
+        toast(`Copied ${good.length} working BINs`,'success');
     });
 
-    // Export results to notes
-    document.getElementById('bt-export-results')?.addEventListener('click', () => {
-        const binResults = {};
-        [...bt.history].forEach(c => {
-            if (!binResults[c.bin]) binResults[c.bin] = { added: 0, failed: 0, blocked: 0, total: 0 };
-            binResults[c.bin].total++;
-            if (c.status === 'added') binResults[c.bin].added++;
-            if (c.status === 'failed') binResults[c.bin].failed++;
-            if (c.status === 'blocked') binResults[c.bin].blocked++;
+    // Export to notes
+    document.getElementById('bt-export-notes')?.addEventListener('click', () => {
+        const br = {};
+        bt.history.forEach(c => {
+            if (!br[c.bin]) br[c.bin]={added:0,failed:0,blocked:0,total:0};
+            br[c.bin].total++; if(c.status==='added')br[c.bin].added++; if(c.status==='failed')br[c.bin].failed++; if(c.status==='blocked')br[c.bin].blocked++;
         });
-        const lines = ['BIN TESTER RESULTS', '═'.repeat(40), ''];
-        Object.entries(binResults).sort((a,b) => (b[1].added/b[1].total) - (a[1].added/a[1].total)).forEach(([bin, r]) => {
-            const rate = Math.round((r.added / r.total) * 100);
-            const cached = typeof BIN_CACHE !== 'undefined' ? BIN_CACHE[bin] : null;
-            const bank = cached ? (cached.bank || '?') : '?';
-            lines.push(`${bin} | ${bank} | ${rate}% (${r.added}/${r.total}) | F:${r.failed} B:${r.blocked}`);
+        const lines = ['BIN TESTER RESULTS','═'.repeat(40),''];
+        Object.entries(br).sort((a,b)=>(b[1].added/b[1].total)-(a[1].added/a[1].total)).forEach(([bin,r])=>{
+            const rt = Math.round((r.added/r.total)*100);
+            const info = typeof BIN_CACHE!=='undefined'?BIN_CACHE[bin]:null;
+            const bank = info?(info.bank||'?'):'?';
+            lines.push(`${bin} | ${bank} | ${rt}% (${r.added}/${r.total}) | F:${r.failed} B:${r.blocked}`);
         });
-        const content = lines.join('\n');
-        STATE.notesTabs.unshift({ id: 'tab-bt-'+Date.now(), title: 'BIN Test Results', content, pinned: false, tag: null, created: Date.now(), scrollPos: 0 });
-        STATE.notesActiveTab = STATE.notesTabs[0].id;
-        if (typeof save === 'function') save();
-        toast('Results exported to Notes', 'success');
+        STATE.notesTabs.unshift({id:'tab-bt-'+Date.now(),title:'BIN Test Results',content:lines.join('\n'),pinned:false,tag:null,created:Date.now(),scrollPos:0});
+        STATE.notesActiveTab=STATE.notesTabs[0].id;
+        if(typeof save==='function')save();
+        toast('Exported to Notes','success');
     });
 
     // Clear history
-    document.getElementById('bt-clear-history')?.addEventListener('click', () => {
+    document.getElementById('bt-clear-hist')?.addEventListener('click', () => {
         if (!confirm('Clear all test history?')) return;
-        bt.history = [];
-        _btSave();
-        renderBinTester();
-        toast('History cleared', 'success');
+        bt.history = []; _btSave(); renderBinTester();
+        toast('History cleared','success');
     });
 }
