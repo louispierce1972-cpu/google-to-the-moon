@@ -895,7 +895,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -4765,6 +4765,11 @@ function renderContent() {
         footer.style.display = 'none';
         return;
     }
+    if (STATE.currentView === 'bin-tester') {
+        renderBinTester();
+        footer.style.display = 'none';
+        return;
+    }
     footer.style.display = 'flex';
 
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
@@ -6000,6 +6005,7 @@ const HASH_TO_VIEW = {
     'trash':         'trash',
     'google-format': 'google-format',
     'domain':        'domain',
+    'bin-tester':    'bin-tester',
 };
 const VIEW_TO_HASH = Object.fromEntries(
     Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
