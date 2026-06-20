@@ -1679,6 +1679,7 @@ const _CK = {
         streetAddress: '',
         city: '',
         prefecture: 'Tokyo',
+        waterCountry: 'US',
         waterState: 'NY',
         font: 'Noto Sans',
         billData: null,
@@ -3369,10 +3370,36 @@ const US_WATER_PROVIDERS = {
 const US_STATES_LIST = Object.keys(US_WATER_PROVIDERS).sort();
 const US_STATE_NAMES = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'Washington DC'};
 
+// ═══════════════════════════════════════════
+//   CANADA WATER BILL — Provider Data (13 provinces/territories)
+// ═══════════════════════════════════════════
+const CA_WATER_PROVIDERS = {
+    'ON': { name:'Toronto Water', co:'City of Toronto Water', phone:'(416) 338-8888', web:'toronto.ca/water', color:'#1565c0', avgBill:[45,95], currency:'C$', cities:['Toronto','Ottawa','Mississauga','Brampton','Hamilton','London','Markham','Vaughan','Kitchener','Windsor','Richmond Hill','Oakville','Burlington','Oshawa','Barrie','St. Catharines','Cambridge','Guelph','Kingston','Thunder Bay'] },
+    'QC': { name:'Ville de Montréal Eau', co:'Service de l\'eau de Montréal', phone:'(514) 872-3030', web:'montreal.ca/eau', color:'#0d47a1', avgBill:[35,75], currency:'C$', cities:['Montréal','Québec City','Laval','Gatineau','Longueuil','Sherbrooke','Lévis','Saguenay','Trois-Rivières','Terrebonne','Saint-Jean-sur-Richelieu','Repentigny','Brossard','Drummondville','Saint-Jérôme'] },
+    'BC': { name:'Metro Vancouver Water', co:'Metro Vancouver Water Services', phone:'(604) 432-6200', web:'metrovancouver.org', color:'#00695c', avgBill:[40,85], currency:'C$', cities:['Vancouver','Surrey','Burnaby','Richmond','Coquitlam','Langley','Delta','North Vancouver','Abbotsford','Kelowna','Kamloops','Nanaimo','Victoria','Chilliwack','Prince George'] },
+    'AB': { name:'EPCOR Water', co:'EPCOR Water Services Inc.', phone:'(780) 412-4500', web:'epcor.com', color:'#bf360c', avgBill:[50,100], currency:'C$', cities:['Calgary','Edmonton','Red Deer','Lethbridge','St. Albert','Medicine Hat','Grande Prairie','Airdrie','Spruce Grove','Leduc','Fort McMurray','Cochrane','Okotoks','Camrose','Lloydminster'] },
+    'MB': { name:'City of Winnipeg Water', co:'City of Winnipeg Water and Waste Dept', phone:'(204) 986-7550', web:'winnipeg.ca/waterandwaste', color:'#283593', avgBill:[35,70], currency:'C$', cities:['Winnipeg','Brandon','Steinbach','Thompson','Portage la Prairie','Selkirk','Winkler','Morden','Dauphin','The Pas'] },
+    'SK': { name:'SaskWater', co:'Saskatchewan Water Corporation', phone:'(306) 694-3098', web:'saskwater.com', color:'#1b5e20', avgBill:[40,80], currency:'C$', cities:['Saskatoon','Regina','Prince Albert','Moose Jaw','Swift Current','Yorkton','North Battleford','Estevan','Weyburn','Lloydminster'] },
+    'NS': { name:'Halifax Water', co:'Halifax Regional Water Commission', phone:'(902) 420-9287', web:'halifaxwater.ca', color:'#004d40', avgBill:[35,75], currency:'C$', cities:['Halifax','Dartmouth','Sydney','Truro','New Glasgow','Glace Bay','Kentville','Amherst','Bridgewater','Yarmouth'] },
+    'NB': { name:'Saint John Water', co:'Saint John Water', phone:'(506) 658-4455', web:'saintjohn.ca/water', color:'#0277bd', avgBill:[30,65], currency:'C$', cities:['Saint John','Moncton','Fredericton','Dieppe','Miramichi','Edmundston','Bathurst','Campbellton','Oromocto','Grand Falls'] },
+    'NL': { name:'St. John\'s Water', co:'City of St. John\'s Water Dept', phone:'(709) 576-8199', web:'stjohns.ca', color:'#1a237e', avgBill:[30,60], currency:'C$', cities:['St. John\'s','Mount Pearl','Corner Brook','Conception Bay South','Paradise','Grand Falls-Windsor','Gander','Happy Valley-Goose Bay','Labrador City','Stephenville'] },
+    'PE': { name:'Charlottetown Water', co:'City of Charlottetown Water Utility', phone:'(902) 566-5548', web:'charlottetown.ca', color:'#2e7d32', avgBill:[25,55], currency:'C$', cities:['Charlottetown','Summerside','Stratford','Cornwall','Montague','Kensington','Souris','Alberton','Georgetown','Tignish'] },
+    'NT': { name:'Yellowknife Water', co:'City of Yellowknife Public Works', phone:'(867) 920-5600', web:'yellowknife.ca', color:'#33691e', avgBill:[55,110], currency:'C$', cities:['Yellowknife','Hay River','Inuvik','Fort Smith','Behchoko','Norman Wells'] },
+    'YT': { name:'Whitehorse Water', co:'City of Whitehorse Water Ops', phone:'(867) 668-8330', web:'whitehorse.ca', color:'#006064', avgBill:[40,80], currency:'C$', cities:['Whitehorse','Dawson City','Watson Lake','Haines Junction','Carmacks','Mayo'] },
+    'NU': { name:'Iqaluit Water', co:'City of Iqaluit Water Services', phone:'(867) 979-5600', web:'iqaluit.ca', color:'#4a148c', avgBill:[60,130], currency:'C$', cities:['Iqaluit','Rankin Inlet','Arviat','Baker Lake','Cambridge Bay','Igloolik'] }
+};
+const CA_PROVINCES_LIST = Object.keys(CA_WATER_PROVIDERS).sort();
+const CA_PROVINCE_NAMES = {ON:'Ontario',QC:'Quebec',BC:'British Columbia',AB:'Alberta',MB:'Manitoba',SK:'Saskatchewan',NS:'Nova Scotia',NB:'New Brunswick',NL:'Newfoundland and Labrador',PE:'Prince Edward Island',NT:'Northwest Territories',YT:'Yukon',NU:'Nunavut'};
+
 function _generateWaterBillData(gen) {
-    const st = gen.waterState || 'NY';
-    const prov = US_WATER_PROVIDERS[st];
+    const country = gen.waterCountry || 'US';
+    const st = gen.waterState || (country === 'CA' ? 'ON' : 'NY');
+    const isCA = country === 'CA';
+    const providerMap = isCA ? CA_WATER_PROVIDERS : US_WATER_PROVIDERS;
+    const nameMap = isCA ? CA_PROVINCE_NAMES : US_STATE_NAMES;
+    const prov = providerMap[st];
     if (!prov) return null;
+    const currSym = isCA ? 'C$' : '$';
     const now = new Date();
     const billDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - _genRand(1,10));
     const dueDate = new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + _genRand(18,25));
@@ -3390,15 +3417,25 @@ function _generateWaterBillData(gen) {
     const balFwd = 0;
     const pastDue = prevBal > 0 ? Math.round((prevBal - paidAmt + adj) * 100)/100 : 0;
     const savedAmt = Math.round(_genRand(1500,5500)/100 * 100)/100;
-    const taxPct = _genRand(0, st==='WA'? 1025 : st==='AZ'?230 : st==='IL'?700 : st==='AL'?400 : 0) / 10000;
+    // Tax: Canada uses GST/HST per province; US uses state-specific
+    let taxPct;
+    if (isCA) {
+        const caHST = {ON:0.13,NB:0.15,NS:0.15,NL:0.15,PE:0.15,QC:0.14975,BC:0.12,AB:0.05,SK:0.11,MB:0.12,NT:0.05,YT:0.05,NU:0.05};
+        taxPct = caHST[st] || 0.05;
+    } else {
+        taxPct = _genRand(0, st==='WA'? 1025 : st==='AZ'?230 : st==='IL'?700 : st==='AL'?400 : 0) / 10000;
+    }
     const taxAmt = Math.round(totalBill * taxPct * 100)/100;
     const totalToPay = Math.round((totalBill + taxAmt) * 100)/100;
     const fullAddr = `${gen.streetAddress.toUpperCase()}\n${gen.city.toUpperCase()}, ${st} ${gen.postalCode}`;
     const poBox = `PO Box ${_genRand(1000,9999)}`;
-    const poCity = ['Camden, NJ 08101','Trenton, NJ 08650','Atlanta, GA 30348','Dallas, TX 75284','Chicago, IL 60677','Denver, CO 80271'][_genRand(0,5)];
+    const poCity = isCA
+        ? ['Toronto, ON M5H 2N2','Vancouver, BC V6B 3K9','Montreal, QC H2Y 1C6','Calgary, AB T2P 3M3','Ottawa, ON K1A 0B1','Winnipeg, MB R3C 4T3'][_genRand(0,5)]
+        : ['Camden, NJ 08101','Trenton, NJ 08650','Atlanta, GA 30348','Dallas, TX 75284','Chicago, IL 60677','Denver, CO 80271'][_genRand(0,5)];
     const postalCode = `##POSTAL${String(_genRand(10000,99999))} ${String(_genRand(100000000,999999999))}`;
     return {
-        provider: prov, state: st, stateName: US_STATE_NAMES[st] || st,
+        provider: prov, state: st, stateName: nameMap[st] || st,
+        country: country, currSym: currSym,
         name: gen.name.toUpperCase(), address: fullAddr,
         acct, billNo, billDate: fmtD(billDate), dueDate: fmtPay(dueDate),
         waterSvc, sewerSvc, totalBill, taxAmt, taxPct,
@@ -3411,7 +3448,7 @@ function _renderWaterBillHTML(d, font) {
     const f = font || 'Noto Sans';
     const p = d.provider;
     const c = p.color;
-    const fm = n => '$' + Number(n).toFixed(2);
+    const fm = n => (d.currSym || '$') + Number(n).toFixed(2);
     const provName = p.name.toUpperCase();
     const footerFontSize = provName.length > 30 ? 11 : provName.length > 24 ? 12 : 14;
 
@@ -3455,15 +3492,15 @@ function _renderWaterBillHTML(d, font) {
     <div style="flex:1.15;min-width:0">
       <div style="font-size:26px;font-weight:300;color:#333;margin-bottom:18px">What makes up my total?</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><td colspan="2" style="font-weight:700;padding:8px 0 6px;border-bottom:2px solid ${c}"><span>Account summary</span><span style="float:right">$</span></td></tr>
+        <tr><td colspan="2" style="font-weight:700;padding:8px 0 6px;border-bottom:2px solid ${c}"><span>Account summary</span><span style="float:right">${d.currSym || '$'}</span></td></tr>
         <tr><td style="padding:7px 0;border-bottom:1px solid #e0e0e0">Balance from last bill</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.prevBal.toFixed(2)}</td></tr>
         <tr><td style="padding:7px 0;border-bottom:1px solid #e0e0e0">Your payments - thank you</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.paidAmt > 0 ? '-' + d.paidAmt.toFixed(2) : '0.00'}</td></tr>
         ${d.adj !== 0 ? `<tr><td style="padding:7px 0;border-bottom:1px solid #e0e0e0">Adjustments</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.adj.toFixed(2)}</td></tr>` : ''}
         <tr><td style="padding:8px 0;font-weight:700">Balance brought forward</td><td style="text-align:right;padding:8px 0;font-weight:700">${d.balFwd.toFixed(2)}</td></tr>
-        <tr><td colspan="2" style="font-weight:700;padding:10px 0 6px;border-bottom:2px solid ${c}"><span>This bill</span><span style="float:right">$</span></td></tr>
+        <tr><td colspan="2" style="font-weight:700;padding:10px 0 6px;border-bottom:2px solid ${c}"><span>This bill</span><span style="float:right">${d.currSym || '$'}</span></td></tr>
         <tr><td style="padding:7px 0 7px 14px;border-bottom:1px solid #e0e0e0"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0288d1;margin-right:8px;vertical-align:middle"></span>Water Services</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.waterSvc.toFixed(2)}</td></tr>
         <tr><td style="padding:7px 0 7px 14px;border-bottom:1px solid #e0e0e0"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#78909c;margin-right:8px;vertical-align:middle"></span>Sewer Services</td><td style="text-align:right;padding:7px 0;border-bottom:1px solid #e0e0e0">${d.sewerSvc.toFixed(2)}</td></tr>
-        ${d.taxAmt > 0 ? `<tr><td style="padding:5px 0 5px 18px;font-size:11px;color:#666;border-bottom:1px solid #e0e0e0">Total (Includes ${fm(d.taxAmt)} tax)</td><td style="text-align:right;padding:5px 0;border-bottom:1px solid #e0e0e0">${d.totalBill.toFixed(2)}</td></tr>` : `<tr><td style="padding:5px 0 5px 18px;font-size:11px;color:#666;border-bottom:1px solid #e0e0e0">Total</td><td style="text-align:right;padding:5px 0;border-bottom:1px solid #e0e0e0">${d.totalBill.toFixed(2)}</td></tr>`}
+        ${d.taxAmt > 0 ? `<tr><td style="padding:5px 0 5px 18px;font-size:11px;color:#666;border-bottom:1px solid #e0e0e0">Total (Includes ${fm(d.taxAmt)} ${d.country === 'CA' ? 'HST/GST' : 'tax'})</td><td style="text-align:right;padding:5px 0;border-bottom:1px solid #e0e0e0">${d.totalBill.toFixed(2)}</td></tr>` : `<tr><td style="padding:5px 0 5px 18px;font-size:11px;color:#666;border-bottom:1px solid #e0e0e0">Total</td><td style="text-align:right;padding:5px 0;border-bottom:1px solid #e0e0e0">${d.totalBill.toFixed(2)}</td></tr>`}
         <tr><td style="padding:10px 12px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:4px 0 0 4px">Total to pay</td><td style="text-align:right;padding:10px 12px;font-weight:700;font-size:15px;background:${c};color:#fff;border-radius:0 4px 4px 0">${fm(d.totalToPay)}</td></tr>
       </table>
       <div style="font-size:11px;color:#555;margin-top:14px;line-height:1.6">Any payments we received and processed after ${d.dueDate}<br>will show on your next bill.</div>
@@ -3494,7 +3531,7 @@ function _renderWaterBillHTML(d, font) {
       <div style="flex:1">
         <div style="font-size:10px;color:#333;margin-bottom:6px">${d.postalCode}</div>
         <div style="font-size:11px;font-weight:700;margin-bottom:4px">IMPORTANT</div>
-        <div style="font-size:10px;color:#555;line-height:1.6;margin-bottom:0;max-width:420px">Payment due upon receipt. Payment must be received on or before the Required Payment Date to avoid a Late Payment Charge. Please make the cheque payable to ${p.name} (9 digit account number) and write your account number on the front of the cheque. Return this stub with your payment.</div>
+        <div style="font-size:10px;color:#555;line-height:1.6;margin-bottom:0;max-width:420px">Payment due upon receipt. Payment must be received on or before the Required Payment Date to avoid a Late Payment Charge. Please make the ${d.country === 'CA' ? 'cheque' : 'check'} payable to ${p.name} (9 digit account number) and write your account number on the front of the ${d.country === 'CA' ? 'cheque' : 'check'}. Return this stub with your payment.</div>
       </div>
       <div style="flex-shrink:0;margin-left:20px;text-align:left">
         <div style="font-size:11px;color:#444;margin-bottom:6px">Amount of your payment:</div>
@@ -3566,12 +3603,16 @@ function _renderGenerator() {
 
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">
             <input type="text" id="gen-name" placeholder="Name" value="${gen.name}" style="flex:1;min-width:120px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
-            <input type="text" id="gen-postal" placeholder="${gen.type==='water'?'ZIP Code':'Postal'}" value="${gen.postalCode}" style="width:80px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+            <input type="text" id="gen-postal" placeholder="${gen.type==='water'?(gen.waterCountry==='CA'?'Postal Code':'ZIP Code'):'Postal'}" value="${gen.postalCode}" style="width:80px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             <input type="text" id="gen-street" placeholder="Street Address" value="${gen.streetAddress}" style="flex:1.5;min-width:150px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             <input type="text" id="gen-city" placeholder="City" value="${gen.city}" style="width:100px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             ${gen.type === 'water' ? `
-            <select id="gen-state" style="width:200px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
-                ${US_STATES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${US_STATE_NAMES[s]}) — ${US_WATER_PROVIDERS[s].name}</option>`).join('')}
+            <button class="ck-proto-btn ${gen.waterCountry === 'US' ? 'active' : ''}" data-wcountry="US" style="height:28px;padding:2px 10px;font-size:11px">🇺🇸 USA</button>
+            <button class="ck-proto-btn ${gen.waterCountry === 'CA' ? 'active' : ''}" data-wcountry="CA" style="height:28px;padding:2px 10px;font-size:11px">🇨🇦 Canada</button>
+            <select id="gen-state" style="width:220px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+                ${gen.waterCountry === 'CA'
+                    ? CA_PROVINCES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${CA_PROVINCE_NAMES[s]}) — ${CA_WATER_PROVIDERS[s].name}</option>`).join('')
+                    : US_STATES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${US_STATE_NAMES[s]}) — ${US_WATER_PROVIDERS[s].name}</option>`).join('')}
             </select>` : `
             <select id="gen-pref" style="width:80px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
                 ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
@@ -3595,6 +3636,18 @@ function _renderGenerator() {
     });
     area.querySelectorAll('[data-billtype]').forEach(btn => {
         btn.addEventListener('click', () => { gen.type = btn.dataset.billtype; gen.billData = null; _renderGenerator(); });
+    });
+    // Water country toggle (USA / Canada)
+    area.querySelectorAll('[data-wcountry]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const newCountry = btn.dataset.wcountry;
+            if (gen.waterCountry !== newCountry) {
+                gen.waterCountry = newCountry;
+                gen.waterState = newCountry === 'CA' ? 'ON' : 'NY';
+                gen.billData = null;
+                _renderGenerator();
+            }
+        });
     });
     document.getElementById('gen-btn')?.addEventListener('click', () => {
         gen.name = document.getElementById('gen-name')?.value || '';
