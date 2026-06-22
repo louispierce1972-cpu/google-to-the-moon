@@ -11,46 +11,8 @@
     <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
-    <!-- LOGIN SCREEN -->
-    <div id="login-screen" class="login-screen">
-        <div class="login-particles"></div>
-        <div class="login-card">
-            <div class="login-logo">
-                <div class="logo-icon">
-                    <svg viewBox="0 0 40 40" fill="none">
-                        <rect x="4" y="8" width="32" height="24" rx="4" stroke="currentColor" stroke-width="2.5"/>
-                        <line x1="4" y1="16" x2="36" y2="16" stroke="currentColor" stroke-width="2.5"/>
-                        <circle cx="12" cy="24" r="2" fill="currentColor"/>
-                        <line x1="18" y1="23" x2="28" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <line x1="18" y1="26" x2="24" y2="26" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                </div>
-                <h1>CARD TRACKER</h1>
-                <p class="login-subtitle">Sign in to continue</p>
-            </div>
-            <form id="login-form" class="login-form">
-                <div class="input-group">
-                    <div class="input-wrapper">
-                        <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0H3z"/></svg>
-                        <input type="text" id="login-user" placeholder="Username" autocomplete="username" required>
-                    </div>
-                </div>
-                <div class="input-group">
-                    <div class="input-wrapper">
-                        <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                        <input type="password" id="login-pass" placeholder="Password" autocomplete="current-password" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn-login">
-                    <span>SIGN IN</span>
-                </button>
-                <p id="login-error" class="login-error"></p>
-            </form>
-        </div>
-    </div>
-
     <!-- MAIN APP -->
-    <div id="app" class="app hidden">
+    <div id="app" class="app">
         <!-- TOP NAV (trading-style) -->
         <nav id="top-nav" class="top-nav">
             <div class="tn-left">
@@ -83,7 +45,7 @@
                         <button id="restore-backup-btn">Import</button>
                         <button id="backup-btn">Backup</button>
                         <button id="delete-project-btn" class="danger">Delete</button>
-                        <button id="logout-btn">Logout</button>
+
                     </div>
                 </div>
             </div>

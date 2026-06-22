@@ -34,7 +34,7 @@ const STATE = {
 };
 
 
-const CREDENTIALS = { username: 'admin', password: 'google2026' };
+
 
 // ──── BIN CACHE (RustBin API) ────
 let BIN_CACHE = {};
@@ -8501,66 +8501,15 @@ countryCodeInput.addEventListener('keydown', (e) => {
 // ──── TRASH VIEW ────
 
 
-// ──── LOGOUT ────
-document.getElementById('logout-btn').addEventListener('click', () => {
-    STATE.user = null;
-    localStorage.removeItem('ct_session');
-    document.getElementById('app').classList.add('hidden');
-    document.getElementById('login-screen').classList.remove('hidden');
-    document.getElementById('login-user').value = '';
-    document.getElementById('login-pass').value = '';
-});
-
-// ──── LOGIN ────
-function doLogin() {
-    const user = document.getElementById('login-user').value;
-    const pass = document.getElementById('login-pass').value;
-
-    if (!user || !pass) return;
-
-    if (user === CREDENTIALS.username && pass === CREDENTIALS.password) {
-        STATE.user = user;
-        localStorage.setItem('ct_session', JSON.stringify({ user, ts: Date.now() }));
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
-        load();
-        // Navigate to hash-specified view or default workspace
-        const hashView = _getViewFromHash();
-        navigate(hashView || 'cards', STATE.currentCountry);
-        toast('Welcome back, Admin!', 'success');
-    } else {
-        document.getElementById('login-error').textContent = 'Invalid username or password';
-        setTimeout(() => document.getElementById('login-error').textContent = '', 3000);
-    }
-}
-
-// Handle form submit (Enter key)
-document.getElementById('login-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    doLogin();
-});
-
-// Handle button click directly (fallback for when form submit doesn't fire)
-document.querySelector('.btn-login').addEventListener('click', (e) => {
-    e.preventDefault();
-    doLogin();
-});
-
-// ──── AUTO-LOGIN (session persistence) ────
-(function autoLogin() {
-    try {
-        const session = JSON.parse(localStorage.getItem('ct_session'));
-        if (session && session.user) {
-            STATE.user = session.user;
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            load();
-            // Navigate to hash-specified view or default workspace
-            const hashView = _getViewFromHash();
-            navigate(hashView || 'cards', STATE.currentCountry);
-        }
-    } catch (e) { /* no valid session */ }
+// ──── DIRECT INITIALIZATION (no login) ────
+(function initApp() {
+    STATE.user = 'admin';
+    load();
+    // Navigate to hash-specified view or default workspace
+    const hashView = _getViewFromHash();
+    navigate(hashView || 'cards', STATE.currentCountry);
 })();
+
 
 // ──── KEYBOARD SHORTCUTS ────
 document.addEventListener('keydown', (e) => {
