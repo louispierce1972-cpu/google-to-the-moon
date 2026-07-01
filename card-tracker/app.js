@@ -9164,8 +9164,7 @@ function renderParser() {
             <span class="ps-item ps-test" id="ps-test-mode" style="display:none">🧪 Test: <strong id="ps-test-cards">0</strong> cards (<strong id="ps-test-bins">0</strong> BINs)</span>
         </div>
 
-        <!-- STAGE 2: COMPARE (shown after parse) -->
-        ${hasParsed ? `
+        <!-- STAGE 2: COMPARE — всегда видим, загрузка старой базы до парсинга -->
         <div class="pz-stage pz-stage-2">
             <div class="pz-stage-header">
                 <span class="pz-stage-num">2</span>
@@ -9180,7 +9179,7 @@ function renderParser() {
                 </div>
             </div>
             ${compareChipHtml ? `<div class="pz-chips">${compareChipHtml}</div>` : ''}
-        </div>` : ''}
+        </div>
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
