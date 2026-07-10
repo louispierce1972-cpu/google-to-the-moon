@@ -8527,8 +8527,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// ──── INIT ────
-load();
+// ──── INIT (load already called in initApp above) ────
 
 // ──── CROSS-TAB NOTES SYNC ────
 // When another browser tab saves notes to localStorage, pick up the changes
