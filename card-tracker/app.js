@@ -9086,7 +9086,10 @@ function renderParser() {
         <div class="parser-filters ${hasBase ? '' : 'pz-disabled'}">
             <div class="parser-filter-row">
                 <div class="parser-filter-group parser-filter-bins">
-                    <label>BINs <span class="parser-filter-hint">(comma separated)</span></label>
+                    <label>BINs <span class="parser-filter-hint">(comma separated)</span>
+                        <button class="pz-list-bins-btn" id="pz-list-bins-btn" type="button" title="Paste BIN list (one per line)">📋 LIST</button>
+                        <span class="pz-bins-badge" id="pz-bins-badge" style="display:none"></span>
+                    </label>
                     <textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610...">${PARSER_STATE.filters.bins || ''}</textarea>
                 </div>
                 <div class="parser-filter-group">
@@ -9325,6 +9328,13 @@ function renderParser() {
         document.getElementById(id)?.addEventListener('input', _saveParserFilters);
     });
 
+    // ── LIST BINS popup ──
+    document.getElementById('pz-list-bins-btn')?.addEventListener('click', () => {
+        _openBinListPopup();
+    });
+    // Update BIN badge on load
+    _updateBinsBadge();
+
     // (translated)
     document.getElementById('parser-test-mode')?.addEventListener('click', () => {
         PARSER_STATE.testMode = !PARSER_STATE.testMode;
@@ -9363,6 +9373,120 @@ function renderParser() {
     } else if (hasParsed) {
         renderParserResults();
     }
+}
+// ──── LIST BINS — popup для вставки BIN списком (столбиком) ────
+
+/** Обновляет бейдж кол-ва BIN рядом с кнопкой LIST */
+function _updateBinsBadge() {
+    const badge = document.getElementById('pz-bins-badge');
+    const binsEl = document.getElementById('parser-bins');
+    if (!badge || !binsEl) return;
+    const bins = binsEl.value.trim()
+        .split(/[\s,;|]+/)
+        .map(b => b.replace(/\D/g, '').slice(0, 6))
+        .filter(b => b.length >= 4);
+    if (bins.length > 0) {
+        badge.textContent = bins.length;
+        badge.style.display = '';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+/** Открывает popup для вставки BIN столбиком */
+function _openBinListPopup() {
+    // Если уже открыт — закрыть
+    const existing = document.getElementById('pz-bin-list-overlay');
+    if (existing) { existing.remove(); return; }
+
+    // Прочитать текущие BINs из поля и показать столбиком
+    const binsEl = document.getElementById('parser-bins');
+    const currentBins = binsEl ? binsEl.value.trim()
+        .split(/[\s,;|]+/)
+        .map(b => b.replace(/\D/g, '').slice(0, 6))
+        .filter(b => b.length >= 4) : [];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pz-bin-list-overlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="width:420px;max-width:90vw">
+            <div class="modal-header">
+                <div>
+                    <h3>📋 LIST BINS</h3>
+                    <p class="modal-subtitle">Вставь список BIN — каждый на новой строке</p>
+                </div>
+                <button class="modal-close" id="pz-bl-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <textarea id="pz-bl-textarea" class="list-textarea" rows="14"
+                    placeholder="Вставь BIN-ы столбиком:&#10;&#10;450003&#10;424242&#10;532610&#10;471539&#10;...&#10;&#10;Поддерживает 4-6 цифр">${currentBins.join('\n')}</textarea>
+                <div class="list-info" style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <span id="pz-bl-count" class="list-count-badge">${currentBins.length} BINs</span>
+                    <span style="font-size:11px;color:var(--text-muted)">Дубликаты удаляются автоматически</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex;gap:8px">
+                <button class="btn-cancel" id="pz-bl-cancel">Cancel</button>
+                <button class="pz-btn pz-btn-dim" id="pz-bl-clear" style="font-size:11px;padding:5px 12px">🗑 CLEAR ALL</button>
+                <span style="flex:1"></span>
+                <button class="pz-btn pz-btn-primary" id="pz-bl-apply">✅ APPLY</button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+
+    const ta = document.getElementById('pz-bl-textarea');
+    const countEl = document.getElementById('pz-bl-count');
+
+    // Счётчик при вводе
+    const updateCount = () => {
+        const bins = ta.value.trim().split(/[\s,;|]+/)
+            .map(b => b.replace(/\D/g, '').slice(0, 6))
+            .filter(b => b.length >= 4);
+        const unique = [...new Set(bins)];
+        countEl.textContent = `${unique.length} BINs`;
+    };
+    ta.addEventListener('input', updateCount);
+
+    // Закрытие
+    const close = () => overlay.remove();
+    document.getElementById('pz-bl-close').addEventListener('click', close);
+    document.getElementById('pz-bl-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // CLEAR ALL
+    document.getElementById('pz-bl-clear').addEventListener('click', () => {
+        ta.value = '';
+        updateCount();
+        // Также очистить основное поле
+        if (binsEl) binsEl.value = '';
+        _updateBinsBadge();
+        _saveParserFilters();
+        toast('BIN list cleared', 'info');
+    });
+
+    // APPLY
+    document.getElementById('pz-bl-apply').addEventListener('click', () => {
+        const bins = ta.value.trim().split(/[\s,;|]+/)
+            .map(b => b.replace(/\D/g, '').slice(0, 6))
+            .filter(b => b.length >= 4);
+        const unique = [...new Set(bins)];
+
+        if (binsEl) {
+            binsEl.value = unique.join(', ');
+        }
+        _updateBinsBadge();
+        _saveParserFilters();
+        close();
+        toast(`${unique.length} BINs loaded into filter`, 'success');
+    });
+
+    // Фокус на textarea
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
 }
 
 // ──── LOAD BASE FILE (supports multiple) ────
