@@ -10207,9 +10207,13 @@ function _parseCheckerOutput(text) {
 
     // (translated)
     function getStatus(line) {
-        if (/(?:✅|ALIVE|Approved|APPROVED)/i.test(line)) return 'alive';
-        if (/(?:💀|DEAD|Declined|DECLINED)/i.test(line)) return 'dead';
-        if (/(?:❌|INVALID|Invalid)/i.test(line)) return 'invalid';
+        if (/(?:\u2705|ALIVE|Approved|APPROVED)/iu.test(line)) return 'alive';
+        if (/(?:\u{1F480}|DEAD|Declined|DECLINED)/iu.test(line)) return 'dead';
+        if (/(?:\u274C|INVALID|Invalid)/iu.test(line)) return 'invalid';
+        // ⛔ format from Russian checker (Результаты проверки)
+        if (/\u26D4/u.test(line)) return 'dead';
+        // Lines with only CARD | and trash text but no emoji
+        if (/TRAN NOT ALLOWED|INV ACCT NUM|DO NOT TRY AGAIN|CANCELLED|NOT ALLOWED|NOPERMISSION|Card Issuer Declined/i.test(line)) return 'dead';
         return null;
     }
 
@@ -10278,7 +10282,10 @@ const _TRASH_KEYWORDS = [
     'DEAD','INVALID','DECLINED','DO NOT HONOR','DO NOT TRY AGAIN',
     'FRAUD','SUSPECTED FRAUD','CLOSED CARD','PROCESSOR DECLINED',
     'CARD ISSUER DECLINED','CALL ISSUER','INSUFFICIENT FUNDS',
-    'NOT HONOR','INSUFFICIENT_FUNDS'
+    'NOT HONOR','INSUFFICIENT_FUNDS',
+    // Russian checker bot keywords
+    'TRAN NOT ALLOWED','INV ACCT NUM','CANCELLED','NOT ALLOWED',
+    'NOPERMISSION','CARD ISSUER DECLINED CVV','TRANSACTION NOT ALLOWED'
 ];
 
 /* (translated) */
@@ -10309,13 +10316,17 @@ function _extractCC(line) {
  */
 function _detectCheckerFormat(text) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0).slice(0, 100);
-    let classic = 0, pipe = 0, block = 0;
+    let classic = 0, pipe = 0, block = 0, results = 0;
     for (const l of lines) {
         if (/^[\u2705\u{1F480}\u274C]/u.test(l) && /\b(ALIVE|DEAD|INVALID)\b/i.test(l)) classic++;
         if (/^\d{13,19}\s*\|/.test(l)) pipe++;
         if (/\u{1F7E9}{2,}|\u{1F7E5}{2,}/u.test(l)) block++;
+        // "Результаты проверки" format: CARD | Approved ✅ or CARD | ⛔
+        if (/^\d{13,19}\s*\|.*[\u2705\u26D4]/u.test(l) || /^Результаты\s+проверки/i.test(l)) results++;
     }
-    const found = [classic > 0 && 'classic', pipe > 0 && 'pipe', block > 0 && 'block'].filter(Boolean);
+    // If results format detected, prioritize it
+    if (results > 0 && classic === 0 && block === 0) return 'results';
+    const found = [classic > 0 && 'classic', pipe > 0 && 'pipe', block > 0 && 'block', results > 0 && 'results'].filter(Boolean);
     if (found.length === 0) return 'unknown';
     if (found.length === 1) return found[0];
     return 'mixed';
@@ -10381,9 +10392,59 @@ function _parseBlockFormat(text) {
 }
 
 /**
- * (translated)
- * (translated)
- * (translated)
+ * Parse "Результаты проверки" format from Russian checker bot.
+ * Handles single-line and multi-line patterns:
+ *   CARD | Approved ✅         → valid
+ *   CARD | TRAN NOT ALLOWED ⛔ → trash
+ *   CARD | ⛔                  → trash
+ *   CARD |                      → look at next line for ⛔/✅
+ */
+function _parseResultsFormat(text) {
+    const results = [];
+    const lines = text.split(/\r?\n/);
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Skip header
+        if (/^Результаты\s+проверки/i.test(line)) continue;
+
+        // Match: CARD_NUMBER | ...
+        const m = line.match(/^(\d{13,19})\s*\|\s*(.*)/);
+        if (!m) continue;
+
+        const cc = m[1];
+        let statusPart = m[2].trim();
+
+        // If statusPart is empty or has no emoji, check next line(s)
+        if (!statusPart || (!/[\u2705\u26D4]/u.test(statusPart) && !_lineIsTrash(statusPart))) {
+            for (let j = i + 1; j < lines.length && j <= i + 2; j++) {
+                const nextLine = lines[j].trim();
+                if (!nextLine) continue;
+                // If next line starts with a card number → new entry, stop
+                if (/^\d{13,19}/.test(nextLine)) break;
+                // If next line has status indicators, use it
+                if (/[\u2705\u26D4]/u.test(nextLine) || _lineIsTrash(nextLine)) {
+                    statusPart = nextLine;
+                    break;
+                }
+            }
+        }
+
+        // Determine status: ✅ or Approved = valid, everything else = trash
+        if (/\u2705/u.test(statusPart) || /\bapproved\b/i.test(statusPart)) {
+            results.push({ cc, status: 'valid' });
+        } else {
+            results.push({ cc, status: 'trash' });
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Multi-format parser — detects and runs all matching format parsers
  */
 function _parseMultiFormat(text) {
     const format = _detectCheckerFormat(text);
@@ -10391,6 +10452,7 @@ function _parseMultiFormat(text) {
     if (format === 'classic' || format === 'mixed' || format === 'unknown') all = all.concat(_parseClassicFormat(text));
     if (format === 'pipe'    || format === 'mixed') all = all.concat(_parsePipeFormat(text));
     if (format === 'block'   || format === 'mixed') all = all.concat(_parseBlockFormat(text));
+    if (format === 'results' || format === 'mixed') all = all.concat(_parseResultsFormat(text));
 
     // (translated)
     const statusMap = new Map();
