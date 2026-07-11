@@ -16,10 +16,6 @@
         <!-- TOP NAV (trading-style) -->
         <nav id="top-nav" class="top-nav">
             <div class="tn-left">
-                <div class="tn-country-wrap">
-                    <select id="tn-country" class="tn-country"></select>
-                    <button id="tn-country-del" class="tn-country-del" title="Delete country">✕</button>
-                </div>
             </div>
             <div class="tn-tabs" id="tn-tabs">
                 <a class="tn-tab active" data-view="cards" href="#workspace">Workspace</a>
@@ -41,7 +37,7 @@
                 <div class="tn-settings-wrap">
                     <button id="tn-settings-btn" class="tn-settings-btn">⚙</button>
                     <div id="tn-settings-dropdown" class="tn-dropdown hidden">
-                        <button id="add-country-btn">+ Country</button>
+
                         <button id="restore-backup-btn">Import</button>
                         <button id="backup-btn">Backup</button>
                         <button id="delete-project-btn" class="danger">Delete</button>
@@ -98,14 +94,7 @@
 
             <!-- FORM TAB -->
             <div id="form-tab" class="modal-body tab-content active">
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>Country</label>
-                        <select id="form-country" class="form-select">
-                            <!-- Options filled by JS -->
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" id="form-country" value="auto">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Name *</label>
@@ -191,12 +180,7 @@
 
             <!-- LIST TAB -->
             <div id="list-tab" class="modal-body tab-content">
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>Country</label>
-                        <select id="list-country" class="form-select"></select>
-                    </div>
-                </div>
+                <input type="hidden" id="list-country" value="auto">
                 <div class="form-group full-width">
                     <label>Paste any text with card data</label>
                     <textarea id="list-textarea" class="list-textarea" rows="8" placeholder="Paste anything — logs, lists, messages...&#10;&#10;Auto-detects:&#10;• Card numbers (13-19 digits)&#10;• Expiry (MM/YY, MM|YY)&#10;• CVV (3-4 digits)&#10;&#10;Examples:&#10;4242424242424242 12/28 123&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
@@ -276,12 +260,7 @@
                         <input type="text" id="edit-notes">
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>Country</label>
-                        <select id="edit-country"></select>
-                    </div>
-                </div>
+                <input type="hidden" id="edit-country" value="auto">
                 <div class="form-row">
                     <div class="form-group full-width">
                         <label>Mail Status</label>
@@ -394,35 +373,7 @@
         </div>
     </div>
 
-    <!-- ADD COUNTRY MODAL -->
-    <div id="add-country-overlay" class="modal-overlay hidden">
-        <div class="modal modal-sm">
-            <div class="modal-header">
-                <h3>ADD COUNTRY</h3>
-                <p class="modal-subtitle">Enter ISO 2-letter code (CA, US, AE, IT, DE...)</p>
-                <button class="modal-close" id="add-country-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Country Code *</label>
-                    <input type="text" id="new-country-code" class="country-code-input" placeholder="AE" maxlength="2" autofocus />
-                </div>
-                <div id="country-preview" class="country-preview hidden">
-                    <span id="country-preview-flag" class="country-preview-flag"></span>
-                    <span id="country-preview-name" class="country-preview-name"></span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-cancel" id="add-country-cancel">Cancel</button>
-                <button class="btn-primary" id="add-country-confirm">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"/></svg>
-                    ADD COUNTRY
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- ADD COUNTRY MODAL removed — BIN checker auto-detects country -->
 
     <!-- DELETE PROJECT MODAL -->
     <div id="delete-project-overlay" class="modal-overlay hidden">
@@ -495,10 +446,9 @@
             </div>
 
             <div class="modal-body" id="doc-list-tab">
+                <input type="hidden" id="doc-list-country" value="auto">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Country</label>
-                        <select id="doc-list-country" class="form-select"></select>
                     </div>
                     <div class="form-group">
                         <label>Document Type</label>

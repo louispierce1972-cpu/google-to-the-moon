@@ -6,11 +6,7 @@
 const STATE = {
     user: null,
     currentView: 'cards',
-    currentCountry: 'canada',
-    countries: [
-        { id: 'canada', name: 'Canada', flag: '🇨🇦' },
-        { id: 'usa', name: 'United States', flag: '🇺🇸' }
-    ],
+    countries: [],
     cards: [],
     docs: [],
     notes: '',
@@ -136,6 +132,41 @@ function formatBinInfoText(info) {
     return parts.join(' • ');
 }
 
+// ──── AUTO-RESOLVE COUNTRY FROM BIN ────
+// Looks up BIN for cards with country='auto' or empty country
+// and sets the 2-letter ISO country code from BIN API response
+async function autoResolveCardCountry(card) {
+    if (card.country && card.country !== 'auto') return; // already resolved
+    const bin = getBin(card.cardNumber);
+    if (!bin || bin.length < 6) return;
+    const info = await lookupBin(bin);
+    if (info && info.country) {
+        // BIN API returns 2-letter ISO code (e.g. "CA", "US", "GB")
+        card.country = info.country.toUpperCase();
+        save();
+    }
+}
+
+// Batch resolve countries for all 'auto' cards
+async function autoResolveAllCountries() {
+    const autoCards = STATE.cards.filter(c => !c.country || c.country === 'auto');
+    if (autoCards.length === 0) return;
+    let resolved = 0;
+    for (const card of autoCards) {
+        const bin = getBin(card.cardNumber);
+        if (!bin || bin.length < 6) continue;
+        const info = await lookupBin(bin);
+        if (info && info.country) {
+            card.country = info.country.toUpperCase();
+            resolved++;
+        }
+    }
+    if (resolved > 0) {
+        save();
+        renderAll();
+    }
+}
+
 // ──── COUNTRY DATABASE (ISO 3166-1 alpha-2) ────
 function isoToFlag(code) {
     return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(0x1F1E6 - 65 + ch.charCodeAt(0)));
@@ -252,9 +283,6 @@ function save() {
         localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
         localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
 
-        // ── Persist selected country ──
-        localStorage.setItem('ct_current_country', STATE.currentCountry);
-
         // ── Merge notes tabs with other browser tabs before saving ──
         // 1) Tabs in localStorage but NOT in our STATE → created by another tab, append them
         // 2) Tabs in both → sync title/content from storage if we're not actively editing them
@@ -317,14 +345,6 @@ function load() {
         if (saved) STATE.countries = JSON.parse(saved);
         const settings = localStorage.getItem('ct_settings');
         if (settings) STATE.settings = JSON.parse(settings);
-
-        // ── Restore selected country ──
-        const savedCountry = localStorage.getItem('ct_current_country');
-        if (savedCountry && STATE.countries.some(c => c.id === savedCountry)) {
-            STATE.currentCountry = savedCountry;
-        } else if (STATE.countries.length > 0) {
-            STATE.currentCountry = STATE.countries[0].id;
-        }
 
         // Load trashCards
         const trashCardsRaw = localStorage.getItem('ct_trash_cards');
@@ -396,6 +416,17 @@ function ensureDataIntegrity() {
     STATE.cards = STATE.cards.map(fixId);
     STATE.docs = STATE.docs.map(fixId);
     STATE.trash = STATE.trash.map(fixId);
+
+    // ── Migration: convert old country IDs to ISO 2-letter codes ──
+    const OLD_COUNTRY_MAP = { 'canada': 'CA', 'usa': 'US' };
+    function migrateCountryCode(item) {
+        if (item.country && OLD_COUNTRY_MAP[item.country]) {
+            item.country = OLD_COUNTRY_MAP[item.country];
+        }
+    }
+    STATE.cards.forEach(migrateCountryCode);
+    STATE.docs.forEach(migrateCountryCode);
+    STATE.trash.forEach(migrateCountryCode);
 
     // ── Migration: link existing cards ↔ docs ──
     // Ensure every doc has cardIds array
@@ -540,8 +571,9 @@ function getFilteredCards() {
     let cards = [];
     switch (STATE.currentView) {
         case 'cards':
-            // Exclude standaloneCard — only in All Cards, not Workspace
-            cards = STATE.cards.filter(c => c.country === STATE.currentCountry && !c.standaloneCard);
+            // Unified workspace — show all cards (no country filter)
+            cards = STATE.cards.filter(c => !c.standaloneCard);
+            if (_geoFilter !== 'all') cards = cards.filter(c => c.country === _geoFilter);
             break;
         case 'my-card':
             cards = STATE.cards.filter(c => !c.standaloneCard);
@@ -590,8 +622,9 @@ function getFilteredCards() {
             cards = [...STATE.trash];
             break;
         default:
-            // Exclude standaloneCard — only in All Cards, not Workspace
-            cards = STATE.cards.filter(c => c.country === STATE.currentCountry && !c.standaloneCard);
+            // Unified workspace — show all cards (no country filter)
+            cards = STATE.cards.filter(c => !c.standaloneCard);
+            if (_geoFilter !== 'all') cards = cards.filter(c => c.country === _geoFilter);
     }
 
     // Build usage maps for badges (Workspace indicators)
@@ -633,12 +666,9 @@ function getFilteredCards() {
 
 function getFilteredDocs() {
     let docs;
-    if (STATE.currentView === 'global-docs') {
-        docs = [...STATE.docs];
-        if (_geoFilter !== 'all') docs = docs.filter(d => d.country === _geoFilter);
-    } else {
-        docs = STATE.docs.filter(d => d.country === STATE.currentCountry);
-    }
+    // Unified workspace — show all docs, optional geo filter
+    docs = [...STATE.docs];
+    if (_geoFilter !== 'all') docs = docs.filter(d => d.country === _geoFilter);
     if (STATE.search.length >= 2) {
         const s = STATE.search.toLowerCase();
         docs = docs.filter(d => d.fullName.toLowerCase().includes(s) || (d.notes || '').toLowerCase().includes(s));
@@ -760,19 +790,6 @@ function getCountColor(count) {
 function renderSidebar() { renderTopNav(); }
 
 function renderTopNav() {
-    const sel = document.getElementById('tn-country');
-    if (sel) {
-        const prev = sel.value;
-        sel.innerHTML = STATE.countries.map(c => {
-            const cnt = STATE.cards.filter(card => card.country === c.id).length;
-            return `<option value="${c.id}">${c.flag} ${c.name} (${cnt})</option>`;
-        }).join('');
-        sel.value = STATE.currentCountry || (STATE.countries[0]?.id || '');
-        if (!prev) sel.value = STATE.currentCountry;
-    }
-    // Country delete button
-    const delBtn = document.getElementById('tn-country-del');
-    if (delBtn) delBtn.onclick = () => _confirmDeleteCountry(STATE.currentCountry);
     document.querySelectorAll('.tn-tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.view === STATE.currentView);
     });
@@ -788,10 +805,7 @@ document.querySelectorAll('.tn-tab').forEach(tab => {
     });
 });
 
-// Country dropdown
-document.getElementById('tn-country')?.addEventListener('change', function () {
-    navigate('cards', this.value);
-});
+// Country dropdown removed — unified workspace
 
 // Settings dropdown
 document.getElementById('tn-settings-btn')?.addEventListener('click', (e) => {
@@ -809,15 +823,21 @@ function updateTopBinsGeo() {
     const sel = document.getElementById('top-bins-geo');
     if (!sel) return;
     const current = sel.value;
-    const geos = new Set();
-    STATE.cards.forEach(c => { if (c.country) geos.add(c.country); });
+    // Collect unique country codes from cards
+    const geoMap = {};
+    STATE.cards.forEach(c => {
+        const code = c.country || '';
+        if (!code || code === 'auto') return;
+        const upper = code.toUpperCase();
+        if (!geoMap[upper]) {
+            const flag = COUNTRY_DB[upper] ? isoToFlag(upper) : '';
+            geoMap[upper] = { code: code, label: upper, flag };
+        }
+    });
 
     let html = '<option value="all">ALL</option>';
-    STATE.countries.forEach(c => {
-        if (geos.has(c.id)) {
-            const code = c.id === 'canada' ? 'CA' : c.id === 'usa' ? 'US' : c.id.slice(0, 2).toUpperCase();
-            html += `<option value="${c.id}">${code}</option>`;
-        }
+    Object.values(geoMap).forEach(g => {
+        html += `<option value="${g.code}">${g.flag} ${g.label}</option>`;
     });
     sel.innerHTML = html;
     // Restore previous selection if still valid
@@ -1309,7 +1329,7 @@ function renderAnalytics() {
     const DAY = 86400000;
 
     // Get all cards (current country)
-    const allCards = STATE.cards.filter(c => c.country === STATE.currentCountry);
+    const allCards = [...STATE.cards];
 
     // Period filter
     const periodMs = _anPeriod > 0 ? _anPeriod * DAY : 0;
@@ -3136,7 +3156,7 @@ function _bindGlueEvents() {
                 STATE.cards.push({
                     id: genId(), name: id.name || 'UNKNOWN', surname: id.surname || '',
                     cardNumber: c.ccn, month: c.mm, year: c.yy, cvv: c.cvv,
-                    country: STATE.currentCountry, cardType: c.network || getCardType(c.ccn),
+                    country: 'auto', cardType: c.network || getCardType(c.ccn),
                     docType: '', amount: '',
                     notes: [geo, id.address, id.zip, id.dob, id.phone, id.email].filter(Boolean).join(' | '),
                     date: todayStr(), cardAdd: false, runAds: false, verified: false, starred: false,
@@ -4858,13 +4878,13 @@ function renderContent() {
 
     const isTrash = STATE.currentView === 'trash';
     const showName = STATE.currentView !== 'my-card' || true;
-    const countryForBin = ['cards'].includes(STATE.currentView) ? STATE.currentCountry : null;
+    const countryForBin = null;
 
     let rows = pageCards.map((c, i) => {
         const idx = start + i + 1;
         const bin = getBin(c.cardNumber);
         const bc = binCount(bin, countryForBin);
-        const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+        const flag = c.country && c.country !== 'auto' && COUNTRY_DB[c.country.toUpperCase()] ? isoToFlag(c.country.toUpperCase()) : '';
         const binBadge = bc > 1 ? `<span class="name-count-badge ${getCountColor(bc)}">(${bc})</span>` : '';
         const binColorClass = getCountColor(bc);
 
@@ -5234,9 +5254,8 @@ function renderDocs() {
         return;
     }
 
-    const country = STATE.countries.find(c => c.id === STATE.currentCountry);
-    const flag = country?.flag || '';
-    const geoCode = STATE.currentCountry === 'canada' ? 'CA' : STATE.currentCountry === 'usa' ? 'US' : STATE.currentCountry.slice(0, 2).toUpperCase();
+    const flag = ''; // flags shown per-doc from BIN data
+    const geoCode = '';
 
     const getUseColor = (use) => {
         if (!use) return '';
@@ -5249,13 +5268,14 @@ function renderDocs() {
         const newBadge = d.docStatus === 'new'
             ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
             : '';
+        const docFlag = d.country && d.country !== 'auto' && COUNTRY_DB[d.country.toUpperCase()] ? isoToFlag(d.country.toUpperCase()) : '';
         return `
         <tr class="doc-row ${_selectedCards.has(d.id) ? 'row-selected' : ''}" data-id="${d.id}">
             <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${d.id}" ${_selectedCards.has(d.id) ? 'checked' : ''} onchange="toggleCardSelect('${d.id}', this.checked)"></label></td>
             <td>
                 <div class="card-cell">
                     <span class="card-name">
-                        <span class="flag">${flag}</span>
+                        <span class="flag">${docFlag}</span>
                         ${d.fullName}
                         ${newBadge}
                     </span>
@@ -5932,16 +5952,14 @@ function renderPageTitle() {
         return;
     }
 
-    const country = STATE.countries.find(c => c.id === STATE.currentCountry);
-
     switch (STATE.currentView) {
         case 'cards':
-            flagEl.textContent = country?.flag || '';
-            titleEl.textContent = `${country?.name || ''} — Workspace`;
+            flagEl.textContent = '💳';
+            titleEl.textContent = 'Workspace';
             break;
         case 'docs':
-            flagEl.textContent = country?.flag || '';
-            titleEl.textContent = `${country?.name || ''} — Documents`;
+            flagEl.textContent = '📄';
+            titleEl.textContent = 'Documents';
             break;
         case 'my-card':
             flagEl.textContent = '💳';
@@ -6003,7 +6021,8 @@ function renderPageTitle() {
 
 function renderGeoFilterBar() {
     let bar = document.getElementById('geo-filter-bar');
-    if (!['my-card', 'global-docs'].includes(STATE.currentView)) {
+    // Show geo filter on workspace & docs views for country filtering
+    if (!['cards', 'my-card', 'global-docs'].includes(STATE.currentView)) {
         if (bar) bar.remove();
         return;
     }
@@ -6017,16 +6036,29 @@ function renderGeoFilterBar() {
         parent.appendChild(bar);
     }
 
-    const geos = new Set();
-    const source = STATE.currentView === 'global-docs' ? STATE.docs : STATE.cards;
-    source.forEach(item => { if (item.country) geos.add(item.country); });
-
-    let html = `<button class="geo-btn ${_geoFilter === 'all' ? 'active' : ''}" onclick="setGeoFilter('all')">ALL</button>`;
-    STATE.countries.forEach(c => {
-        if (geos.has(c.id)) {
-            const code = c.id === 'canada' ? 'CA' : c.id === 'usa' ? 'US' : c.id.slice(0, 2).toUpperCase();
-            html += `<button class="geo-btn ${_geoFilter === c.id ? 'active' : ''}" onclick="setGeoFilter('${c.id}')">${code}</button>`;
+    // Collect unique countries from cards/docs using BIN-detected country codes
+    const geos = new Map(); // code → { flag, name, count }
+    const source = ['global-docs'].includes(STATE.currentView) ? STATE.docs : STATE.cards;
+    source.forEach(item => {
+        const code = item.country || '';
+        if (!code) return;
+        if (!geos.has(code)) {
+            // Resolve flag from BIN cache or COUNTRY_DB
+            const upper = code.toUpperCase();
+            const dbName = COUNTRY_DB[upper];
+            const flag = dbName ? isoToFlag(upper) : '';
+            const name = dbName || code;
+            geos.set(code, { flag, name, label: upper, count: 0 });
         }
+        geos.get(code).count++;
+    });
+
+    const totalCards = source.length;
+    let html = `<button class="geo-btn ${_geoFilter === 'all' ? 'active' : ''}" onclick="setGeoFilter('all')">ALL (${totalCards})</button>`;
+    // Sort by count descending
+    const sorted = [...geos.entries()].sort((a, b) => b[1].count - a[1].count);
+    sorted.forEach(([code, info]) => {
+        html += `<button class="geo-btn ${_geoFilter === code ? 'active' : ''}" onclick="setGeoFilter('${code}')">${info.flag || info.label} ${info.label} (${info.count})</button>`;
     });
     bar.innerHTML = html;
 }
@@ -6086,7 +6118,7 @@ window.addEventListener('hashchange', () => {
     }
 });
 
-function navigate(view, country) {
+function navigate(view) {
     // Auto-save active notes tab before leaving notes view
     if (STATE.currentView === 'notes') {
         const editor = document.getElementById('notes-editor');
@@ -6102,10 +6134,6 @@ function navigate(view, country) {
         }
     }
     STATE.currentView = view;
-    if (country) {
-        STATE.currentCountry = country;
-        localStorage.setItem('ct_current_country', country);
-    }
     STATE.page = 1;
     STATE.search = '';
     document.getElementById('search-input').value = '';
@@ -6115,25 +6143,20 @@ function navigate(view, country) {
 }
 
 window.expandCountry = function (id) {
-    // Just navigate to cards
-    navigate('cards', id);
+    // Set geo filter and navigate to workspace
+    _geoFilter = id;
+    navigate('cards');
 };
 
 window.deleteCountry = function (id) {
-    const country = STATE.countries.find(c => c.id === id);
-    if (!country) return;
+    // Remove all cards/docs with this country code
     STATE.cards = STATE.cards.filter(c => c.country !== id);
     STATE.docs = STATE.docs.filter(d => d.country !== id);
     STATE.trash = STATE.trash.filter(c => c.country !== id);
     STATE.countries = STATE.countries.filter(c => c.id !== id);
     save();
-    if (STATE.currentCountry === id) {
-        const next = STATE.countries[0]?.id || '';
-        navigate('cards', next);
-    } else {
-        renderAll();
-    }
-    toast(`Country "${country.name}" deleted`, 'info');
+    renderAll();
+    toast(`Country "${id}" cards deleted`, 'info');
 };
 
 function _confirmDeleteCountry(id) {
@@ -7004,11 +7027,9 @@ function openDocModal() {
     const overlay = document.getElementById('add-doc-overlay');
     overlay.classList.remove('hidden');
 
-    // Populate country dropdown
+    // Country auto-detected from BIN
     const countrySelect = document.getElementById('doc-list-country');
-    countrySelect.innerHTML = STATE.countries.map(c =>
-        `<option value="${c.id}" ${c.id === STATE.currentCountry ? 'selected' : ''}>${c.flag} ${c.name}</option>`
-    ).join('');
+    countrySelect.value = 'auto';
 
     // Reset fields
     document.getElementById('doc-list-type').value = 'PP';
@@ -7189,14 +7210,7 @@ function openAddCardOnlyModal() {
                 </button>
             </div>
             <div class="modal-body">
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>Country</label>
-                        <select id="ac-only-country" class="form-select">
-                            ${STATE.countries.map(c => `<option value="${c.id}" ${c.id === STATE.currentCountry ? 'selected' : ''}>${c.flag} ${c.name}</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" id="ac-only-country" value="auto">
                 <div class="form-row">
                     <div class="form-group full-width card-number-group">
                         <label>Card Number *</label>
@@ -7256,7 +7270,7 @@ function openAddCardOnlyModal() {
         const month   = document.getElementById('ac-only-month').value.trim();
         const year    = document.getElementById('ac-only-year').value.trim();
         const cvv     = document.getElementById('ac-only-cvv').value.trim();
-        const country = document.getElementById('ac-only-country').value;
+        const country = 'auto'; // BIN auto-detects
         const notes   = document.getElementById('ac-only-notes').value.trim();
 
         if (cardNum.length < 13 || !month || !year || !cvv) {
@@ -7291,6 +7305,8 @@ function openAddCardOnlyModal() {
         close();
         renderAll();
         toast('Card added to All Cards', 'success');
+        // Auto-detect country from BIN
+        autoResolveCardCountry(card).then(() => renderAll());
     };
 
     // (translated)
@@ -7328,12 +7344,7 @@ function resetForm() {
 }
 
 function populateCountrySelects() {
-    const formSel = document.getElementById('form-country');
-    const listSel = document.getElementById('list-country');
-    const opts = STATE.countries.map(c => `<option value="${c.id}" ${c.id === STATE.currentCountry ? 'selected' : ''}>${c.flag} ${c.name}</option>`).join('');
-    formSel.innerHTML = opts;
-    listSel.innerHTML = opts;
-
+    // Country selects removed — BIN auto-detects country
     // Populate doc select — static document types only
     const docSel = document.getElementById('form-doc');
     docSel.innerHTML = '<option value="">Select...</option><option value="PP">PP (Passport)</option><option value="DL">DL (Driver License)</option>';
@@ -7560,7 +7571,7 @@ document.getElementById('modal-save').addEventListener('click', () => {
             docType: null,
             amount: document.getElementById('form-amount').value || 0,
             notes: document.getElementById('form-notes').value,
-            country: document.getElementById('form-country').value,
+            country: 'auto',  // will be resolved from BIN lookup
             cardAdd: document.getElementById('form-status-add').checked,
             runAds: document.getElementById('form-status-ads').checked,
             verified: document.getElementById('form-status-verify').checked,
@@ -7584,13 +7595,15 @@ document.getElementById('modal-save').addEventListener('click', () => {
         const newRow = document.querySelector(`tr[data-id="${card.id}"]`);
         if (newRow) newRow.classList.add('row-new');
         toast('Card added successfully', 'success');
+        // Auto-detect country from BIN
+        autoResolveCardCountry(card).then(() => renderAll());
     } else {
         // Smart list mode
         if (_listParsedCards.length === 0) {
             toast('No valid cards found in text', 'error');
             return;
         }
-        const country = document.getElementById('list-country').value;
+        const country = 'auto';  // will be resolved from BIN lookup
         const statusAdd = document.getElementById('list-status-add').checked;
         const statusAds = document.getElementById('list-status-ads').checked;
         const statusVerify = document.getElementById('list-status-verify').checked;
@@ -7632,6 +7645,8 @@ document.getElementById('modal-save').addEventListener('click', () => {
                 if (i < added) tr.classList.add('row-new');
             });
             toast(`${added} cards added`, 'success');
+            // Auto-resolve countries for newly added cards
+            autoResolveAllCountries();
         } else {
             toast('All cards already exist (duplicates)', 'info');
         }
@@ -7678,11 +7693,9 @@ function openEditModal(card) {
     document.getElementById('edit-mail-verify').checked = card.mailVerify || false;
     document.getElementById('edit-mail-submit').checked = card.mailSubmit || false;
     document.getElementById('edit-mail-none').checked = card.mailNone || false;
-    // Populate country dropdown
+    // Country is auto-detected from BIN, just store current value
     const editCountrySel = document.getElementById('edit-country');
-    editCountrySel.innerHTML = STATE.countries.map(c =>
-        `<option value="${c.id}" ${c.id === card.country ? 'selected' : ''}>${c.flag} ${c.name}</option>`
-    ).join('');
+    editCountrySel.value = card.country || 'auto';
     // Clear old BIN info form element in edit modal
     const editBinEl = document.getElementById('edit-card-type-badge')?.parentElement?.querySelector('.bin-info-form');
     if (editBinEl) editBinEl.remove();
@@ -7879,8 +7892,8 @@ function performGlobalSearch(query) {
 
 window.globalSearchNavigate = function (view, country, searchTerm) {
     // Navigate to the correct view/country, clear search to show all
+    // Country filter removed — unified workspace
     STATE.currentView = view;
-    if (country) STATE.currentCountry = country;
     STATE.page = 1;
     STATE.search = '';
     globalSearchResults.classList.add('hidden');
@@ -8442,61 +8455,10 @@ document.getElementById('backup-btn').addEventListener('click', () => {
 
 
 
-// ──── ADD COUNTRY (custom modal) ────
-const addCountryOverlay = document.getElementById('add-country-overlay');
-const countryCodeInput = document.getElementById('new-country-code');
-const countryPreview = document.getElementById('country-preview');
-const countryPreviewFlag = document.getElementById('country-preview-flag');
-const countryPreviewName = document.getElementById('country-preview-name');
 
-document.getElementById('add-country-btn').addEventListener('click', () => {
-    countryCodeInput.value = '';
-    countryPreview.classList.add('hidden');
-    addCountryOverlay.classList.remove('hidden');
-    setTimeout(() => countryCodeInput.focus(), 100);
-});
+// ──── ADD COUNTRY (removed — BIN auto-detects) ────
+// Country modal elements removed from HTML. No-op.
 
-function closeAddCountry() {
-    addCountryOverlay.classList.add('hidden');
-}
-
-// Live preview when typing ISO code
-countryCodeInput.addEventListener('input', () => {
-    const code = countryCodeInput.value.trim().toUpperCase();
-    if (code.length === 2 && COUNTRY_DB[code]) {
-        countryPreviewFlag.textContent = isoToFlag(code);
-        countryPreviewName.textContent = COUNTRY_DB[code];
-        countryPreview.classList.remove('hidden');
-    } else {
-        countryPreview.classList.add('hidden');
-    }
-});
-
-document.getElementById('add-country-close').addEventListener('click', closeAddCountry);
-document.getElementById('add-country-cancel').addEventListener('click', closeAddCountry);
-addCountryOverlay.addEventListener('click', (e) => { if (e.target === addCountryOverlay) closeAddCountry(); });
-
-document.getElementById('add-country-confirm').addEventListener('click', () => {
-    const code = countryCodeInput.value.trim().toUpperCase();
-    if (!code || code.length !== 2) { toast('Enter a 2-letter country code', 'error'); return; }
-    if (!COUNTRY_DB[code]) { toast('Unknown country code', 'error'); return; }
-    const id = code.toLowerCase();
-    if (STATE.countries.find(c => c.id === id)) {
-        toast('Country already exists', 'error');
-        return;
-    }
-    const flag = isoToFlag(code);
-    const name = COUNTRY_DB[code];
-    STATE.countries.push({ id, name, flag });
-    save();
-    closeAddCountry();
-    renderAll();
-    toast(`${flag} ${name} added`, 'success');
-});
-
-countryCodeInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('add-country-confirm').click();
-});
 
 // ──── TRASH VIEW ────
 
@@ -8507,7 +8469,9 @@ countryCodeInput.addEventListener('keydown', (e) => {
     load();
     // Navigate to hash-specified view or default workspace
     const hashView = _getViewFromHash();
-    navigate(hashView || 'cards', STATE.currentCountry);
+    navigate(hashView || 'cards');
+    // Auto-resolve countries for any 'auto' cards
+    autoResolveAllCountries();
 })();
 
 
@@ -8520,7 +8484,6 @@ document.addEventListener('keydown', (e) => {
         backupOverlay.classList.add('hidden');
         pendingBackup = null;
         document.getElementById('checker-overlay').classList.add('hidden');
-        document.getElementById('add-country-overlay').classList.add('hidden');
         document.getElementById('delete-project-overlay').classList.add('hidden');
         document.getElementById('global-search-results').classList.add('hidden');
         document.body.style.overflow = '';
@@ -11467,7 +11430,7 @@ function getExpFromDropdowns(prefix) {
 // ──── ADD TO READY TO WORK ────
 
 function addCollectedToCards() {
-    const targetCountry = document.getElementById('parser-target-country')?.value || STATE.currentCountry;
+    const targetCountry = document.getElementById('parser-target-country')?.value || 'auto';
     const autoReplace = document.getElementById('parser-auto-replace')?.checked || false;
     const detectGeoFlag = true;
     const list = PARSER_STATE.collected;
