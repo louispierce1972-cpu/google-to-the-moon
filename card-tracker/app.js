@@ -10222,7 +10222,26 @@ function _parseCheckerOutput(text) {
     const cardIndices = [];
     for (let i = 0; i < lines.length; i++) {
         const t = lines[i].trim();
-        if (getStatus(t) !== null && extractCC(t) !== null) {
+        if (!t) continue;
+        const cc = extractCC(t);
+        if (!cc) continue;
+        let status = getStatus(t);
+        // Look-ahead for results format: CARD | (status on next line)
+        if (status === null && /\d{13,19}\s*\|/.test(t)) {
+            for (let j = i + 1; j < lines.length && j <= i + 2; j++) {
+                const nextLine = lines[j].trim();
+                if (!nextLine) continue;
+                if (/^\d{13,19}/.test(nextLine)) break; // next card, stop
+                const nextStatus = getStatus(nextLine);
+                if (nextStatus !== null) {
+                    // Temporarily inject the status marker into the line for later processing
+                    lines[i] = t + ' ' + nextLine;
+                    status = nextStatus;
+                    break;
+                }
+            }
+        }
+        if (status !== null) {
             cardIndices.push(i);
         }
     }
@@ -10315,18 +10334,20 @@ function _extractCC(line) {
  * (translated)
  */
 function _detectCheckerFormat(text) {
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0).slice(0, 100);
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0).slice(0, 300);
     let classic = 0, pipe = 0, block = 0, results = 0;
     for (const l of lines) {
         if (/^[\u2705\u{1F480}\u274C]/u.test(l) && /\b(ALIVE|DEAD|INVALID)\b/i.test(l)) classic++;
         if (/^\d{13,19}\s*\|/.test(l)) pipe++;
         if (/\u{1F7E9}{2,}|\u{1F7E5}{2,}/u.test(l)) block++;
-        // "Результаты проверки" format: CARD | Approved ✅ or CARD | ⛔
+        // "Результаты проверки" format: CARD | Approved ✅ or CARD | ⛔ or header line
         if (/^\d{13,19}\s*\|.*[\u2705\u26D4]/u.test(l) || /^Результаты\s+проверки/i.test(l)) results++;
+        // Also detect CARD | error_text (no emoji but known trash keywords on same line)
+        if (/^\d{13,19}\s*\|.*(?:TRAN NOT ALLOWED|INV ACCT NUM|Cancelled|DO NOT TRY|Card Issuer|NOT ALLOWED)/i.test(l)) results++;
     }
-    // If results format detected, prioritize it
+    // results + pipe overlap: results is more specific, always include it
     if (results > 0 && classic === 0 && block === 0) return 'results';
-    const found = [classic > 0 && 'classic', pipe > 0 && 'pipe', block > 0 && 'block', results > 0 && 'results'].filter(Boolean);
+    const found = [classic > 0 && 'classic', pipe > 0 && !results && 'pipe', block > 0 && 'block', results > 0 && 'results'].filter(Boolean);
     if (found.length === 0) return 'unknown';
     if (found.length === 1) return found[0];
     return 'mixed';
