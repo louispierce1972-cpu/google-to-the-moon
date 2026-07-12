@@ -3577,6 +3577,352 @@ function _renderWaterBillHTML(d, font) {
 </div>`;
 }
 
+// ═══════════════════════════════════════════
+//   CLEAN NAME — Multi-format Card+Name Parser
+// ═══════════════════════════════════════════
+
+/**
+ * Parse messy card+name input into clean records.
+ * Handles: numbered lists, Name:/Surname: blocks, inline name-card, etc.
+ * Returns: [{ card, mm, yy, cvv, name }]
+ */
+function _parseCleanNameRecords(rawText) {
+    const results = [];
+    const lines = rawText.split('\n').map(l => l.trim());
+
+    // ── helpers ──
+    function extractExpCvv(str) {
+        let m;
+        // MM/YYCVV  (no space: 04/27476 → 04, 27, 476)
+        m = str.match(/(\d{2})\s*[\/\-]\s*(\d{2})(\d{3,4})\s*$/);
+        if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
+        // MM/YY CVV
+        m = str.match(/(\d{2})\s*[\/\-]\s*(\d{2})\s+(\d{3,4})/);
+        if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
+        // MM YY CVV
+        m = str.match(/(\d{2})\s+(\d{2})\s+(\d{3,4})/);
+        if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
+        // MMYYCVV (7-8 contiguous digits)
+        m = str.match(/(\d{2})(\d{2})(\d{3,4})\s*$/);
+        if (m && parseInt(m[1]) >= 1 && parseInt(m[1]) <= 12) return { mm: m[1], yy: m[2], cvv: m[3] };
+        return null;
+    }
+
+    function titleCase(name) {
+        return name.trim().replace(/\s+/g, ' ')
+            .split(' ')
+            .map(w => {
+                if (/^(Jr|Jr\.|Sr|Sr\.|II|III|IV|W\.|W)$/i.test(w)) {
+                    return w.charAt(0).toUpperCase() + w.slice(1);
+                }
+                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+            })
+            .join(' ');
+    }
+
+    /**
+     * Find a card number in a string.
+     * Strategy:
+     *   1) Try contiguous 13-19 digit block first (e.g. 5191230183255208)
+     *   2) Try spaced groups like "5221 0082 7036 3919" (4x4 with spaces)
+     * Returns { num, endIdx } where endIdx is position after the card in the original string
+     */
+    function findCard(str) {
+        // Strategy 1: Contiguous digits (13-19)
+        const contig = str.match(/(\d{13,19})/);
+        if (contig) {
+            return { num: contig[1], endIdx: contig.index + contig[0].length };
+        }
+        // Strategy 2: Spaced card number like "5221 0082 7036 3919"
+        // Match exactly 4 groups of 4 digits separated by spaces
+        const spaced = str.match(/(\d{4}\s+\d{4}\s+\d{4}\s+\d{4})(?!\d)/);
+        if (spaced) {
+            const clean = spaced[1].replace(/\s+/g, '');
+            if (clean.length >= 13 && clean.length <= 19) {
+                return { num: clean, endIdx: spaced.index + spaced[0].length };
+            }
+        }
+        // Strategy 3: Shorter spaced (3 groups)
+        const spaced3 = str.match(/(\d{4}\s+\d{4}\s+\d{4,5})/);
+        if (spaced3) {
+            const clean = spaced3[1].replace(/\s+/g, '');
+            if (clean.length >= 13 && clean.length <= 19) {
+                return { num: clean, endIdx: spaced3.index + spaced3[0].length };
+            }
+        }
+        return null;
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+        if (!line) { i++; continue; }
+
+        // ── Pattern A: Numbered list "N. Name - CardNumber ExpCvv" ──
+        const numberedRe = /^\d+[\.\)]\s*(.+?)\s*[-–—]\s*(.+)$/;
+        const nm = line.match(numberedRe);
+        if (nm) {
+            const namePart = nm[1].trim();
+            const cardPart = nm[2].trim();
+            const card = findCard(cardPart);
+            if (card) {
+                const afterCard = cardPart.substring(card.endIdx).trim();
+                const ec = extractExpCvv(afterCard);
+                if (ec) {
+                    results.push({ card: card.num, mm: ec.mm, yy: ec.yy, cvv: ec.cvv, name: titleCase(namePart) });
+                    i++; continue;
+                }
+            }
+        }
+
+        // ── Pattern B: Non-numbered inline "Name - CardNumber ExpCvv" ──
+        const inlineRe = /^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s\.\-']+?)\s*[-–—]\s*(.+)$/;
+        const im = line.match(inlineRe);
+        if (im && !nm) {
+            const namePart = im[1].trim();
+            const cardPart = im[2].trim();
+            const card = findCard(cardPart);
+            if (card) {
+                const afterCard = cardPart.substring(card.endIdx).trim();
+                const ec = extractExpCvv(afterCard);
+                if (ec) {
+                    results.push({ card: card.num, mm: ec.mm, yy: ec.yy, cvv: ec.cvv, name: titleCase(namePart) });
+                    i++; continue;
+                }
+            }
+        }
+
+        // ── Pattern C: Card line + Name:/Surname: on next lines ──
+        const card = findCard(line);
+        if (card) {
+            const afterCard = line.substring(card.endIdx).trim();
+            const ec = extractExpCvv(afterCard);
+            if (ec) {
+                // Look ahead for Name:/Surname: lines
+                let firstName = '', lastName = '';
+                let j = i + 1;
+                const maxLook = Math.min(j + 5, lines.length);
+                while (j < maxLook) {
+                    const nl = lines[j];
+                    if (!nl) { j++; continue; }
+                    const mnm = nl.match(/^name\s*:\s*(.+)/i);
+                    const msn = nl.match(/^surname\s*:\s*(.+)/i);
+                    if (mnm) { firstName = mnm[1].trim(); j++; continue; }
+                    if (msn) { lastName = msn[1].trim(); j++; continue; }
+                    break;
+                }
+                const fullName = [firstName, lastName].filter(Boolean).join(' ');
+                results.push({ card: card.num, mm: ec.mm, yy: ec.yy, cvv: ec.cvv, name: fullName ? titleCase(fullName) : '' });
+                i = (firstName || lastName) ? j : i + 1;
+                continue;
+            }
+        }
+        i++;
+    }
+    return results;
+}
+
+function _renderCleanNameTool() {
+    const area = document.getElementById('content-area');
+    const bar = document.getElementById('stats-bar');
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    const gen = _CK.generator;
+
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', generator: 'Generator' };
+
+    // Retrieve previous state
+    const savedInput = _CK._cleanNameInput || '';
+    const savedOutput = _CK._cleanNameOutput || '';
+    const savedCount = savedOutput ? savedOutput.split('\n').filter(Boolean).length / 2 : 0;
+
+    area.innerHTML = `
+    <div class="ck-container">
+        <div class="ck-header">
+            <div class="ck-title">
+                <span class="ck-icon">🧹</span>
+                <span>CLEAN NAME</span>
+            </div>
+            <div class="ck-modes">
+                ${Object.keys(modeIcons).map(m => `
+                    <button class="ck-mode-btn ${_CK.mode === m ? 'active' : ''}" data-mode="${m}">
+                        <span class="ck-mode-icon">${modeIcons[m]}</span>
+                        <span class="ck-mode-label">${modeLabels[m]}</span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="ck-proto-bar">
+            <span class="ck-proto-label">Type:</span>
+            <button class="ck-proto-btn" data-billtype="tepco">⚡ TEPCO Electricity</button>
+            <button class="ck-proto-btn" data-billtype="water">💧 Water Bill</button>
+            <button class="ck-proto-btn" data-billtype="creditcard">💳 Credit Card</button>
+            <button class="ck-proto-btn" data-billtype="driverlicense">🪪 Driver License</button>
+            <button class="ck-proto-btn" data-billtype="zipprocessor">📦 ZIP Processor</button>
+            <button class="ck-proto-btn" data-billtype="bankstatement">🏦 Bank Statement</button>
+            <button class="ck-proto-btn active" data-billtype="cleanname">🧹 Clean Name</button>
+        </div>
+
+        <div class="ck-workspace">
+            <div class="ck-panel ck-input-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">📥 RAW INPUT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count" id="cn-input-count">0 lines</span>
+                        <button class="ck-action-btn" id="cn-paste-btn" title="Paste from clipboard">📋 Paste</button>
+                        <button class="ck-action-btn ck-btn-danger" id="cn-clear-btn" title="Clear">✕</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea" id="cn-input" placeholder="Paste any messy card + name list here...
+
+Supported formats:
+
+• 5191230183255208 09 27 692
+  Name: Travis Allen
+  Surname: Jakeway
+
+• 1. Gilbey Bonachea Cabrera- 4520340098766655 10 30 563
+  2. Stuart Saward-4538264078002024 09 28 908
+
+• 5221 0082 7036 3919 09/29 279
+  Name: Jerry W. Jr
+  Surname: Lamm
+
+• Marc Joseph Lauria-5446 1475 6544 8990 04/27476
+
+All formats auto-detected • Output: clean card + cardholder name">${savedInput}</textarea>
+            </div>
+
+            <div class="ck-center-actions">
+                <button class="ck-convert-btn" id="cn-convert-btn">
+                    <span class="ck-convert-arrow">→</span>
+                    <span class="ck-convert-text">CLEAN</span>
+                </button>
+            </div>
+
+            <div class="ck-panel ck-output-panel">
+                <div class="ck-panel-header">
+                    <span class="ck-panel-title">📤 CLEAN OUTPUT</span>
+                    <div class="ck-panel-actions">
+                        <span class="ck-count ${savedCount > 0 ? 'ck-count-active' : ''}" id="cn-output-count">${savedCount} cards</span>
+                        <button class="ck-action-btn ck-btn-copy" id="cn-copy-btn" title="Copy output" ${!savedOutput ? 'disabled' : ''}>📋 Copy</button>
+                    </div>
+                </div>
+                <textarea class="ck-textarea ck-output-text" id="cn-output" readonly placeholder="Clean output will appear here...
+
+Format:
+5524890025769266 04 29 499
+Yanthuan Almenares
+
+Each card = 2 lines (card data + cardholder name)">${savedOutput}</textarea>
+            </div>
+        </div>
+    </div>`;
+
+    // ── Bind events ──
+
+    // Mode buttons
+    area.querySelectorAll('.ck-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _CK.mode = btn.dataset.mode;
+            _updateSubHashSilent();
+            if (_CK.mode === 'glue') _renderGlue();
+            else if (_CK.mode === 'cc-glue') _renderCCGlue();
+            else if (_CK.mode === 'generator') _renderGenerator();
+            else renderChecker();
+        });
+    });
+
+    // Bill type buttons (generator sub-types)
+    area.querySelectorAll('[data-billtype]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            gen.type = btn.dataset.billtype;
+            gen.billData = null;
+            _updateSubHashSilent();
+            _renderGenerator();
+        });
+    });
+
+    // Input counting
+    const inputEl = document.getElementById('cn-input');
+    const updateInputCount = () => {
+        const c = (inputEl.value || '').split('\n').filter(l => l.trim()).length;
+        document.getElementById('cn-input-count').textContent = `${c} lines`;
+    };
+    inputEl?.addEventListener('input', updateInputCount);
+    updateInputCount();
+
+    // Paste
+    document.getElementById('cn-paste-btn')?.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            inputEl.value = text;
+            _CK._cleanNameInput = text;
+            updateInputCount();
+            toast('Pasted from clipboard', 'success');
+        } catch { toast('Clipboard access denied', 'error'); }
+    });
+
+    // Clear
+    document.getElementById('cn-clear-btn')?.addEventListener('click', () => {
+        inputEl.value = '';
+        document.getElementById('cn-output').value = '';
+        _CK._cleanNameInput = '';
+        _CK._cleanNameOutput = '';
+        document.getElementById('cn-input-count').textContent = '0 lines';
+        document.getElementById('cn-output-count').textContent = '0 cards';
+        document.getElementById('cn-output-count').classList.remove('ck-count-active');
+        document.getElementById('cn-copy-btn').disabled = true;
+    });
+
+    // CLEAN button — the main action
+    document.getElementById('cn-convert-btn')?.addEventListener('click', () => {
+        const raw = inputEl.value.trim();
+        if (!raw) { toast('Paste card data first', 'warning'); return; }
+
+        const records = _parseCleanNameRecords(raw);
+        if (records.length === 0) { toast('No cards found in input', 'error'); return; }
+
+        // Build output: card line + name line, separated by blank line between records
+        const outputLines = records.map(r => {
+            const cardLine = `${r.card} ${r.mm} ${r.yy} ${r.cvv}`;
+            const nameLine = r.name || 'UNKNOWN';
+            return `${cardLine}\n${nameLine}`;
+        }).join('\n\n');
+
+        document.getElementById('cn-output').value = outputLines;
+        _CK._cleanNameInput = raw;
+        _CK._cleanNameOutput = outputLines;
+
+        const countEl = document.getElementById('cn-output-count');
+        countEl.textContent = `${records.length} cards`;
+        countEl.classList.add('ck-count-active');
+        document.getElementById('cn-copy-btn').disabled = false;
+
+        toast(`${records.length} cards cleaned!`, 'success');
+    });
+
+    // Copy
+    document.getElementById('cn-copy-btn')?.addEventListener('click', () => {
+        const text = document.getElementById('cn-output').value;
+        if (!text) { toast('Nothing to copy', 'warning'); return; }
+        navigator.clipboard.writeText(text).then(() => {
+            const c = text.split('\n').filter(l => l.trim()).length;
+            toast(`Copied ${Math.floor(c / 2)} cards!`, 'success');
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            toast('Copied!', 'success');
+        });
+    });
+}
+
 function _renderGenerator() {
     // Route to Credit Card generator
     if (_CK.generator.type === 'creditcard') { _renderCreditCardGenerator(); return; }
