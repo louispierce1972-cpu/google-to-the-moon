@@ -148,8 +148,8 @@ function _ccgBindEvents() {
     var area = document.getElementById('content-area');
     var gen = _CK.generator, ccg = gen.ccg;
 
-    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
-    area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_renderGenerator();});});
+    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
+    area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_updateSubHashSilent();_renderGenerator();});});
 
     function lu(){
         var fw=document.getElementById('ccg-front-card'),bw=document.getElementById('ccg-back-card');

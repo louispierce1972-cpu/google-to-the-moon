@@ -1693,7 +1693,7 @@ const _CK = {
     },
     // GENERATOR state
     generator: {
-        type: 'tepco',         // tepco | water | creditcard | bankstatement
+        type: 'tepco',         // tepco | water | creditcard | bankstatement | cleanname
         name: '',
         postalCode: '',
         streetAddress: '',
@@ -2740,6 +2740,7 @@ function _bindCCGlueEvents() {
     area.querySelectorAll('.ck-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             _CK.mode = btn.dataset.mode;
+            _updateSubHashSilent();
             if (_CK.mode === 'glue') _renderGlue();
             else if (_CK.mode === 'cc-glue') _renderCCGlue();
             else if (_CK.mode === 'generator') _renderGenerator();
@@ -3065,6 +3066,7 @@ function _bindGlueEvents() {
     area.querySelectorAll('.ck-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             _CK.mode = btn.dataset.mode;
+            _updateSubHashSilent();
             if (_CK.mode === 'glue') _renderGlue();
             else renderChecker();
         });
@@ -3584,6 +3586,8 @@ function _renderGenerator() {
     if (_CK.generator.type === 'zipprocessor') { _renderZipProcessor(); return; }
     // Route to Bank Statement generator
     if (_CK.generator.type === 'bankstatement') { _renderBankStatementGenerator(); return; }
+    // Route to Clean Name formatter
+    if (_CK.generator.type === 'cleanname') { _renderCleanNameTool(); return; }
 
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
@@ -3619,6 +3623,7 @@ function _renderGenerator() {
             <button class="ck-proto-btn ${gen.type === 'driverlicense' ? 'active' : ''}" data-billtype="driverlicense">🪪 Driver License</button>
             <button class="ck-proto-btn ${gen.type === 'zipprocessor' ? 'active' : ''}" data-billtype="zipprocessor">📦 ZIP Processor</button>
             <button class="ck-proto-btn ${gen.type === 'bankstatement' ? 'active' : ''}" data-billtype="bankstatement">🏦 Bank Statement</button>
+            <button class="ck-proto-btn ${gen.type === 'cleanname' ? 'active' : ''}" data-billtype="cleanname">🧹 Clean Name</button>
         </div>
 
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">
@@ -3652,10 +3657,10 @@ function _renderGenerator() {
 
     // Bind events
     area.querySelectorAll('.ck-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => { _CK.mode = btn.dataset.mode; if (_CK.mode === 'glue') _renderGlue(); else if (_CK.mode === 'cc-glue') _renderCCGlue(); else if (_CK.mode === 'generator') _renderGenerator(); else renderChecker(); });
+        btn.addEventListener('click', () => { _CK.mode = btn.dataset.mode; _updateSubHashSilent(); if (_CK.mode === 'glue') _renderGlue(); else if (_CK.mode === 'cc-glue') _renderCCGlue(); else if (_CK.mode === 'generator') _renderGenerator(); else renderChecker(); });
     });
     area.querySelectorAll('[data-billtype]').forEach(btn => {
-        btn.addEventListener('click', () => { gen.type = btn.dataset.billtype; gen.billData = null; _renderGenerator(); });
+        btn.addEventListener('click', () => { gen.type = btn.dataset.billtype; gen.billData = null; _updateSubHashSilent(); _renderGenerator(); });
     });
     // Water country toggle (USA / Canada)
     area.querySelectorAll('[data-wcountry]').forEach(btn => {
@@ -3934,6 +3939,7 @@ function renderChecker() {
         btn.addEventListener('click', () => {
             _ckSaveInput();
             _CK.mode = btn.dataset.mode;
+            _updateSubHashSilent();
             renderChecker();
         });
     });
@@ -6077,7 +6083,7 @@ function renderAll() {
 }
 
 // ──── NAVIGATION ────
-// ──── HASH ROUTING ────
+// ──── HASH ROUTING (with sub-routes) ────
 // Maps friendly hash names ↔ internal view names
 const HASH_TO_VIEW = {
     'workspace':     'cards',
@@ -6096,24 +6102,121 @@ const VIEW_TO_HASH = Object.fromEntries(
     Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
 );
 
-function _getViewFromHash() {
+// Valid checker sub-modes that map to _CK.mode
+const CHECKER_SUBMODES = ['proxy', 'bin', 'card', 'ip', 'auto', 'glue', 'cc-glue'];
+// Valid generator sub-types that map to _CK.generator.type
+const GENERATOR_SUBTYPES = ['tepco', 'water', 'creditcard', 'driverlicense', 'zipprocessor', 'bankstatement', 'cleanname'];
+
+/**
+ * Parse hash into { view, subMode }.
+ * Examples:
+ *   #checker           → { view: 'checker', subMode: null }
+ *   #checker/proxy     → { view: 'checker', subMode: 'proxy' }
+ *   #checker/creditcard→ { view: 'checker', subMode: 'creditcard' }  (generator sub-type)
+ *   #workspace         → { view: 'cards',   subMode: null }
+ */
+function _parseHash() {
     const raw = (window.location.hash || '').replace(/^#/, '').toLowerCase();
-    return HASH_TO_VIEW[raw] || null;
+    if (!raw) return { view: null, subMode: null };
+
+    const parts = raw.split('/');
+    const baseHash = parts[0];
+    const sub = parts[1] || null;
+
+    const view = HASH_TO_VIEW[baseHash] || null;
+    return { view, subMode: sub };
+}
+
+function _getViewFromHash() {
+    return _parseHash().view;
+}
+
+/**
+ * Build full hash for current view + checker/generator sub-mode.
+ */
+function _buildHash(view) {
+    const h = VIEW_TO_HASH[view] || 'workspace';
+
+    // For checker view, append sub-mode
+    if (view === 'checker') {
+        const mode = _CK.mode || 'proxy';
+        if (mode === 'generator') {
+            // Append generator sub-type: #checker/creditcard, #checker/tepco, etc.
+            const genType = _CK.generator.type || 'tepco';
+            return h + '/' + genType;
+        }
+        // Regular checker mode: #checker/proxy, #checker/bin, etc.
+        return h + '/' + mode;
+    }
+    return h;
 }
 
 function _setHashSilent(view) {
-    const h = VIEW_TO_HASH[view] || 'workspace';
+    const h = _buildHash(view);
     // Avoid triggering hashchange listener
     window._hashNav = true;
     window.location.hash = '#' + h;
     setTimeout(() => { window._hashNav = false; }, 50);
 }
 
+/**
+ * Update only the sub-hash without triggering a full navigation.
+ * Called when switching checker modes or generator types.
+ */
+function _updateSubHashSilent() {
+    if (STATE.currentView !== 'checker') return;
+    const h = _buildHash('checker');
+    window._hashNav = true;
+    window.location.hash = '#' + h;
+    setTimeout(() => { window._hashNav = false; }, 50);
+}
+
+/**
+ * Apply sub-mode from hash to _CK state.
+ * Called during navigation to checker view.
+ */
+function _applyCheckerSubMode(subMode) {
+    if (!subMode) return;
+
+    // Check if it's a direct checker mode
+    if (CHECKER_SUBMODES.includes(subMode)) {
+        _CK.mode = subMode;
+        return;
+    }
+    // Check if it's a generator sub-type
+    if (GENERATOR_SUBTYPES.includes(subMode)) {
+        _CK.mode = 'generator';
+        _CK.generator.type = subMode;
+        return;
+    }
+    // 'generator' as sub-mode → default to tepco
+    if (subMode === 'generator') {
+        _CK.mode = 'generator';
+        return;
+    }
+}
+
 // Listen for browser back/forward navigation
 window.addEventListener('hashchange', () => {
     if (window._hashNav) return; // skip our own updates
-    const view = _getViewFromHash();
-    if (view && view !== STATE.currentView) {
+    const { view, subMode } = _parseHash();
+    if (!view) return;
+
+    if (view === 'checker' && STATE.currentView === 'checker') {
+        // Same view, but sub-mode may have changed (browser back/forward within checker)
+        const prevMode = _CK.mode;
+        const prevGenType = _CK.generator.type;
+        _applyCheckerSubMode(subMode);
+        if (_CK.mode !== prevMode || _CK.generator.type !== prevGenType) {
+            renderChecker();
+        }
+        return;
+    }
+
+    if (view !== STATE.currentView) {
+        if (view === 'checker' && subMode) {
+            _applyCheckerSubMode(subMode);
+        }
         navigate(view);
     }
 });
@@ -8468,7 +8571,11 @@ document.getElementById('backup-btn').addEventListener('click', () => {
     STATE.user = 'admin';
     load();
     // Navigate to hash-specified view or default workspace
-    const hashView = _getViewFromHash();
+    // Parse sub-routes (e.g. #checker/creditcard → checker view + creditcard generator)
+    const { view: hashView, subMode } = _parseHash();
+    if (hashView === 'checker' && subMode) {
+        _applyCheckerSubMode(subMode);
+    }
     navigate(hashView || 'cards');
     // Auto-resolve countries for any 'auto' cards
     autoResolveAllCountries();

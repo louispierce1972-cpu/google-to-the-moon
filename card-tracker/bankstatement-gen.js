@@ -149,8 +149,8 @@ function _renderBankStatementGenerator(){
 
 function _bsBind(){
     var area=document.getElementById('content-area'),gen=_CK.generator;
-    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
-    area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_renderGenerator();});});
+    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
+    area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_updateSubHashSilent();_renderGenerator();});});
     var bs=document.getElementById('bs-bank');if(bs)bs.addEventListener('change',function(){_BS.bank=this.value;_BS.generated=false;_renderBankStatementGenerator();});
     var li=document.getElementById('bs-logo-input');if(li)li.addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){_BS.logoImage=ev.target.result;_renderBankStatementGenerator();};r.readAsDataURL(f);});
     var flds={'bs-name':'holderName','bs-card':'cardNumber','bs-acct':'accountNumber','bs-routing':'routingNumber','bs-addr1':'address1','bs-addr2':'address2','bs-city':'city','bs-state':'state','bs-zip':'zip','bs-from':'dateFrom','bs-to':'dateTo','bs-actype':'accountType','bs-opened':'dateOpened'};

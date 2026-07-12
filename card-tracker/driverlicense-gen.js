@@ -341,8 +341,8 @@ function _dlBindEvents(){
     var gen=_CK.generator,dl=_dlEnsureState();
     var sel=(dl.batch.length&&dl.selectedIdx>=0&&dl.selectedIdx<dl.batch.length)?dl.batch[dl.selectedIdx]:dl;
 
-    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
-    area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_renderGenerator();});});
+    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
+    area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_updateSubHashSilent();_renderGenerator();});});
 
     // Batch generate
     var el;
