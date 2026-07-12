@@ -6459,23 +6459,25 @@ const CHECKER_SUBMODES = ['proxy', 'bin', 'card', 'ip', 'auto', 'glue', 'cc-glue
 const GENERATOR_SUBTYPES = ['tepco', 'water', 'creditcard', 'driverlicense', 'zipprocessor', 'bankstatement', 'cleanname'];
 
 /**
- * Parse hash into { view, subMode }.
- * Examples:
- *   #checker           → { view: 'checker', subMode: null }
- *   #checker/proxy     → { view: 'checker', subMode: 'proxy' }
- *   #checker/creditcard→ { view: 'checker', subMode: 'creditcard' }  (generator sub-type)
- *   #workspace         → { view: 'cards',   subMode: null }
+ * Parse hash into { view, subMode, subType }.
+ * Supports 3-level deep links:
+ *   #checker                          → { view: 'checker', subMode: null,        subType: null }
+ *   #checker/proxy                    → { view: 'checker', subMode: 'proxy',     subType: null }
+ *   #checker/generator                → { view: 'checker', subMode: 'generator', subType: null }
+ *   #checker/generator/creditcard     → { view: 'checker', subMode: 'generator', subType: 'creditcard' }
+ *   #workspace                        → { view: 'cards',   subMode: null,        subType: null }
  */
 function _parseHash() {
-    const raw = (window.location.hash || '').replace(/^#/, '').toLowerCase();
-    if (!raw) return { view: null, subMode: null };
+    const raw = (window.location.hash || '').replace(/^#/, '').replace(/\?.*$/, '').toLowerCase();
+    if (!raw) return { view: null, subMode: null, subType: null };
 
     const parts = raw.split('/');
     const baseHash = parts[0];
     const sub = parts[1] || null;
+    const subType = parts[2] || null;
 
     const view = HASH_TO_VIEW[baseHash] || null;
-    return { view, subMode: sub };
+    return { view, subMode: sub, subType: subType };
 }
 
 function _getViewFromHash() {
@@ -6484,6 +6486,8 @@ function _getViewFromHash() {
 
 /**
  * Build full hash for current view + checker/generator sub-mode.
+ * Format: #checker/generator/creditcard (3-level for generators)
+ *         #checker/proxy               (2-level for checker modes)
  */
 function _buildHash(view) {
     const h = VIEW_TO_HASH[view] || 'workspace';
@@ -6492,11 +6496,11 @@ function _buildHash(view) {
     if (view === 'checker') {
         const mode = _CK.mode || 'proxy';
         if (mode === 'generator') {
-            // Append generator sub-type: #checker/creditcard, #checker/tepco, etc.
+            // 3-level: #checker/generator/creditcard
             const genType = _CK.generator.type || 'tepco';
-            return h + '/' + genType;
+            return h + '/generator/' + genType;
         }
-        // Regular checker mode: #checker/proxy, #checker/bin, etc.
+        // 2-level: #checker/proxy, #checker/glue, etc.
         return h + '/' + mode;
     }
     return h;
@@ -6524,25 +6528,30 @@ function _updateSubHashSilent() {
 
 /**
  * Apply sub-mode from hash to _CK state.
- * Called during navigation to checker view.
+ * Supports both 2-level (#checker/proxy) and 3-level (#checker/generator/creditcard).
  */
-function _applyCheckerSubMode(subMode) {
+function _applyCheckerSubMode(subMode, subType) {
     if (!subMode) return;
 
-    // Check if it's a direct checker mode
+    // 3-level: #checker/generator/creditcard
+    if (subMode === 'generator') {
+        _CK.mode = 'generator';
+        if (subType && GENERATOR_SUBTYPES.includes(subType)) {
+            _CK.generator.type = subType;
+        }
+        return;
+    }
+
+    // 2-level: #checker/proxy, #checker/glue, etc.
     if (CHECKER_SUBMODES.includes(subMode)) {
         _CK.mode = subMode;
         return;
     }
-    // Check if it's a generator sub-type
+
+    // Legacy fallback: 2-level #checker/creditcard → treat as generator sub-type
     if (GENERATOR_SUBTYPES.includes(subMode)) {
         _CK.mode = 'generator';
         _CK.generator.type = subMode;
-        return;
-    }
-    // 'generator' as sub-mode → default to tepco
-    if (subMode === 'generator') {
-        _CK.mode = 'generator';
         return;
     }
 }
@@ -6550,14 +6559,14 @@ function _applyCheckerSubMode(subMode) {
 // Listen for browser back/forward navigation
 window.addEventListener('hashchange', () => {
     if (window._hashNav) return; // skip our own updates
-    const { view, subMode } = _parseHash();
+    const { view, subMode, subType } = _parseHash();
     if (!view) return;
 
     if (view === 'checker' && STATE.currentView === 'checker') {
         // Same view, but sub-mode may have changed (browser back/forward within checker)
         const prevMode = _CK.mode;
         const prevGenType = _CK.generator.type;
-        _applyCheckerSubMode(subMode);
+        _applyCheckerSubMode(subMode, subType);
         if (_CK.mode !== prevMode || _CK.generator.type !== prevGenType) {
             renderChecker();
         }
@@ -6566,7 +6575,7 @@ window.addEventListener('hashchange', () => {
 
     if (view !== STATE.currentView) {
         if (view === 'checker' && subMode) {
-            _applyCheckerSubMode(subMode);
+            _applyCheckerSubMode(subMode, subType);
         }
         navigate(view);
     }
@@ -8918,19 +8927,24 @@ document.getElementById('backup-btn').addEventListener('click', () => {
 
 
 // ──── DIRECT INITIALIZATION (no login) ────
-(function initApp() {
-    STATE.user = 'admin';
-    load();
-    // Navigate to hash-specified view or default workspace
-    // Parse sub-routes (e.g. #checker/creditcard → checker view + creditcard generator)
-    const { view: hashView, subMode } = _parseHash();
+// Phase 1: Immediately init state (needed by code that runs at parse time)
+STATE.user = 'admin';
+load();
+
+// Phase 2: Defer navigation to window.onload — guarantees ALL external scripts
+// (creditcard-gen.js, driverlicense-gen.js, bankstatement-gen.js, zip-processor.js)
+// are fully parsed before we try to render via deep links.
+// Without this, #checker/generator/creditcard shows a black screen because
+// _renderCreditCardGenerator() doesn't exist yet when app.js parses.
+window.addEventListener('load', function _initNavigation() {
+    const { view: hashView, subMode, subType } = _parseHash();
     if (hashView === 'checker' && subMode) {
-        _applyCheckerSubMode(subMode);
+        _applyCheckerSubMode(subMode, subType);
     }
     navigate(hashView || 'cards');
     // Auto-resolve countries for any 'auto' cards
     autoResolveAllCountries();
-})();
+});
 
 
 // ──── KEYBOARD SHORTCUTS ────
