@@ -2932,9 +2932,12 @@ function _renderGlue() {
             </div>
             <div class="ck-modes">
                 <button class="ck-mode-btn" data-mode="proxy"><span class="ck-mode-icon">🌐</span><span class="ck-mode-label">Proxy</span></button>
+                <button class="ck-mode-btn" data-mode="bin"><span class="ck-mode-icon">🔢</span><span class="ck-mode-label">BIN</span></button>
                 <button class="ck-mode-btn" data-mode="card"><span class="ck-mode-icon">💳</span><span class="ck-mode-label">Card</span></button>
+                <button class="ck-mode-btn" data-mode="ip"><span class="ck-mode-icon">📡</span><span class="ck-mode-label">IP</span></button>
                 <button class="ck-mode-btn" data-mode="auto"><span class="ck-mode-icon">🔍</span><span class="ck-mode-label">Auto</span></button>
                 <button class="ck-mode-btn active" data-mode="glue"><span class="ck-mode-icon">🔗</span><span class="ck-mode-label">Glue</span></button>
+                <button class="ck-mode-btn" data-mode="cc-glue"><span class="ck-mode-icon">🃏</span><span class="ck-mode-label">CC Glue</span></button>
                 <button class="ck-mode-btn" data-mode="generator"><span class="ck-mode-icon">📄</span><span class="ck-mode-label">Generator</span></button>
             </div>
         </div>
@@ -3068,6 +3071,8 @@ function _bindGlueEvents() {
             _CK.mode = btn.dataset.mode;
             _updateSubHashSilent();
             if (_CK.mode === 'glue') _renderGlue();
+            else if (_CK.mode === 'cc-glue') _renderCCGlue();
+            else if (_CK.mode === 'generator') _renderGenerator();
             else renderChecker();
         });
     });
@@ -3729,8 +3734,8 @@ function _renderCleanNameTool() {
     bar.innerHTML = '';
     const gen = _CK.generator;
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', generator: '📄' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', generator: 'Generator' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', 'cc-glue': '🃏', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', 'cc-glue': 'CC Glue', generator: 'Generator' };
 
     // Retrieve previous state
     const savedInput = _CK._cleanNameInput || '';
@@ -3940,8 +3945,8 @@ function _renderGenerator() {
     bar.style.display = 'none';
     bar.innerHTML = '';
     const gen = _CK.generator;
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', generator: '📄' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', generator: 'Generator' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', 'cc-glue': '🃏', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', 'cc-glue': 'CC Glue', generator: 'Generator' };
     const prefectures = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi','Hokkaido','Fukuoka','Hyogo','Kyoto','Shizuoka','Hiroshima','Miyagi','Niigata','Nagano'];
 
     area.innerHTML = `

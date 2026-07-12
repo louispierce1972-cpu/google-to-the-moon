@@ -86,8 +86,8 @@ function _renderCreditCardGenerator() {
     var gen = _CK.generator, ccg = gen.ccg;
     if (!ccg.dateLayout) ccg.dateLayout = 'A';
 
-    var mi = {proxy:'🌐',bin:'🔢',card:'💳',ip:'📡',auto:'🔍',glue:'🔗',generator:'📄'};
-    var ml = {proxy:'Proxy',bin:'BIN',card:'Card',ip:'IP',auto:'Auto',glue:'Glue',generator:'Generator'};
+    var mi = {proxy:'🌐',bin:'🔢',card:'💳',ip:'📡',auto:'🔍',glue:'🔗','cc-glue':'🃏',generator:'📄'};
+    var ml = {proxy:'Proxy',bin:'BIN',card:'Card',ip:'IP',auto:'Auto',glue:'Glue','cc-glue':'CC Glue',generator:'Generator'};
     var nets = [{id:'visa',l:'Visa'},{id:'mastercard',l:'MasterCard'},{id:'amex',l:'AMEX'},{id:'jcb',l:'JCB'},{id:'discover',l:'Discover'},{id:'unionpay',l:'UnionPay'}];
 
     var mh=''; for(var k in mi) mh+='<button class="ck-mode-btn '+(_CK.mode===k?'active':'')+'" data-mode="'+k+'"><span class="ck-mode-icon">'+mi[k]+'</span><span class="ck-mode-label">'+ml[k]+'</span></button>';
@@ -106,6 +106,7 @@ function _renderCreditCardGenerator() {
             '<button class="ck-proto-btn '+(gen.type==='driverlicense'?'active':'')+'" data-billtype="driverlicense">🪪 Driver License</button>'+
             '<button class="ck-proto-btn '+(gen.type==='zipprocessor'?'active':'')+'" data-billtype="zipprocessor">📦 ZIP Processor</button>'+
             '<button class="ck-proto-btn '+(gen.type==='bankstatement'?'active':'')+'" data-billtype="bankstatement">🏦 Bank Statement</button>'+
+            '<button class="ck-proto-btn '+(gen.type==='cleanname'?'active':'')+'" data-billtype="cleanname">🧹 Clean Name</button>'+
         '</div>'+
         '<div class="ccg-form">'+
             '<div class="ccg-form-row">'+
@@ -148,7 +149,7 @@ function _ccgBindEvents() {
     var area = document.getElementById('content-area');
     var gen = _CK.generator, ccg = gen.ccg;
 
-    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
+    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='cc-glue')_renderCCGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
     area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_updateSubHashSilent();_renderGenerator();});});
 
     function lu(){

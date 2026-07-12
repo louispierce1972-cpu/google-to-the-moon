@@ -220,8 +220,8 @@ function _renderDriverLicenseGenerator(){
     bar.style.display='none';bar.innerHTML='';
     var gen=_CK.generator,dl=_dlEnsureState();
 
-    var mi={proxy:'🌐',bin:'🔢',card:'💳',ip:'📡',auto:'🔍',glue:'🔗',generator:'📄'};
-    var ml={proxy:'Proxy',bin:'BIN',card:'Card',ip:'IP',auto:'Auto',glue:'Glue',generator:'Generator'};
+    var mi={proxy:'🌐',bin:'🔢',card:'💳',ip:'📡',auto:'🔍',glue:'🔗','cc-glue':'🃏',generator:'📄'};
+    var ml={proxy:'Proxy',bin:'BIN',card:'Card',ip:'IP',auto:'Auto',glue:'Glue','cc-glue':'CC Glue',generator:'Generator'};
     var mh='';for(var k in mi)mh+='<button class="ck-mode-btn '+(_CK.mode===k?'active':'')+'" data-mode="'+k+'"><span class="ck-mode-icon">'+mi[k]+'</span><span class="ck-mode-label">'+ml[k]+'</span></button>';
 
     var sel=(dl.batch.length && dl.selectedIdx>=0 && dl.selectedIdx<dl.batch.length)?dl.batch[dl.selectedIdx]:dl;
@@ -241,6 +241,8 @@ function _renderDriverLicenseGenerator(){
             '<button class="ck-proto-btn '+(gen.type==='creditcard'?'active':'')+'" data-billtype="creditcard">💳 Credit Card</button>'+
             '<button class="ck-proto-btn '+(gen.type==='driverlicense'?'active':'')+'" data-billtype="driverlicense">🪪 Driver License</button>'+
             '<button class="ck-proto-btn '+(gen.type==='zipprocessor'?'active':'')+'" data-billtype="zipprocessor">📦 ZIP Processor</button>'+
+            '<button class="ck-proto-btn '+(gen.type==='bankstatement'?'active':'')+'" data-billtype="bankstatement">🏦 Bank Statement</button>'+
+            '<button class="ck-proto-btn '+(gen.type==='cleanname'?'active':'')+'" data-billtype="cleanname">🧹 Clean Name</button>'+
         '</div>'+
         // Batch controls
         '<div class="dl-batch-bar">'+
@@ -341,7 +343,7 @@ function _dlBindEvents(){
     var gen=_CK.generator,dl=_dlEnsureState();
     var sel=(dl.batch.length&&dl.selectedIdx>=0&&dl.selectedIdx<dl.batch.length)?dl.batch[dl.selectedIdx]:dl;
 
-    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
+    area.querySelectorAll('.ck-mode-btn').forEach(function(b){b.addEventListener('click',function(){_CK.mode=b.dataset.mode;_updateSubHashSilent();if(_CK.mode==='glue')_renderGlue();else if(_CK.mode==='cc-glue')_renderCCGlue();else if(_CK.mode==='generator')_renderGenerator();else renderChecker();});});
     area.querySelectorAll('[data-billtype]').forEach(function(b){b.addEventListener('click',function(){gen.type=b.dataset.billtype;gen.billData=null;_updateSubHashSilent();_renderGenerator();});});
 
     // Batch generate
