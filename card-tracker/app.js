@@ -366,6 +366,7 @@ function load() {
                 PARSER_STATE.filters.bins = pf.bins || '';
                 PARSER_STATE.filters.country = pf.country || '';
                 PARSER_STATE.filters.bank = pf.bank || '';
+                PARSER_STATE.filters.excludeBanks = pf.excludeBanks || '';
                 PARSER_STATE.filters.minExpiry = pf.minExpiry || '';
                 PARSER_STATE.filters.activeTypes = pf.types || [];
                 PARSER_STATE.filters.activeNetworks = pf.networks || [];
@@ -9137,7 +9138,7 @@ let PARSER_STATE = {
     // (translated)
     testMode: false,
     // (translated)
-    filters: { bins: '', country: '', bank: '', minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() }
+    filters: { bins: '', country: '', bank: '', excludeBanks: '', minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() }
 };
 
 // (translated)
@@ -9534,6 +9535,13 @@ function renderParser() {
                     <label>Bank</label>
                     <input type="text" id="parser-bank" placeholder="Bank name..." value="${PARSER_STATE.filters.bank || ''}">
                 </div>
+                <div class="parser-filter-group parser-filter-exclude-banks">
+                    <label>Exclude Banks
+                        <button class="pz-list-bins-btn" id="pz-exclude-banks-btn" type="button" title="Manage excluded banks list">🚫 LIST</button>
+                        <span class="pz-bins-badge pz-exclude-badge" id="pz-exclude-badge" style="display:none"></span>
+                    </label>
+                    <input type="text" id="parser-exclude-banks" placeholder="Royal, ADCB, Toronto..." value="${PARSER_STATE.filters.excludeBanks || ''}">
+                </div>
                 <div class="parser-filter-group">
                     <label>Min Expiry</label>
                     <input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}">
@@ -9769,6 +9777,16 @@ function renderParser() {
     // Update BIN badge on load
     _updateBinsBadge();
 
+    // ── EXCLUDE BANKS popup ──
+    document.getElementById('pz-exclude-banks-btn')?.addEventListener('click', () => {
+        _openExcludeBanksPopup();
+    });
+    document.getElementById('parser-exclude-banks')?.addEventListener('input', () => {
+        _updateExcludeBadge();
+        _saveParserFilters();
+    });
+    _updateExcludeBadge();
+
     // (translated)
     document.getElementById('parser-test-mode')?.addEventListener('click', () => {
         PARSER_STATE.testMode = !PARSER_STATE.testMode;
@@ -9916,6 +9934,116 @@ function _openBinListPopup() {
         _saveParserFilters();
         close();
         toast(`${unique.length} BINs loaded into filter`, 'success');
+    });
+
+    // Фокус на textarea
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+// ──── EXCLUDE BANKS BADGE ────
+function _updateExcludeBadge() {
+    const badge = document.getElementById('pz-exclude-badge');
+    if (!badge) return;
+    const el = document.getElementById('parser-exclude-banks');
+    const val = el ? el.value.trim() : '';
+    const count = val ? val.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean).length : 0;
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// ──── EXCLUDE BANKS POPUP ────
+function _openExcludeBanksPopup() {
+    // Если уже открыт — закрыть
+    const existing = document.getElementById('pz-exclude-banks-overlay');
+    if (existing) { existing.remove(); return; }
+
+    // Прочитать текущий список
+    const excludeEl = document.getElementById('parser-exclude-banks');
+    const currentBanks = excludeEl ? excludeEl.value.trim()
+        .split(/[,;\n]+/)
+        .map(b => b.trim())
+        .filter(Boolean) : [];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pz-exclude-banks-overlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="width:460px;max-width:90vw">
+            <div class="modal-header">
+                <div>
+                    <h3>🚫 EXCLUDE BANKS</h3>
+                    <p class="modal-subtitle">Банки из этого списка будут исключены из парсинга (частичное совпадение)</p>
+                </div>
+                <button class="modal-close" id="pz-eb-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <textarea id="pz-eb-textarea" class="list-textarea" rows="14"
+                    placeholder="Введи названия банков — каждый на новой строке:&#10;&#10;Royal Bank&#10;ADCB&#10;Toronto-Dominion&#10;National Bank&#10;...&#10;&#10;Частичное совпадение: 'Royal' исключит все банки с 'Royal' в названии">${currentBanks.join('\n')}</textarea>
+                <div class="list-info" style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <span id="pz-eb-count" class="list-count-badge" style="background:var(--danger,#e74c3c);color:#fff">${currentBanks.length} banks</span>
+                    <span style="font-size:11px;color:var(--text-muted)">Дубликаты удаляются автоматически</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex;gap:8px">
+                <button class="btn-cancel" id="pz-eb-cancel">Cancel</button>
+                <button class="pz-btn pz-btn-dim" id="pz-eb-clear" style="font-size:11px;padding:5px 12px">🗑 CLEAR ALL</button>
+                <span style="flex:1"></span>
+                <button class="pz-btn pz-btn-primary" id="pz-eb-apply">✅ APPLY</button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+
+    const ta = document.getElementById('pz-eb-textarea');
+    const countEl = document.getElementById('pz-eb-count');
+
+    // Счётчик при вводе
+    const updateCount = () => {
+        const banks = ta.value.trim().split(/[\n]+/)
+            .map(b => b.trim())
+            .filter(Boolean);
+        const unique = [...new Set(banks.map(b => b.toLowerCase()))];
+        countEl.textContent = `${unique.length} banks`;
+    };
+    ta.addEventListener('input', updateCount);
+
+    // Закрытие
+    const close = () => overlay.remove();
+    document.getElementById('pz-eb-close').addEventListener('click', close);
+    document.getElementById('pz-eb-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // CLEAR ALL
+    document.getElementById('pz-eb-clear').addEventListener('click', () => {
+        ta.value = '';
+        updateCount();
+        if (excludeEl) excludeEl.value = '';
+        _updateExcludeBadge();
+        _saveParserFilters();
+        toast('Exclude banks list cleared', 'info');
+    });
+
+    // APPLY
+    document.getElementById('pz-eb-apply').addEventListener('click', () => {
+        const banks = ta.value.trim().split(/[\n]+/)
+            .map(b => b.trim())
+            .filter(Boolean);
+        const unique = [...new Set(banks)];
+
+        if (excludeEl) {
+            excludeEl.value = unique.join(', ');
+        }
+        _updateExcludeBadge();
+        _saveParserFilters();
+        close();
+        toast(`${unique.length} banks added to exclude list`, 'success');
     });
 
     // Фокус на textarea
@@ -11391,7 +11519,8 @@ function runParse() {
     // (translated)
     const activeTypes = filterTypes.size > 0 ? [...filterTypes].map(t => t.toLowerCase()) : [];
     const activeNetworks = filterPaymentSystems.size > 0 ? [...filterPaymentSystems] : [];
-    PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
+    const excludeBanksElSave = document.getElementById('parser-exclude-banks');
+    PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
 
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode) }));
@@ -11410,6 +11539,19 @@ function runParse() {
     }
     // (translated)
     if (bankFilter) allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
+    // Exclude banks filter
+    const excludeBanksEl = document.getElementById('parser-exclude-banks');
+    const excludeBanksRaw = excludeBanksEl ? excludeBanksEl.value.trim() : '';
+    if (excludeBanksRaw) {
+        const excludeList = excludeBanksRaw.split(/[,;\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+        if (excludeList.length > 0) {
+            allCards = allCards.filter(c => {
+                const bankName = (c.bank || '').toLowerCase();
+                if (!bankName) return true; // keep cards without bank info
+                return !excludeList.some(ex => bankName.includes(ex));
+            });
+        }
+    }
 
     // (translated)
     if (minExpRaw) {
@@ -11581,6 +11723,11 @@ function _buildExportTabTitle() {
     // Bank filter
     if (filters.bank) {
         parts.push(filters.bank);
+    }
+    // Exclude banks indicator
+    if (filters.excludeBanks) {
+        const excCount = filters.excludeBanks.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean).length;
+        if (excCount > 0) parts.push(`🚫${excCount} banks`);
     }
     if (parts.length === 0) return 'Export ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     // (translated)
@@ -12431,6 +12578,7 @@ function _saveParserFilters() {
         bins: document.getElementById('parser-bins')?.value || '',
         country: document.getElementById('parser-country')?.value || '',
         bank: document.getElementById('parser-bank')?.value || '',
+        excludeBanks: document.getElementById('parser-exclude-banks')?.value || '',
         minExpiry: document.getElementById('parser-min-expiry')?.value || '',
         types: [...(PARSER_STATE.filters.filterTypes || [])],
         classes: [...(PARSER_STATE.filters.filterClasses || [])],
