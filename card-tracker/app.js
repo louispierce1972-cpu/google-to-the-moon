@@ -9626,6 +9626,35 @@ function renderParser() {
             ${compareChipHtml ? `<div class="pz-chips">${compareChipHtml}</div>` : ''}
         </div>
 
+        <!-- STAGE 3: BIN DATABASE — collect BIN→Bank mapping -->
+        <div class="pz-stage pz-stage-3">
+            <div class="pz-stage-header" style="cursor:pointer" id="pz-bindb-toggle">
+                <span class="pz-stage-num">3</span>
+                <span class="pz-stage-title">BIN DATABASE</span>
+                <span class="pz-stage-hint">Collect BIN → Bank from logs</span>
+                <span class="pz-bins-badge pz-bindb-badge" id="pz-bindb-badge" style="display:none"></span>
+                <span id="pz-bindb-arrow" style="margin-left:auto;font-size:12px;color:var(--text-dim)">▼</span>
+            </div>
+            <div id="pz-bindb-body" style="display:none">
+                <div class="pz-upload-single" style="margin-bottom:10px">
+                    <div class="pz-drop-zone pz-drop-bindb" id="pz-bindb-drop" style="padding:14px;min-height:auto">
+                        <input type="file" id="pz-bindb-input" accept=".json" multiple hidden>
+                        <span class="pz-drop-text">Drop result.json or click to add BINs</span>
+                        <span class="pz-drop-hint">Extracts BIN + Bank from 🏦 Bank: lines</span>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+                    <button class="pz-btn pz-btn-dim" id="pz-bindb-from-parsed" style="font-size:11px;padding:4px 10px" title="Add BINs from current parsed results">📥 FROM PARSED</button>
+                    <button class="pz-btn pz-btn-dim" id="pz-bindb-download-json" style="font-size:11px;padding:4px 10px">💾 JSON</button>
+                    <button class="pz-btn pz-btn-dim" id="pz-bindb-download-csv" style="font-size:11px;padding:4px 10px">📄 CSV</button>
+                    <span style="flex:1"></span>
+                    <button class="pz-btn pz-btn-dim" id="pz-bindb-clear" style="font-size:11px;padding:4px 10px;color:#f87171">🗑 CLEAR</button>
+                </div>
+                <div id="pz-bindb-stats" style="font-size:11px;color:var(--text-muted);margin-bottom:8px"></div>
+                <div id="pz-bindb-table" style="max-height:400px;overflow-y:auto"></div>
+            </div>
+        </div>
+
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
     </div>`;
@@ -9670,6 +9699,85 @@ function renderParser() {
         e.stopPropagation();
         _removeCompare();
     });
+
+    // ── BIN DATABASE ──
+    const bindbToggle = document.getElementById('pz-bindb-toggle');
+    const bindbBody = document.getElementById('pz-bindb-body');
+    const bindbArrow = document.getElementById('pz-bindb-arrow');
+    if (bindbToggle && bindbBody) {
+        bindbToggle.addEventListener('click', () => {
+            const open = bindbBody.style.display !== 'none';
+            bindbBody.style.display = open ? 'none' : 'block';
+            if (bindbArrow) bindbArrow.textContent = open ? '▼' : '▲';
+            if (!open) _renderBinDb();
+        });
+    }
+    const bindbDrop = document.getElementById('pz-bindb-drop');
+    const bindbInput = document.getElementById('pz-bindb-input');
+    if (bindbDrop && bindbInput) {
+        bindbDrop.addEventListener('click', () => bindbInput.click());
+        bindbDrop.addEventListener('dragover', (e) => { e.preventDefault(); bindbDrop.classList.add('drag-over'); });
+        bindbDrop.addEventListener('dragleave', () => bindbDrop.classList.remove('drag-over'));
+        bindbDrop.addEventListener('drop', (e) => { e.preventDefault(); bindbDrop.classList.remove('drag-over'); [...e.dataTransfer.files].forEach(f => _binDbLoadFile(f)); });
+        bindbInput.addEventListener('change', () => { [...bindbInput.files].forEach(f => _binDbLoadFile(f)); bindbInput.value = ''; });
+    }
+    // FROM PARSED — add BINs from current parsed cards
+    document.getElementById('pz-bindb-from-parsed')?.addEventListener('click', () => {
+        if (!PARSER_STATE.collected.length) { toast('No parsed cards to extract BINs from', 'warning'); return; }
+        const db = _loadBinDb();
+        let added = 0;
+        PARSER_STATE.collected.forEach(c => {
+            const bin = (c.bin || (c.cc || '').substring(0, 6));
+            const bank = c.bank || '';
+            if (bin && bin.length >= 4 && bank) {
+                if (!db[bank]) db[bank] = [];
+                if (!db[bank].includes(bin)) { db[bank].push(bin); added++; }
+            }
+        });
+        _saveBinDb(db);
+        _renderBinDb();
+        _updateBinDbBadge();
+        toast(`+${added} BINs added from parsed results`, 'success');
+    });
+    // Download JSON
+    document.getElementById('pz-bindb-download-json')?.addEventListener('click', () => {
+        const db = _loadBinDb();
+        const totalBins = Object.values(db).reduce((s, arr) => s + arr.length, 0);
+        if (totalBins === 0) { toast('BIN database is empty', 'warning'); return; }
+        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `bin-database-${totalBins}bins.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast(`Downloaded ${totalBins} BINs as JSON`, 'success');
+    });
+    // Download CSV
+    document.getElementById('pz-bindb-download-csv')?.addEventListener('click', () => {
+        const db = _loadBinDb();
+        const totalBins = Object.values(db).reduce((s, arr) => s + arr.length, 0);
+        if (totalBins === 0) { toast('BIN database is empty', 'warning'); return; }
+        let csv = 'BIN,Bank\n';
+        Object.entries(db).sort((a, b) => b[1].length - a[1].length).forEach(([bank, bins]) => {
+            bins.forEach(bin => { csv += `${bin},"${bank}"\n`; });
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `bin-database-${totalBins}bins.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast(`Downloaded ${totalBins} BINs as CSV`, 'success');
+    });
+    // Clear
+    document.getElementById('pz-bindb-clear')?.addEventListener('click', () => {
+        if (!confirm('Clear entire BIN database?')) return;
+        localStorage.removeItem('ct_bin_database');
+        _renderBinDb();
+        _updateBinDbBadge();
+        toast('BIN database cleared', 'info');
+    });
+    _updateBinDbBadge();
 
     // ── PARSE & CLEAN / CLEAR ──
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
@@ -10049,6 +10157,118 @@ function _openExcludeBanksPopup() {
     // Фокус на textarea
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+// ──── BIN DATABASE HELPERS ────
+function _loadBinDb() {
+    try {
+        const raw = localStorage.getItem('ct_bin_database');
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+}
+
+function _saveBinDb(db) {
+    localStorage.setItem('ct_bin_database', JSON.stringify(db));
+}
+
+function _updateBinDbBadge() {
+    const badge = document.getElementById('pz-bindb-badge');
+    if (!badge) return;
+    const db = _loadBinDb();
+    const totalBins = Object.values(db).reduce((s, arr) => s + arr.length, 0);
+    if (totalBins > 0) {
+        badge.textContent = totalBins;
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function _binDbLoadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            const messages = Array.isArray(data) ? data : (data.messages || []);
+            if (messages.length === 0) { toast(`${file.name}: no messages found`, 'warning'); return; }
+
+            const db = _loadBinDb();
+            let added = 0, dupes = 0;
+
+            // Extract cards using existing parser
+            const cards = extractCardsFromMessages(messages);
+            cards.forEach(c => {
+                const bin = (c.bin || (c.cc || '').substring(0, 6));
+                const bank = c.bank || '';
+                if (bin && bin.length >= 4 && bank) {
+                    if (!db[bank]) db[bank] = [];
+                    if (!db[bank].includes(bin)) { db[bank].push(bin); added++; }
+                    else { dupes++; }
+                }
+            });
+
+            _saveBinDb(db);
+            _renderBinDb();
+            _updateBinDbBadge();
+            toast(`${file.name}: +${added} BINs (${dupes} dupes, ${cards.length} cards scanned)`, 'success');
+        } catch (err) {
+            toast(`${file.name}: error — ${err.message}`, 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function _renderBinDb() {
+    const container = document.getElementById('pz-bindb-table');
+    const statsEl = document.getElementById('pz-bindb-stats');
+    if (!container) return;
+
+    const db = _loadBinDb();
+    const banks = Object.entries(db).sort((a, b) => b[1].length - a[1].length);
+    const totalBins = banks.reduce((s, [, arr]) => s + arr.length, 0);
+
+    if (statsEl) {
+        statsEl.textContent = totalBins > 0
+            ? `${totalBins} BINs · ${banks.length} banks`
+            : 'Empty — load JSON files or use FROM PARSED';
+    }
+
+    if (banks.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:20px;font-size:12px">No BINs collected yet</div>';
+        return;
+    }
+
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="text-align:left;padding:4px 8px;color:var(--text-muted)">Bank</th><th style="text-align:center;padding:4px 8px;color:var(--text-muted);width:50px">BINs</th><th style="text-align:left;padding:4px 8px;color:var(--text-muted)">BIN List</th><th style="width:30px"></th></tr></thead>';
+    html += '<tbody>';
+
+    banks.forEach(([bank, bins]) => {
+        const binsStr = bins.sort().join(', ');
+        const bankId = bank.replace(/[^a-zA-Z0-9]/g, '_');
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04)" id="bindb-row-${bankId}">`;
+        html += `<td style="padding:5px 8px;color:#e2e8f0;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bank}">${bank}</td>`;
+        html += `<td style="padding:5px 8px;text-align:center"><span style="background:rgba(34,197,94,.15);color:#22c55e;padding:1px 6px;border-radius:8px;font-weight:700;font-size:10px">${bins.length}</span></td>`;
+        html += `<td style="padding:5px 8px;color:var(--text-muted);font-family:var(--ff-mono);font-size:10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${binsStr}">${binsStr}</td>`;
+        html += `<td style="padding:5px 4px"><button class="bindb-del" data-bank="${bank}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:12px;padding:2px" title="Delete bank">✕</button></td>`;
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    container.innerHTML = html;
+
+    // Delete bank buttons
+    container.querySelectorAll('.bindb-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const bank = btn.dataset.bank;
+            const db = _loadBinDb();
+            delete db[bank];
+            _saveBinDb(db);
+            _renderBinDb();
+            _updateBinDbBadge();
+            toast(`Removed "${bank}" from BIN database`, 'info');
+        });
+    });
 }
 
 // ──── LOAD BASE FILE (supports multiple) ────
