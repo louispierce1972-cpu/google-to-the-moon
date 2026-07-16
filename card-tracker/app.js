@@ -9722,27 +9722,62 @@ function renderParser() {
         bindbInput.addEventListener('change', () => { [...bindbInput.files].forEach(f => _binDbLoadFile(f)); bindbInput.value = ''; });
     }
     // FROM PARSED — add BINs from current parsed cards
-    document.getElementById('pz-bindb-from-parsed')?.addEventListener('click', () => {
+    document.getElementById('pz-bindb-from-parsed')?.addEventListener('click', async () => {
         if (!PARSER_STATE.collected.length) { toast('No parsed cards to extract BINs from', 'warning'); return; }
         const db = _loadBinDb();
-        let added = 0;
-        PARSER_STATE.collected.forEach(c => {
+        let added = 0, skipped = 0, resolved = 0;
+        const unknownBins = [];
+        
+        for (const c of PARSER_STATE.collected) {
             const bin = (c.bin || (c.cc || '').substring(0, 6));
-            const bank = c.bank || '';
-            if (bin && bin.length >= 4 && bank) {
-                if (!db[bank]) db[bank] = [];
-                if (!db[bank].includes(bin)) { db[bank].push(bin); added++; }
+            if (!bin || bin.length < 4) continue;
+            if (_isTestBin(bin)) { skipped++; continue; }
+            
+            let bank = c.bank || '';
+            const country = c.bankCountryCode || c.countryCode || '';
+            const isUnknown = !bank || /^unknown/i.test(bank);
+            
+            if (isUnknown) {
+                const existingBank = _findBankInDb(db, bin);
+                if (existingBank) { bank = existingBank; resolved++; }
+                else {
+                    const cached = BIN_CACHE[bin];
+                    if (cached && cached.bank && !cached.error) { bank = cached.bank; resolved++; }
+                    else { unknownBins.push({ bin, country }); continue; }
+                }
             }
-        });
+            
+            if (bank && !(/^unknown/i.test(bank))) {
+                if (_addBinToDb(db, bank, bin, country)) { added++; }
+            }
+        }
+        
+        // API lookup for unknowns
+        const uniqueUnknown = [...new Map(unknownBins.map(u => [u.bin, u])).values()].slice(0, 30);
+        if (uniqueUnknown.length > 0) {
+            toast(`Looking up ${uniqueUnknown.length} unknown BINs...`, 'info');
+            for (const u of uniqueUnknown) {
+                try {
+                    const info = await lookupBin(u.bin);
+                    if (info && info.bank && !info.error) {
+                        if (_addBinToDb(db, info.bank, u.bin, info.country || u.country)) { added++; resolved++; }
+                    }
+                } catch { }
+            }
+        }
+        
         _saveBinDb(db);
         _renderBinDb();
         _updateBinDbBadge();
-        toast(`+${added} BINs added from parsed results`, 'success');
+        let msg = `+${added} BINs from parsed`;
+        if (resolved > 0) msg += `, ${resolved} resolved`;
+        if (skipped > 0) msg += `, ${skipped} test skipped`;
+        toast(msg, 'success');
     });
     // Download JSON
     document.getElementById('pz-bindb-download-json')?.addEventListener('click', () => {
         const db = _loadBinDb();
-        const totalBins = Object.values(db).reduce((s, arr) => s + arr.length, 0);
+        const totalBins = Object.values(db).reduce((s, arr) => s + _getBinsFromEntry(arr).length, 0);
         if (totalBins === 0) { toast('BIN database is empty', 'warning'); return; }
         const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
@@ -9755,11 +9790,17 @@ function renderParser() {
     // Download CSV
     document.getElementById('pz-bindb-download-csv')?.addEventListener('click', () => {
         const db = _loadBinDb();
-        const totalBins = Object.values(db).reduce((s, arr) => s + arr.length, 0);
+        const totalBins = Object.values(db).reduce((s, arr) => s + _getBinsFromEntry(arr).length, 0);
         if (totalBins === 0) { toast('BIN database is empty', 'warning'); return; }
-        let csv = 'BIN,Bank\n';
-        Object.entries(db).sort((a, b) => b[1].length - a[1].length).forEach(([bank, bins]) => {
-            bins.forEach(bin => { csv += `${bin},"${bank}"\n`; });
+        let csv = 'BIN,Bank,Country\n';
+        Object.entries(db).sort((a, b) => _getBinsFromEntry(b[1]).length - _getBinsFromEntry(a[1]).length).forEach(([bank, data]) => {
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    const bin = typeof item === 'string' ? item : (item.bin || '');
+                    const country = typeof item === 'object' ? (item.country || '') : '';
+                    csv += `${bin},"${bank}","${country}"\n`;
+                });
+            }
         });
         const blob = new Blob([csv], { type: 'text/csv' });
         const a = document.createElement('a');
@@ -10175,7 +10216,7 @@ function _updateBinDbBadge() {
     const badge = document.getElementById('pz-bindb-badge');
     if (!badge) return;
     const db = _loadBinDb();
-    const totalBins = Object.values(db).reduce((s, arr) => s + arr.length, 0);
+    const totalBins = Object.values(db).reduce((s, arr) => s + _getBinsFromEntry(arr).length, 0);
     if (totalBins > 0) {
         badge.textContent = totalBins;
         badge.style.display = 'inline-flex';
@@ -10184,34 +10225,129 @@ function _updateBinDbBadge() {
     }
 }
 
-function _binDbLoadFile(file) {
+// Test/fake card BINs to skip
+const _TEST_BINS = new Set(['424242','411111','400000','555555','510510','378282','371449','601111','300569','305693','361234','543210','123456','000000','999999']);
+function _isTestBin(bin) {
+    if (_TEST_BINS.has(bin)) return true;
+    // All same digits (111111, 222222, etc)
+    if (/^(\d)\1{5}$/.test(bin)) return true;
+    return false;
+}
+
+// Find bank name for BIN from existing DB
+function _findBankInDb(db, bin) {
+    for (const [bank, data] of Object.entries(db)) {
+        if (Array.isArray(data)) {
+            for (const item of data) {
+                const b = typeof item === 'string' ? item : (item.bin || '');
+                if (b === bin) return bank;
+            }
+        }
+    }
+    return null;
+}
+
+// Add BIN to DB under a bank name, with optional country
+function _addBinToDb(db, bank, bin, country) {
+    if (!bank || !bin) return false;
+    if (!db[bank]) db[bank] = [];
+    // Check if already exists
+    const exists = db[bank].some(item => {
+        const b = typeof item === 'string' ? item : (item.bin || '');
+        return b === bin;
+    });
+    if (exists) return false;
+    db[bank].push(country ? { bin, country } : bin);
+    return true;
+}
+
+// Get flat list of BINs from a bank entry (handles mixed string/object format)
+function _getBinsFromEntry(data) {
+    if (!Array.isArray(data)) return [];
+    return data.map(item => typeof item === 'string' ? item : (item.bin || ''));
+}
+
+async function _binDbLoadFile(file) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
             const data = JSON.parse(e.target.result);
             const messages = Array.isArray(data) ? data : (data.messages || []);
             if (messages.length === 0) { toast(`${file.name}: no messages found`, 'warning'); return; }
 
             const db = _loadBinDb();
-            let added = 0, dupes = 0;
+            let added = 0, dupes = 0, skipped = 0, resolved = 0;
 
             // Extract cards using existing parser
             const cards = extractCardsFromMessages(messages);
-            cards.forEach(c => {
+            
+            // Collect unknown BINs for batch lookup
+            const unknownBins = [];
+
+            for (const c of cards) {
                 const bin = (c.bin || (c.cc || '').substring(0, 6));
-                const bank = c.bank || '';
-                if (bin && bin.length >= 4 && bank) {
-                    if (!db[bank]) db[bank] = [];
-                    if (!db[bank].includes(bin)) { db[bank].push(bin); added++; }
+                if (!bin || bin.length < 4) continue;
+                
+                // Skip test cards
+                if (_isTestBin(bin)) { skipped++; continue; }
+
+                let bank = c.bank || '';
+                const country = c.bankCountryCode || c.countryCode || '';
+                const isUnknown = !bank || /^unknown/i.test(bank);
+
+                if (isUnknown) {
+                    // Try to find in existing DB first
+                    const existingBank = _findBankInDb(db, bin);
+                    if (existingBank) {
+                        bank = existingBank;
+                        resolved++;
+                    } else {
+                        // Try BIN_CACHE
+                        const cached = BIN_CACHE[bin];
+                        if (cached && cached.bank && !cached.error) {
+                            bank = cached.bank;
+                            resolved++;
+                        } else {
+                            unknownBins.push({ bin, country, card: c });
+                            continue; // will process after API lookups
+                        }
+                    }
+                }
+
+                if (bank && !(/^unknown/i.test(bank))) {
+                    if (_addBinToDb(db, bank, bin, country)) { added++; }
                     else { dupes++; }
                 }
-            });
+            }
+
+            // Batch lookup unknown BINs via API (max 20 at a time to avoid overload)
+            const uniqueUnknown = [...new Map(unknownBins.map(u => [u.bin, u])).values()];
+            const lookupBatch = uniqueUnknown.slice(0, 30);
+            
+            if (lookupBatch.length > 0) {
+                toast(`Looking up ${lookupBatch.length} unknown BINs...`, 'info');
+                for (const u of lookupBatch) {
+                    try {
+                        const info = await lookupBin(u.bin);
+                        if (info && info.bank && !info.error) {
+                            const ctry = info.country || u.country || '';
+                            if (_addBinToDb(db, info.bank, u.bin, ctry)) { added++; resolved++; }
+                            else { dupes++; }
+                        }
+                    } catch { /* skip failed lookups */ }
+                }
+            }
 
             _saveBinDb(db);
             _renderBinDb();
             _updateBinDbBadge();
-            toast(`${file.name}: +${added} BINs (${dupes} dupes, ${cards.length} cards scanned)`, 'success');
+            let msg = `${file.name}: +${added} BINs`;
+            if (dupes > 0) msg += `, ${dupes} dupes`;
+            if (resolved > 0) msg += `, ${resolved} resolved`;
+            if (skipped > 0) msg += `, ${skipped} test skipped`;
+            msg += ` (${cards.length} cards scanned)`;
+            toast(msg, 'success');
         } catch (err) {
             toast(`${file.name}: error — ${err.message}`, 'error');
         }
@@ -10225,8 +10361,8 @@ function _renderBinDb() {
     if (!container) return;
 
     const db = _loadBinDb();
-    const banks = Object.entries(db).sort((a, b) => b[1].length - a[1].length);
-    const totalBins = banks.reduce((s, [, arr]) => s + arr.length, 0);
+    const banks = Object.entries(db).sort((a, b) => _getBinsFromEntry(b[1]).length - _getBinsFromEntry(a[1]).length);
+    const totalBins = banks.reduce((s, [, arr]) => s + _getBinsFromEntry(arr).length, 0);
 
     if (statsEl) {
         statsEl.textContent = totalBins > 0
@@ -10240,17 +10376,26 @@ function _renderBinDb() {
     }
 
     let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-    html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="text-align:left;padding:4px 8px;color:var(--text-muted)">Bank</th><th style="text-align:center;padding:4px 8px;color:var(--text-muted);width:50px">BINs</th><th style="text-align:left;padding:4px 8px;color:var(--text-muted)">BIN List</th><th style="width:30px"></th></tr></thead>';
+    html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="text-align:left;padding:4px 8px;color:var(--text-muted)">Bank</th><th style="text-align:center;padding:4px 8px;color:var(--text-muted);width:40px">🌍</th><th style="text-align:center;padding:4px 8px;color:var(--text-muted);width:50px">BINs</th><th style="text-align:left;padding:4px 8px;color:var(--text-muted)">BIN List</th><th style="width:30px"></th></tr></thead>';
     html += '<tbody>';
 
-    banks.forEach(([bank, bins]) => {
-        const binsStr = bins.sort().join(', ');
-        const bankId = bank.replace(/[^a-zA-Z0-9]/g, '_');
-        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04)" id="bindb-row-${bankId}">`;
-        html += `<td style="padding:5px 8px;color:#e2e8f0;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${bank}">${bank}</td>`;
-        html += `<td style="padding:5px 8px;text-align:center"><span style="background:rgba(34,197,94,.15);color:#22c55e;padding:1px 6px;border-radius:8px;font-weight:700;font-size:10px">${bins.length}</span></td>`;
+    banks.forEach(([bank, data]) => {
+        const binList = _getBinsFromEntry(data);
+        const binsStr = binList.sort().join(', ');
+        // Try to get country from first entry with country
+        let country = '';
+        if (Array.isArray(data)) {
+            for (const item of data) {
+                if (typeof item === 'object' && item.country) { country = item.country; break; }
+            }
+        }
+        const safeBank = bank.replace(/"/g, '&quot;');
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">`;
+        html += `<td style="padding:5px 8px;color:#e2e8f0;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeBank}">${bank}</td>`;
+        html += `<td style="padding:5px 8px;text-align:center;font-size:10px;color:var(--text-dim)">${country || '-'}</td>`;
+        html += `<td style="padding:5px 8px;text-align:center"><span style="background:rgba(34,197,94,.15);color:#22c55e;padding:1px 6px;border-radius:8px;font-weight:700;font-size:10px">${binList.length}</span></td>`;
         html += `<td style="padding:5px 8px;color:var(--text-muted);font-family:var(--ff-mono);font-size:10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${binsStr}">${binsStr}</td>`;
-        html += `<td style="padding:5px 4px"><button class="bindb-del" data-bank="${bank}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:12px;padding:2px" title="Delete bank">✕</button></td>`;
+        html += `<td style="padding:5px 4px"><button class="bindb-del" data-bank="${safeBank}" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:12px;padding:2px" title="Delete bank">✕</button></td>`;
         html += '</tr>';
     });
     html += '</tbody></table>';
