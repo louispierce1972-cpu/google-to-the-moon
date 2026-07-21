@@ -14892,3 +14892,30 @@ tr.row-selected td {
 .bt-copyable { cursor: pointer; transition: all 120ms ease; }
 .bt-copyable:hover { color: #818CF8; text-decoration: underline; }
 .bt-flash { color: var(--green) !important; text-decoration: none !important; }
+
+/* ======= NOTES SIDEBAR - Enhanced ======= */
+/* Search */
+.nt-sidebar-search{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+.nt-sidebar-search-input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#e5e7eb;font-size:12px;padding:7px 10px;outline:none;font-family:inherit;box-sizing:border-box;transition:border-color .15s}
+.nt-sidebar-search-input:focus{border-color:rgba(234,179,8,.5)}
+.nt-sidebar-search-input::placeholder{color:#6b7280;font-size:11px}
+
+/* Action buttons row */
+.nt-sidebar-actions{display:flex;gap:4px;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap}
+.nt-sidebar-action-btn{flex:1;min-width:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:5px;color:var(--text-dim);font-size:10px;font-weight:600;padding:5px 4px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;text-align:center}
+.nt-sidebar-action-btn:hover{background:rgba(255,255,255,.08);color:var(--text-secondary)}
+.nt-btn-dupes{color:#60a5fa;border-color:rgba(96,165,250,.2)}
+.nt-btn-dupes:hover{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.4);color:#93c5fd}
+.nt-btn-empty{color:#f87171;border-color:rgba(248,113,113,.2)}
+.nt-btn-empty:hover{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.35);color:#fca5a5}
+.nt-btn-bulk-del{color:#a78bfa;border-color:rgba(167,139,250,.2)}
+.nt-btn-bulk-del:hover{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.35);color:#c4b5fd}
+
+/* Checkbox in sidebar items */
+.nt-sidebar-check{accent-color:#facc15;cursor:pointer;flex-shrink:0;width:14px;height:14px;margin:0}
+
+/* Rich metadata in sidebar items */
+.nt-sidebar-item-meta{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto}
+.nt-meta-cards{font-size:9px;color:#60a5fa;background:rgba(96,165,250,.1);padding:1px 5px;border-radius:8px;white-space:nowrap;font-weight:600}
+.nt-meta-lines{font-size:9px;color:var(--text-dim);white-space:nowrap}
+.nt-meta-date{font-size:9px;color:var(--text-dim);opacity:.7;white-space:nowrap}

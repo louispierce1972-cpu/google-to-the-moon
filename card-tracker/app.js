@@ -5830,14 +5830,25 @@ function renderNotes() {
     }).join('');
     tabsHTML += `<button class="nt-new-tab" id="nt-new-tab" title="New tab">+</button>`;
 
+    // ── Helper: count cards (lines matching 13-19 digit numbers) ──
+    const _countCards = (content) => {
+        if (!content) return 0;
+        const plain = content.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div><div/gi, '\n').replace(/<[^>]+>/g, '');
+        return (plain.match(/\d{13,19}/g) || []).length;
+    };
+
     // ── Sidebar item list (full, for the drawer) ──
     const sidebarItemsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
-        const linesCount = (t.content || '').split('\n').length;
+        const plain = (t.content || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/div><div/gi, '\n').replace(/<[^>]+>/g, '');
+        const linesCount = plain.split('\n').length;
+        const cardCount = _countCards(t.content);
+        const createdDate = t.created ? new Date(t.created).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : '';
         return `<div class="nt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
+            <input type="checkbox" class="nt-sidebar-check" data-tab="${t.id}" title="Select">
             <span class="nt-sidebar-item-title" data-tab="${t.id}">${t.title}</span>
             <button class="nt-sidebar-item-rename" data-tab="${t.id}" title="Rename">✏️</button>
-            <span class="nt-sidebar-item-lines">${linesCount}L</span>
+            <span class="nt-sidebar-item-meta">${cardCount > 0 ? `<span class="nt-meta-cards">💳${cardCount}</span>` : ''}<span class="nt-meta-lines">${linesCount}L</span>${createdDate ? `<span class="nt-meta-date">${createdDate}</span>` : ''}</span>
             ${tabs.length > 1 ? `<button class="nt-sidebar-item-close" data-tab="${t.id}" title="Close">×</button>` : ''}
         </div>`;
     }).join('');
@@ -5851,6 +5862,15 @@ function renderNotes() {
             <div class="nt-sidebar-header">
                 <span class="nt-sidebar-title">📝 All Tabs (${tabs.length})</span>
                 <button class="nt-sidebar-close" id="nt-sidebar-close">×</button>
+            </div>
+            <!-- Search across all tabs -->
+            <div class="nt-sidebar-search">
+                <input type="text" id="nt-sidebar-search-input" class="nt-sidebar-search-input" placeholder="🔍 Search across tabs...">
+            </div>
+            <div class="nt-sidebar-actions">
+                <button class="nt-sidebar-action-btn nt-btn-dupes" id="nt-find-dupes" title="Find duplicate tabs by content and close older ones">🔍 Find Dupes</button>
+                <button class="nt-sidebar-action-btn nt-btn-empty" id="nt-close-empty" title="Close all empty tabs">🗑 Empty</button>
+                <button class="nt-sidebar-action-btn nt-btn-bulk-del" id="nt-bulk-delete" title="Delete selected tabs">✕ Selected</button>
             </div>
             <div class="nt-sidebar-new">
                 <button class="nt-sidebar-new-btn" id="nt-sidebar-new-btn">+ New Tab</button>
@@ -5986,6 +6006,184 @@ function renderNotes() {
         renderNotes();
     };
     document.getElementById('nt-sidebar-new-btn')?.addEventListener('click', _createNewTab);
+
+    // ── Search across all tabs ──
+    const searchInput = document.getElementById('nt-sidebar-search-input');
+    searchInput?.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase().trim();
+        document.querySelectorAll('.nt-sidebar-item').forEach(item => {
+            const tabId = item.dataset.tab;
+            const tab = STATE.notesTabs.find(t => t.id === tabId);
+            if (!tab) return;
+            const titleMatch = tab.title.toLowerCase().includes(query);
+            const contentPlain = (tab.content || '').replace(/<[^>]+>/g, '').toLowerCase();
+            const contentMatch = contentPlain.includes(query);
+            item.style.display = (!query || titleMatch || contentMatch) ? '' : 'none';
+            // Highlight matching title
+            const titleSpan = item.querySelector('.nt-sidebar-item-title');
+            if (titleSpan && query && titleMatch) {
+                titleSpan.style.color = '#facc15';
+            } else if (titleSpan) {
+                titleSpan.style.color = '';
+            }
+        });
+    });
+
+    // ── Find & Close Duplicate Tabs ──
+    document.getElementById('nt-find-dupes')?.addEventListener('click', () => {
+        _saveActiveTab();
+        const _normalizeContent = (html) => {
+            if (!html) return '';
+            return html
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/div>\s*<div/gi, '\n')
+                .replace(/<\/p>\s*<p/gi, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/&amp;/gi, '&')
+                .replace(/&lt;/gi, '<')
+                .replace(/&gt;/gi, '>')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        // Group tabs by normalized content
+        const contentMap = new Map();
+        STATE.notesTabs.forEach(tab => {
+            const norm = _normalizeContent(tab.content);
+            if (!norm) return; // skip empty tabs
+            if (!contentMap.has(norm)) contentMap.set(norm, []);
+            contentMap.get(norm).push(tab);
+        });
+
+        // Also group by similar title prefix (e.g. "VALID — CA" tabs with different timestamps)
+        const titlePrefixMap = new Map();
+        STATE.notesTabs.forEach(tab => {
+            const norm = _normalizeContent(tab.content);
+            if (!norm) return;
+            // Extract base title (remove timestamps, counters)
+            const baseTitle = tab.title.replace(/\s*\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?/gi, '').replace(/\s*\(\d+\)\s*$/, '').replace(/\s+\d+$/, '').trim();
+            const key = baseTitle.toLowerCase();
+            if (!titlePrefixMap.has(key)) titlePrefixMap.set(key, []);
+            titlePrefixMap.get(key).push(tab);
+        });
+
+        const toRemove = new Set();
+
+        // Strategy 1: Exact content duplicates → keep newest
+        for (const [, group] of contentMap) {
+            if (group.length <= 1) continue;
+            // Sort by created DESC (newest first)
+            group.sort((a, b) => (b.created || 0) - (a.created || 0));
+            // Keep first (newest), mark rest for removal
+            for (let i = 1; i < group.length; i++) {
+                toRemove.add(group[i].id);
+            }
+        }
+
+        // Strategy 2: Same title prefix + >80% content overlap → keep newest
+        for (const [, group] of titlePrefixMap) {
+            if (group.length <= 1) continue;
+            // Compare pairs for >80% overlap
+            for (let i = 0; i < group.length; i++) {
+                if (toRemove.has(group[i].id)) continue;
+                const normI = _normalizeContent(group[i].content);
+                for (let j = i + 1; j < group.length; j++) {
+                    if (toRemove.has(group[j].id)) continue;
+                    const normJ = _normalizeContent(group[j].content);
+                    // Quick overlap check: compare line sets
+                    const linesI = new Set(normI.split('\n').map(l => l.trim()).filter(Boolean));
+                    const linesJ = new Set(normJ.split('\n').map(l => l.trim()).filter(Boolean));
+                    let overlap = 0;
+                    for (const line of linesI) { if (linesJ.has(line)) overlap++; }
+                    const maxSize = Math.max(linesI.size, linesJ.size);
+                    if (maxSize > 0 && (overlap / maxSize) > 0.8) {
+                        // Remove the older one
+                        const older = (group[i].created || 0) < (group[j].created || 0) ? group[i] : group[j];
+                        toRemove.add(older.id);
+                    }
+                }
+            }
+        }
+
+        if (toRemove.size === 0) {
+            toast('No duplicate tabs found', 'info');
+            return;
+        }
+
+        // Build confirmation message
+        const dupeNames = STATE.notesTabs.filter(t => toRemove.has(t.id)).map(t => `  • ${t.title}`).join('\n');
+        if (!confirm(`Found ${toRemove.size} duplicate tab(s) to close:\n\n${dupeNames}\n\nKeeping the newest version of each. Continue?`)) return;
+
+        // Remove duplicates (never remove active tab)
+        STATE.notesTabs = STATE.notesTabs.filter(t => !toRemove.has(t.id));
+        if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
+            STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+        }
+        save();
+        closeSidebar();
+        renderNotes();
+        toast(`Closed ${toRemove.size} duplicate tabs`, 'success');
+    });
+
+    // ── Close Empty Tabs ──
+    document.getElementById('nt-close-empty')?.addEventListener('click', () => {
+        _saveActiveTab();
+        const emptyTabs = STATE.notesTabs.filter(t => {
+            const plain = (t.content || '').replace(/<[^>]+>/g, '').trim();
+            return !plain;
+        });
+        if (emptyTabs.length === 0) {
+            toast('No empty tabs found', 'info');
+            return;
+        }
+        // Don't close the last remaining tab
+        const nonEmptyCount = STATE.notesTabs.length - emptyTabs.length;
+        if (nonEmptyCount === 0) {
+            toast('Cannot close all tabs — need at least one', 'warning');
+            return;
+        }
+        if (!confirm(`Close ${emptyTabs.length} empty tab(s)?`)) return;
+        const emptyIds = new Set(emptyTabs.map(t => t.id));
+        STATE.notesTabs = STATE.notesTabs.filter(t => !emptyIds.has(t.id));
+        if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
+            STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+        }
+        save();
+        closeSidebar();
+        renderNotes();
+        toast(`Closed ${emptyTabs.length} empty tabs`, 'success');
+    });
+
+    // ── Bulk Delete Selected ──
+    document.getElementById('nt-bulk-delete')?.addEventListener('click', () => {
+        _saveActiveTab();
+        const checked = [...document.querySelectorAll('.nt-sidebar-check:checked')].map(cb => cb.dataset.tab);
+        if (checked.length === 0) {
+            toast('Select tabs to delete using checkboxes', 'info');
+            return;
+        }
+        if (checked.length >= STATE.notesTabs.length) {
+            toast('Cannot delete all tabs — need at least one', 'warning');
+            return;
+        }
+        const names = STATE.notesTabs.filter(t => checked.includes(t.id)).map(t => `  • ${t.title}`).join('\n');
+        if (!confirm(`Delete ${checked.length} selected tab(s)?\n\n${names}`)) return;
+        const delSet = new Set(checked);
+        STATE.notesTabs = STATE.notesTabs.filter(t => !delSet.has(t.id));
+        if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
+            STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+        }
+        save();
+        closeSidebar();
+        renderNotes();
+        toast(`Deleted ${checked.length} tabs`, 'success');
+    });
+
+    // Prevent checkbox clicks from triggering tab switch
+    document.querySelectorAll('.nt-sidebar-check').forEach(cb => {
+        cb.addEventListener('click', (e) => e.stopPropagation());
+    });
 
     // ── Set initial content into editor AFTER HTML is in DOM ──
     const editor = document.getElementById('notes-editor');
