@@ -2893,7 +2893,7 @@ function _bindCCGlueEvents() {
         });
         document.getElementById('ccg-to-notes')?.addEventListener('click', () => {
             const text = '═══ CC GLUE BATCH ═══\n' + new Date().toLocaleString() + '\n\n' + _ccGlueFormatBatch(g.currentBatch);
-            const newTab = { id: 'tab-' + Date.now(), title: 'CC Glue ' + new Date().toLocaleTimeString(), content: text, pinned: false, tag: null, created: Date.now(), scrollPos: 0 };
+            const newTab = { id: 'tab-' + Date.now(), title: 'CC Glue ' + new Date().toLocaleTimeString(), content: text, pinned: false, tag: null, created: Date.now(), scrollPos: 0, exportSource: 'CC Glue', exportedAt: new Date().toISOString() };
             STATE.notesTabs.push(newTab); STATE.notesActiveTab = newTab.id; save();
             toast(`${g.currentBatch.length} cards → Notes`, 'success');
         });
@@ -3149,7 +3149,7 @@ function _bindGlueEvents() {
         });
         document.getElementById('glue-to-notes')?.addEventListener('click', () => {
             const text = '═══ GLUE EXPORT ═══\n' + new Date().toLocaleString() + '\n\n' + _ckFormatAllRecords();
-            const newTab = { id: 'tab-' + Date.now(), title: 'Glue ' + new Date().toLocaleTimeString(), content: text, pinned: false, tag: null, created: Date.now(), scrollPos: 0 };
+            const newTab = { id: 'tab-' + Date.now(), title: 'Glue ' + new Date().toLocaleTimeString(), content: text, pinned: false, tag: null, created: Date.now(), scrollPos: 0, exportSource: 'Glue', exportedAt: new Date().toISOString() };
             STATE.notesTabs.push(newTab);
             STATE.notesActiveTab = newTab.id;
             save();
@@ -5844,11 +5844,12 @@ function renderNotes() {
         const linesCount = plain.split('\n').length;
         const cardCount = _countCards(t.content);
         const createdDate = t.created ? new Date(t.created).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : '';
+        const srcBadge = t.exportSource ? `<span class="nt-meta-source" title="From ${t.exportSource}">${t.exportSource}</span>` : '';
         return `<div class="nt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
             <input type="checkbox" class="nt-sidebar-check" data-tab="${t.id}" title="Select">
             <span class="nt-sidebar-item-title" data-tab="${t.id}">${t.title}</span>
             <button class="nt-sidebar-item-rename" data-tab="${t.id}" title="Rename">✏️</button>
-            <span class="nt-sidebar-item-meta">${cardCount > 0 ? `<span class="nt-meta-cards">💳${cardCount}</span>` : ''}<span class="nt-meta-lines">${linesCount}L</span>${createdDate ? `<span class="nt-meta-date">${createdDate}</span>` : ''}</span>
+            <span class="nt-sidebar-item-meta">${srcBadge}${cardCount > 0 ? `<span class="nt-meta-cards">💳${cardCount}</span>` : ''}<span class="nt-meta-lines">${linesCount}L</span>${createdDate ? `<span class="nt-meta-date">${createdDate}</span>` : ''}</span>
             ${tabs.length > 1 ? `<button class="nt-sidebar-item-close" data-tab="${t.id}" title="Close">×</button>` : ''}
         </div>`;
     }).join('');
@@ -6029,7 +6030,7 @@ function renderNotes() {
         });
     });
 
-    // ── Find & Close Duplicate Tabs ──
+    // ── Find & Close Duplicate Tabs (CONTENT-ONLY) ──
     document.getElementById('nt-find-dupes')?.addEventListener('click', () => {
         _saveActiveTab();
         const _normalizeContent = (html) => {
@@ -6047,61 +6048,60 @@ function renderNotes() {
                 .trim();
         };
 
-        // Group tabs by normalized content
-        const contentMap = new Map();
-        STATE.notesTabs.forEach(tab => {
-            const norm = _normalizeContent(tab.content);
-            if (!norm) return; // skip empty tabs
-            if (!contentMap.has(norm)) contentMap.set(norm, []);
-            contentMap.get(norm).push(tab);
-        });
-
-        // Also group by similar title prefix (e.g. "VALID — CA" tabs with different timestamps)
-        const titlePrefixMap = new Map();
-        STATE.notesTabs.forEach(tab => {
-            const norm = _normalizeContent(tab.content);
-            if (!norm) return;
-            // Extract base title (remove timestamps, counters)
-            const baseTitle = tab.title.replace(/\s*\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?/gi, '').replace(/\s*\(\d+\)\s*$/, '').replace(/\s+\d+$/, '').trim();
-            const key = baseTitle.toLowerCase();
-            if (!titlePrefixMap.has(key)) titlePrefixMap.set(key, []);
-            titlePrefixMap.get(key).push(tab);
-        });
+        // Extract all card numbers (13-19 digits) from content
+        const _extractCards = (html) => {
+            const plain = _normalizeContent(html);
+            const matches = plain.match(/\d{13,19}/g);
+            return new Set(matches || []);
+        };
 
         const toRemove = new Set();
 
-        // Strategy 1: Exact content duplicates → keep newest
+        // Pre-compute normalized content and card sets for each tab
+        const tabData = STATE.notesTabs.map(tab => ({
+            tab,
+            norm: _normalizeContent(tab.content),
+            cards: _extractCards(tab.content)
+        }));
+
+        // Strategy 1: Exact content match → keep newest
+        const contentMap = new Map();
+        tabData.forEach(d => {
+            if (!d.norm) return;
+            if (!contentMap.has(d.norm)) contentMap.set(d.norm, []);
+            contentMap.get(d.norm).push(d.tab);
+        });
+
         for (const [, group] of contentMap) {
             if (group.length <= 1) continue;
-            // Sort by created DESC (newest first)
             group.sort((a, b) => (b.created || 0) - (a.created || 0));
-            // Keep first (newest), mark rest for removal
             for (let i = 1; i < group.length; i++) {
                 toRemove.add(group[i].id);
             }
         }
 
-        // Strategy 2: Same title prefix + >80% content overlap → keep newest
-        for (const [, group] of titlePrefixMap) {
-            if (group.length <= 1) continue;
-            // Compare pairs for >80% overlap
-            for (let i = 0; i < group.length; i++) {
-                if (toRemove.has(group[i].id)) continue;
-                const normI = _normalizeContent(group[i].content);
-                for (let j = i + 1; j < group.length; j++) {
-                    if (toRemove.has(group[j].id)) continue;
-                    const normJ = _normalizeContent(group[j].content);
-                    // Quick overlap check: compare line sets
-                    const linesI = new Set(normI.split('\n').map(l => l.trim()).filter(Boolean));
-                    const linesJ = new Set(normJ.split('\n').map(l => l.trim()).filter(Boolean));
-                    let overlap = 0;
-                    for (const line of linesI) { if (linesJ.has(line)) overlap++; }
-                    const maxSize = Math.max(linesI.size, linesJ.size);
-                    if (maxSize > 0 && (overlap / maxSize) > 0.8) {
-                        // Remove the older one
-                        const older = (group[i].created || 0) < (group[j].created || 0) ? group[i] : group[j];
-                        toRemove.add(older.id);
-                    }
+        // Strategy 2: Fuzzy content match — compare ALL tab pairs by card overlap
+        // If two tabs share >80% of the same card numbers → they're duplicates
+        for (let i = 0; i < tabData.length; i++) {
+            if (toRemove.has(tabData[i].tab.id)) continue;
+            if (tabData[i].cards.size < 3) continue; // skip tabs with <3 cards
+            for (let j = i + 1; j < tabData.length; j++) {
+                if (toRemove.has(tabData[j].tab.id)) continue;
+                if (tabData[j].cards.size < 3) continue;
+                
+                // Count shared card numbers
+                let overlap = 0;
+                for (const card of tabData[i].cards) {
+                    if (tabData[j].cards.has(card)) overlap++;
+                }
+                const maxSize = Math.max(tabData[i].cards.size, tabData[j].cards.size);
+                const minSize = Math.min(tabData[i].cards.size, tabData[j].cards.size);
+                
+                // >80% of the smaller set is shared → duplicate
+                if (minSize > 0 && (overlap / minSize) > 0.8) {
+                    const older = (tabData[i].tab.created || 0) < (tabData[j].tab.created || 0) 
+                        ? tabData[i].tab : tabData[j].tab;
+                    toRemove.add(older.id);
                 }
             }
         }
@@ -6112,10 +6112,14 @@ function renderNotes() {
         }
 
         // Build confirmation message
-        const dupeNames = STATE.notesTabs.filter(t => toRemove.has(t.id)).map(t => `  • ${t.title}`).join('\n');
-        if (!confirm(`Found ${toRemove.size} duplicate tab(s) to close:\n\n${dupeNames}\n\nKeeping the newest version of each. Continue?`)) return;
+        const dupeList = STATE.notesTabs.filter(t => toRemove.has(t.id));
+        const dupeNames = dupeList.map(t => {
+            const cards = _extractCards(t.content);
+            const src = t.exportSource ? ` [${t.exportSource}]` : '';
+            return `  • ${t.title}${src} (${cards.size} cards)`;
+        }).join('\n');
+        if (!confirm(`Found ${toRemove.size} duplicate tab(s) by CONTENT:\n\n${dupeNames}\n\nKeeping the newest version of each. Close duplicates?`)) return;
 
-        // Remove duplicates (never remove active tab)
         STATE.notesTabs = STATE.notesTabs.filter(t => !toRemove.has(t.id));
         if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
             STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
@@ -10927,7 +10931,9 @@ function _initTrashCardModal() {
             pinned: false,
             tag: null,
             created: Date.now(),
-            scrollPos: 0
+            scrollPos: 0,
+            exportSource: 'Trash',
+            exportedAt: new Date().toISOString()
         };
         STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
@@ -11109,7 +11115,9 @@ function _initCheckMyList() {
             pinned: false,
             tag: null,
             created: Date.now(),
-            scrollPos: 0
+            scrollPos: 0,
+            exportSource: 'Trash Check',
+            exportedAt: new Date().toISOString()
         };
         STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
@@ -12016,7 +12024,9 @@ function renderValidCardsResults() {
             title,
             content: block,
             pinned: false, tag: null,
-            created: Date.now(), scrollPos: 0
+            created: Date.now(), scrollPos: 0,
+            exportSource: 'Valid Cards',
+            exportedAt: new Date().toISOString()
         };
         STATE.notesTabs.unshift(newTab);
         STATE.notesActiveTab = newTab.id;
@@ -12089,6 +12099,56 @@ function runParse() {
     let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode) }));
 
+    // ── BIN-based bank auto-fill ──
+    // Build BIN → bank map from cards that DO have bank names
+    const binBankMap = {};
+    allCards.forEach(c => {
+        const bin = c.bin || (c.cc || '').substring(0, 6);
+        const bank = c.bank || '';
+        if (bin && bank && !/^unknown/i.test(bank)) {
+            if (!binBankMap[bin]) binBankMap[bin] = {};
+            binBankMap[bin][bank] = (binBankMap[bin][bank] || 0) + 1;
+        }
+    });
+    // For each BIN, pick the most frequent bank name
+    const binBestBank = {};
+    for (const [bin, banks] of Object.entries(binBankMap)) {
+        let best = '', bestCount = 0;
+        for (const [bank, count] of Object.entries(banks)) {
+            if (count > bestCount) { best = bank; bestCount = count; }
+        }
+        if (best) binBestBank[bin] = best;
+    }
+    // Fill in missing banks + enrich from BIN_CACHE and BIN Database
+    const binDb = typeof _loadBinDb === 'function' ? _loadBinDb() : {};
+    allCards = allCards.map(c => {
+        const bin = c.bin || (c.cc || '').substring(0, 6);
+        let bank = c.bank || '';
+        let cardType = c.cardType || '';
+        const isUnknown = !bank || /^unknown/i.test(bank);
+        if (isUnknown && bin) {
+            // Priority 1: other cards in same parse batch
+            if (binBestBank[bin]) { bank = binBestBank[bin]; }
+            // Priority 2: BIN_CACHE (from API lookups)
+            else if (BIN_CACHE[bin] && BIN_CACHE[bin].bank && !BIN_CACHE[bin].error) { bank = BIN_CACHE[bin].bank; }
+            // Priority 3: BIN Database (localStorage)
+            else {
+                const dbBank = typeof _findBankInDb === 'function' ? _findBankInDb(binDb, bin) : null;
+                if (dbBank) bank = dbBank;
+            }
+        }
+        // Enrich cardType from BIN_CACHE if missing
+        if (!cardType && BIN_CACHE[bin]) {
+            const cached = BIN_CACHE[bin];
+            const parts = [];
+            if (cached.level) parts.push(cached.level);
+            if (cached.type) parts.push(cached.type);
+            if (cached.brand) parts.push(cached.brand);
+            if (parts.length > 0) cardType = parts.join(' ');
+        }
+        return bank !== c.bank || cardType !== c.cardType ? { ...c, bank, cardType } : c;
+    });
+
     // (translated)
     if (binFilters.length > 0) allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
     // (translated)
@@ -12134,31 +12194,45 @@ function runParse() {
         }
     }
 
-    // (translated)
+    // TYPE filter: ALL selected types must be present in the card's type info
+    // e.g. CREDIT + BUSINESS → only cards that have BOTH "CREDIT" AND "BUSINESS"
     if (filterTypes.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
-            const ct = (info?.type || c.cardType || '').toUpperCase();
-            // Validate card data
-            return [...filterTypes].some(ft => ct.includes(ft));
+            // Combine all type info: BIN_CACHE type + log cardType
+            const ctParts = [];
+            if (info?.type) ctParts.push(info.type.toUpperCase());
+            if (c.cardType) ctParts.push(c.cardType.toUpperCase());
+            if (info?.level) ctParts.push(info.level.toUpperCase());
+            const ct = ctParts.join(' ');
+            // ALL selected types must match (AND logic)
+            return [...filterTypes].every(ft => ct.includes(ft));
         });
     }
-    // (translated)
+    // CLASS filter: precise word-boundary match
+    // WORLD matches only WORLD, not WORLD_ELITE
     if (filterClasses.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
-            const level = (info?.level || '').toUpperCase().replace(/\s+/g, '_');
-            // Validate card data
-            return [...filterClasses].some(fc => level.includes(fc) || level === fc);
+            // Combine level from cache + cardType from log
+            const levelParts = [];
+            if (info?.level) levelParts.push(info.level.toUpperCase().replace(/\s+/g, '_'));
+            if (c.cardType) levelParts.push(c.cardType.toUpperCase().replace(/\s+/g, '_'));
+            const level = levelParts.join(' ');
+            // ALL selected classes must match with exact word matching
+            return [...filterClasses].every(fc => {
+                // Exact match or word boundary: WORLD should not match WORLD_ELITE
+                const regex = new RegExp('(?:^|[\\s_])' + fc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[\\s_]|$)', 'i');
+                return regex.test(level) || level === fc;
+            });
         });
     }
-    // (translated)
+    // NETWORK filter: exact network match
     if (filterPaymentSystems.size > 0) {
         allCards = allCards.filter(c => {
             const network = getCardType(c.cc || '');
             const brand = (BIN_CACHE[c.bin]?.brand || '').toUpperCase();
-            // Validate card data
-            return [...filterPaymentSystems].some(fps => network === fps || brand.includes(fps));
+            return [...filterPaymentSystems].some(fps => network === fps || brand === fps);
         });
     }
 
@@ -12359,7 +12433,9 @@ function importToProject() {
         pinned: false,
         tag: null,
         created: Date.now(),
-        scrollPos: 0
+        scrollPos: 0,
+        exportSource: 'Parser',
+        exportedAt: new Date().toISOString()
     };
     STATE.notesTabs.unshift(newTab);
     STATE.notesActiveTab = newTab.id;
@@ -12582,7 +12658,9 @@ function renderParserResults(geoFilter) {
                 title: `BIN ${binVal} (${binCards2.length})`,
                 content: block,
                 pinned: false, tag: null,
-                created: Date.now(), scrollPos: 0
+                created: Date.now(), scrollPos: 0,
+                exportSource: 'Parser BIN',
+                exportedAt: new Date().toISOString()
             };
             STATE.notesTabs.unshift(newTab);
             STATE.notesActiveTab = newTab.id;
