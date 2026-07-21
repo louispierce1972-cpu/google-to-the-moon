@@ -9605,6 +9605,7 @@ function renderParser() {
             <span class="ps-item ps-compare">Old Base: <strong id="ps-compared">0</strong></span>
             <span class="ps-item ps-workspace">Workspace: <strong id="ps-workspace">0</strong></span>
             <span class="ps-item ps-dup">Dupes: <strong id="ps-dupes">0</strong></span>
+            <span class="ps-item ps-exclude" id="ps-exclude-wrap" style="display:none">🚫Banks: <strong id="ps-exclude">0</strong></span>
             <span class="ps-item ps-net">→ Clean: <strong id="ps-net">0</strong></span>
             <span class="ps-item ps-test" id="ps-test-mode" style="display:none">🧪 Test: <strong id="ps-test-cards">0</strong> cards (<strong id="ps-test-bins">0</strong> BINs)</span>
         </div>
@@ -10626,7 +10627,7 @@ function _initTrashCardModal() {
                         return;
                     }
                     // Deduplicate against existing trash list
-                    const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+                    const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
                     let added = 0, dupes = 0;
                     parsed.trashCards.forEach(cc => {
                         if (!existingSet.has(cc)) {
@@ -10671,7 +10672,7 @@ function _initTrashCardModal() {
             return;
         }
 
-        const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/\s/g, '')));
+        const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
         let added = 0, dupes = 0;
         deadCards.forEach(n => {
             if (!existingSet.has(n)) {
@@ -11907,14 +11908,17 @@ function runParse() {
     // Exclude banks filter
     const excludeBanksEl = document.getElementById('parser-exclude-banks');
     const excludeBanksRaw = excludeBanksEl ? excludeBanksEl.value.trim() : '';
+    let excludeBanksRemoved = 0;
     if (excludeBanksRaw) {
         const excludeList = excludeBanksRaw.split(/[,;\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
         if (excludeList.length > 0) {
+            const beforeExclude = allCards.length;
             allCards = allCards.filter(c => {
                 const bankName = (c.bank || '').toLowerCase();
                 if (!bankName) return true; // keep cards without bank info
                 return !excludeList.some(ex => bankName.includes(ex));
             });
+            excludeBanksRemoved = beforeExclude - allCards.length;
         }
     }
 
@@ -11961,11 +11965,11 @@ function runParse() {
     }
 
     PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
-    _processPipeline(allCards, status);
+    _processPipeline(allCards, status, excludeBanksRemoved);
 }
 
 // ──── PIPELINE: Filters → Trash → OldBase → Workspace → Dedup ────
-function _processPipeline(allCards, status) {
+function _processPipeline(allCards, status, excludeBanksRemoved) {
     const totalRaw = allCards.length;
 
     // Step 1: Remove TRASH cards
@@ -12003,14 +12007,17 @@ function _processPipeline(allCards, status) {
     const dupRemoved = beforeDedup - allCards.length;
 
     // Save stats
-    PARSER_STATE._pipelineStats = { totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved };
+    PARSER_STATE._pipelineStats = { totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved, excludeBanksRemoved: excludeBanksRemoved || 0 };
 
     // Finish
     PARSER_STATE.collected = allCards;
     _rebuildBinGroups();
 
     if (status) status.textContent = `✅ ${allCards.length} cards ready`;
-    toast(`Parsed: ${totalRaw} → clean: ${allCards.length} (trash: ${trashRemoved}, old base: ${compareRemoved}, workspace: ${workspaceRemoved}, dupes: ${dupRemoved})`, 'success');
+    let toastMsg = `Parsed: ${totalRaw} → clean: ${allCards.length} (trash: ${trashRemoved}, old base: ${compareRemoved}, workspace: ${workspaceRemoved}, dupes: ${dupRemoved}`;
+    if (excludeBanksRemoved) toastMsg += `, 🚫banks: ${excludeBanksRemoved}`;
+    toastMsg += ')';
+    toast(toastMsg, 'success');
     renderParser();
 }
 
@@ -12042,6 +12049,16 @@ function _updateStatsBar() {
         set('ps-workspace', stats.workspaceRemoved || 0);
         set('ps-dupes',     stats.dupRemoved      || 0);
         set('ps-net',       PARSER_STATE.collected.length);
+        // Exclude banks counter
+        const exWrap = document.getElementById('ps-exclude-wrap');
+        if (exWrap) {
+            if (stats.excludeBanksRemoved > 0) {
+                exWrap.style.display = '';
+                set('ps-exclude', stats.excludeBanksRemoved);
+            } else {
+                exWrap.style.display = 'none';
+            }
+        }
         // TEST MODE
         const testEl = document.getElementById('ps-test-mode');
         if (PARSER_STATE.testMode && typeof _applyTestMode === 'function') {
