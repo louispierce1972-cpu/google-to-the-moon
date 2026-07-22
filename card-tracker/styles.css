@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Unified Design System v2
    ═══════════════════════════════════════════ */
 
@@ -14908,17 +14908,11 @@ tr.row-selected td {
 .nt-btn-dupes:hover{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.4);color:#93c5fd}
 .nt-btn-empty{color:#f87171;border-color:rgba(248,113,113,.2)}
 .nt-btn-empty:hover{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.35);color:#fca5a5}
-.nt-btn-bulk-del{color:#a78bfa;border-color:rgba(167,139,250,.2)}
-.nt-btn-bulk-del:hover{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.35);color:#c4b5fd}
 
-/* Checkbox in sidebar items */
-.nt-sidebar-check{accent-color:#facc15;cursor:pointer;flex-shrink:0;width:14px;height:14px;margin:0}
 
 /* Rich metadata in sidebar items */
 .nt-sidebar-item-meta{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto}
 .nt-meta-cards{font-size:9px;color:#60a5fa;background:rgba(96,165,250,.1);padding:1px 5px;border-radius:8px;white-space:nowrap;font-weight:600}
-.nt-meta-lines{font-size:9px;color:var(--text-dim);white-space:nowrap}
-.nt-meta-date{font-size:9px;color:var(--text-dim);opacity:.7;white-space:nowrap}
 
 /* Export source badge */
 .nt-meta-source{font-size:8px;color:#a78bfa;background:rgba(167,139,250,.12);padding:1px 4px;border-radius:4px;white-space:nowrap;font-weight:600;letter-spacing:.3px;text-transform:uppercase}

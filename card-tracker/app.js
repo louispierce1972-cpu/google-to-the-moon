@@ -5840,16 +5840,11 @@ function renderNotes() {
     // ── Sidebar item list (full, for the drawer) ──
     const sidebarItemsHTML = tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
-        const plain = (t.content || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/div><div/gi, '\n').replace(/<[^>]+>/g, '');
-        const linesCount = plain.split('\n').length;
         const cardCount = _countCards(t.content);
-        const createdDate = t.created ? new Date(t.created).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : '';
         const srcBadge = t.exportSource ? `<span class="nt-meta-source" title="From ${t.exportSource}">${t.exportSource}</span>` : '';
         return `<div class="nt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
-            <input type="checkbox" class="nt-sidebar-check" data-tab="${t.id}" title="Select">
             <span class="nt-sidebar-item-title" data-tab="${t.id}">${t.title}</span>
-            <button class="nt-sidebar-item-rename" data-tab="${t.id}" title="Rename">✏️</button>
-            <span class="nt-sidebar-item-meta">${srcBadge}${cardCount > 0 ? `<span class="nt-meta-cards">💳${cardCount}</span>` : ''}<span class="nt-meta-lines">${linesCount}L</span>${createdDate ? `<span class="nt-meta-date">${createdDate}</span>` : ''}</span>
+            <span class="nt-sidebar-item-meta">${srcBadge}${cardCount > 0 ? `<span class="nt-meta-cards">💳${cardCount}</span>` : ''}</span>
             ${tabs.length > 1 ? `<button class="nt-sidebar-item-close" data-tab="${t.id}" title="Close">×</button>` : ''}
         </div>`;
     }).join('');
@@ -5871,7 +5866,6 @@ function renderNotes() {
             <div class="nt-sidebar-actions">
                 <button class="nt-sidebar-action-btn nt-btn-dupes" id="nt-find-dupes" title="Find duplicate tabs by content and close older ones">🔍 Find Dupes</button>
                 <button class="nt-sidebar-action-btn nt-btn-empty" id="nt-close-empty" title="Close all empty tabs">🗑 Empty</button>
-                <button class="nt-sidebar-action-btn nt-btn-bulk-del" id="nt-bulk-delete" title="Delete selected tabs">✕ Selected</button>
             </div>
             <div class="nt-sidebar-new">
                 <button class="nt-sidebar-new-btn" id="nt-sidebar-new-btn">+ New Tab</button>
@@ -5914,62 +5908,11 @@ function renderNotes() {
     document.querySelectorAll('.nt-sidebar-item').forEach(item => {
         item.addEventListener('click', (e) => {
             if (e.target.classList.contains('nt-sidebar-item-close')) return;
-            if (e.target.classList.contains('nt-sidebar-item-rename')) return;
-            if (e.target.classList.contains('nt-sidebar-item-title') && e.target.contentEditable === 'true') return;
             _saveActiveTab();
             STATE.notesActiveTab = item.dataset.tab;
             save();
             closeSidebar();
             renderNotes();
-        });
-    });
-
-    // ── Sidebar: rename tab (pencil button click or double-click on title) ──
-    const _startSidebarRename = (titleSpan) => {
-        const tabId = titleSpan.dataset.tab;
-        const tab = STATE.notesTabs.find(t => t.id === tabId);
-        if (!tab) return;
-        if (titleSpan.contentEditable === 'true') return; // already editing
-        titleSpan.contentEditable = 'true';
-        titleSpan.classList.add('editing');
-        titleSpan.focus();
-        const range = document.createRange();
-        range.selectNodeContents(titleSpan);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        const finish = () => {
-            titleSpan.contentEditable = 'false';
-            titleSpan.classList.remove('editing');
-            const newName = titleSpan.textContent.trim();
-            if (newName && newName !== tab.title) {
-                tab.title = newName;
-                save();
-                // Also update matching tab bar title if visible
-                const tabBarTitle = document.querySelector(`.nt-tab-title[data-tab="${tabId}"]`);
-                if (tabBarTitle) tabBarTitle.textContent = newName;
-            }
-            titleSpan.textContent = tab.title;
-        };
-        titleSpan.addEventListener('blur', finish, { once: true });
-        titleSpan.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') { ev.preventDefault(); titleSpan.blur(); }
-            if (ev.key === 'Escape') { titleSpan.textContent = tab.title; titleSpan.blur(); }
-        });
-    };
-
-    document.querySelectorAll('.nt-sidebar-item-rename').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const titleSpan = btn.parentElement.querySelector('.nt-sidebar-item-title');
-            if (titleSpan) _startSidebarRename(titleSpan);
-        });
-    });
-
-    document.querySelectorAll('.nt-sidebar-item-title').forEach(span => {
-        span.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
-            _startSidebarRename(span);
         });
     });
 
@@ -6111,15 +6054,6 @@ function renderNotes() {
             return;
         }
 
-        // Build confirmation message
-        const dupeList = STATE.notesTabs.filter(t => toRemove.has(t.id));
-        const dupeNames = dupeList.map(t => {
-            const cards = _extractCards(t.content);
-            const src = t.exportSource ? ` [${t.exportSource}]` : '';
-            return `  • ${t.title}${src} (${cards.size} cards)`;
-        }).join('\n');
-        if (!confirm(`Found ${toRemove.size} duplicate tab(s) by CONTENT:\n\n${dupeNames}\n\nKeeping the newest version of each. Close duplicates?`)) return;
-
         STATE.notesTabs = STATE.notesTabs.filter(t => !toRemove.has(t.id));
         if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
             STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
@@ -6141,14 +6075,13 @@ function renderNotes() {
             toast('No empty tabs found', 'info');
             return;
         }
-        // Don't close the last remaining tab
-        const nonEmptyCount = STATE.notesTabs.length - emptyTabs.length;
-        if (nonEmptyCount === 0) {
-            toast('Cannot close all tabs — need at least one', 'warning');
-            return;
-        }
-        if (!confirm(`Close ${emptyTabs.length} empty tab(s)?`)) return;
         const emptyIds = new Set(emptyTabs.map(t => t.id));
+        // Keep at least one tab
+        if (emptyIds.size >= STATE.notesTabs.length) {
+            const keep = STATE.notesTabs[0];
+            emptyIds.delete(keep.id);
+        }
+        if (emptyIds.size === 0) return;
         STATE.notesTabs = STATE.notesTabs.filter(t => !emptyIds.has(t.id));
         if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
             STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
@@ -6159,35 +6092,7 @@ function renderNotes() {
         toast(`Closed ${emptyTabs.length} empty tabs`, 'success');
     });
 
-    // ── Bulk Delete Selected ──
-    document.getElementById('nt-bulk-delete')?.addEventListener('click', () => {
-        _saveActiveTab();
-        const checked = [...document.querySelectorAll('.nt-sidebar-check:checked')].map(cb => cb.dataset.tab);
-        if (checked.length === 0) {
-            toast('Select tabs to delete using checkboxes', 'info');
-            return;
-        }
-        if (checked.length >= STATE.notesTabs.length) {
-            toast('Cannot delete all tabs — need at least one', 'warning');
-            return;
-        }
-        const names = STATE.notesTabs.filter(t => checked.includes(t.id)).map(t => `  • ${t.title}`).join('\n');
-        if (!confirm(`Delete ${checked.length} selected tab(s)?\n\n${names}`)) return;
-        const delSet = new Set(checked);
-        STATE.notesTabs = STATE.notesTabs.filter(t => !delSet.has(t.id));
-        if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
-            STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
-        }
-        save();
-        closeSidebar();
-        renderNotes();
-        toast(`Deleted ${checked.length} tabs`, 'success');
-    });
 
-    // Prevent checkbox clicks from triggering tab switch
-    document.querySelectorAll('.nt-sidebar-check').forEach(cb => {
-        cb.addEventListener('click', (e) => e.stopPropagation());
-    });
 
     // ── Set initial content into editor AFTER HTML is in DOM ──
     const editor = document.getElementById('notes-editor');
