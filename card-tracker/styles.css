@@ -14922,3 +14922,19 @@ tr.row-selected td {
 .nt-ctx-title{font-size:10px;color:#6b7280;padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
 .nt-ctx-btn{display:block;width:100%;background:none;border:none;color:#e5e7eb;font-size:12px;padding:7px 12px;text-align:left;cursor:pointer;border-radius:5px;font-family:inherit;transition:background .12s}
 .nt-ctx-btn:hover{background:rgba(234,179,8,.15);color:#facc15}
+/* ======= NOTES SORT MODAL ======= */
+.nt-sort-modal-overlay{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.nt-sort-modal{background:#1a1d23;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:24px;width:480px;max-width:90vw;max-height:80vh;box-shadow:0 16px 48px rgba(0,0,0,.6)}
+.nt-sort-modal-header{font-size:16px;font-weight:600;color:#facc15;margin-bottom:8px}
+.nt-sort-modal-desc{font-size:12px;color:#9ca3af;margin-bottom:12px}
+.nt-sort-input{width:100%;background:#0f1117;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e5e7eb;font-size:12px;font-family:'JetBrains Mono',monospace;padding:10px;resize:vertical;outline:none;box-sizing:border-box}
+.nt-sort-input:focus{border-color:#facc15}
+.nt-sort-modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+.nt-sort-btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all .15s}
+.nt-sort-cancel{background:rgba(255,255,255,.06);color:#9ca3af}
+.nt-sort-cancel:hover{background:rgba(255,255,255,.1);color:#e5e7eb}
+.nt-sort-apply{background:#facc15;color:#0f1117}
+.nt-sort-apply:hover{background:#fbbf24}
+.nt-ctx-divider{height:1px;background:rgba(255,255,255,.08);margin:4px 0}
+.nt-ctx-sort{color:#4ade80 !important}
+.nt-ctx-sort:hover{background:rgba(74,222,128,.15) !important}

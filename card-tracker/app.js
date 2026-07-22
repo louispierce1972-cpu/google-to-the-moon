@@ -5855,14 +5855,6 @@ function renderNotes() {
                 <span class="nt-sidebar-title">📝 All Tabs (${tabs.length})</span>
                 <button class="nt-sidebar-close" id="nt-sidebar-close">×</button>
             </div>
-            <!-- Search across all tabs -->
-            <div class="nt-sidebar-search">
-                <input type="text" id="nt-sidebar-search-input" class="nt-sidebar-search-input" placeholder="🔍 Search across tabs...">
-            </div>
-            <div class="nt-sidebar-actions">
-                <button class="nt-sidebar-action-btn nt-btn-dupes" id="nt-find-dupes" title="Find duplicate tabs by content and close older ones">🔍 Find Dupes</button>
-                <button class="nt-sidebar-action-btn nt-btn-empty" id="nt-close-empty" title="Close all empty tabs">🗑 Empty</button>
-            </div>
             <div class="nt-sidebar-new">
                 <button class="nt-sidebar-new-btn" id="nt-sidebar-new-btn">+ New Tab</button>
             </div>
@@ -5889,13 +5881,13 @@ function renderNotes() {
                 <span class="notes-saved-info">${lineCount} lines</span>
             </div>
         </div>
-    `;
+    `; 
 
-    // ── Sidebar open/close ──
     const sidebar = document.getElementById('nt-sidebar');
     const overlay = document.getElementById('nt-sidebar-overlay');
     const openSidebar = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
     const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); };
+
     document.getElementById('nt-sidebar-open')?.addEventListener('click', openSidebar);
     document.getElementById('nt-sidebar-close')?.addEventListener('click', closeSidebar);
     overlay?.addEventListener('click', closeSidebar);
@@ -5928,7 +5920,6 @@ function renderNotes() {
 
     // ── Sidebar: new tab ──
     const _createNewTab = () => {
-        _saveActiveTab();
         const newTab = {
             id: 'tab-' + Date.now(),
             title: 'Tab ' + (STATE.notesTabs.length + 1),
@@ -5956,7 +5947,7 @@ function renderNotes() {
     // ── Wire pin clicks on line numbers ──
     _wireLinePinClicks(document.getElementById('notes-line-nums'));
 
-    // ── Right-click context menu: Split by N lines ──
+    // ── Right-click context menu: Split + Sort Valid ──
     const _existingMenu = document.getElementById('nt-context-menu');
     if (_existingMenu) _existingMenu.remove();
 
@@ -5964,8 +5955,11 @@ function renderNotes() {
     ctxMenu.id = 'nt-context-menu';
     ctxMenu.className = 'nt-context-menu';
     ctxMenu.style.display = 'none';
-    ctxMenu.innerHTML = '<div class="nt-ctx-title">Split every:</div>' +
-        [10, 15, 20, 30, 50].map(n => '<button class="nt-ctx-btn" data-split="' + n + '">' + n + ' lines</button>').join('');
+    ctxMenu.innerHTML = 
+        '<div class="nt-ctx-title">Split every:</div>' +
+        [10, 15, 20, 30, 50].map(n => '<button class="nt-ctx-btn nt-ctx-split" data-split="' + n + '">' + n + ' lines</button>').join('') +
+        '<div class="nt-ctx-divider"></div>' +
+        '<button class="nt-ctx-btn nt-ctx-sort" id="nt-ctx-sort-valid">&#x2714; Sort Valid Cards</button>';
     document.body.appendChild(ctxMenu);
 
     const hideCtx = () => { ctxMenu.style.display = 'none'; };
@@ -5975,39 +5969,134 @@ function renderNotes() {
     if (editor) {
         editor.addEventListener('contextmenu', (e) => {
             const sel = window.getSelection();
-            if (!sel || sel.isCollapsed) return; // no selection — use default menu
+            if (!sel || sel.isCollapsed) return;
             e.preventDefault();
             ctxMenu.style.display = 'block';
-            ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
-            ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+            ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+            ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - 300) + 'px';
         });
     }
 
-    ctxMenu.querySelectorAll('.nt-ctx-btn').forEach(btn => {
+    // ── Split by N lines (preserves existing colors/HTML) ──
+    ctxMenu.querySelectorAll('.nt-ctx-split').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             hideCtx();
             const n = parseInt(btn.dataset.split);
             if (!editor || !n) return;
-            // Get all text, split by lines, insert blank line every N
-            const text = _getEditorText(editor);
-            const lines = text.split('\n');
+            // Work with innerHTML to preserve color spans
+            const html = editor.innerHTML;
+            // Split by <br>, <div>, or newline
+            const parts = html.split(/(<br\s*\/?>|<\/div><div[^>]*>|\n)/gi);
+            // Rebuild: count actual content lines (not the delimiters)
+            let lineIdx = 0;
             const result = [];
-            for (let i = 0; i < lines.length; i++) {
-                result.push(lines[i]);
-                if ((i + 1) % n === 0 && i < lines.length - 1) {
-                    result.push('');
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                result.push(part);
+                // Check if this is a content part (not a delimiter)
+                if (!part.match(/^(<br\s*\/?>|<\/div><div[^>]*>|\n)$/i)) {
+                    lineIdx++;
+                    if (lineIdx % n === 0 && i < parts.length - 1) {
+                        result.push('<br><br>');
+                    }
                 }
             }
-            editor.innerText = result.join('\n');
+            editor.innerHTML = result.join('');
             _saveActiveTab();
-            activeTab.content = editor.innerHTML;
+            const tab = _getActiveNoteTab();
+            if (tab) tab.content = editor.innerHTML;
             save();
             renderNotes();
             toast('Split every ' + n + ' lines', 'success');
         });
     });
 
+    // ── Sort Valid Cards: modal to paste checker results ──
+    document.getElementById('nt-ctx-sort-valid')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideCtx();
+        // Show modal
+        let modal = document.getElementById('nt-sort-modal');
+        if (modal) modal.remove();
+        modal = document.createElement('div');
+        modal.id = 'nt-sort-modal';
+        modal.className = 'nt-sort-modal-overlay';
+        modal.innerHTML = 
+            '<div class="nt-sort-modal">' +
+            '  <div class="nt-sort-modal-header">Sort Valid Cards</div>' +
+            '  <p class="nt-sort-modal-desc">Paste checker results here (Approved/ALIVE = valid):</p>' +
+            '  <textarea id="nt-sort-input" class="nt-sort-input" rows="12" placeholder="4847835121393811 | Approved ✅\n4548870082618882 | TRAN NOT ALLOWED 🚫\nor\n✅ 3752490102710 08 28 - ALIVE"></textarea>' +
+            '  <div class="nt-sort-modal-actions">' +
+            '    <button id="nt-sort-cancel" class="nt-sort-btn nt-sort-cancel">Cancel</button>' +
+            '    <button id="nt-sort-apply" class="nt-sort-btn nt-sort-apply">Sort & Color</button>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(modal);
+
+        document.getElementById('nt-sort-cancel').onclick = () => modal.remove();
+        modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
+
+        document.getElementById('nt-sort-apply').onclick = () => {
+            const raw = document.getElementById('nt-sort-input').value;
+            if (!raw.trim()) { modal.remove(); return; }
+
+            // Parse checker results: extract card number → valid/dead
+            const cardStatus = new Map();
+            raw.split('\n').forEach(line => {
+                const nums = line.match(/\d{13,19}/g);
+                if (!nums) return;
+                const num = nums[0];
+                const lower = line.toLowerCase();
+                const isValid = lower.includes('approved') || lower.includes('alive');
+                cardStatus.set(num, isValid);
+            });
+
+            if (cardStatus.size === 0) { toast('No card numbers found in input', 'error'); return; }
+
+            // Get editor lines as HTML (preserving colors)
+            const editorHTML = editor.innerHTML;
+            // Split into lines preserving HTML structure
+            let lineEls = editorHTML
+                .replace(/<div>/gi, '\n<div>')
+                .replace(/<br\s*\/?>/gi, '\n')
+                .split('\n')
+                .filter(l => l.trim());
+
+            // Classify each line
+            const validLines = [];
+            const deadLines = [];
+            const unknownLines = [];
+
+            lineEls.forEach(lineHTML => {
+                const plain = lineHTML.replace(/<[^>]+>/g, '');
+                const nums = plain.match(/\d{13,19}/g);
+                if (!nums) { unknownLines.push(lineHTML); return; }
+                const cardNum = nums[0];
+                if (cardStatus.has(cardNum)) {
+                    const isValid = cardStatus.get(cardNum);
+                    // Wrap line in color span (but preserve existing inner spans)
+                    const stripped = lineHTML.replace(/<\/?div[^>]*>/gi, '');
+                    const colored = '<span style="color:' + (isValid ? '#4ade80' : '#f87171') + '">' + stripped + '</span>';
+                    if (isValid) validLines.push(colored);
+                    else deadLines.push(colored);
+                } else {
+                    unknownLines.push(lineHTML);
+                }
+            });
+
+            // Rebuild: valid first (green), then unknown, then dead (red)
+            const sorted = [...validLines, ...unknownLines, ...deadLines];
+            editor.innerHTML = sorted.join('<br>');
+            _saveActiveTab();
+            const tab = _getActiveNoteTab();
+            if (tab) tab.content = editor.innerHTML;
+            save();
+            modal.remove();
+            renderNotes();
+            toast(`Sorted: ${validLines.length} valid (green), ${deadLines.length} dead (red), ${unknownLines.length} unchecked`, 'success');
+        };
+    });
     let _notesSaveTimer = null;
     // Initialize from actual rendered text (not the pre-parsed estimate)
     let _prevLineCount = editor ? (_getEditorText(editor).split('\n').filter((_, i, a) => !(i === a.length - 1 && _ === '')).length || 1) : lineCount;
