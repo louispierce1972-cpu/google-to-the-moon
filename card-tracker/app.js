@@ -5947,156 +5947,208 @@ function renderNotes() {
     // ── Wire pin clicks on line numbers ──
     _wireLinePinClicks(document.getElementById('notes-line-nums'));
 
-    // ── Right-click context menu: Split + Sort Valid ──
-    const _existingMenu = document.getElementById('nt-context-menu');
-    if (_existingMenu) _existingMenu.remove();
+    // ── Unified right-click context menu (colors + split + sort) ──
+    const NOTE_COLORS = [
+        { label: 'Red',    color: '#ef4444' },
+        { label: 'Orange', color: '#f97316' },
+        { label: 'Yellow', color: '#eab308' },
+        { label: 'Green',  color: '#22c55e' },
+        { label: 'Blue',   color: '#3b82f6' },
+        { label: 'Purple', color: '#a855f7' },
+        { label: 'Cyan',   color: '#06b6d4' },
+        { label: 'Pink',   color: '#ec4899' },
+        { label: 'White',  color: '#f1f5f9' },
+    ];
 
-    const ctxMenu = document.createElement('div');
-    ctxMenu.id = 'nt-context-menu';
-    ctxMenu.className = 'nt-context-menu';
-    ctxMenu.style.display = 'none';
-    ctxMenu.innerHTML = 
-        '<div class="nt-ctx-title">Split every:</div>' +
-        [10, 15, 20, 30, 50].map(n => '<button class="nt-ctx-btn nt-ctx-split" data-split="' + n + '">' + n + ' lines</button>').join('') +
-        '<div class="nt-ctx-divider"></div>' +
-        '<button class="nt-ctx-btn nt-ctx-sort" id="nt-ctx-sort-valid">&#x2714; Sort Valid Cards</button>';
-    document.body.appendChild(ctxMenu);
-
-    const hideCtx = () => { ctxMenu.style.display = 'none'; };
-    document.addEventListener('click', hideCtx);
-    document.addEventListener('scroll', hideCtx, true);
+    function _removeNotesCtxMenu() {
+        const old = document.getElementById('notes-ctx-menu');
+        if (old) old.remove();
+    }
 
     if (editor) {
         editor.addEventListener('contextmenu', (e) => {
             const sel = window.getSelection();
-            if (!sel || sel.isCollapsed) return;
+            const selText = sel ? sel.toString() : '';
+            if (!selText) return; // no selection -> browser default
             e.preventDefault();
-            ctxMenu.style.display = 'block';
-            ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
-            ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - 300) + 'px';
+            _removeNotesCtxMenu();
+
+            const menu = document.createElement('div');
+            menu.id = 'notes-ctx-menu';
+            menu.className = 'notes-ctx-menu';
+
+            // ── Section 1: Color swatches ──
+            const colorHeader = document.createElement('div');
+            colorHeader.className = 'nctx-header';
+            colorHeader.textContent = 'COLOR';
+            menu.appendChild(colorHeader);
+
+            const swatches = document.createElement('div');
+            swatches.className = 'nctx-swatches';
+            NOTE_COLORS.forEach(({ label, color }) => {
+                const sw = document.createElement('button');
+                sw.className = 'nctx-swatch';
+                sw.title = label;
+                sw.style.background = color;
+                sw.addEventListener('mousedown', (ev) => {
+                    ev.preventDefault();
+                    editor.focus();
+                    document.execCommand('styleWithCSS', false, true);
+                    document.execCommand('foreColor', false, color);
+                    _removeNotesCtxMenu();
+                    editor.dispatchEvent(new Event('input'));
+                });
+                swatches.appendChild(sw);
+            });
+            menu.appendChild(swatches);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'nctx-remove';
+            removeBtn.textContent = '\u2715 Remove color';
+            removeBtn.addEventListener('mousedown', (ev) => {
+                ev.preventDefault();
+                editor.focus();
+                document.execCommand('styleWithCSS', false, true);
+                document.execCommand('foreColor', false, '');
+                const selNow = window.getSelection();
+                if (selNow && selNow.rangeCount) {
+                    const range = selNow.getRangeAt(0);
+                    const fragment = range.extractContents();
+                    fragment.querySelectorAll('[style*="color"]').forEach(el => {
+                        el.style.removeProperty('color');
+                        if (!el.style.cssText.trim()) el.replaceWith(...el.childNodes);
+                    });
+                    range.insertNode(fragment);
+                }
+                _removeNotesCtxMenu();
+                editor.dispatchEvent(new Event('input'));
+            });
+            menu.appendChild(removeBtn);
+
+            // ── Section 2: Split ──
+            const div1 = document.createElement('div');
+            div1.className = 'nctx-divider';
+            menu.appendChild(div1);
+
+            const splitHeader = document.createElement('div');
+            splitHeader.className = 'nctx-header';
+            splitHeader.textContent = 'SPLIT EVERY';
+            menu.appendChild(splitHeader);
+
+            const splitRow = document.createElement('div');
+            splitRow.className = 'nctx-split-row';
+            [10, 15, 20, 30, 50].forEach(n => {
+                const btn = document.createElement('button');
+                btn.className = 'nctx-split-btn';
+                btn.textContent = n;
+                btn.addEventListener('mousedown', (ev) => {
+                    ev.preventDefault();
+                    _removeNotesCtxMenu();
+                    const html = editor.innerHTML;
+                    const parts = html.split(/(<br\s*\/?>|<\/div><div[^>]*>|\n)/gi);
+                    let lineIdx = 0;
+                    const result = [];
+                    for (let i = 0; i < parts.length; i++) {
+                        result.push(parts[i]);
+                        if (!parts[i].match(/^(<br\s*\/?>|<\/div><div[^>]*>|\n)$/i)) {
+                            lineIdx++;
+                            if (lineIdx % n === 0 && i < parts.length - 1) result.push('<br><br>');
+                        }
+                    }
+                    editor.innerHTML = result.join('');
+                    _saveActiveTab();
+                    const tab = _getActiveNoteTab();
+                    if (tab) tab.content = editor.innerHTML;
+                    save();
+                    renderNotes();
+                    toast('Split every ' + n + ' lines', 'success');
+                });
+                splitRow.appendChild(btn);
+            });
+            menu.appendChild(splitRow);
+
+            // ── Section 3: Sort Valid ──
+            const div2 = document.createElement('div');
+            div2.className = 'nctx-divider';
+            menu.appendChild(div2);
+
+            const sortBtn = document.createElement('button');
+            sortBtn.className = 'nctx-action-btn nctx-sort-valid';
+            sortBtn.textContent = '\u2714 Sort Valid Cards';
+            sortBtn.addEventListener('mousedown', (ev) => {
+                ev.preventDefault();
+                _removeNotesCtxMenu();
+                // Open sort modal
+                let modal = document.getElementById('nt-sort-modal');
+                if (modal) modal.remove();
+                modal = document.createElement('div');
+                modal.id = 'nt-sort-modal';
+                modal.className = 'nt-sort-modal-overlay';
+                modal.innerHTML =
+                    '<div class="nt-sort-modal">' +
+                    '  <div class="nt-sort-modal-header">Sort Valid Cards</div>' +
+                    '  <p class="nt-sort-modal-desc">Paste checker results (Approved / ALIVE = valid):</p>' +
+                    '  <textarea id="nt-sort-input" class="nt-sort-input" rows="10" placeholder="4847835121393811 | Approved\n3752490102710 - ALIVE"></textarea>' +
+                    '  <div class="nt-sort-modal-actions">' +
+                    '    <button id="nt-sort-cancel" class="nt-sort-btn nt-sort-cancel">Cancel</button>' +
+                    '    <button id="nt-sort-apply" class="nt-sort-btn nt-sort-apply">Sort & Color</button>' +
+                    '  </div></div>';
+                document.body.appendChild(modal);
+                document.getElementById('nt-sort-cancel').onclick = () => modal.remove();
+                modal.addEventListener('click', (ev2) => { if (ev2.target === modal) modal.remove(); });
+                document.getElementById('nt-sort-apply').onclick = () => {
+                    const raw = document.getElementById('nt-sort-input').value;
+                    if (!raw.trim()) { modal.remove(); return; }
+                    const cardStatus = new Map();
+                    raw.split('\n').forEach(line => {
+                        const nums = line.match(/\d{13,19}/g);
+                        if (!nums) return;
+                        const lower = line.toLowerCase();
+                        cardStatus.set(nums[0], lower.includes('approved') || lower.includes('alive'));
+                    });
+                    if (cardStatus.size === 0) { toast('No card numbers found', 'error'); return; }
+                    let lineEls = editor.innerHTML.replace(/<div>/gi, '\n<div>').replace(/<br\s*\/?>/gi, '\n').split('\n').filter(l => l.trim());
+                    const valid = [], dead = [], unknown = [];
+                    lineEls.forEach(lh => {
+                        const plain = lh.replace(/<[^>]+>/g, '');
+                        const nums = plain.match(/\d{13,19}/g);
+                        if (!nums) { unknown.push(lh); return; }
+                        if (cardStatus.has(nums[0])) {
+                            const ok = cardStatus.get(nums[0]);
+                            const s = lh.replace(/<\/?div[^>]*>/gi, '');
+                            const c = '<span style="color:' + (ok ? '#4ade80' : '#f87171') + '">' + s + '</span>';
+                            (ok ? valid : dead).push(c);
+                        } else unknown.push(lh);
+                    });
+                    editor.innerHTML = [...valid, ...unknown, ...dead].join('<br>');
+                    _saveActiveTab();
+                    const tab = _getActiveNoteTab();
+                    if (tab) tab.content = editor.innerHTML;
+                    save(); modal.remove(); renderNotes();
+                    toast('Sorted: ' + valid.length + ' valid, ' + dead.length + ' dead, ' + unknown.length + ' unchecked', 'success');
+                };
+            });
+            menu.appendChild(sortBtn);
+
+            // Position menu
+            document.body.appendChild(menu);
+            const mw = menu.offsetWidth, mh = menu.offsetHeight;
+            let x = e.clientX, y = e.clientY;
+            if (x + mw > window.innerWidth - 8) x = window.innerWidth - mw - 8;
+            if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
+            menu.style.left = x + 'px';
+            menu.style.top  = y + 'px';
+
+            const _closeMenu = (ev) => {
+                if (!menu.contains(ev.target)) {
+                    _removeNotesCtxMenu();
+                    document.removeEventListener('mousedown', _closeMenu);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', _closeMenu), 0);
         });
     }
 
-    // ── Split by N lines (preserves existing colors/HTML) ──
-    ctxMenu.querySelectorAll('.nt-ctx-split').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            hideCtx();
-            const n = parseInt(btn.dataset.split);
-            if (!editor || !n) return;
-            // Work with innerHTML to preserve color spans
-            const html = editor.innerHTML;
-            // Split by <br>, <div>, or newline
-            const parts = html.split(/(<br\s*\/?>|<\/div><div[^>]*>|\n)/gi);
-            // Rebuild: count actual content lines (not the delimiters)
-            let lineIdx = 0;
-            const result = [];
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i];
-                result.push(part);
-                // Check if this is a content part (not a delimiter)
-                if (!part.match(/^(<br\s*\/?>|<\/div><div[^>]*>|\n)$/i)) {
-                    lineIdx++;
-                    if (lineIdx % n === 0 && i < parts.length - 1) {
-                        result.push('<br><br>');
-                    }
-                }
-            }
-            editor.innerHTML = result.join('');
-            _saveActiveTab();
-            const tab = _getActiveNoteTab();
-            if (tab) tab.content = editor.innerHTML;
-            save();
-            renderNotes();
-            toast('Split every ' + n + ' lines', 'success');
-        });
-    });
-
-    // ── Sort Valid Cards: modal to paste checker results ──
-    document.getElementById('nt-ctx-sort-valid')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        hideCtx();
-        // Show modal
-        let modal = document.getElementById('nt-sort-modal');
-        if (modal) modal.remove();
-        modal = document.createElement('div');
-        modal.id = 'nt-sort-modal';
-        modal.className = 'nt-sort-modal-overlay';
-        modal.innerHTML = 
-            '<div class="nt-sort-modal">' +
-            '  <div class="nt-sort-modal-header">Sort Valid Cards</div>' +
-            '  <p class="nt-sort-modal-desc">Paste checker results here (Approved/ALIVE = valid):</p>' +
-            '  <textarea id="nt-sort-input" class="nt-sort-input" rows="12" placeholder="4847835121393811 | Approved ✅\n4548870082618882 | TRAN NOT ALLOWED 🚫\nor\n✅ 3752490102710 08 28 - ALIVE"></textarea>' +
-            '  <div class="nt-sort-modal-actions">' +
-            '    <button id="nt-sort-cancel" class="nt-sort-btn nt-sort-cancel">Cancel</button>' +
-            '    <button id="nt-sort-apply" class="nt-sort-btn nt-sort-apply">Sort & Color</button>' +
-            '  </div>' +
-            '</div>';
-        document.body.appendChild(modal);
-
-        document.getElementById('nt-sort-cancel').onclick = () => modal.remove();
-        modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.remove(); });
-
-        document.getElementById('nt-sort-apply').onclick = () => {
-            const raw = document.getElementById('nt-sort-input').value;
-            if (!raw.trim()) { modal.remove(); return; }
-
-            // Parse checker results: extract card number → valid/dead
-            const cardStatus = new Map();
-            raw.split('\n').forEach(line => {
-                const nums = line.match(/\d{13,19}/g);
-                if (!nums) return;
-                const num = nums[0];
-                const lower = line.toLowerCase();
-                const isValid = lower.includes('approved') || lower.includes('alive');
-                cardStatus.set(num, isValid);
-            });
-
-            if (cardStatus.size === 0) { toast('No card numbers found in input', 'error'); return; }
-
-            // Get editor lines as HTML (preserving colors)
-            const editorHTML = editor.innerHTML;
-            // Split into lines preserving HTML structure
-            let lineEls = editorHTML
-                .replace(/<div>/gi, '\n<div>')
-                .replace(/<br\s*\/?>/gi, '\n')
-                .split('\n')
-                .filter(l => l.trim());
-
-            // Classify each line
-            const validLines = [];
-            const deadLines = [];
-            const unknownLines = [];
-
-            lineEls.forEach(lineHTML => {
-                const plain = lineHTML.replace(/<[^>]+>/g, '');
-                const nums = plain.match(/\d{13,19}/g);
-                if (!nums) { unknownLines.push(lineHTML); return; }
-                const cardNum = nums[0];
-                if (cardStatus.has(cardNum)) {
-                    const isValid = cardStatus.get(cardNum);
-                    // Wrap line in color span (but preserve existing inner spans)
-                    const stripped = lineHTML.replace(/<\/?div[^>]*>/gi, '');
-                    const colored = '<span style="color:' + (isValid ? '#4ade80' : '#f87171') + '">' + stripped + '</span>';
-                    if (isValid) validLines.push(colored);
-                    else deadLines.push(colored);
-                } else {
-                    unknownLines.push(lineHTML);
-                }
-            });
-
-            // Rebuild: valid first (green), then unknown, then dead (red)
-            const sorted = [...validLines, ...unknownLines, ...deadLines];
-            editor.innerHTML = sorted.join('<br>');
-            _saveActiveTab();
-            const tab = _getActiveNoteTab();
-            if (tab) tab.content = editor.innerHTML;
-            save();
-            modal.remove();
-            renderNotes();
-            toast(`Sorted: ${validLines.length} valid (green), ${deadLines.length} dead (red), ${unknownLines.length} unchecked`, 'success');
-        };
-    });
     let _notesSaveTimer = null;
     // Initialize from actual rendered text (not the pre-parsed estimate)
     let _prevLineCount = editor ? (_getEditorText(editor).split('\n').filter((_, i, a) => !(i === a.length - 1 && _ === '')).length || 1) : lineCount;
@@ -6168,106 +6220,6 @@ function renderNotes() {
             if (lineNums) lineNums.scrollTop = activeTab.scrollPos;
         }
 
-        // ── Right-click color context menu ──
-        const NOTE_COLORS = [
-            { label: 'Red',    color: '#ef4444' },
-            { label: 'Orange', color: '#f97316' },
-            { label: 'Yellow', color: '#eab308' },
-            { label: 'Green',  color: '#22c55e' },
-            { label: 'Blue',   color: '#3b82f6' },
-            { label: 'Purple', color: '#a855f7' },
-            { label: 'Cyan',   color: '#06b6d4' },
-            { label: 'Pink',   color: '#ec4899' },
-            { label: 'White',  color: '#f1f5f9' },
-        ];
-
-        function _removeNotesCtxMenu() {
-            const old = document.getElementById('notes-ctx-menu');
-            if (old) old.remove();
-        }
-
-        editor.addEventListener('contextmenu', (e) => {
-            const sel = window.getSelection();
-            const selText = sel ? sel.toString() : '';
-            if (!selText) return; // no selection — use default browser menu
-            e.preventDefault();
-            _removeNotesCtxMenu();
-
-            const menu = document.createElement('div');
-            menu.id = 'notes-ctx-menu';
-            menu.className = 'notes-ctx-menu';
-
-            const header = document.createElement('div');
-            header.className = 'nctx-header';
-            header.textContent = '\uD83C\uDFA8 Text Color';
-            menu.appendChild(header);
-
-            const swatches = document.createElement('div');
-            swatches.className = 'nctx-swatches';
-            NOTE_COLORS.forEach(({ label, color }) => {
-                const sw = document.createElement('button');
-                sw.className = 'nctx-swatch';
-                sw.title = label;
-                sw.style.background = color;
-                sw.addEventListener('mousedown', (ev) => {
-                    ev.preventDefault(); // keep selection
-                    editor.focus();
-                    // execCommand applies color to the current selection
-                    document.execCommand('styleWithCSS', false, true);
-                    document.execCommand('foreColor', false, color);
-                    _removeNotesCtxMenu();
-                    // Trigger save
-                    editor.dispatchEvent(new Event('input'));
-                    toast(`Color: ${label}`, 'success');
-                });
-                swatches.appendChild(sw);
-            });
-            menu.appendChild(swatches);
-
-            const divider = document.createElement('div');
-            divider.className = 'nctx-divider';
-            menu.appendChild(divider);
-
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'nctx-remove';
-            removeBtn.textContent = '\u2715 Remove color';
-            removeBtn.addEventListener('mousedown', (ev) => {
-                ev.preventDefault();
-                editor.focus();
-                document.execCommand('styleWithCSS', false, true);
-                document.execCommand('foreColor', false, '');
-                // Remove inline color style from selected spans
-                const selNow = window.getSelection();
-                if (selNow && selNow.rangeCount) {
-                    const range = selNow.getRangeAt(0);
-                    const fragment = range.extractContents();
-                    fragment.querySelectorAll('[style*="color"]').forEach(el => {
-                        el.style.removeProperty('color');
-                        if (!el.style.cssText.trim()) el.replaceWith(...el.childNodes);
-                    });
-                    range.insertNode(fragment);
-                }
-                _removeNotesCtxMenu();
-                editor.dispatchEvent(new Event('input'));
-            });
-            menu.appendChild(removeBtn);
-
-            document.body.appendChild(menu);
-            const mw = menu.offsetWidth, mh = menu.offsetHeight;
-            let x = e.clientX, y = e.clientY;
-            if (x + mw > window.innerWidth - 8) x = window.innerWidth - mw - 8;
-            if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
-            menu.style.left = x + 'px';
-            menu.style.top  = y + 'px';
-
-            const _closeMenu = (ev) => {
-                if (!menu.contains(ev.target)) {
-                    _removeNotesCtxMenu();
-                    document.removeEventListener('mousedown', _closeMenu);
-                }
-            };
-            setTimeout(() => document.addEventListener('mousedown', _closeMenu), 0);
-        });
     }
 
     // ── Tab bar: switch tab ──
