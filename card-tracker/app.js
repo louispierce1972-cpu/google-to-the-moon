@@ -283,42 +283,6 @@ function save() {
         localStorage.setItem('ct_cards', JSON.stringify(STATE.cards));
         localStorage.setItem('ct_docs', JSON.stringify(STATE.docs));
 
-        // ── Merge notes tabs with other browser tabs before saving ──
-        // 1) Tabs in localStorage but NOT in our STATE → created by another tab, append them
-        // 2) Tabs in both → sync title/content from storage if we're not actively editing them
-        try {
-            const storedRaw = localStorage.getItem('ct_notes_tabs');
-            if (storedRaw) {
-                const storedTabs = JSON.parse(storedRaw);
-                if (Array.isArray(storedTabs)) {
-                    const localIds = new Set(STATE.notesTabs.map(t => t.id));
-                    const storedMap = new Map(storedTabs.map(t => [t.id, t]));
-                    const activeEditing = STATE.notesActiveTab;
-
-                    // Sync titles/content for tabs we're not editing right now
-                    for (const localTab of STATE.notesTabs) {
-                        const remote = storedMap.get(localTab.id);
-                        if (remote && localTab.id !== activeEditing) {
-                            // Pick up title renames from other tabs
-                            if (remote.title !== localTab.title) {
-                                localTab.title = remote.title;
-                            }
-                            // Pick up content updates for non-active tabs
-                            if (remote.content !== localTab.content) {
-                                localTab.content = remote.content;
-                            }
-                        }
-                    }
-
-                    // Append tabs created by other browser tabs
-                    const foreignTabs = storedTabs.filter(t => !localIds.has(t.id));
-                    if (foreignTabs.length > 0) {
-                        STATE.notesTabs = [...STATE.notesTabs, ...foreignTabs];
-                    }
-                }
-            }
-        } catch (_) { /* merge failed — save our own tabs anyway */ }
-
         localStorage.setItem('ct_notes_tabs', JSON.stringify(STATE.notesTabs));
         localStorage.setItem('activeNoteTab', STATE.notesActiveTab);
         localStorage.setItem('ct_notes', STATE.notes);
@@ -5805,6 +5769,38 @@ function _wireLinePinClicks(container) {
 
 function renderNotes() {
     const area = document.getElementById('content-area');
+
+    // ── Auto-cleanup: remove empty tabs and content-duplicates silently ──
+    if (STATE.notesTabs.length > 1) {
+        const _normC = (html) => {
+            if (!html) return '';
+            return html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>\s*<div/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+        };
+        // Remove empty tabs (keep at least 1)
+        const nonEmpty = STATE.notesTabs.filter(t => _normC(t.content));
+        if (nonEmpty.length > 0 && nonEmpty.length < STATE.notesTabs.length) {
+            STATE.notesTabs = nonEmpty;
+        }
+        // Remove exact content duplicates (keep newest)
+        const seen = new Map();
+        const unique = [];
+        // Sort by created DESC so newest comes first
+        const sorted = [...STATE.notesTabs].sort((a, b) => (b.created || 0) - (a.created || 0));
+        for (const tab of sorted) {
+            const norm = _normC(tab.content);
+            if (!norm || !seen.has(norm)) {
+                if (norm) seen.set(norm, true);
+                unique.push(tab);
+            }
+        }
+        if (unique.length < STATE.notesTabs.length) {
+            STATE.notesTabs = unique;
+            if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
+                STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+            }
+            save();
+        }
+    }
     const activeTab = _getActiveNoteTab();
     if (!activeTab) return;
     if (!activeTab.pinnedLines) activeTab.pinnedLines = [];
@@ -5947,146 +5943,6 @@ function renderNotes() {
     };
     document.getElementById('nt-sidebar-new-btn')?.addEventListener('click', _createNewTab);
 
-    // ── Search across all tabs ──
-    const searchInput = document.getElementById('nt-sidebar-search-input');
-    searchInput?.addEventListener('input', () => {
-        const query = searchInput.value.toLowerCase().trim();
-        document.querySelectorAll('.nt-sidebar-item').forEach(item => {
-            const tabId = item.dataset.tab;
-            const tab = STATE.notesTabs.find(t => t.id === tabId);
-            if (!tab) return;
-            const titleMatch = tab.title.toLowerCase().includes(query);
-            const contentPlain = (tab.content || '').replace(/<[^>]+>/g, '').toLowerCase();
-            const contentMatch = contentPlain.includes(query);
-            item.style.display = (!query || titleMatch || contentMatch) ? '' : 'none';
-            // Highlight matching title
-            const titleSpan = item.querySelector('.nt-sidebar-item-title');
-            if (titleSpan && query && titleMatch) {
-                titleSpan.style.color = '#facc15';
-            } else if (titleSpan) {
-                titleSpan.style.color = '';
-            }
-        });
-    });
-
-    // ── Find & Close Duplicate Tabs (CONTENT-ONLY) ──
-    document.getElementById('nt-find-dupes')?.addEventListener('click', () => {
-        _saveActiveTab();
-        const _normalizeContent = (html) => {
-            if (!html) return '';
-            return html
-                .replace(/<br\s*\/?>/gi, '\n')
-                .replace(/<\/div>\s*<div/gi, '\n')
-                .replace(/<\/p>\s*<p/gi, '\n')
-                .replace(/<[^>]+>/g, '')
-                .replace(/&nbsp;/gi, ' ')
-                .replace(/&amp;/gi, '&')
-                .replace(/&lt;/gi, '<')
-                .replace(/&gt;/gi, '>')
-                .replace(/\s+/g, ' ')
-                .trim();
-        };
-
-        // Extract all card numbers (13-19 digits) from content
-        const _extractCards = (html) => {
-            const plain = _normalizeContent(html);
-            const matches = plain.match(/\d{13,19}/g);
-            return new Set(matches || []);
-        };
-
-        const toRemove = new Set();
-
-        // Pre-compute normalized content and card sets for each tab
-        const tabData = STATE.notesTabs.map(tab => ({
-            tab,
-            norm: _normalizeContent(tab.content),
-            cards: _extractCards(tab.content)
-        }));
-
-        // Strategy 1: Exact content match → keep newest
-        const contentMap = new Map();
-        tabData.forEach(d => {
-            if (!d.norm) return;
-            if (!contentMap.has(d.norm)) contentMap.set(d.norm, []);
-            contentMap.get(d.norm).push(d.tab);
-        });
-
-        for (const [, group] of contentMap) {
-            if (group.length <= 1) continue;
-            group.sort((a, b) => (b.created || 0) - (a.created || 0));
-            for (let i = 1; i < group.length; i++) {
-                toRemove.add(group[i].id);
-            }
-        }
-
-        // Strategy 2: Fuzzy content match — compare ALL tab pairs by card overlap
-        // If two tabs share >80% of the same card numbers → they're duplicates
-        for (let i = 0; i < tabData.length; i++) {
-            if (toRemove.has(tabData[i].tab.id)) continue;
-            if (tabData[i].cards.size < 3) continue; // skip tabs with <3 cards
-            for (let j = i + 1; j < tabData.length; j++) {
-                if (toRemove.has(tabData[j].tab.id)) continue;
-                if (tabData[j].cards.size < 3) continue;
-                
-                // Count shared card numbers
-                let overlap = 0;
-                for (const card of tabData[i].cards) {
-                    if (tabData[j].cards.has(card)) overlap++;
-                }
-                const maxSize = Math.max(tabData[i].cards.size, tabData[j].cards.size);
-                const minSize = Math.min(tabData[i].cards.size, tabData[j].cards.size);
-                
-                // >80% of the smaller set is shared → duplicate
-                if (minSize > 0 && (overlap / minSize) > 0.8) {
-                    const older = (tabData[i].tab.created || 0) < (tabData[j].tab.created || 0) 
-                        ? tabData[i].tab : tabData[j].tab;
-                    toRemove.add(older.id);
-                }
-            }
-        }
-
-        if (toRemove.size === 0) {
-            toast('No duplicate tabs found', 'info');
-            return;
-        }
-
-        STATE.notesTabs = STATE.notesTabs.filter(t => !toRemove.has(t.id));
-        if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
-            STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
-        }
-        save();
-        closeSidebar();
-        renderNotes();
-        toast(`Closed ${toRemove.size} duplicate tabs`, 'success');
-    });
-
-    // ── Close Empty Tabs ──
-    document.getElementById('nt-close-empty')?.addEventListener('click', () => {
-        _saveActiveTab();
-        const emptyTabs = STATE.notesTabs.filter(t => {
-            const plain = (t.content || '').replace(/<[^>]+>/g, '').trim();
-            return !plain;
-        });
-        if (emptyTabs.length === 0) {
-            toast('No empty tabs found', 'info');
-            return;
-        }
-        const emptyIds = new Set(emptyTabs.map(t => t.id));
-        // Keep at least one tab
-        if (emptyIds.size >= STATE.notesTabs.length) {
-            const keep = STATE.notesTabs[0];
-            emptyIds.delete(keep.id);
-        }
-        if (emptyIds.size === 0) return;
-        STATE.notesTabs = STATE.notesTabs.filter(t => !emptyIds.has(t.id));
-        if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
-            STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
-        }
-        save();
-        closeSidebar();
-        renderNotes();
-        toast(`Closed ${emptyTabs.length} empty tabs`, 'success');
-    });
 
 
 
@@ -6099,6 +5955,58 @@ function renderNotes() {
 
     // ── Wire pin clicks on line numbers ──
     _wireLinePinClicks(document.getElementById('notes-line-nums'));
+
+    // ── Right-click context menu: Split by N lines ──
+    const _existingMenu = document.getElementById('nt-context-menu');
+    if (_existingMenu) _existingMenu.remove();
+
+    const ctxMenu = document.createElement('div');
+    ctxMenu.id = 'nt-context-menu';
+    ctxMenu.className = 'nt-context-menu';
+    ctxMenu.style.display = 'none';
+    ctxMenu.innerHTML = '<div class="nt-ctx-title">Split every:</div>' +
+        [10, 15, 20, 30, 50].map(n => '<button class="nt-ctx-btn" data-split="' + n + '">' + n + ' lines</button>').join('');
+    document.body.appendChild(ctxMenu);
+
+    const hideCtx = () => { ctxMenu.style.display = 'none'; };
+    document.addEventListener('click', hideCtx);
+    document.addEventListener('scroll', hideCtx, true);
+
+    if (editor) {
+        editor.addEventListener('contextmenu', (e) => {
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed) return; // no selection — use default menu
+            e.preventDefault();
+            ctxMenu.style.display = 'block';
+            ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+            ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+        });
+    }
+
+    ctxMenu.querySelectorAll('.nt-ctx-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideCtx();
+            const n = parseInt(btn.dataset.split);
+            if (!editor || !n) return;
+            // Get all text, split by lines, insert blank line every N
+            const text = _getEditorText(editor);
+            const lines = text.split('\n');
+            const result = [];
+            for (let i = 0; i < lines.length; i++) {
+                result.push(lines[i]);
+                if ((i + 1) % n === 0 && i < lines.length - 1) {
+                    result.push('');
+                }
+            }
+            editor.innerText = result.join('\n');
+            _saveActiveTab();
+            activeTab.content = editor.innerHTML;
+            save();
+            renderNotes();
+            toast('Split every ' + n + ' lines', 'success');
+        });
+    });
 
     let _notesSaveTimer = null;
     // Initialize from actual rendered text (not the pre-parsed estimate)
