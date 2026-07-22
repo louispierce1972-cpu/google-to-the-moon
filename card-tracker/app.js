@@ -5922,10 +5922,6 @@ function renderNotes() {
             e.stopPropagation();
             const tabId = btn.dataset.tab;
             if (STATE.notesTabs.length <= 1) return;
-            const tab = STATE.notesTabs.find(t => t.id === tabId);
-            if (tab && tab.content && tab.content.trim()) {
-                if (!confirm(`Close "${tab.title}"?`)) return;
-            }
             STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
             if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
             save();
@@ -6294,10 +6290,6 @@ function renderNotes() {
             e.stopPropagation();
             const tabId = btn.dataset.tab;
             if (STATE.notesTabs.length <= 1) return;
-            const tab = STATE.notesTabs.find(t => t.id === tabId);
-            if (tab && tab.content && tab.content.trim()) {
-                if (!confirm(`Close "${tab.title}"?`)) return;
-            }
             STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
             if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
             save();
@@ -6341,7 +6333,6 @@ function renderNotes() {
     document.getElementById('notes-clear-btn')?.addEventListener('click', () => {
         const tab = _getActiveNoteTab();
         if (!tab) return;
-        if (tab.content && tab.content.trim() && !confirm(`Clear "${tab.title}"?`)) return;
         tab.content = '';
         STATE.notes = '';
         save();
