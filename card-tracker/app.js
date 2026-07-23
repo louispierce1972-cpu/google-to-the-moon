@@ -4510,7 +4510,7 @@ function _ckSaveInput() {
 function renderDomain() {
     const area = document.getElementById('content-area');
 
-    // ── DATA POOLS ──
+    // ── DATA POOLS (Hokkaido only — real addresses & ZIP codes) ──
     const FIRST_NAMES = [
         'AKITO','HARUTO','REN','YUTO','SORA','KAITO','HIROSHI','TAKESHI','RYOTA','KENJI',
         'DAIKI','NAOKI','SHOTA','YUKI','KENTA','MASARU','TOSHIRO','SHIN','KAZUYA','NOBORU',
@@ -4524,44 +4524,88 @@ function renderDomain() {
         'OKADA','NISHIMURA','MORITA','ENDO','AOKI','IKEDA','SAKAMOTO','HASHIMOTO','NOGUCHI','KAWAMURA'
     ];
     const BIZ_FIRST = [
-        'Kairo','Mirai','Sakura','Aoba','Nihon','Tokyo','Kaze','Hikari','Yume','Kumo',
-        'Sora','Nami','Zenith','Apex','Nova','Hoshi','Tora','Kuro','Shiro','Fuji',
-        'Ryu','Zen','Kai','Mizu','Hana','Matsu','Tsuki','Umi','Sugi','Akane'
+        'Hokkai','Yukimura','Sapporo','Otaru','Kamui','Tokachi','Shiretoko','Niseko','Furano','Asahiyama',
+        'Kitami','Rumoi','Kushiro','Taisetsu','Sorachi','Ishikari','Hidaka','Kamikawa','Iburi','Oshima'
     ];
     const BIZ_SECOND = [
         'Digital','Works','Web','Creative','Studio','Office','Solutions','Tech','Labs','Media',
         'Nexus','Systems','Cloud','Logic','Hub','Bridge','Link','Net','Point','Core'
     ];
     const BIZ_SUFFIX = ['JP','Japan','Co','Inc',''];
-    const STREETS = [
-        '2-8-1 Nishi-Shinjuku','3-14-5 Roppongi','1-7-1 Marunouchi','4-2-8 Shibuya',
-        '2-11-3 Meguro','1-5-2 Higashi-Ikebukuro','6-10-1 Ginza','3-6-7 Kita-Aoyama',
-        '5-3-1 Chiyoda','2-1-1 Nihonbashi','1-12-32 Akasaka','4-1-6 Shiba-Koen',
-        '3-3-5 Okubo','1-9-2 Higashi-Shimbashi','2-4-16 Yoyogi','7-3-1 Akihabara',
-        '5-5-1 Sendagaya','3-28-12 Jingumae','1-2-3 Otemachi','4-12-20 Ebisu'
+
+    // Real Hokkaido addresses: street + city/ward + ZIP code (all verified)
+    const HOKKAIDO_ADDRESSES = [
+        // Sapporo — Chuo-ku
+        { street: 'Kita 1-jo Nishi 2-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0001' },
+        { street: 'Kita 2-jo Nishi 3-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0002' },
+        { street: 'Kita 3-jo Nishi 4-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0003' },
+        { street: 'Kita 4-jo Nishi 5-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0004' },
+        { street: 'Kita 5-jo Nishi 2-chome 5',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0005' },
+        { street: 'Odori Nishi 3-chome 6',        city: 'Chuo-ku, Sapporo-shi', zip: '060-0042' },
+        { street: 'Odori Nishi 4-chome 1',        city: 'Chuo-ku, Sapporo-shi', zip: '060-0042' },
+        { street: 'Minami 1-jo Nishi 5-chome',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0061' },
+        { street: 'Minami 1-jo Nishi 6-chome 20-1', city: 'Chuo-ku, Sapporo-shi', zip: '060-0061' },
+        { street: 'Minami 2-jo Nishi 3-chome',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0062' },
+        { street: 'Minami 3-jo Nishi 4-chome',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0063' },
+        { street: 'Minami 4-jo Nishi 4-chome 1',  city: 'Chuo-ku, Sapporo-shi', zip: '060-0064' },
+        // Sapporo — Kita-ku
+        { street: 'Kita 7-jo Nishi 2-chome',     city: 'Kita-ku, Sapporo-shi', zip: '060-0807' },
+        { street: 'Kita 8-jo Nishi 3-chome 28',  city: 'Kita-ku, Sapporo-shi', zip: '060-0808' },
+        { street: 'Kita 9-jo Nishi 4-chome',     city: 'Kita-ku, Sapporo-shi', zip: '060-0809' },
+        { street: 'Kita 10-jo Nishi 3-chome',    city: 'Kita-ku, Sapporo-shi', zip: '001-0010' },
+        { street: 'Kita 12-jo Nishi 4-chome 1-1', city: 'Kita-ku, Sapporo-shi', zip: '001-0012' },
+        { street: 'Shinoro 2-jo 5-chome',         city: 'Kita-ku, Sapporo-shi', zip: '002-8021' },
+        // Sapporo — Toyohira-ku
+        { street: 'Tsukisamu Higashi 1-jo 9-chome', city: 'Toyohira-ku, Sapporo-shi', zip: '062-0051' },
+        { street: 'Hiragishi 3-jo 5-chome 1-27', city: 'Toyohira-ku, Sapporo-shi', zip: '062-0933' },
+        // Sapporo — Shiroishi-ku
+        { street: 'Nango-dori 1-chome Kita 4-1',  city: 'Shiroishi-ku, Sapporo-shi', zip: '003-0023' },
+        { street: 'Hondori 14-chome Kita 1-3',    city: 'Shiroishi-ku, Sapporo-shi', zip: '003-0027' },
+        // Sapporo — Nishi-ku
+        { street: 'Kotoni 2-jo 1-chome',          city: 'Nishi-ku, Sapporo-shi', zip: '063-0812' },
+        { street: 'Hassamu 6-jo 2-chome',         city: 'Nishi-ku, Sapporo-shi', zip: '063-0826' },
+        // Asahikawa
+        { street: 'Miyashita-dori 7-chome',       city: 'Asahikawa-shi', zip: '070-0030' },
+        { street: '1-jo-dori 8-chome',            city: 'Asahikawa-shi', zip: '070-0031' },
+        { street: '3-jo-dori 6-chome',            city: 'Asahikawa-shi', zip: '070-0033' },
+        // Hakodate
+        { street: 'Wakamatsu-cho 33-6',           city: 'Hakodate-shi', zip: '040-0063' },
+        { street: 'Suehiro-cho 14-12',            city: 'Hakodate-shi', zip: '040-0053' },
+        { street: 'Motomachi 12-18',              city: 'Hakodate-shi', zip: '040-0054' },
+        // Otaru
+        { street: 'Ironai 1-chome 1-1',           city: 'Otaru-shi', zip: '047-0031' },
+        { street: 'Inaho 2-chome 22-1',           city: 'Otaru-shi', zip: '047-0032' },
+        // Obihiro
+        { street: 'Nishi 2-jo Minami 12-chome',  city: 'Obihiro-shi', zip: '080-0012' },
+        { street: 'Odori Minami 7-chome 15',      city: 'Obihiro-shi', zip: '080-0010' },
+        // Kushiro
+        { street: 'Kita-Odori 1-chome 2',         city: 'Kushiro-shi', zip: '085-0015' },
+        { street: 'Saiwai-cho 9-chome 1',         city: 'Kushiro-shi', zip: '085-0017' },
     ];
+
+    // Real Sapporo buildings / landmarks
     const BUILDINGS = [
-        'Shinjuku NS Building','Roppongi Hills Mori Tower','Tokyo Midtown','Shibuya Stream',
-        'Meguro Central Square','Sunshine 60','Ginza SIX','Aoyama Oval Building',
-        'Otemachi Tower','Nihonbashi Mitsui Tower','Akasaka Biz Tower','Tokyo Tower Side',
-        'Yoyogi Village','Shiodome City Center','Ebisu Garden Place','Ark Hills Sengokuyama',
-        'Toranomon Hills','Atago Green Hills','Cerulean Tower','Gate City Ohsaki'
+        'Sapporo Ekimae-dori Building','JR Tower Office Sapporo','Sapporo Factory',
+        'Hokkaido Keizai Center','Sapporo Grand Hotel Annex','Odori Bus Center Building',
+        'Sapporo Tokyu Building','Norubesa Building','Tanuki-koji 2F',
+        'Hokkaido Building','Sapporo Stellar Place','APIA Shopping Mall',
+        'Pole Town Underground','Sapporo TV Tower Side','Akarenga Terrace',
+        'Sapporo ESTA Building','Daimaru Sapporo Building','Mitsui Garden Hotel',
+        'Cross Hotel Sapporo Annex','Sapporo Central Building'
     ];
-    const PREFECTURES = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi'];
-    // Longer, more interesting domain name parts
+
     const DOM_PREFIXES = [
-        'namibridge','tokyovault','sakurafield','miraicloud','aobaworks','hikarinet',
-        'kazefront','soranova','kumobridge','hoshipoint','fujistream','tsukilabs',
-        'matsugate','umicraft','sugiworks','akanehub','zenithcore','apexfield',
-        'novabright','toralink','ryubridge','mizupoint','hanaworks','kazetech'
+        'hokkaidovault','sapporofield','kamuilogic','tokachinet','otaruworks','nisekohub',
+        'furanolabs','asahicloud','kushirotech','hidakalink','sorachicore','ishikarinova',
+        'shiretokobright','taisetsuzn','iburigate','oshimacraft','rumoimark','kitaminet',
+        'hokkaiworks','yukibridge'
     ];
     const DOM_SUFFIXES = ['21','337','4082','59','1706','803','247','55','9021','612','78','3301'];
 
     function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
     function rndNum(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-    function genProfile(prefIndex) {
-        const pref = PREFECTURES[prefIndex || 0];
+    function genProfile() {
         const bizFirst = rnd(BIZ_FIRST);
         const bizSecond = rnd(BIZ_SECOND);
         const bizSuffix = rnd(BIZ_SUFFIX);
@@ -4570,17 +4614,19 @@ function renderDomain() {
         // Domain: just name, no extension
         const domainName = rnd(DOM_PREFIXES) + rnd(DOM_SUFFIXES);
 
-        const street = rnd(STREETS);
+        // Pick a real address (street + city + zip all match)
+        const addr = rnd(HOKKAIDO_ADDRESSES);
         const building = rnd(BUILDINGS);
-        const postal = `${rndNum(100,199)}-${String(rndNum(0,9999)).padStart(4,'0')}`;
-        // Phone without country code
-        const phone = `3${rndNum(10000000,99999999)}`;
+        // Phone: Sapporo area code 011
+        const phone = `11${rndNum(1000000,9999999)}`;
         const firstName = rnd(FIRST_NAMES);
         const lastName = rnd(LAST_NAMES);
 
         return {
-            bizName, domain: domainName, street, building, pref, postal, phone,
-            firstName, lastName,
+            bizName, domain: domainName,
+            street: addr.street, building: building,
+            city: addr.city, pref: 'Hokkaido', postal: addr.zip,
+            phone, firstName, lastName,
             username: 'admin',
             password: 'ASwsx23$#$23x'
         };
@@ -4599,9 +4645,8 @@ function renderDomain() {
     }
 
     // Init state
-    if (!STATE._domProfile) STATE._domProfile = genProfile(0);
+    if (!STATE._domProfile) STATE._domProfile = genProfile();
     if (!STATE._domNames) STATE._domNames = genNames();
-    if (typeof STATE._domPrefIdx === 'undefined') STATE._domPrefIdx = 0;
     if (typeof STATE._domCleanerInput === 'undefined') STATE._domCleanerInput = '';
     if (typeof STATE._domCleanerOutput === 'undefined') STATE._domCleanerOutput = '';
 
@@ -4621,7 +4666,7 @@ function renderDomain() {
             <div class="dom-col dom-col-profile">
                 <div class="dom-toolbar">
                     <button class="dom-btn dom-btn-gen" id="dom-generate">⚡ Generate</button>
-                    <button class="dom-btn dom-btn-pref" id="dom-pref">${PREFECTURES[STATE._domPrefIdx]}</button>
+                    <button class="dom-btn dom-btn-pref" disabled style="opacity:.6;cursor:default">🏔️ Hokkaido</button>
                     <button class="dom-btn dom-btn-copy" id="dom-copy-all">📋 Copy All</button>
                 </div>
                 <div class="dom-block">
@@ -4630,6 +4675,7 @@ function renderDomain() {
                     <div class="dom-divider"></div>
                     ${row('Street Address', p.street)}
                     ${row('Street Address Line 2', p.building)}
+                    ${row('City', p.city)}
                     ${row('Prefecture', p.pref)}
                     ${row('Postal Code', p.postal)}
                     ${row('Phone', p.phone)}
@@ -4700,15 +4746,8 @@ function renderDomain() {
 
     // ── Generate ──
     document.getElementById('dom-generate').onclick = () => {
-        STATE._domProfile = genProfile(STATE._domPrefIdx);
+        STATE._domProfile = genProfile();
         STATE._domNames = genNames();
-        renderDomain();
-    };
-
-    // ── Cycle Prefecture ──
-    document.getElementById('dom-pref').onclick = () => {
-        STATE._domPrefIdx = (STATE._domPrefIdx + 1) % PREFECTURES.length;
-        STATE._domProfile = genProfile(STATE._domPrefIdx);
         renderDomain();
     };
 
@@ -4725,6 +4764,7 @@ function renderDomain() {
             `Domain: ${p.domain}`,
             `Street Address: ${p.street}`,
             `Street Address Line 2: ${p.building}`,
+            `City: ${p.city}`,
             `Prefecture: ${p.pref}`,
             `Postal Code: ${p.postal}`,
             `Phone: ${p.phone}`,
