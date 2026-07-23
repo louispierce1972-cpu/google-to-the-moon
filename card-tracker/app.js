@@ -6104,7 +6104,13 @@ function renderNotes() {
                         const nums = line.match(/\d{13,19}/g);
                         if (!nums) return;
                         const lower = line.toLowerCase();
-                        cardStatus.set(nums[0], lower.includes('approved') || lower.includes('alive'));
+                        const isValid = lower.includes('approved') || lower.includes('alive') ||
+                            lower.includes('live') || lower.includes('charged') ||
+                            lower.includes('valid') || lower.includes('success') ||
+                            lower.includes('active') || lower.includes('cvv match') ||
+                            lower.includes('ccn live') || lower.includes('✅') ||
+                            line.includes('\u2705');
+                        cardStatus.set(nums[0], isValid);
                     });
                     if (cardStatus.size === 0) { toast('No card numbers found', 'error'); return; }
                     let lineEls = editor.innerHTML.replace(/<div>/gi, '\n<div>').replace(/<br\s*\/?>/gi, '\n').split('\n').filter(l => l.trim());
