@@ -5816,8 +5816,11 @@ function renderNotes() {
             if (!html) return '';
             return html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>\s*<div/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
         };
-        // Remove empty tabs (keep at least 1)
-        const nonEmpty = STATE.notesTabs.filter(t => _normC(t.content));
+        // Remove empty tabs (keep at least 1) — but never remove the active tab or recently created ones
+        const now = Date.now();
+        const nonEmpty = STATE.notesTabs.filter(t =>
+            _normC(t.content) || t.id === STATE.notesActiveTab || (t.created && (now - t.created) < 60000)
+        );
         if (nonEmpty.length > 0 && nonEmpty.length < STATE.notesTabs.length) {
             STATE.notesTabs = nonEmpty;
         }
