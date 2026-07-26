@@ -169,7 +169,9 @@ async function autoResolveAllCountries() {
 
 // ──── COUNTRY DATABASE (ISO 3166-1 alpha-2) ────
 function isoToFlag(code) {
-    return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(0x1F1E6 - 65 + ch.charCodeAt(0)));
+    if (!code || code.length < 2) return '';
+    const c = code.toLowerCase().substring(0, 2);
+    return `<img src="https://flagcdn.com/16x12/${c}.png" width="16" height="12" alt="${code}" style="vertical-align:middle;border-radius:1px">`;
 }
 
 const COUNTRY_DB = {
@@ -5245,6 +5247,20 @@ function renderContent() {
     const showName = STATE.currentView !== 'my-card' || true;
     const countryForBin = null;
 
+    // Brand icon helper
+    const _brandIcon = (brand) => {
+        if (!brand) return '';
+        const b = brand.toUpperCase();
+        if (b.includes('VISA')) return '<span class="cx-brand cx-visa">VISA</span>';
+        if (b.includes('MASTER')) return '<span class="cx-brand cx-mc">MC</span>';
+        if (b.includes('AMEX') || b.includes('AMERICAN')) return '<span class="cx-brand cx-amex">AMEX</span>';
+        if (b.includes('DISCOVER')) return '<span class="cx-brand cx-disc">DISC</span>';
+        if (b.includes('JCB')) return '<span class="cx-brand cx-jcb">JCB</span>';
+        if (b.includes('UNION') || b.includes('UPI')) return '<span class="cx-brand cx-upi">UPI</span>';
+        if (b.includes('DINERS')) return '<span class="cx-brand cx-din">DIN</span>';
+        return `<span class="cx-brand">${b.substring(0,4)}</span>`;
+    };
+
     let rows = pageCards.map((c, i) => {
         const idx = start + i + 1;
         const bin = getBin(c.cardNumber);
@@ -5299,6 +5315,15 @@ function renderContent() {
             return (c.cardType || '').substring(0, 14).toUpperCase();
         })();
 
+        // Brand for type column
+        const _brandHtml = _brandIcon(_typeShort.split(' ')[0]);
+        const _levelShort = (() => {
+            const cached = BIN_CACHE[bin];
+            if (cached && cached.type) return cached.type.substring(0, 8).toUpperCase();
+            const parts = _typeShort.split(' ');
+            return parts.length > 1 ? parts.slice(1).join(' ').substring(0, 8) : '';
+        })();
+
         return `
         <tr data-id="${c.id}" class="cx-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}">
             <td class="cx-chk"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
@@ -5310,7 +5335,8 @@ function renderContent() {
                 ${cardUsageBadge}
             </td>
             <td class="cx-bank" title="${_bankShort}">${_bankShort || '—'}</td>
-            <td class="cx-type">${_typeShort || '—'}</td>
+            <td class="cx-type">${_brandHtml} <span class="cx-level">${_levelShort || ''}</span></td>
+            <td class="cx-note"><span class="cx-note-text" onclick="openInlineNote('${c.id}', this)" title="${(c.notes || '').replace(/"/g, '&quot;')}">${c.notes ? c.notes.substring(0, 20) : ''}</span></td>
             <td class="cx-status">
                 ${isTrash ? `
                     <button class="btn-secondary btn-restore" onclick="restoreCard('${c.id}')">Restore</button>
@@ -5350,6 +5376,7 @@ function renderContent() {
                     <th class="sortable cx-th-card" data-sort="bin">Card ${sortIcon('bin')}</th>
                     <th class="sortable cx-th-bank" data-sort="name">Bank ${sortIcon('name')}</th>
                     <th class="sortable cx-th-type" data-sort="type">Type ${sortIcon('type')}</th>
+                    <th class="sortable cx-th-note" data-sort="notes">Notes ${sortIcon('notes')}</th>
                     <th class="sortable cx-th-status" data-sort="status">Status ${sortIcon('status')}</th>
                     <th class="sortable cx-th-date" data-sort="date">Date ${sortIcon('date')}</th>
                     <th class="cx-th-menu"></th>

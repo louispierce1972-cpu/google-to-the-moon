@@ -2011,11 +2011,52 @@ textarea {
 .cx-th-chk { width: 28px !important; }
 .cx-th-star { width: 22px !important; }
 .cx-th-card { width: auto; }
-.cx-th-bank { width: 150px; }
-.cx-th-type { width: 100px; }
+.cx-th-bank { width: 140px; }
+.cx-th-type { width: 95px; }
+.cx-th-note { width: 90px; }
 .cx-th-status { width: 115px; }
-.cx-th-date { width: 70px; }
+.cx-th-date { width: 68px; }
 .cx-th-menu { width: 28px !important; }
+
+/* ═══════ BRAND ICONS (Visa/MC/Amex) ═══════ */
+.cx-brand {
+    display: inline-block;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 0.3px;
+    line-height: 1.4;
+    vertical-align: middle;
+    color: #fff;
+    background: #555;
+}
+.cx-visa { background: #1a1f71; color: #f7b600; }
+.cx-mc { background: #eb001b; color: #fff; }
+.cx-amex { background: #006fcf; color: #fff; }
+.cx-disc { background: #ff6600; color: #fff; }
+.cx-jcb { background: #0e4c96; color: #fff; }
+.cx-upi { background: #d32011; color: #fff; }
+.cx-din { background: #0079be; color: #fff; }
+.cx-level { color: var(--text-dim); font-size: 8px; }
+
+/* ═══════ NOTES COLUMN ═══════ */
+.cx-note {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cx-note-text {
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 10px !important;
+    font-family: var(--font-mono);
+}
+.cx-note-text:hover { color: var(--text-muted); }
+.cx-note-text:empty::after {
+    content: '';
+}
 
 /* Alternating row backgrounds */
 .cx-row:nth-child(even) { background: rgba(255,255,255,0.01); }
