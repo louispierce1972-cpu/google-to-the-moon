@@ -950,16 +950,19 @@ function renderStats() {
     // Cards view (country / favorites / active / trash)
     const cards = getFilteredCards();
     const s = getCardStats(cards);
-    // (translated)
+    // Compact inline stats bar
     const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Copy cards to clipboard">📋</button>`;
     bar.innerHTML = `
-        <div class="stat-card total"><span class="stat-label">Total</span><span class="stat-value">${s.total}</span>${copyBtn('total')}</div>
-        <div class="stat-card card-add"><span class="stat-label">A</span><span class="stat-value">${s.cardAdd}</span>${copyBtn('cardAdd')}</div>
-        <div class="stat-card run-ads"><span class="stat-label">R</span><span class="stat-value">${s.runAds}</span>${copyBtn('runAds')}</div>
-        <div class="stat-card verified"><span class="stat-label">V</span><span class="stat-value">${s.verified}</span>${copyBtn('verified')}</div>
-        <div class="stat-card doc-status"><span class="stat-label">D</span><span class="stat-value">${s.docReady}</span>${copyBtn('docReady')}</div>
-        <div class="stat-card water-bill"><span class="stat-label">W</span><span class="stat-value">${s.waterBill}</span>${copyBtn('waterBill')}</div>
-        <div class="stat-card minic"><span class="stat-label">M</span><span class="stat-value">${s.minic}</span>${copyBtn('minic')}</div>
+        <div class="cstat-row">
+            <span class="cstat-item cstat-total">${s.total} ${copyBtn('total')}</span>
+            <span class="cstat-sep">·</span>
+            <span class="cstat-item cstat-a">A:<b>${s.cardAdd}</b> ${copyBtn('cardAdd')}</span>
+            <span class="cstat-item cstat-r">R:<b>${s.runAds}</b> ${copyBtn('runAds')}</span>
+            <span class="cstat-item cstat-v">V:<b>${s.verified}</b> ${copyBtn('verified')}</span>
+            <span class="cstat-item cstat-d">D:<b>${s.docReady}</b> ${copyBtn('docReady')}</span>
+            <span class="cstat-item cstat-w">W:<b>${s.waterBill}</b> ${copyBtn('waterBill')}</span>
+            <span class="cstat-item cstat-m">M:<b>${s.minic}</b> ${copyBtn('minic')}</span>
+        </div>
     `;
 
     // (translated)
@@ -5277,46 +5280,53 @@ function renderContent() {
             return '';
         };
 
+        // Compact single-line card info
+        const _binInfo = (() => { const info = getBinInfo(getBin(c.cardNumber)); return formatBinInfoText(info); })();
+        const _bankShort = (() => {
+            const cached = BIN_CACHE[bin];
+            if (cached && cached.bank) return cached.bank.substring(0, 20).toUpperCase();
+            const parts = (_binInfo || '').split('·').map(s => s.trim());
+            return parts.length >= 3 ? parts[2].substring(0, 20) : '';
+        })();
+        const _typeShort = (() => {
+            const cached = BIN_CACHE[bin];
+            if (cached) {
+                const p = [];
+                if (cached.brand) p.push(cached.brand);
+                if (cached.type) p.push(cached.type);
+                return p.join(' ').substring(0, 14).toUpperCase();
+            }
+            return (c.cardType || '').substring(0, 14).toUpperCase();
+        })();
+
         return `
-        <tr data-id="${c.id}" class="${_selectedCards.has(c.id) ? 'row-selected' : ''}">
-            <td class="td-num"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
-            <td>
-                <div class="card-cell">
-                    <span class="card-name">
-                        ${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}
-                        <span class="flag">${flag}</span>
-                        ${c.name.toUpperCase()} ${c.surname.toUpperCase()} ${binBadge} ${nameUsageBadge} ${allCardsNamesBadge}
-                    </span>
-                    <span class="card-number">${maskCard(c.cardNumber)} ${cardUsageBadge}</span>
-                    ${(() => { const info = getBinInfo(getBin(c.cardNumber)); const txt = formatBinInfoText(info); return txt ? `<span class="bin-info">${txt}</span>` : `<span class="bin-info" data-bin="${getBin(c.cardNumber)}"></span>`; })()}
-                </div>
+        <tr data-id="${c.id}" class="cx-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}">
+            <td class="cx-chk"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
+            <td class="cx-star">${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}</td>
+            <td class="cx-card">
+                <span class="cx-flag">${flag}</span>
+                <span class="cx-bin">${bin}</span><span class="cx-mask">••${maskCard(c.cardNumber).slice(-4)}</span>
+                ${binBadge}
+                ${cardUsageBadge}
             </td>
-            <td class="note-indicator"><span class="editable-note" onclick="openInlineNote('${c.id}', this)">${c.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
-            <td class="bin-cell">${bin}</td>
-            <td><span class="doc-type-badge ${c.docType ? c.docType.toLowerCase() : 'none'}" onclick="cycleCardType('${c.id}')" title="Click to change">${c.docType || '—'}</span></td>
-            <td class="amt-cell"><span class="editable-amt" onclick="openInlineAmount('${c.id}', this)">${c.amount ? Number(c.amount).toLocaleString() : '-'}</span></td>
-            <td class="mail-cell">
-                <div class="mail-tags">
-                    <button class="status-btn btn-vcc ${c.mailVerify ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailVerify')" title="Card Check">CC</button>
-                    <button class="status-btn btn-sdoc ${c.mailSubmit ? 'active' : ''}" onclick="toggleMailTag('${c.id}','mailSubmit')" title="Document">DOC</button>
-                </div>
-            </td>
-            <td>
+            <td class="cx-bank" title="${_bankShort}">${_bankShort || '—'}</td>
+            <td class="cx-type">${_typeShort || '—'}</td>
+            <td class="cx-status">
                 ${isTrash ? `
                     <button class="btn-secondary btn-restore" onclick="restoreCard('${c.id}')">Restore</button>
                 ` : `
-                    <div class="status-btns">
-                        <button class="status-btn btn-a ${c.cardAdd ? 'active' : ''}" onclick="toggleStatus('${c.id}','cardAdd')" title="Card Add">A</button>
-                        <button class="status-btn btn-r ${c.runAds ? 'active' : ''}" onclick="toggleStatus('${c.id}','runAds')" title="Run Ads">R</button>
-                        <button class="status-btn btn-v ${c.verified ? 'active' : ''}" onclick="toggleStatus('${c.id}','verified')" title="Verify">V</button>
-                        <button class="status-btn btn-d ${c.docReady ? 'active' : ''}" onclick="toggleStatus('${c.id}','docReady')" title="Documents">D</button>
-                        <button class="status-btn btn-w ${c.waterBill ? 'active' : ''}" onclick="toggleStatus('${c.id}','waterBill')" title="Water Bill">W</button>
-                        <button class="status-btn btn-m ${c.minic ? 'active' : ''}" onclick="toggleStatus('${c.id}','minic')" title="Minic">M</button>
+                    <div class="cx-dots">
+                        <span class="cx-dot cx-dot-a ${c.cardAdd ? 'on' : ''}" onclick="toggleStatus('${c.id}','cardAdd')" title="A: Card Add">A</span>
+                        <span class="cx-dot cx-dot-r ${c.runAds ? 'on' : ''}" onclick="toggleStatus('${c.id}','runAds')" title="R: Run Ads">R</span>
+                        <span class="cx-dot cx-dot-v ${c.verified ? 'on' : ''}" onclick="toggleStatus('${c.id}','verified')" title="V: Verify">V</span>
+                        <span class="cx-dot cx-dot-d ${c.docReady ? 'on' : ''}" onclick="toggleStatus('${c.id}','docReady')" title="D: Documents">D</span>
+                        <span class="cx-dot cx-dot-w ${c.waterBill ? 'on' : ''}" onclick="toggleStatus('${c.id}','waterBill')" title="W: Water Bill">W</span>
+                        <span class="cx-dot cx-dot-m ${c.minic ? 'on' : ''}" onclick="toggleStatus('${c.id}','minic')" title="M: Minic">M</span>
                     </div>
                 `}
             </td>
-            <td class="date-cell">${c.date}</td>
-            <td>
+            <td class="cx-date">${c.date}</td>
+            <td class="cx-menu">
                 ${isTrash ? `
                     <button class="more-btn" onclick="permanentDelete('${c.id}')" title="Delete forever">✕</button>
                 ` : `
@@ -5335,16 +5345,14 @@ function renderContent() {
         <table class="data-table">
             <thead>
                 <tr>
-                    <th><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
-                    <th class="sortable" data-sort="name">Card ${sortIcon('name')}</th>
-                    <th class="sortable" data-sort="notes">Notes ${sortIcon('notes')}</th>
-                    <th class="sortable" data-sort="bin">BIN ${sortIcon('bin')}</th>
-                    <th class="sortable" data-sort="type">Type ${sortIcon('type')}</th>
-                    <th class="sortable" data-sort="amount">Amt ${sortIcon('amount')}</th>
-                    <th class="sortable" data-sort="mail">Mail ${sortIcon('mail')}</th>
-                    <th class="sortable" data-sort="status">Status ${sortIcon('status')}</th>
-                    <th class="sortable" data-sort="date">Date ${sortIcon('date')}</th>
-                    <th></th>
+                    <th class="cx-th-chk"><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
+                    <th class="cx-th-star"></th>
+                    <th class="sortable cx-th-card" data-sort="bin">Card ${sortIcon('bin')}</th>
+                    <th class="sortable cx-th-bank" data-sort="name">Bank ${sortIcon('name')}</th>
+                    <th class="sortable cx-th-type" data-sort="type">Type ${sortIcon('type')}</th>
+                    <th class="sortable cx-th-status" data-sort="status">Status ${sortIcon('status')}</th>
+                    <th class="sortable cx-th-date" data-sort="date">Date ${sortIcon('date')}</th>
+                    <th class="cx-th-menu"></th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -6831,21 +6839,27 @@ window.toggleStatus = function (id, field) {
 
         save();
 
-        // Targeted DOM update: toggle button classes without re-render
+        // Targeted DOM update: toggle button/dot classes without re-render
         const row = document.querySelector(`tr[data-id="${id}"]`);
         if (row) {
-            const btnA = row.querySelector('.status-btn.btn-a');
-            const btnR = row.querySelector('.status-btn.btn-r');
-            const btnV = row.querySelector('.status-btn.btn-v');
-            const btnD = row.querySelector('.status-btn.btn-d');
-            const btnW = row.querySelector('.status-btn.btn-w');
-            const btnM = row.querySelector('.status-btn.btn-m');
-            if (btnA) btnA.classList.toggle('active', card.cardAdd);
-            if (btnR) btnR.classList.toggle('active', card.runAds);
-            if (btnV) btnV.classList.toggle('active', card.verified);
-            if (btnD) btnD.classList.toggle('active', card.docReady);
-            if (btnW) btnW.classList.toggle('active', card.waterBill);
-            if (btnM) btnM.classList.toggle('active', card.minic);
+            // Support both old (.status-btn) and new compact (.cx-dot) layouts
+            const fields = {
+                cardAdd: ['.status-btn.btn-a', '.cx-dot-a'],
+                runAds:  ['.status-btn.btn-r', '.cx-dot-r'],
+                verified:['.status-btn.btn-v', '.cx-dot-v'],
+                docReady:['.status-btn.btn-d', '.cx-dot-d'],
+                waterBill:['.status-btn.btn-w', '.cx-dot-w'],
+                minic:   ['.status-btn.btn-m', '.cx-dot-m'],
+            };
+            for (const [f, selectors] of Object.entries(fields)) {
+                for (const sel of selectors) {
+                    const el = row.querySelector(sel);
+                    if (el) {
+                        el.classList.toggle('active', card[f]);
+                        el.classList.toggle('on', card[f]);
+                    }
+                }
+            }
         }
 
         // Update stat counters in-place
@@ -7444,6 +7458,7 @@ function updateStatsInPlace() {
     } else if (['cards', 'favorites', 'active-now', 'trash'].includes(STATE.currentView)) {
         const cards = getFilteredCards();
         const s = getCardStats(cards);
+        // Support old stat-card layout
         const statCards = bar.querySelectorAll('.stat-card');
         if (statCards.length >= 7) {
             statCards[0].querySelector('.stat-value').textContent = s.total;
@@ -7453,6 +7468,15 @@ function updateStatsInPlace() {
             statCards[4].querySelector('.stat-value').textContent = s.docReady;
             statCards[5].querySelector('.stat-value').textContent = s.waterBill;
             statCards[6].querySelector('.stat-value').textContent = s.minic;
+        }
+        // Support new compact cstat layout
+        const cRow = bar.querySelector('.cstat-row');
+        if (cRow) {
+            const t = cRow.querySelector('.cstat-total');
+            if (t) t.firstChild.textContent = s.total + ' ';
+            const u = (cls, val) => { const el = cRow.querySelector(cls + ' b'); if (el) el.textContent = val; };
+            u('.cstat-a', s.cardAdd); u('.cstat-r', s.runAds); u('.cstat-v', s.verified);
+            u('.cstat-d', s.docReady); u('.cstat-w', s.waterBill); u('.cstat-m', s.minic);
         }
     }
 }

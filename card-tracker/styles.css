@@ -1737,6 +1737,12 @@ textarea {
     padding: 4px 8px;
     background: var(--bg-primary)
 }
+/* When compact stats active, disable grid */
+.stats-bar:has(.cstat-row) {
+    display: block;
+    padding: 0;
+    gap: 0;
+}
 
 .stat-card {
     background: var(--bg-card);
@@ -1884,6 +1890,136 @@ textarea {
 .stat-copy-btn:active {
     transform: scale(0.9);
 }
+
+/* ═══════ COMPACT INLINE STATS ═══════ */
+.cstat-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    height: 28px;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+.cstat-item { display: inline-flex; align-items: center; gap: 2px; }
+.cstat-item b { font-weight: 800; }
+.cstat-sep { color: var(--text-dim); font-size: 14px; }
+.cstat-total { font-weight: 800; font-size: 14px; color: var(--text-primary); }
+.cstat-a b { color: #22C55E; }
+.cstat-r b { color: var(--amber); }
+.cstat-v b { color: #F97316; }
+.cstat-d b { color: var(--purple); }
+.cstat-w b { color: var(--cyan); }
+.cstat-m b { color: #38BDF8; }
+.cstat-row .stat-copy-btn {
+    width: 14px; height: 14px; font-size: 9px; padding: 0;
+    opacity: 0; transition: opacity 100ms;
+}
+.cstat-item:hover .stat-copy-btn { opacity: 0.6; }
+
+/* ═══════ COMPACT TABLE ROWS ═══════ */
+.cx-row td {
+    padding: 2px 6px !important;
+    height: 28px !important;
+    font-size: 11px !important;
+    line-height: 28px !important;
+    font-family: var(--font-mono);
+}
+.cx-chk { width: 28px !important; }
+.cx-star { width: 22px !important; padding: 0 2px !important; }
+.cx-star .star-btn { font-size: 11px; }
+.cx-card {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cx-flag { font-size: 11px; margin-right: 3px; }
+.cx-bin {
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.3px;
+}
+.cx-mask {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-left: 1px;
+}
+.cx-bank {
+    color: var(--text-muted);
+    font-size: 10px !important;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cx-type {
+    color: var(--text-dim);
+    font-size: 10px !important;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cx-date {
+    color: var(--text-dim);
+    font-size: 10px !important;
+    white-space: nowrap;
+}
+.cx-menu { width: 28px !important; padding: 0 !important; text-align: center; }
+.cx-menu .more-btn { font-size: 14px; padding: 0 4px; }
+
+/* ═══════ COMPACT DOT INDICATORS ═══════ */
+.cx-dots {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.cx-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    font-size: 7px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 80ms;
+    color: var(--text-dim);
+    background: transparent;
+    opacity: 0.25;
+    letter-spacing: 0;
+    line-height: 1;
+    user-select: none;
+}
+.cx-dot:hover { opacity: 0.6; }
+.cx-dot:active { transform: scale(0.85); }
+.cx-dot.on { opacity: 1; }
+.cx-dot-a.on { color: #22C55E; background: rgba(34,197,94,0.15); }
+.cx-dot-r.on { color: #22C55E; background: rgba(34,197,94,0.15); }
+.cx-dot-r:not(.on) { color: #EF4444; background: rgba(239,68,68,0.08); opacity: 0.5; }
+.cx-dot-v.on { color: #F97316; background: rgba(249,115,22,0.15); }
+.cx-dot-d.on { color: var(--purple); background: rgba(168,85,247,0.15); }
+.cx-dot-w.on { color: var(--cyan); background: rgba(6,182,212,0.15); }
+.cx-dot-m.on { color: #38BDF8; background: rgba(56,189,248,0.15); }
+
+/* Compact header columns */
+.cx-th-chk { width: 28px !important; }
+.cx-th-star { width: 22px !important; }
+.cx-th-card { width: auto; }
+.cx-th-bank { width: 150px; }
+.cx-th-type { width: 100px; }
+.cx-th-status { width: 115px; }
+.cx-th-date { width: 70px; }
+.cx-th-menu { width: 28px !important; }
+
+/* Alternating row backgrounds */
+.cx-row:nth-child(even) { background: rgba(255,255,255,0.01); }
+.cx-row:hover { background: rgba(255,255,255,0.03) !important; }
 
 /* ═══════ CHECK BASE (Trash) ═══════ */
 .check-base-card {
