@@ -170,8 +170,28 @@ async function autoResolveAllCountries() {
 // ──── COUNTRY DATABASE (ISO 3166-1 alpha-2) ────
 function isoToFlag(code) {
     if (!code || code.length < 2) return '';
-    const c = code.toLowerCase().substring(0, 2);
-    return `<img src="https://flagcdn.com/16x12/${c}.png" width="16" height="12" alt="${code}" style="vertical-align:middle;border-radius:1px">`;
+    const c = code.toUpperCase().substring(0, 2);
+    return '<img src="https://cdn.jsdelivr.net/npm/country-flag-emoji-json@2.0.0/dist/images/' + c + '.svg" width="16" height="12" alt="' + c + '" class="cx-flag-img">';
+}
+
+// Card brand detection by first digit (IIN/BIN prefix rules)
+function _brandByDigit(cardNum) {
+    if (!cardNum) return '';
+    const d = String(cardNum).replace(/\s/g, '')[0];
+    if (d === '4') return 'VISA';
+    if (d === '5') return 'MASTERCARD';
+    if (d === '3') {
+        const d2 = String(cardNum).replace(/\s/g, '').substring(0, 2);
+        if (d2 === '34' || d2 === '37') return 'AMEX';
+        if (d2 === '35') return 'JCB';
+        if (d2 === '36' || d2 === '38') return 'DINERS';
+        return 'AMEX';
+    }
+    if (d === '6') return 'DISCOVER';
+    if (d === '2') return 'MASTERCARD';
+    if (d === '9') return 'UNIONPAY';
+    if (d === '1') return 'UATP';
+    return '';
 }
 
 const COUNTRY_DB = {
@@ -5250,10 +5270,11 @@ function renderContent() {
 
     const isTrash = STATE.currentView === 'trash';
 
-    // Brand icon helper
-    const _brandIcon = (brand) => {
-        if (!brand) return '';
-        const b = brand.toUpperCase();
+    // Brand icon helper — falls back to first-digit detection
+    const _brandIcon = (brand, cardNum) => {
+        let b = (brand || '').toUpperCase();
+        if (!b && cardNum) b = _brandByDigit(cardNum);
+        if (!b) return '';
         if (b.includes('VISA')) return '<span class="cx-brand cx-visa">VISA</span>';
         if (b.includes('MASTER')) return '<span class="cx-brand cx-mc">MC</span>';
         if (b.includes('AMEX') || b.includes('AMERICAN')) return '<span class="cx-brand cx-amex">AMEX</span>';
@@ -5261,6 +5282,7 @@ function renderContent() {
         if (b.includes('JCB')) return '<span class="cx-brand cx-jcb">JCB</span>';
         if (b.includes('UNION') || b.includes('UPI')) return '<span class="cx-brand cx-upi">UPI</span>';
         if (b.includes('DINERS')) return '<span class="cx-brand cx-din">DIN</span>';
+        if (b.includes('UATP')) return '<span class="cx-brand cx-uatp">UATP</span>';
         return '<span class="cx-brand">' + b.substring(0,4) + '</span>';
     };
 
@@ -5285,7 +5307,7 @@ function renderContent() {
                 + '</div>';
         return '<tr data-id="' + c.id + '" class="cx-row ' + (rowNum != null ? 'cx-child-row' : '') + ' ' + (_selectedCards.has(c.id) ? 'row-selected' : '') + '">'
             + '<td class="cx-chk"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="' + c.id + '" ' + (_selectedCards.has(c.id) ? 'checked' : '') + ' onchange="toggleCardSelect(\'' + c.id + '\', this.checked)"></label></td>'
-            + '<td class="cx-cbt-cell">' + rnH + ' ' + cflag + ' <span class="cx-bin-num">' + cbin + '</span><span class="cx-mask">\u2022\u2022\u2022\u2022' + maskCard(c.cardNumber).slice(-4) + '</span> ' + starH + '</td>'
+            + '<td class="cx-cbt-cell">' + rnH + ' ' + cflag + ' <span class="cx-bin-num">' + cbin + '</span><span class="cx-mask">\u2022\u2022\u2022\u2022' + maskCard(c.cardNumber).slice(-4) + '</span> ' + starH + ' ' + _brandIcon('', c.cardNumber) + '</td>'
             + '<td class="cx-grp-bin">' + cbin + '</td>'
             + '<td class="cx-amt">' + (c.amount ? Number(c.amount).toLocaleString() : '\u2014') + '</td>'
             + '<td class="cx-note-cell">' + ccBtn + ' ' + docBtn + '</td>'
@@ -5323,7 +5345,7 @@ function renderContent() {
         const bName = cc && cc.bank ? cc.bank.toUpperCase() : '';
         const brName = cc && cc.brand ? cc.brand.toUpperCase() : '';
         const tName = cc && cc.type ? cc.type.toUpperCase() : '';
-        const brHtml = _brandIcon(brName);
+        const brHtml = _brandIcon(brName, fc.cardNumber);
         const fc = grp[0];
         const gflag = fc.country && fc.country !== 'auto' && COUNTRY_DB[fc.country.toUpperCase()] ? isoToFlag(fc.country.toUpperCase()) : '';
 

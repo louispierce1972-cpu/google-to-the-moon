@@ -2063,6 +2063,14 @@ textarea {
 .cx-row:hover { background: rgba(255,255,255,0.03) !important; }
 
 
+/* ═══════ FLAG EMOJI IMAGES ═══════ */
+.cx-flag-img {
+    vertical-align: middle;
+    border-radius: 2px;
+    margin-right: 3px;
+    object-fit: cover;
+}
+
 /* ═══════ STAT DOTS ═══════ */
 .cstat-dot {
     display: inline-block;
