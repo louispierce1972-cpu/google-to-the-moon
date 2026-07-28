@@ -5445,6 +5445,21 @@ function renderContent() {
 // Track which BIN groups are expanded
 let _expandedBins = new Set();
 
+// Global brand icon helper
+function _brandIconGlobal(brand, cardNum) {
+    let b = (brand || '').toUpperCase();
+    if (!b && cardNum) b = _brandByDigit(cardNum);
+    if (!b) return '';
+    if (b.includes('VISA')) return '<span class="cx-brand cx-visa">VISA</span>';
+    if (b.includes('MASTER')) return '<span class="cx-brand cx-mc">MC</span>';
+    if (b.includes('AMEX') || b.includes('AMERICAN')) return '<span class="cx-brand cx-amex">AMEX</span>';
+    if (b.includes('DISCOVER')) return '<span class="cx-brand cx-disc">DISC</span>';
+    if (b.includes('JCB')) return '<span class="cx-brand cx-jcb">JCB</span>';
+    if (b.includes('UNION') || b.includes('UPI')) return '<span class="cx-brand cx-upi">UPI</span>';
+    if (b.includes('DINERS')) return '<span class="cx-brand cx-din">DIN</span>';
+    return '<span class="cx-brand">' + b.substring(0,4) + '</span>';
+}
+
 function renderAllCards() {
     const area = document.getElementById('content-area');
     // Use all cards (not the grouped-by-cardNumber from getFilteredCards)
@@ -5528,11 +5543,16 @@ function renderAllCards() {
             lastDate = `${pp[2]}.${pp[1]}.${pp[0]}`;
         }
 
-        // Collect unique countries/flags
-        const countryFlags = [...new Set(cards.map(c => {
-            const co = STATE.countries.find(co => co.id === c.country);
-            return co ? co.flag : '';
-        }))].filter(Boolean).join(' ');
+        // Get country from BIN cache or card data
+        const countryCode = (() => {
+            const cached = BIN_CACHE[bin];
+            if (cached && cached.country) return cached.country.toUpperCase();
+            const fc = cards[0];
+            if (fc.country && fc.country !== 'auto') return fc.country.toUpperCase();
+            return '';
+        })();
+        const countryFlags = countryCode ? isoToFlag(countryCode) : '';
+        const brandHtml = _brandIconGlobal(BIN_CACHE[bin]?.brand, cards[0].cardNumber);
 
         // BIN header row (accordion trigger)
         rowsHtml += `
@@ -5543,13 +5563,14 @@ function renderAllCards() {
             <td>
                 <div class="card-cell">
                     <span class="card-name">
-                        <span class="flag">${countryFlags}</span>
+                        ${countryFlags}
                         <span class="bin-group-bin">${bin}</span>
-                        <span class="bin-group-count">${cardCount} cards</span>
+                        <span class="bin-group-count">${cardCount} CARDS</span>
                     </span>
-                    ${binTxt ? `<span class="bin-info">${binTxt}</span>` : ''} ${_brandIcon(BIN_CACHE[bin]?.brand, cards[0].cardNumber)}
+                    ${binTxt ? `<span class="bin-info">${binTxt}</span>` : ''} ${brandHtml}
                 </div>
             </td>
+            <td class="country-cell">${countryCode || '—'}</td>
             <td class="bin-cell">${bin}</td>
             <td class="use-cell" style="${getUseColor(cardCount)}">${cardCount}</td>
             <td class="use-cell" style="${getUseColor(cardCount)}">${cardCount}</td>
@@ -5579,6 +5600,7 @@ function renderAllCards() {
                             <span class="bin-child-name">${(c.name || '')} ${(c.surname || '')}</span>
                         </div>
                     </td>
+                    <td class="country-cell">${(c.country && c.country !== 'auto') ? c.country.toUpperCase() : (BIN_CACHE[bin]?.country?.toUpperCase() || '—')}</td>
                     <td class="bin-cell">${bin}</td>
                     <td class="use-cell">1x</td>
                     <td class="use-cell">${cardCount}</td>
@@ -5606,6 +5628,7 @@ function renderAllCards() {
                 <tr>
                     <th style="width:36px"></th>
                     <th>Card / BIN Group</th>
+                    <th>Country</th>
                     <th>BIN</th>
                     <th>Cards</th>
                     <th>BIN Use</th>
@@ -5617,7 +5640,7 @@ function renderAllCards() {
         </table>
     `;
 
-    initColumnResize(area.querySelector('.data-table'), 'allcards');
+
     renderFooter(totalBins, STATE.page, totalPages);
 }
 
