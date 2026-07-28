@@ -5,7 +5,7 @@
 // ──── STATE ────
 const STATE = {
     user: null,
-    currentView: 'cards',
+    currentView: 'all-cards',
     countries: [],
     cards: [],
     docs: [],
@@ -557,7 +557,7 @@ function sortCards(cards, field, dir) {
 function getFilteredCards() {
     let cards = [];
     switch (STATE.currentView) {
-        case 'cards':
+        case 'all-cards':
             // Unified workspace — show all cards (no country filter)
             cards = STATE.cards.filter(c => !c.standaloneCard);
             if (_geoFilter !== 'all') cards = cards.filter(c => c.country === _geoFilter);
@@ -5547,7 +5547,7 @@ function renderAllCards() {
                         <span class="bin-group-bin">${bin}</span>
                         <span class="bin-group-count">${cardCount} cards</span>
                     </span>
-                    ${binTxt ? `<span class="bin-info">${binTxt}</span>` : ''}
+                    ${binTxt ? `<span class="bin-info">${binTxt}</span>` : ''} ${_brandIcon(BIN_CACHE[bin]?.brand, cards[0].cardNumber)}
                 </div>
             </td>
             <td class="bin-cell">${bin}</td>
@@ -5566,7 +5566,8 @@ function renderAllCards() {
         // Expanded child rows
         if (isExpanded) {
             cards.forEach(c => {
-                const flag = STATE.countries.find(co => co.id === c.country)?.flag || '';
+                const _cCode = (c.country && c.country !== 'auto') ? c.country.toUpperCase() : (BIN_CACHE[bin]?.country?.toUpperCase() || '');
+                const flag = _cCode ? isoToFlag(_cCode) : '';
                 const cardDate = c.date || '—';
                 const useCount = 1; // individual card = 1 usage in this context
                 rowsHtml += `
@@ -6439,7 +6440,7 @@ function renderPageTitle() {
     const flagEl = document.getElementById('page-flag');
     const titleEl = document.getElementById('page-title-text');
     if (!flagEl || !titleEl) { /* No page title elements — using top nav tabs */
-        const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'docs', 'global-docs'].includes(STATE.currentView);
+        const showAdd = ['all-cards', 'my-card', 'ready-to-work', 'docs', 'global-docs'].includes(STATE.currentView);
         const addBtn = document.getElementById('add-card-btn');
         if (addBtn) addBtn.style.display = showAdd ? 'flex' : 'none';
         renderGeoFilterBar();
@@ -6447,7 +6448,7 @@ function renderPageTitle() {
     }
 
     switch (STATE.currentView) {
-        case 'cards':
+        case 'all-cards':
             flagEl.textContent = '💳';
             titleEl.textContent = 'Workspace';
             break;
@@ -6485,7 +6486,7 @@ function renderPageTitle() {
             break;
         case 'all-cards':
             flagEl.textContent = '📦';
-            titleEl.textContent = 'All Cards';
+            titleEl.textContent = 'Workspace';
             break;
         case 'global-docs':
             flagEl.textContent = '📄';
@@ -6574,8 +6575,7 @@ function renderAll() {
 // ──── HASH ROUTING (with sub-routes) ────
 // Maps friendly hash names ↔ internal view names
 const HASH_TO_VIEW = {
-    'workspace':     'cards',
-    'all-cards':     'all-cards',
+    'workspace':     'all-cards',
     'documents':     'global-docs',
     'parser':        'new-cards',
     'checker':       'checker',
@@ -6602,7 +6602,7 @@ const GENERATOR_SUBTYPES = ['tepco', 'water', 'creditcard', 'driverlicense', 'zi
  *   #checker/proxy                    → { view: 'checker', subMode: 'proxy',     subType: null }
  *   #checker/generator                → { view: 'checker', subMode: 'generator', subType: null }
  *   #checker/generator/creditcard     → { view: 'checker', subMode: 'generator', subType: 'creditcard' }
- *   #workspace                        → { view: 'cards',   subMode: null,        subType: null }
+ *   #workspace                        → { view: 'all-cards', subMode: null,       subType: null }
  */
 function _parseHash() {
     const raw = (window.location.hash || '').replace(/^#/, '').replace(/\?.*$/, '').toLowerCase();
@@ -6745,7 +6745,7 @@ function navigate(view) {
 window.expandCountry = function (id) {
     // Set geo filter and navigate to workspace
     _geoFilter = id;
-    navigate('cards');
+    navigate('all-cards');
 };
 
 window.deleteCountry = function (id) {
@@ -7487,7 +7487,7 @@ function updateStatsInPlace() {
             statCards[4].querySelector('.stat-value').textContent = s.topCards;
             statCards[5].querySelector('.stat-value').textContent = s.topBins;
         }
-    } else if (['cards', 'favorites', 'active-now', 'trash'].includes(STATE.currentView)) {
+    } else if (['all-cards', 'favorites', 'active-now', 'trash'].includes(STATE.currentView)) {
         const cards = getFilteredCards();
         const s = getCardStats(cards);
         // Support old stat-card layout
@@ -7542,7 +7542,7 @@ function updateSidebarBadges() {
         const match = onclick.match(/navigate\('(\w+)',\s*'([^']+)'\)/);
         if (match) {
             const [, view, countryId] = match;
-            if (view === 'cards') {
+            if (view === 'all-cards') {
                 badge.textContent = STATE.cards.filter(c => c.country === countryId).length;
             } else if (view === 'docs') {
                 badge.textContent = STATE.docs.filter(d => d.country === countryId).length;
@@ -8437,7 +8437,7 @@ function performGlobalSearch(query) {
             const flag = country?.flag || '🏳';
             const countryName = country?.name || c.country;
             html += `
-                <button class="search-result-item" onclick="globalSearchNavigate('cards', '${c.country}', '${s}')">
+                <button class="search-result-item" onclick="globalSearchNavigate('all-cards', '${c.country}', '${s}')">
                     <span class="search-result-flag">${flag}</span>
                     <div class="search-result-info">
                         <span class="search-result-name">${c.name} ${c.surname}</span>
@@ -9094,7 +9094,7 @@ window.addEventListener('load', function _initNavigation() {
     if (hashView === 'checker' && subMode) {
         _applyCheckerSubMode(subMode, subType);
     }
-    navigate(hashView || 'cards');
+    navigate(hashView || 'all-cards');
     // Auto-resolve countries for any 'auto' cards
     autoResolveAllCountries();
 });
