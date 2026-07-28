@@ -2062,6 +2062,77 @@ textarea {
 .cx-row:nth-child(even) { background: rgba(255,255,255,0.01); }
 .cx-row:hover { background: rgba(255,255,255,0.03) !important; }
 
+
+/* ═══════ STAT DOTS ═══════ */
+.cstat-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 2px;
+    flex-shrink: 0;
+}
+
+/* ═══════ HINT TEXT ═══════ */
+.cx-hint {
+    padding: 4px 12px;
+    font-size: 10px;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: var(--font-mono);
+}
+
+/* ═══════ BIN GROUP HEADERS ═══════ */
+.cx-bin-header {
+    cursor: pointer;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--purple);
+    transition: background 80ms;
+}
+.cx-bin-header:hover { background: rgba(255,255,255,0.06) !important; }
+.cx-bin-header.expanded { border-left-color: var(--green); }
+.cx-bin-header td {
+    padding: 4px 6px !important;
+    height: 30px !important;
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+.cx-group-info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-expand-icon { color: var(--text-dim); font-size: 9px; margin-right: 4px; }
+.cx-bin-id { font-weight: 800; color: var(--text-primary); margin-right: 6px; }
+.cx-bank-name { color: var(--text-muted); margin-right: 6px; font-size: 10px; }
+.cx-group-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 16px; padding: 0 5px; border-radius: 8px;
+    background: var(--green); color: #000; font-size: 9px; font-weight: 900; margin-left: 4px;
+}
+.cx-child-row { border-left: 3px solid rgba(34,197,94,0.2); }
+.cx-child-row td:first-child { padding-left: 8px !important; }
+.cx-row-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 16px; border-radius: 3px;
+    background: rgba(168,85,247,0.15); color: var(--purple);
+    font-size: 8px; font-weight: 900; margin-right: 4px; flex-shrink: 0;
+}
+.cx-cbt-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-bin-num { font-weight: 700; color: var(--text-secondary); letter-spacing: 0.3px; }
+.cx-grp-bin { font-family: var(--font-mono); font-weight: 600; font-size: 11px; color: var(--text-secondary); }
+.cx-th-cbt { width: auto; }
+.cx-th-bin { width: 75px; }
+.cx-th-amt { width: 50px; }
+.cx-note-cell { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-note-empty { color: var(--text-dim); font-size: 10px; cursor: pointer; opacity: 0.5; }
+.cx-note-empty:hover { opacity: 1; }
+.cx-note-has { color: var(--cyan); font-size: 10px; cursor: pointer; }
+.cx-mail-btn {
+    display: inline-block; padding: 1px 4px; border-radius: 2px;
+    font-size: 8px; font-weight: 700; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--text-dim);
+}
+.cx-mail-btn.active { background: rgba(34,197,94,0.15); color: #22C55E; border-color: rgba(34,197,94,0.3); }
+.cx-mail-btn:hover { background: rgba(255,255,255,0.05); }
+.cx-amt { font-family: var(--font-mono); font-size: 10px !important; color: var(--text-dim); }
+
 /* ═══════ CHECK BASE (Trash) ═══════ */
 .check-base-card {
     transition: all 150ms !important;

@@ -952,18 +952,23 @@ function renderStats() {
     // Cards view (country / favorites / active / trash)
     const cards = getFilteredCards();
     const s = getCardStats(cards);
-    // Compact inline stats bar
-    const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Copy cards to clipboard">📋</button>`;
+    // Compact inline stats bar with colored dots
+    const copyBtn = (filter) => `<button class="stat-copy-btn" data-copy-filter="${filter}" title="Copy">📋</button>`;
     bar.innerHTML = `
         <div class="cstat-row">
-            <span class="cstat-item cstat-total">${s.total} ${copyBtn('total')}</span>
+            <span class="cstat-item cstat-total">TOTAL <b>${s.total}</b> ${copyBtn('total')}</span>
             <span class="cstat-sep">·</span>
-            <span class="cstat-item cstat-a">A:<b>${s.cardAdd}</b> ${copyBtn('cardAdd')}</span>
-            <span class="cstat-item cstat-r">R:<b>${s.runAds}</b> ${copyBtn('runAds')}</span>
-            <span class="cstat-item cstat-v">V:<b>${s.verified}</b> ${copyBtn('verified')}</span>
-            <span class="cstat-item cstat-d">D:<b>${s.docReady}</b> ${copyBtn('docReady')}</span>
-            <span class="cstat-item cstat-w">W:<b>${s.waterBill}</b> ${copyBtn('waterBill')}</span>
-            <span class="cstat-item cstat-m">M:<b>${s.minic}</b> ${copyBtn('minic')}</span>
+            <span class="cstat-item cstat-a"><span class="cstat-dot" style="background:#22C55E"></span> A <b>${s.cardAdd}</b> ${copyBtn('cardAdd')}</span>
+            <span class="cstat-sep">·</span>
+            <span class="cstat-item cstat-r"><span class="cstat-dot" style="background:#F59E0B"></span> R <b>${s.runAds}</b> ${copyBtn('runAds')}</span>
+            <span class="cstat-sep">·</span>
+            <span class="cstat-item cstat-v"><span class="cstat-dot" style="background:#22C55E"></span> V <b>${s.verified}</b> ${copyBtn('verified')}</span>
+            <span class="cstat-sep">·</span>
+            <span class="cstat-item cstat-d"><span class="cstat-dot" style="background:#A855F7"></span> D <b>${s.docReady}</b> ${copyBtn('docReady')}</span>
+            <span class="cstat-sep">·</span>
+            <span class="cstat-item cstat-w"><span class="cstat-dot" style="background:#06B6D4"></span> W <b>${s.waterBill}</b> ${copyBtn('waterBill')}</span>
+            <span class="cstat-sep">·</span>
+            <span class="cstat-item cstat-m"><span class="cstat-dot" style="background:#38BDF8"></span> M <b>${s.minic}</b> ${copyBtn('minic')}</span>
         </div>
     `;
 
@@ -5244,8 +5249,6 @@ function renderContent() {
     }
 
     const isTrash = STATE.currentView === 'trash';
-    const showName = STATE.currentView !== 'my-card' || true;
-    const countryForBin = null;
 
     // Brand icon helper
     const _brandIcon = (brand) => {
@@ -5258,133 +5261,113 @@ function renderContent() {
         if (b.includes('JCB')) return '<span class="cx-brand cx-jcb">JCB</span>';
         if (b.includes('UNION') || b.includes('UPI')) return '<span class="cx-brand cx-upi">UPI</span>';
         if (b.includes('DINERS')) return '<span class="cx-brand cx-din">DIN</span>';
-        return `<span class="cx-brand">${b.substring(0,4)}</span>`;
+        return '<span class="cx-brand">' + b.substring(0,4) + '</span>';
     };
 
-    let rows = pageCards.map((c, i) => {
-        const idx = start + i + 1;
-        const bin = getBin(c.cardNumber);
-        const bc = binCount(bin, countryForBin);
-        const flag = c.country && c.country !== 'auto' && COUNTRY_DB[c.country.toUpperCase()] ? isoToFlag(c.country.toUpperCase()) : '';
-        const binBadge = bc > 1 ? `<span class="name-count-badge ${getCountColor(bc)}">(${bc})</span>` : '';
-        const binColorClass = getCountColor(bc);
+    // Helper: render single card row
+    function _renderCardRow(c, rowNum, cflag, isTrashV) {
+        const cbin = getBin(c.cardNumber);
+        const rnH = rowNum != null ? '<span class="cx-row-num">' + rowNum + '</span>' : '';
+        const starH = !isTrashV ? '<button class="star-btn ' + (c.starred ? 'active' : '') + '" onclick="toggleStar(\'' + c.id + '\')" title="Fav">\u2605</button>' : '';
+        const noteText = c.notes ? c.notes.substring(0, 15) : '+ note';
+        const noteCls = c.notes ? 'cx-note-has' : 'cx-note-empty';
+        const ccBtn = '<button class="cx-mail-btn ' + (c.mailVerify ? 'active' : '') + '" onclick="toggleMailTag(\'' + c.id + '\',\'mailVerify\')">CC</button>';
+        const docBtn = '<button class="cx-mail-btn ' + (c.mailSubmit ? 'active' : '') + '" onclick="toggleMailTag(\'' + c.id + '\',\'mailSubmit\')">DOC</button>';
+        const stH = isTrashV
+            ? '<button class="btn-secondary btn-restore" onclick="restoreCard(\'' + c.id + '\')">Restore</button>'
+            : '<div class="cx-dots">'
+                + '<span class="cx-dot cx-dot-a ' + (c.cardAdd ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'cardAdd\')">A</span>'
+                + '<span class="cx-dot cx-dot-r ' + (c.runAds ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'runAds\')">R</span>'
+                + '<span class="cx-dot cx-dot-v ' + (c.verified ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'verified\')">V</span>'
+                + '<span class="cx-dot cx-dot-d ' + (c.docReady ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'docReady\')">D</span>'
+                + '<span class="cx-dot cx-dot-w ' + (c.waterBill ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'waterBill\')">W</span>'
+                + '<span class="cx-dot cx-dot-m ' + (c.minic ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'minic\')">M</span>'
+                + '</div>';
+        return '<tr data-id="' + c.id + '" class="cx-row ' + (rowNum != null ? 'cx-child-row' : '') + ' ' + (_selectedCards.has(c.id) ? 'row-selected' : '') + '">'
+            + '<td class="cx-chk"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="' + c.id + '" ' + (_selectedCards.has(c.id) ? 'checked' : '') + ' onchange="toggleCardSelect(\'' + c.id + '\', this.checked)"></label></td>'
+            + '<td class="cx-cbt-cell">' + rnH + ' ' + cflag + ' <span class="cx-bin-num">' + cbin + '</span><span class="cx-mask">\u2022\u2022\u2022\u2022' + maskCard(c.cardNumber).slice(-4) + '</span> ' + starH + '</td>'
+            + '<td class="cx-grp-bin">' + cbin + '</td>'
+            + '<td class="cx-amt">' + (c.amount ? Number(c.amount).toLocaleString() : '\u2014') + '</td>'
+            + '<td class="cx-note-cell">' + ccBtn + ' ' + docBtn + '</td>'
+            + '<td class="cx-status">' + stH + '</td>'
+            + '<td class="cx-date">' + c.date + '</td>'
+            + '<td class="cx-menu"><button class="more-btn" onclick="openContextMenu(event, \'' + c.id + '\')" title="Menu">\u22ee</button></td>'
+            + '</tr>';
+    }
 
-        // Usage badges
-        const isAllCards = STATE.currentView === 'all-cards';
-        const cardUsageBadge = (c._cardUsage && c._cardUsage > 1)
-            ? `<span class="usage-badge usage-card" onclick="event.stopPropagation(); _showCardDrawer('${c.cardNumber.replace(/\s/g, '')}', this)" title="Card used ${c._cardUsage} times">📇${c._cardUsage}</span>`
-            : '';
-        // (translated)
-        // (translated)
-        const _nameTrimmed = (c.name + ' ' + c.surname).trim().toUpperCase();
-        const _nameEsc = _nameTrimmed.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-        const nameUsageBadge = (!isAllCards && c._nameUsage && c._nameUsage > 1)
-            ? `<span class="usage-badge usage-name name-drawer-trigger" data-name="${_nameEsc}" title="Name appears ${c._nameUsage} times">👤${c._nameUsage}</span>`
-            : '';
-        const allCardsNamesBadge = (isAllCards && c._nameCount && c._nameCount > 1)
-            ? `<span class="usage-badge usage-names" title="${c._nameCount} unique names">👤${c._nameCount}</span>`
-            : '';
+    // BIN group state
+    if (!window._wsExpandedBins) window._wsExpandedBins = new Set();
+    window._wsToggleBin = function(binKey) {
+        if (window._wsExpandedBins.has(binKey)) window._wsExpandedBins.delete(binKey);
+        else window._wsExpandedBins.add(binKey);
+        renderContent();
+    };
 
-        const getMailBadge = (card) => {
-            if (card.mailNone) return '';
-            if (card.mailVerify || card.mailSubmit) {
-                let texts = [];
-                if (card.mailVerify) texts.push('CC');
-                if (card.mailSubmit) texts.push('DOC');
-                return `<span class="mail-badge" title="Mail Status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M4 7l6.2 4.6c1.1.8 2.5.8 3.6 0L20 7"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>${texts.join(' / ')}</span>`;
-            }
-            return '';
-        };
-
-        // Compact single-line card info
-        const _binInfo = (() => { const info = getBinInfo(getBin(c.cardNumber)); return formatBinInfoText(info); })();
-        const _bankShort = (() => {
-            const cached = BIN_CACHE[bin];
-            if (cached && cached.bank) return cached.bank.substring(0, 20).toUpperCase();
-            const parts = (_binInfo || '').split('·').map(s => s.trim());
-            return parts.length >= 3 ? parts[2].substring(0, 20) : '';
-        })();
-        const _typeShort = (() => {
-            const cached = BIN_CACHE[bin];
-            if (cached) {
-                const p = [];
-                if (cached.brand) p.push(cached.brand);
-                if (cached.type) p.push(cached.type);
-                return p.join(' ').substring(0, 14).toUpperCase();
-            }
-            return (c.cardType || '').substring(0, 14).toUpperCase();
-        })();
-
-        // Brand for type column
-        const _brandHtml = _brandIcon(_typeShort.split(' ')[0]);
-        const _levelShort = (() => {
-            const cached = BIN_CACHE[bin];
-            if (cached && cached.type) return cached.type.substring(0, 8).toUpperCase();
-            const parts = _typeShort.split(' ');
-            return parts.length > 1 ? parts.slice(1).join(' ').substring(0, 8) : '';
-        })();
-
-        return `
-        <tr data-id="${c.id}" class="cx-row ${_selectedCards.has(c.id) ? 'row-selected' : ''}">
-            <td class="cx-chk"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)"></label></td>
-            <td class="cx-star">${!isTrash ? `<button class="star-btn ${c.starred ? 'active' : ''}" onclick="toggleStar('${c.id}')" title="Active Now">★</button>` : ''}</td>
-            <td class="cx-card">
-                <span class="cx-flag">${flag}</span>
-                <span class="cx-bin">${bin}</span><span class="cx-mask">••${maskCard(c.cardNumber).slice(-4)}</span>
-                ${binBadge}
-                ${cardUsageBadge}
-            </td>
-            <td class="cx-bank" title="${_bankShort}">${_bankShort || '—'}</td>
-            <td class="cx-type">${_brandHtml} <span class="cx-level">${_levelShort || ''}</span></td>
-            <td class="cx-note"><span class="cx-note-text" onclick="openInlineNote('${c.id}', this)" title="${(c.notes || '').replace(/"/g, '&quot;')}">${c.notes ? c.notes.substring(0, 20) : ''}</span></td>
-            <td class="cx-status">
-                ${isTrash ? `
-                    <button class="btn-secondary btn-restore" onclick="restoreCard('${c.id}')">Restore</button>
-                ` : `
-                    <div class="cx-dots">
-                        <span class="cx-dot cx-dot-a ${c.cardAdd ? 'on' : ''}" onclick="toggleStatus('${c.id}','cardAdd')" title="A: Card Add">A</span>
-                        <span class="cx-dot cx-dot-r ${c.runAds ? 'on' : ''}" onclick="toggleStatus('${c.id}','runAds')" title="R: Run Ads">R</span>
-                        <span class="cx-dot cx-dot-v ${c.verified ? 'on' : ''}" onclick="toggleStatus('${c.id}','verified')" title="V: Verify">V</span>
-                        <span class="cx-dot cx-dot-d ${c.docReady ? 'on' : ''}" onclick="toggleStatus('${c.id}','docReady')" title="D: Documents">D</span>
-                        <span class="cx-dot cx-dot-w ${c.waterBill ? 'on' : ''}" onclick="toggleStatus('${c.id}','waterBill')" title="W: Water Bill">W</span>
-                        <span class="cx-dot cx-dot-m ${c.minic ? 'on' : ''}" onclick="toggleStatus('${c.id}','minic')" title="M: Minic">M</span>
-                    </div>
-                `}
-            </td>
-            <td class="cx-date">${c.date}</td>
-            <td class="cx-menu">
-                ${isTrash ? `
-                    <button class="more-btn" onclick="permanentDelete('${c.id}')" title="Delete forever">✕</button>
-                ` : `
-                    <button class="more-btn" onclick="openContextMenu(event, '${c.id}')">⋯</button>
-                `}
-            </td>
-        </tr>`;
-    }).join('');
+    // Group cards by BIN
+    const binGroups = new Map();
+    pageCards.forEach(c => {
+        const b = getBin(c.cardNumber);
+        if (!binGroups.has(b)) binGroups.set(b, []);
+        binGroups.get(b).push(c);
+    });
 
     const sortIcon = (field) => {
-        if (STATE.sortField !== field) return '↕';
-        return STATE.sortDir === 'asc' ? '↑' : '↓';
+        if (STATE.sortField !== field) return '\u2195';
+        return STATE.sortDir === 'asc' ? '\u2191' : '\u2193';
     };
 
-    area.innerHTML = `
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th class="cx-th-chk"><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
-                    <th class="cx-th-star"></th>
-                    <th class="sortable cx-th-card" data-sort="bin">Card ${sortIcon('bin')}</th>
-                    <th class="sortable cx-th-bank" data-sort="name">Bank ${sortIcon('name')}</th>
-                    <th class="sortable cx-th-type" data-sort="type">Type ${sortIcon('type')}</th>
-                    <th class="sortable cx-th-note" data-sort="notes">Notes ${sortIcon('notes')}</th>
-                    <th class="sortable cx-th-status" data-sort="status">Status ${sortIcon('status')}</th>
-                    <th class="sortable cx-th-date" data-sort="date">Date ${sortIcon('date')}</th>
-                    <th class="cx-th-menu"></th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    `;
+    let rows = '';
+    for (const [gbin, grp] of binGroups) {
+        const isExp = window._wsExpandedBins.has(gbin);
+        const cc = BIN_CACHE[gbin];
+        const bName = cc && cc.bank ? cc.bank.toUpperCase() : '';
+        const brName = cc && cc.brand ? cc.brand.toUpperCase() : '';
+        const tName = cc && cc.type ? cc.type.toUpperCase() : '';
+        const brHtml = _brandIcon(brName);
+        const fc = grp[0];
+        const gflag = fc.country && fc.country !== 'auto' && COUNTRY_DB[fc.country.toUpperCase()] ? isoToFlag(fc.country.toUpperCase()) : '';
+
+        if (grp.length > 1) {
+            rows += '<tr class="cx-bin-header ' + (isExp ? 'expanded' : '') + '" onclick="window._wsToggleBin(\'' + gbin + '\')">'
+                + '<td class="cx-chk"><label class="bulk-check"><input type="checkbox" onclick="event.stopPropagation()"></label></td>'
+                + '<td class="cx-group-info">'
+                + '<span class="cx-expand-icon">' + (isExp ? '\u25bc' : '\u25b6') + '</span> '
+                + gflag + ' <span class="cx-bin-id">' + gbin + '</span> '
+                + '<span class="cx-bank-name">' + bName + '</span> '
+                + brHtml
+                + ' <span class="cx-group-count">' + grp.length + '</span>'
+                + '</td>'
+                + '<td class="cx-grp-bin">' + gbin + '</td>'
+                + '<td>\u2014</td>'
+                + '<td>CC  DOC</td>'
+                + '<td>' + tName + '</td>'
+                + '<td class="cx-date">' + fc.date + '</td>'
+                + '<td class="cx-menu"><button class="more-btn" onclick="event.stopPropagation(); openContextMenu(event, \'' + fc.id + '\')">\u22ee</button></td>'
+                + '</tr>';
+            if (isExp) {
+                grp.forEach((c, gi) => {
+                    const cf = c.country && c.country !== 'auto' && COUNTRY_DB[c.country.toUpperCase()] ? isoToFlag(c.country.toUpperCase()) : '';
+                    rows += _renderCardRow(c, gi + 1, cf, isTrash);
+                });
+            }
+        } else {
+            rows += _renderCardRow(grp[0], null, gflag, isTrash);
+        }
+    }
+
+    const hintHtml = '<div class="cx-hint">\ud83d\udca1 \u041a\u043b\u0438\u043a \u043f\u043e \u0441\u0442\u0440\u043e\u043a\u0435 BIN \u2014 \u0440\u0430\u0441\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0432\u0441\u0435 \u043a\u0430\u0440\u0442\u044b \u044d\u0442\u043e\u0433\u043e \u0431\u0438\u043d\u0430. \u041a\u0430\u0440\u0442\u0430 > \u0411\u0430\u043d\u043a > \u0422\u0438\u043f \u0442\u0435\u043f\u0435\u0440\u044c \u0432 \u043e\u0434\u043d\u043e\u043c \u0431\u043b\u043e\u043a\u0435.</div>';
+
+    area.innerHTML = hintHtml
+        + '<table class="data-table"><thead><tr>'
+        + '<th class="cx-th-chk"><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>'
+        + '<th class="sortable cx-th-cbt" data-sort="bin">CARD \u00b7 BANK \u00b7 TYPE ' + sortIcon('bin') + '</th>'
+        + '<th class="sortable cx-th-bin" data-sort="bin">BIN ' + sortIcon('bin') + '</th>'
+        + '<th class="sortable cx-th-amt" data-sort="amount">AMT ' + sortIcon('amount') + '</th>'
+        + '<th class="sortable cx-th-mail" data-sort="mail">MAIL ' + sortIcon('mail') + '</th>'
+        + '<th class="sortable cx-th-status" data-sort="status">STATUS ' + sortIcon('status') + '</th>'
+        + '<th class="sortable cx-th-date" data-sort="date">DATE ' + sortIcon('date') + '</th>'
+        + '<th class="cx-th-menu"></th>'
+        + '</tr></thead><tbody>' + rows + '</tbody></table>';
 
     // Attach sort handlers
     area.querySelectorAll('.sortable').forEach(th => {
