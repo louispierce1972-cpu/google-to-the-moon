@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -931,7 +931,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
