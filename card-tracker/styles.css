@@ -30239,3 +30239,76 @@ tr.row-selected td {
 .bv-bin-info .cx-brand {
     font-size: 9px; padding: 2px 6px; border-radius: 3px;
 }
+
+/* ===========================================
+   BIN View — Import Panel + Sort Buttons
+   =========================================== */
+
+/* Sort buttons */
+.bv-sort-btns {
+    display: flex; gap: 4px; margin-left: auto;
+}
+.bv-sort-btn {
+    font-size: 10px; padding: 4px 10px; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px; background: transparent; color: #636780;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px;
+    font-family: inherit; text-transform: uppercase;
+}
+.bv-sort-btn:hover { color: #a0a4b8; border-color: rgba(255,255,255,0.15); }
+.bv-sort-active {
+    background: rgba(59,130,246,0.15); color: #60a5fa;
+    border-color: rgba(59,130,246,0.3);
+}
+
+/* Import button */
+.bv-import-btn {
+    font-size: 11px; padding: 5px 14px; border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 4px; background: rgba(34,197,94,0.1); color: #22c55e;
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+    font-weight: 600; margin-left: 8px;
+}
+.bv-import-btn:hover { background: rgba(34,197,94,0.2); }
+
+/* Import panel */
+.bv-import-panel {
+    margin: 0 12px 12px; padding: 12px; border-radius: 6px;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);
+}
+.bv-import-textarea {
+    width: 100%; min-height: 100px; padding: 10px 12px;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px; color: #a0a4b8; font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    resize: vertical; outline: none; box-sizing: border-box;
+    line-height: 1.5;
+}
+.bv-import-textarea:focus {
+    border-color: rgba(59,130,246,0.4);
+}
+.bv-import-textarea::placeholder { color: #3a3e52; }
+.bv-import-actions {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px;
+}
+.bv-import-count {
+    font-size: 11px; color: #636780; flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+}
+.bv-import-go {
+    padding: 6px 20px; font-size: 11px; font-weight: 700;
+    background: rgba(34,197,94,0.15); color: #22c55e;
+    border: 1px solid rgba(34,197,94,0.3); border-radius: 4px;
+    cursor: pointer; letter-spacing: 1px; font-family: inherit;
+}
+.bv-import-go:hover { background: rgba(34,197,94,0.25); }
+.bv-import-close {
+    padding: 6px 14px; font-size: 11px; color: #636780;
+    background: transparent; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px; cursor: pointer; font-family: inherit;
+}
+.bv-import-close:hover { color: #a0a4b8; }
+
+/* Color-coded card count badge */
+.bv-card-count {
+    font-weight: 700 !important; border-width: 1px !important;
+    border-style: solid !important;
+}

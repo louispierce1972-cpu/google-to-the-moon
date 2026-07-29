@@ -5495,11 +5495,34 @@ function renderAllCards() {
         binGroups[bin].push(c);
     });
 
-    // Sort groups: most cards first
-    let sortedBins = Object.entries(binGroups).sort((a, b) => {
-        if (b[1].length !== a[1].length) return b[1].length - a[1].length;
-        return a[0].localeCompare(b[0]);
-    });
+    // ── Sorting ──
+    const sortMode = STATE._bvSort || 'count'; // 'count' or 'date'
+    let sortedBins = Object.entries(binGroups);
+
+    if (sortMode === 'date') {
+        // Sort by latest card date descending
+        sortedBins.sort((a, b) => {
+            const getMax = (cards) => {
+                let max = '';
+                cards.forEach(c => {
+                    if (!c.date) return;
+                    const p = c.date.split('.');
+                    const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date;
+                    if (d > max) max = d;
+                });
+                return max;
+            };
+            const dA = getMax(a[1]), dB = getMax(b[1]);
+            if (dA !== dB) return dB > dA ? 1 : -1;
+            return b[1].length - a[1].length;
+        });
+    } else {
+        // Sort by card count descending (default)
+        sortedBins.sort((a, b) => {
+            if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+            return a[0].localeCompare(b[0]);
+        });
+    }
 
     const totalBins = sortedBins.length;
     const totalCards = allCards.length;
@@ -5510,10 +5533,18 @@ function renderAllCards() {
     const pageBins = sortedBins.slice(start, start + STATE.perPage);
     const totalPages = Math.max(1, Math.ceil(totalBins / STATE.perPage));
 
-    // Format card number with spaces: 4297 6934 5678 9012
+    // Format card number with spaces
     const fmtCard = (num) => {
         const d = (num || '').replace(/\D/g, '');
         return d.replace(/(.{4})/g, '$1 ').trim();
+    };
+
+    // Color for card count
+    const countColor = (n) => {
+        if (n > 15) return '#ef4444';   // red
+        if (n > 10) return '#f97316';   // orange
+        if (n > 5)  return '#eab308';   // yellow
+        return '#38bdf8';               // blue
     };
 
     let rowsHtml = '';
@@ -5535,7 +5566,6 @@ function renderAllCards() {
         const rCount = cards.filter(c => c.runAds).length;
         const vCount = cards.filter(c => c.verified).length;
         const sCount = cards.filter(c => c.suspended).length;
-        const dCount = cards.filter(c => c.deleted).length;
 
         // Last date
         let lastDate = '';
@@ -5550,7 +5580,6 @@ function renderAllCards() {
             lastDate = `${pp[2]}.${pp[1]}.${pp[0]}`;
         }
 
-        // BIN note (stored in first card or STATE.binNotes)
         const binNote = (STATE.binNotes && STATE.binNotes[bin]) || '';
 
         // BIN group header row
@@ -5563,9 +5592,9 @@ function renderAllCards() {
                 <div class="bv-bin-info">
                     <span class="bv-bin-num">${bin}</span>
                     ${brandHtml}
-                    <span class="bv-card-count">${cardCount} cards</span>
+                    <span class="bv-card-count" style="color:${countColor(cardCount)};border-color:${countColor(cardCount)}30">${cardCount} cards</span>
                 </div>
-                <div class="bv-bank-name">${bankName ? bankName : ''}</div>
+                <div class="bv-bank-name">${bankName}</div>
             </td>
             <td class="bv-country-cell">${countryCode}</td>
             <td class="bv-status-cell">
@@ -5573,12 +5602,11 @@ function renderAllCards() {
                 ${rCount > 0 ? `<span class="bv-st bv-st-r">R</span>` : ''}
                 ${vCount > 0 ? `<span class="bv-st bv-st-v">V</span>` : ''}
                 ${sCount > 0 ? `<span class="bv-st bv-st-s">S</span>` : ''}
-                ${dCount > 0 ? `<span class="bv-st bv-st-d">D</span>` : ''}
             </td>
             <td class="bv-note-cell" onclick="event.stopPropagation()">
-                <input class="bv-note-input" type="text" value="${(binNote || '').replace(/"/g, '&quot;')}" placeholder="—" onchange="_saveBinNote('${bin}', this.value)" onclick="event.stopPropagation()">
+                <input class="bv-note-input" type="text" value="${(binNote || '').replace(/"/g, '&quot;')}" placeholder="\u2014" onchange="_saveBinNote('${bin}', this.value)" onclick="event.stopPropagation()">
             </td>
-            <td class="bv-date-cell">${lastDate || '—'}</td>
+            <td class="bv-date-cell">${lastDate || '\u2014'}</td>
         </tr>`;
 
         // Expanded child rows
@@ -5607,22 +5635,35 @@ function renderAllCards() {
                     <td class="bv-note-cell">
                         <input class="bv-note-input bv-note-card" type="text" value="${(cNote || '').replace(/"/g, '&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}', this.value)">
                     </td>
-                    <td class="bv-date-cell">${c.date || '—'}</td>
+                    <td class="bv-date-cell">${c.date || '\u2014'}</td>
                 </tr>`;
             });
         }
     });
 
-    // Stats pills
+    // Stats pills + sort buttons + quick-import button
     const statsHtml = `
         <div class="bv-stats-bar">
             <span class="bv-stat-pill">CARDS <b>${totalCards}</b></span>
             <span class="bv-stat-pill">BINS <b>${totalBins}</b></span>
             <span class="bv-stat-pill bv-stat-active">ACTIVE <b>${activeCards}</b></span>
+            <div class="bv-sort-btns">
+                <button class="bv-sort-btn ${sortMode === 'count' ? 'bv-sort-active' : ''}" onclick="_bvSetSort('count')">By Count</button>
+                <button class="bv-sort-btn ${sortMode === 'date' ? 'bv-sort-active' : ''}" onclick="_bvSetSort('date')">By Date</button>
+            </div>
+            <button class="bv-import-btn" onclick="_bvOpenImport()">+ Import List</button>
         </div>`;
 
     area.innerHTML = `
         ${statsHtml}
+        <div id="bv-import-panel" class="bv-import-panel" style="display:none">
+            <textarea id="bv-import-text" class="bv-import-textarea" placeholder="Paste card list here...\n4537007340059012|02/26|307\n5160755832054963|02/26|307\n..." rows="6"></textarea>
+            <div class="bv-import-actions">
+                <span id="bv-import-count" class="bv-import-count">0 cards detected</span>
+                <button class="bv-import-go" onclick="_bvDoImport()">IMPORT</button>
+                <button class="bv-import-close" onclick="document.getElementById('bv-import-panel').style.display='none'">Cancel</button>
+            </div>
+        </div>
         <table class="data-table bv-table">
             <thead>
                 <tr>
@@ -5638,9 +5679,79 @@ function renderAllCards() {
         </table>
     `;
 
+    // Auto-detect on paste
+    const importText = document.getElementById('bv-import-text');
+    if (importText) {
+        importText.addEventListener('input', () => {
+            const parsed = smartParseCards(importText.value);
+            document.getElementById('bv-import-count').textContent = parsed.length + ' cards detected';
+        });
+    }
+
     renderFooter(totalBins, STATE.page, totalPages);
 }
 
+// Sort toggle
+window._bvSetSort = function(mode) {
+    STATE._bvSort = mode;
+    STATE.page = 1;
+    renderAllCards();
+};
+
+// Open import panel
+window._bvOpenImport = function() {
+    const panel = document.getElementById('bv-import-panel');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel.style.display === 'block') {
+            document.getElementById('bv-import-text').focus();
+        }
+    }
+};
+
+// Do bulk import from workspace
+window._bvDoImport = function() {
+    const text = document.getElementById('bv-import-text').value;
+    if (!text.trim()) { toast('Paste a card list first', 'info'); return; }
+
+    const parsed = smartParseCards(text);
+    if (parsed.length === 0) { toast('No valid cards found', 'error'); return; }
+
+    const existingNumbers = new Set(STATE.cards.map(c => c.cardNumber.replace(/\s/g, '')));
+    let added = 0;
+
+    parsed.forEach(p => {
+        if (existingNumbers.has(p.cardNum)) return;
+        const card = {
+            id: genId(),
+            name: p.name || '', surname: p.surname || '',
+            cardNumber: p.cardNum,
+            month: p.mm, year: p.yy, cvv: p.cvv,
+            cardType: getCardType(p.cardNum),
+            amount: 0, notes: '', country: 'auto',
+            cardAdd: false, runAds: false, verified: false,
+            suspended: false, starred: false,
+            date: todayStr(),
+        };
+        STATE.cards.unshift(card);
+        ensureDoc(card);
+        existingNumbers.add(p.cardNum);
+        added++;
+    });
+
+    if (added > 0) {
+        save();
+        STATE.page = 1;
+        renderAll();
+        toast(`${added} cards imported (${parsed.length - added} duplicates skipped)`, 'success');
+        autoResolveAllCountries();
+    } else {
+        toast('All cards already exist', 'info');
+    }
+
+    document.getElementById('bv-import-text').value = '';
+    document.getElementById('bv-import-panel').style.display = 'none';
+};
 // Save BIN-level note
 window._saveBinNote = function(bin, val) {
     if (!STATE.binNotes) STATE.binNotes = {};
