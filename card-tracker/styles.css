@@ -30312,3 +30312,35 @@ tr.row-selected td {
     font-weight: 700 !important; border-width: 1px !important;
     border-style: solid !important;
 }
+
+/* ===========================================
+   BIN View — Country Filter Tabs
+   =========================================== */
+.bv-country-tabs {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 4px 12px 10px; align-items: center;
+}
+.bv-country-tab {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; padding: 4px 10px; border-radius: 4px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    color: #636780; cursor: pointer; transition: all 0.15s;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
+    user-select: none;
+}
+.bv-country-tab:hover {
+    color: #a0a4b8; border-color: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+}
+.bv-country-tab b { color: #8b8fa3; margin-left: 2px; }
+.bv-ct-active {
+    background: rgba(59,130,246,0.12) !important;
+    border-color: rgba(59,130,246,0.3) !important;
+    color: #60a5fa !important;
+}
+.bv-ct-active b { color: #93c5fd !important; }
+.bv-country-tab .cx-flag-img { width: 14px; height: 10px; }
+
+/* Flag before BIN */
+.bv-flag { display: inline-flex; align-items: center; margin-right: 2px; }
+.bv-flag .cx-flag-img { width: 16px; height: 12px; }

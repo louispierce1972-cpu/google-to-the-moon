@@ -5481,7 +5481,37 @@ function renderAllCards() {
         );
     }
 
-    if (allCards.length === 0) {
+    // ── Build country tabs ──
+    const countryMap = {};
+    allCards.forEach(c => {
+        const bin = getBin(c.cardNumber);
+        const cached = BIN_CACHE[bin] || {};
+        let cc = '';
+        if (cached.country) cc = cached.country.toUpperCase();
+        else if (c.country && c.country !== 'auto') cc = c.country.toUpperCase();
+        if (cc) {
+            if (!countryMap[cc]) countryMap[cc] = 0;
+            countryMap[cc]++;
+        }
+    });
+    // Sort countries by card count descending
+    const countrySorted = Object.entries(countryMap).sort((a, b) => b[1] - a[1]);
+
+    // Apply country filter
+    const countryFilter = STATE._bvCountry || 'ALL';
+    let filteredCards = allCards;
+    if (countryFilter !== 'ALL') {
+        filteredCards = allCards.filter(c => {
+            const bin = getBin(c.cardNumber);
+            const cached = BIN_CACHE[bin] || {};
+            let cc = '';
+            if (cached.country) cc = cached.country.toUpperCase();
+            else if (c.country && c.country !== 'auto') cc = c.country.toUpperCase();
+            return cc === countryFilter;
+        });
+    }
+
+    if (filteredCards.length === 0 && allCards.length === 0) {
         area.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg></div><p class="empty-title">No cards found</p></div>`;
         renderFooter(0, 1, 1);
         return;
@@ -5489,18 +5519,17 @@ function renderAllCards() {
 
     // Group by BIN
     const binGroups = {};
-    allCards.forEach(c => {
+    filteredCards.forEach(c => {
         const bin = getBin(c.cardNumber);
         if (!binGroups[bin]) binGroups[bin] = [];
         binGroups[bin].push(c);
     });
 
     // ── Sorting ──
-    const sortMode = STATE._bvSort || 'count'; // 'count' or 'date'
+    const sortMode = STATE._bvSort || 'count';
     let sortedBins = Object.entries(binGroups);
 
     if (sortMode === 'date') {
-        // Sort by latest card date descending
         sortedBins.sort((a, b) => {
             const getMax = (cards) => {
                 let max = '';
@@ -5517,7 +5546,6 @@ function renderAllCards() {
             return b[1].length - a[1].length;
         });
     } else {
-        // Sort by card count descending (default)
         sortedBins.sort((a, b) => {
             if (b[1].length !== a[1].length) return b[1].length - a[1].length;
             return a[0].localeCompare(b[0]);
@@ -5525,26 +5553,25 @@ function renderAllCards() {
     }
 
     const totalBins = sortedBins.length;
-    const totalCards = allCards.length;
-    const activeCards = allCards.filter(c => c.cardAdd || c.runAds).length;
+    const totalCards = filteredCards.length;
+    const totalAllCards = allCards.length;
+    const activeCards = filteredCards.filter(c => c.cardAdd || c.runAds).length;
 
-    // Paginate BIN groups
+    // Paginate
     const start = (STATE.page - 1) * STATE.perPage;
     const pageBins = sortedBins.slice(start, start + STATE.perPage);
     const totalPages = Math.max(1, Math.ceil(totalBins / STATE.perPage));
 
-    // Format card number with spaces
     const fmtCard = (num) => {
         const d = (num || '').replace(/\D/g, '');
         return d.replace(/(.{4})/g, '$1 ').trim();
     };
 
-    // Color for card count
     const countColor = (n) => {
-        if (n > 15) return '#ef4444';   // red
-        if (n > 10) return '#f97316';   // orange
-        if (n > 5)  return '#eab308';   // yellow
-        return '#38bdf8';               // blue
+        if (n > 15) return '#ef4444';
+        if (n > 10) return '#f97316';
+        if (n > 5)  return '#eab308';
+        return '#38bdf8';
     };
 
     let rowsHtml = '';
@@ -5554,12 +5581,12 @@ function renderAllCards() {
         const cached = BIN_CACHE[bin] || {};
         const bankName = cached.bank || '';
         const brandHtml = _brandIconGlobal(cached.brand, cards[0].cardNumber);
-        const countryCode = (() => {
-            if (cached.country) return cached.country.toUpperCase();
-            const fc = cards[0];
-            if (fc.country && fc.country !== 'auto') return fc.country.toUpperCase();
-            return '';
-        })();
+
+        // Country flag
+        let cc = '';
+        if (cached.country) cc = cached.country.toUpperCase();
+        else if (cards[0].country && cards[0].country !== 'auto') cc = cards[0].country.toUpperCase();
+        const flagHtml = cc ? isoToFlag(cc) : '';
 
         // Status counts
         const aCount = cards.filter(c => c.cardAdd).length;
@@ -5582,21 +5609,20 @@ function renderAllCards() {
 
         const binNote = (STATE.binNotes && STATE.binNotes[bin]) || '';
 
-        // BIN group header row
         rowsHtml += `
         <tr class="bv-bin-row ${isExpanded ? 'bv-expanded' : ''}" data-bin="${bin}" onclick="_toggleBinGroup('${bin}')">
             <td class="bv-expand-cell">
-                <span class="bv-arrow">${isExpanded ? '▾' : '▸'}</span>
+                <span class="bv-arrow">${isExpanded ? '\u25be' : '\u25b8'}</span>
             </td>
             <td class="bv-main-cell">
                 <div class="bv-bin-info">
+                    ${flagHtml ? `<span class="bv-flag">${flagHtml}</span>` : ''}
                     <span class="bv-bin-num">${bin}</span>
                     ${brandHtml}
                     <span class="bv-card-count" style="color:${countColor(cardCount)};border-color:${countColor(cardCount)}30">${cardCount} cards</span>
                 </div>
                 <div class="bv-bank-name">${bankName}</div>
             </td>
-            <td class="bv-country-cell">${countryCode}</td>
             <td class="bv-status-cell">
                 ${aCount > 0 ? `<span class="bv-st bv-st-a">A</span>` : ''}
                 ${rCount > 0 ? `<span class="bv-st bv-st-r">R</span>` : ''}
@@ -5609,7 +5635,6 @@ function renderAllCards() {
             <td class="bv-date-cell">${lastDate || '\u2014'}</td>
         </tr>`;
 
-        // Expanded child rows
         if (isExpanded) {
             cards.forEach(c => {
                 const cNote = c.notes || '';
@@ -5625,7 +5650,6 @@ function renderAllCards() {
                     <td class="bv-main-cell bv-card-main">
                         <span class="bv-card-num">${fullCard}</span>
                     </td>
-                    <td class="bv-country-cell"></td>
                     <td class="bv-status-cell">
                         ${c.cardAdd ? '<span class="bv-st bv-st-a">A</span>' : ''}
                         ${c.runAds ? '<span class="bv-st bv-st-r">R</span>' : ''}
@@ -5641,7 +5665,14 @@ function renderAllCards() {
         }
     });
 
-    // Stats pills + sort buttons + quick-import button
+    // ── Country filter tabs ──
+    let countryTabsHtml = `<span class="bv-country-tab ${countryFilter === 'ALL' ? 'bv-ct-active' : ''}" onclick="_bvFilterCountry('ALL')">ALL <b>${totalAllCards}</b></span>`;
+    countrySorted.forEach(([cc, cnt]) => {
+        const flag = isoToFlag(cc);
+        countryTabsHtml += `<span class="bv-country-tab ${countryFilter === cc ? 'bv-ct-active' : ''}" onclick="_bvFilterCountry('${cc}')">${flag} ${cc} <b>${cnt}</b></span>`;
+    });
+
+    // Stats + country tabs + sort + import
     const statsHtml = `
         <div class="bv-stats-bar">
             <span class="bv-stat-pill">CARDS <b>${totalCards}</b></span>
@@ -5652,7 +5683,8 @@ function renderAllCards() {
                 <button class="bv-sort-btn ${sortMode === 'date' ? 'bv-sort-active' : ''}" onclick="_bvSetSort('date')">By Date</button>
             </div>
             <button class="bv-import-btn" onclick="_bvOpenImport()">+ Import List</button>
-        </div>`;
+        </div>
+        <div class="bv-country-tabs">${countryTabsHtml}</div>`;
 
     area.innerHTML = `
         ${statsHtml}
@@ -5669,7 +5701,6 @@ function renderAllCards() {
                 <tr>
                     <th style="width:30px"></th>
                     <th>CARD / BIN GROUP</th>
-                    <th>COUNTRY</th>
                     <th>STATUS</th>
                     <th>NOTE</th>
                     <th>LAST</th>
@@ -5679,7 +5710,6 @@ function renderAllCards() {
         </table>
     `;
 
-    // Auto-detect on paste
     const importText = document.getElementById('bv-import-text');
     if (importText) {
         importText.addEventListener('input', () => {
@@ -5691,6 +5721,12 @@ function renderAllCards() {
     renderFooter(totalBins, STATE.page, totalPages);
 }
 
+// Country filter
+window._bvFilterCountry = function(cc) {
+    STATE._bvCountry = cc;
+    STATE.page = 1;
+    renderAllCards();
+};
 // Sort toggle
 window._bvSetSort = function(mode) {
     STATE._bvSort = mode;
