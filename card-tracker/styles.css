@@ -30435,3 +30435,21 @@ tr.row-selected td {
 
 /* Brand in BV */
 .bv-bi .cx-brand { font-size:8px; padding:1px 4px; border-radius:2px; }
+
+/* ===========================================
+   Status v2 — M (mini-code), D (decline), toggles
+   =========================================== */
+.bv-sm { color:#f59e0b; background:rgba(245,158,11,0.12); }
+.bv-sd { color:#6366f1; background:rgba(99,102,241,0.12); }
+
+/* Off state — faded, clickable */
+.bv-off { opacity:0.2; }
+.bv-off:hover { opacity:0.5; }
+
+/* Clickable status on card rows */
+.bv-cr .bv-s { cursor:pointer; transition:opacity 0.12s; user-select:none; }
+
+/* Status pills in top bar */
+.bv-st-pill { display:inline-flex; align-items:center; gap:3px; }
+.bv-st-pill .bv-s { font-size:8px; padding:1px 3px; }
+.bv-st-pill b { font-size:11px; }
