@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -5503,6 +5503,13 @@ function renderAllCards() {
         );
     }
 
+    // Duplicate count map
+    const dupMap = {};
+    STATE.cards.forEach(c => {
+        const num = c.cardNumber.replace(/\s/g, '');
+        dupMap[num] = (dupMap[num] || 0) + 1;
+    });
+
     // Country tabs
     const countryMap = {};
     allCards.forEach(c => {
@@ -5523,12 +5530,18 @@ function renderAllCards() {
         });
     }
 
+    const stFilter = STATE._bvStatusFilter || '';
+    if (stFilter) {
+        const fieldMap = {A:'cardAdd', R:'runAds', V:'verified', M:'minic', D:'declined'};
+        const field = fieldMap[stFilter];
+        if (field) filteredCards = filteredCards.filter(c => c[field]);
+    }
+
     if (filteredCards.length === 0 && allCards.length === 0) {
         area.innerHTML = `<div class="empty-state"><p class="empty-title">No cards</p></div>`;
         renderFooter(0, 1, 1); return;
     }
 
-    // Global status counts for top bar
     const gA = filteredCards.filter(c => c.cardAdd).length;
     const gR = filteredCards.filter(c => c.runAds).length;
     const gV = filteredCards.filter(c => c.verified).length;
@@ -5543,8 +5556,7 @@ function renderAllCards() {
     if (sortMode === 'date') {
         sortedBins.sort((a, b) => {
             const gm = (cards) => { let m=''; cards.forEach(c => { if(!c.date) return; const p=c.date.split('.'); const d=p.length===3?`${p[2]}-${p[1]}-${p[0]}`:c.date; if(d>m) m=d; }); return m; };
-            const dA = gm(a[1]), dB = gm(b[1]);
-            return dA !== dB ? (dB > dA ? 1 : -1) : b[1].length - a[1].length;
+            return gm(b[1]) > gm(a[1]) ? 1 : gm(b[1]) < gm(a[1]) ? -1 : b[1].length - a[1].length;
         });
     } else {
         sortedBins.sort((a, b) => b[1].length !== a[1].length ? b[1].length - a[1].length : a[0].localeCompare(b[0]));
@@ -5560,7 +5572,6 @@ function renderAllCards() {
     const fmtCard = (n) => (n||'').replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim();
     const cntClr = (n) => n > 15 ? '#ef4444' : n > 10 ? '#f97316' : n > 5 ? '#eab308' : '#38bdf8';
 
-    // Status helper for BIN group (counts)
     const binSt = (cards) => {
         const a=cards.filter(c=>c.cardAdd).length, r=cards.filter(c=>c.runAds).length,
               v=cards.filter(c=>c.verified).length, m=cards.filter(c=>c.minic).length,
@@ -5574,7 +5585,6 @@ function renderAllCards() {
         return h;
     };
 
-    // Status helper for single card (clickable toggles)
     const cardSt = (c) => {
         return `<span class="bv-s bv-sa ${c.cardAdd?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','cardAdd')">A</span>`
              + `<span class="bv-s bv-sr ${c.runAds?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','runAds')">R</span>`
@@ -5618,10 +5628,13 @@ function renderAllCards() {
                 const ex = (c.month&&c.year)?`${c.month}/${c.year}`:'';
                 const cv = c.cvv||'';
                 const fc = `${fmtCard(c.cardNumber)}${ex?' '+ex:''}${cv?' '+cv:''}`;
+                // Duplicate badge
+                const dupCnt = dupMap[c.cardNumber.replace(/\s/g, '')] || 1;
+                const dupBadge = dupCnt > 1 ? `<span class="bv-dup">dbl ${dupCnt}</span>` : '';
 
-                rows += `<tr class="bv-cr" data-id="${c.id}">
+                rows += `<tr class="bv-cr" data-id="${c.id}" oncontextmenu="event.preventDefault();_bvCardCtx(event,'${c.id}')">
                     <td class="bv-ec"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id)?'checked':''} onchange="toggleCardSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"></label></td>
-                    <td class="bv-mc bv-cm"><span class="bv-cn">${fc}</span></td>
+                    <td class="bv-mc bv-cm"><span class="bv-cn">${fc}</span>${dupBadge}</td>
                     <td class="bv-sc">${cardSt(c)}</td>
                     <td class="bv-nc"><input class="bv-ni bv-nic" type="text" value="${(cN).replace(/"/g,'&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}',this.value)"></td>
                     <td class="bv-dc">${c.date||'\u2014'}</td>
@@ -5630,19 +5643,34 @@ function renderAllCards() {
         }
     });
 
-    // Country tabs
     let ctHtml = `<span class="bv-ct ${countryFilter==='ALL'?'bv-cta':''}" onclick="_bvFilterCountry('ALL')">ALL <b>${totalAll}</b></span>`;
     countrySorted.forEach(([cc, n]) => { ctHtml += `<span class="bv-ct ${countryFilter===cc?'bv-cta':''}" onclick="_bvFilterCountry('${cc}')">${isoToFlag(cc)} ${cc} <b>${n}</b></span>`; });
 
+    const sf = STATE._bvStatusFilter || '';
+    const stPill = (code, cls, count) => `<span class="bv-pill bv-st-pill ${sf===code?'bv-st-filt':''}" onclick="_bvFilterStatus('${code}')" oncontextmenu="event.preventDefault();_bvStatusCtx(event,'${code}')"><span class="bv-s ${cls}">${code}</span> <b>${count}</b></span>`;
+
+    const selCount = _selectedCards.size;
+    const bulkHtml = selCount > 0 ? `
+        <div class="bv-bulk">
+            <span class="bv-bulk-cnt">${selCount} selected</span>
+            <button class="bv-bulk-btn bv-sa" onclick="_bvBulkStatus('cardAdd')">+A</button>
+            <button class="bv-bulk-btn bv-sr" onclick="_bvBulkStatus('runAds')">+R</button>
+            <button class="bv-bulk-btn bv-sv" onclick="_bvBulkStatus('verified')">+V</button>
+            <button class="bv-bulk-btn bv-sm" onclick="_bvBulkStatus('minic')">+M</button>
+            <button class="bv-bulk-btn bv-sd" onclick="_bvBulkStatus('declined')">+D</button>
+            <button class="bv-bulk-clr" onclick="_bvBulkClear()">Clear All</button>
+        </div>` : '';
+
     area.innerHTML = `
         <div class="bv-bar">
+            ${stPill('A','bv-sa',gA)}
+            ${stPill('R','bv-sr',gR)}
+            ${stPill('V','bv-sv',gV)}
+            ${stPill('M','bv-sm',gM)}
+            ${stPill('D','bv-sd',gD)}
             <span class="bv-pill">CARDS <b>${totalCards}</b></span>
             <span class="bv-pill">BINS <b>${totalBins}</b></span>
-            <span class="bv-pill bv-st-pill"><span class="bv-s bv-sa">A</span> <b>${gA}</b></span>
-            <span class="bv-pill bv-st-pill"><span class="bv-s bv-sr">R</span> <b>${gR}</b></span>
-            <span class="bv-pill bv-st-pill"><span class="bv-s bv-sv">V</span> <b>${gV}</b></span>
-            <span class="bv-pill bv-st-pill"><span class="bv-s bv-sm">M</span> <b>${gM}</b></span>
-            <span class="bv-pill bv-st-pill"><span class="bv-s bv-sd">D</span> <b>${gD}</b></span>
+            <button class="bv-clr-all" onclick="_bvClearAll()" title="Clear ALL statuses">&#x2715; Reset</button>
             <div class="bv-srt">
                 <button class="bv-sb ${sortMode==='count'?'bv-sba':''}" onclick="_bvSetSort('count')">COUNT</button>
                 <button class="bv-sb ${sortMode==='date'?'bv-sba':''}" onclick="_bvSetSort('date')">DATE</button>
@@ -5650,6 +5678,7 @@ function renderAllCards() {
             <button class="bv-ib" onclick="_bvOpenImport()">+ Import</button>
         </div>
         <div class="bv-cts">${ctHtml}</div>
+        ${bulkHtml}
         <div id="bv-import-panel" class="bv-ip" style="display:none">
             <textarea id="bv-import-text" class="bv-ita" placeholder="Paste cards...\n4537007340059012|02/26|307" rows="5"></textarea>
             <div class="bv-ia"><span id="bv-import-count" class="bv-ic">0 detected</span><button class="bv-ig" onclick="_bvDoImport()">IMPORT</button><button class="bv-icl" onclick="document.getElementById('bv-import-panel').style.display='none'">Cancel</button></div>
@@ -5659,11 +5688,181 @@ function renderAllCards() {
             <tbody>${rows}</tbody>
         </table>`;
 
+    // Ensure context menu container
+    if (!document.getElementById('bv-ctx-menu')) {
+        const ctx = document.createElement('div');
+        ctx.id = 'bv-ctx-menu'; ctx.className = 'bv-ctx'; ctx.style.display = 'none';
+        document.body.appendChild(ctx);
+        document.addEventListener('click', () => ctx.style.display = 'none');
+    }
+
+    // Edit modal container
+    if (!document.getElementById('bv-edit-modal')) {
+        const m = document.createElement('div');
+        m.id = 'bv-edit-modal'; m.className = 'bv-edit-overlay'; m.style.display = 'none';
+        document.body.appendChild(m);
+        m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+    }
+
     const it = document.getElementById('bv-import-text');
     if (it) it.addEventListener('input', () => { document.getElementById('bv-import-count').textContent = smartParseCards(it.value).length + ' detected'; });
     renderFooter(totalBins, STATE.page, totalPages);
 }
 
+// Right-click on card row
+window._bvCardCtx = function(e, id) {
+    const ctx = document.getElementById('bv-ctx-menu');
+    ctx.innerHTML = `
+        <div class="bv-ctx-item" onclick="_bvEditCard('${id}')">&#9998; Edit</div>
+        <div class="bv-ctx-item bv-ctx-danger" onclick="_bvDeleteCard('${id}')">&#x2715; Delete</div>
+    `;
+    ctx.style.display = 'block';
+    ctx.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+    ctx.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
+};
+
+// Edit card modal
+window._bvEditCard = function(id) {
+    document.getElementById('bv-ctx-menu').style.display = 'none';
+    const card = STATE.cards.find(c => c.id === id);
+    if (!card) return;
+
+    const modal = document.getElementById('bv-edit-modal');
+    modal.innerHTML = `
+        <div class="bv-edit-box">
+            <div class="bv-edit-title">Edit Card</div>
+            <label class="bv-edit-lbl">Card Number</label>
+            <input id="bv-edit-num" class="bv-edit-inp" type="text" value="${card.cardNumber}">
+            <label class="bv-edit-lbl">Exp (MM/YY)</label>
+            <div class="bv-edit-row">
+                <input id="bv-edit-mm" class="bv-edit-inp bv-edit-sm" type="text" value="${card.month||''}" placeholder="MM" maxlength="2">
+                <span class="bv-edit-sep">/</span>
+                <input id="bv-edit-yy" class="bv-edit-inp bv-edit-sm" type="text" value="${card.year||''}" placeholder="YY" maxlength="2">
+            </div>
+            <label class="bv-edit-lbl">CVV</label>
+            <input id="bv-edit-cvv" class="bv-edit-inp bv-edit-sm" type="text" value="${card.cvv||''}" maxlength="4">
+            <label class="bv-edit-lbl">Note</label>
+            <input id="bv-edit-note" class="bv-edit-inp" type="text" value="${(card.notes||'').replace(/"/g,'&quot;')}">
+            <div class="bv-edit-btns">
+                <button class="bv-edit-save" onclick="_bvSaveEdit('${id}')">Save</button>
+                <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    document.getElementById('bv-edit-num').focus();
+};
+
+// Save edited card
+window._bvSaveEdit = function(id) {
+    const card = STATE.cards.find(c => c.id === id);
+    if (!card) return;
+
+    const num = document.getElementById('bv-edit-num').value.replace(/\s/g, '');
+    const mm = document.getElementById('bv-edit-mm').value;
+    const yy = document.getElementById('bv-edit-yy').value;
+    const cvv = document.getElementById('bv-edit-cvv').value;
+    const note = document.getElementById('bv-edit-note').value;
+
+    if (num.length < 13) { toast('Card number too short', 'error'); return; }
+
+    card.cardNumber = num;
+    card.month = mm; card.year = yy; card.cvv = cvv;
+    card.notes = note;
+    card.cardType = getCardType(num);
+
+    save();
+    document.getElementById('bv-edit-modal').style.display = 'none';
+    renderAllCards();
+    toast('Card updated', 'success');
+};
+
+// Delete card
+window._bvDeleteCard = function(id) {
+    document.getElementById('bv-ctx-menu').style.display = 'none';
+    const card = STATE.cards.find(c => c.id === id);
+    if (!card) return;
+    if (!confirm('Delete this card?')) return;
+    STATE.trash.push(card);
+    STATE.cards = STATE.cards.filter(c => c.id !== id);
+    save(); renderAll();
+    toast('Card moved to trash', 'success');
+};
+// Status filter toggle
+window._bvFilterStatus = function(code) {
+    STATE._bvStatusFilter = STATE._bvStatusFilter === code ? '' : code;
+    STATE.page = 1;
+    renderAllCards();
+};
+
+// Right-click on status pill — copy BINs or Cards
+window._bvStatusCtx = function(e, code) {
+    const fieldMap = {A:'cardAdd', R:'runAds', V:'verified', M:'minic', D:'declined'};
+    const field = fieldMap[code];
+    if (!field) return;
+
+    const ctx = document.getElementById('bv-ctx-menu');
+    ctx.innerHTML = `
+        <div class="bv-ctx-item" onclick="_bvCopyByStatus('${field}','bins')">Copy BINs (${code})</div>
+        <div class="bv-ctx-item" onclick="_bvCopyByStatus('${field}','cards')">Copy Cards (${code})</div>
+    `;
+    ctx.style.display = 'block';
+    ctx.style.left = e.clientX + 'px';
+    ctx.style.top = e.clientY + 'px';
+};
+
+// Copy BINs or Cards by status
+window._bvCopyByStatus = function(field, mode) {
+    document.getElementById('bv-ctx-menu').style.display = 'none';
+    const cards = STATE.cards.filter(c => c[field]);
+    if (cards.length === 0) { toast('No cards with this status', 'info'); return; }
+
+    let text;
+    if (mode === 'bins') {
+        const bins = [...new Set(cards.map(c => getBin(c.cardNumber)))];
+        text = bins.join('\n');
+        toast(`${bins.length} BINs copied`, 'success');
+    } else {
+        text = cards.map(c => {
+            let line = c.cardNumber;
+            if (c.month && c.year) line += `|${c.month}/${c.year}`;
+            if (c.cvv) line += `|${c.cvv}`;
+            return line;
+        }).join('\n');
+        toast(`${cards.length} cards copied`, 'success');
+    }
+    navigator.clipboard.writeText(text);
+};
+
+// Clear ALL statuses for all cards
+window._bvClearAll = function() {
+    if (!confirm('Clear ALL statuses for all cards?')) return;
+    STATE.cards.forEach(c => { c.cardAdd = false; c.runAds = false; c.verified = false; c.minic = false; c.declined = false; });
+    save(); renderAllCards();
+    toast('All statuses cleared', 'success');
+};
+
+// Bulk set status for selected cards
+window._bvBulkStatus = function(field) {
+    if (_selectedCards.size === 0) return;
+    _selectedCards.forEach(id => {
+        const card = STATE.cards.find(c => c.id === id);
+        if (card) card[field] = true;
+    });
+    save(); renderAllCards();
+    toast(`${_selectedCards.size} cards → ${field} ON`, 'success');
+};
+
+// Bulk clear statuses for selected cards
+window._bvBulkClear = function() {
+    if (_selectedCards.size === 0) return;
+    _selectedCards.forEach(id => {
+        const card = STATE.cards.find(c => c.id === id);
+        if (card) { card.cardAdd = false; card.runAds = false; card.verified = false; card.minic = false; card.declined = false; }
+    });
+    save(); renderAllCards();
+    toast(`${_selectedCards.size} cards cleared`, 'success');
+};
 // Toggle card status
 window._bvToggle = function(id, field) {
     const card = STATE.cards.find(c => c.id === id);
