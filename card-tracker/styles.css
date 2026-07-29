@@ -30120,3 +30120,122 @@ tr.row-selected td {
 .nctx-action-btn{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;background:none;border:none;font-size:11px;font-family:var(--font-mono,monospace);cursor:pointer;border-radius:4px;text-align:left;transition:all .12s}
 .nctx-sort-valid{color:#4ade80}
 .nctx-sort-valid:hover{background:rgba(74,222,128,.12);color:#86efac}
+/* ===========================================
+   BIN VIEW — Workspace Redesign (Screenshot Match)
+   =========================================== */
+
+/* Stats bar pills */
+.bv-stats-bar {
+    display: flex; gap: 8px; padding: 10px 12px; align-items: center;
+}
+.bv-stat-pill {
+    font-size: 11px; letter-spacing: 0.5px; color: #8b8fa3;
+    padding: 5px 12px; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 4px; background: rgba(255,255,255,0.03);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.bv-stat-pill b {
+    color: #e2e4ea; margin-left: 6px; font-weight: 700;
+}
+.bv-stat-active b { color: #22c55e; }
+
+/* Main table */
+.bv-table { border-collapse: collapse; width: 100%; }
+.bv-table thead th {
+    font-size: 10px; letter-spacing: 1px; color: #636780;
+    text-transform: uppercase; padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    text-align: left; white-space: nowrap;
+}
+.bv-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+/* BIN group header row */
+.bv-bin-row {
+    cursor: pointer; transition: background 0.15s;
+}
+.bv-bin-row:hover { background: rgba(255,255,255,0.03); }
+.bv-bin-row.bv-expanded { background: rgba(255,255,255,0.02); }
+
+.bv-expand-cell { width: 30px; padding: 10px 8px; text-align: center; }
+.bv-arrow { color: #636780; font-size: 11px; }
+.bv-bin-row.bv-expanded .bv-arrow { color: #a0a4b8; }
+
+/* Main cell — BIN info */
+.bv-main-cell { padding: 10px 12px; }
+.bv-bin-info { display: flex; align-items: center; gap: 8px; }
+.bv-bin-num {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 14px; font-weight: 700; color: #e2e4ea;
+    letter-spacing: 0.5px;
+}
+.bv-card-count {
+    font-size: 11px; color: #636780; padding: 2px 8px;
+    background: rgba(255,255,255,0.05); border-radius: 3px;
+}
+.bv-bank-name {
+    font-size: 10px; color: #4a4e64; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-top: 2px; line-height: 1.2;
+}
+
+/* Country */
+.bv-country-cell {
+    padding: 10px 12px; color: #8b8fa3; font-size: 12px;
+    white-space: nowrap; width: 80px;
+}
+
+/* Status badges */
+.bv-status-cell {
+    padding: 10px 8px; white-space: nowrap;
+    display: flex; gap: 4px; align-items: center;
+}
+.bv-st {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    font-size: 10px; font-weight: 700; color: #fff;
+}
+.bv-st-a { background: #22c55e; }
+.bv-st-r { background: #ef4444; }
+.bv-st-v { background: #a855f7; }
+.bv-st-s { background: #eab308; }
+.bv-st-d { background: #6366f1; }
+
+/* Note column */
+.bv-note-cell { padding: 6px 8px; width: 220px; }
+.bv-note-input {
+    width: 100%; background: transparent; border: none;
+    color: #8b8fa3; font-size: 12px; padding: 4px 6px;
+    border-radius: 3px; outline: none;
+    font-family: inherit; transition: background 0.15s;
+}
+.bv-note-input:hover { background: rgba(255,255,255,0.04); }
+.bv-note-input:focus {
+    background: rgba(255,255,255,0.06); color: #e2e4ea;
+    box-shadow: inset 0 0 0 1px rgba(59,130,246,0.3);
+}
+.bv-note-input::placeholder { color: #3a3e52; }
+
+/* Date cell */
+.bv-date-cell {
+    padding: 10px 12px; color: #636780; font-size: 12px;
+    white-space: nowrap; width: 90px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Child card rows (expanded) */
+.bv-card-row {
+    background: rgba(0,0,0,0.15);
+    border-bottom: 1px solid rgba(255,255,255,0.02) !important;
+}
+.bv-card-row:hover { background: rgba(255,255,255,0.02); }
+.bv-card-main { padding-left: 32px; }
+.bv-card-num {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; color: #a0a4b8; letter-spacing: 0.5px;
+}
+.bv-note-card { font-size: 11px; color: #636780; }
+.bv-note-card:focus { color: #a0a4b8; }
+
+/* Brand badges in BIN view */
+.bv-bin-info .cx-brand {
+    font-size: 9px; padding: 2px 6px; border-radius: 3px;
+}
