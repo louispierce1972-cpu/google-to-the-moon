@@ -30566,3 +30566,39 @@ tr.row-selected td {
     border-radius:4px; cursor:pointer; font-family:inherit;
 }
 .bv-edit-cancel:hover { color:#a0a4b8; }
+
+/* ===========================================
+   STATUS OVERRIDE — All gray, active = green
+   =========================================== */
+.bv-s.bv-sa, .bv-s.bv-sr, .bv-s.bv-sv, .bv-s.bv-sm, .bv-s.bv-sd {
+    color: #22c55e !important;
+    background: rgba(34,197,94,0.12) !important;
+}
+.bv-s.bv-off {
+    color: #3a3e52 !important;
+    background: rgba(255,255,255,0.03) !important;
+    opacity: 1 !important;
+}
+.bv-s.bv-off:hover {
+    color: #636780 !important;
+    background: rgba(255,255,255,0.06) !important;
+}
+
+/* Top bar status pills — same rule */
+.bv-st-pill .bv-s { color: #22c55e !important; background: rgba(34,197,94,0.12) !important; }
+
+/* BIN group row status (aggregated) — green */
+.bv-bin-row .bv-sc .bv-s {
+    color: #22c55e !important;
+    background: rgba(34,197,94,0.12) !important;
+}
+
+/* -- BIN row arrow — bigger, clearer -- */
+.bv-arrow {
+    font-size: 14px !important;
+    color: #636780 !important;
+    transition: transform 0.2s, color 0.15s;
+    display: inline-block;
+}
+.bv-bin-row:hover .bv-arrow { color: #a0a4b8 !important; }
+.bv-expanded .bv-arrow { color: #60a5fa !important; transform: rotate(0deg); }
