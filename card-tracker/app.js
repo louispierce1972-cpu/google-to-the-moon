@@ -175,6 +175,31 @@ function isoToFlag(code) {
     return '<img src="https://cdn.jsdelivr.net/npm/country-flag-emoji-json@2.0.0/dist/images/' + c + '.svg" width="16" height="12" alt="' + c + '" class="cx-flag-img">';
 }
 
+// Normalize 3-letter ISO country codes to 2-letter
+const _ISO3_TO_ISO2 = {
+    'CAN':'CA','USA':'US','JPN':'JP','GBR':'GB','AUS':'AU','DEU':'DE','FRA':'FR',
+    'ITA':'IT','ESP':'ES','BRA':'BR','MEX':'MX','IND':'IN','CHN':'CN','RUS':'RU',
+    'KOR':'KR','NLD':'NL','BEL':'BE','CHE':'CH','AUT':'AT','SWE':'SE','NOR':'NO',
+    'DNK':'DK','FIN':'FI','POL':'PL','PRT':'PT','IRL':'IE','NZL':'NZ','SGP':'SG',
+    'HKG':'HK','TWN':'TW','THA':'TH','MYS':'MY','IDN':'ID','PHL':'PH','VNM':'VN',
+    'ARE':'AE','SAU':'SA','QAT':'QA','KWT':'KW','BHR':'BH','OMN':'OM','ISR':'IL',
+    'TUR':'TR','ZAF':'ZA','EGY':'EG','NGA':'NG','KEN':'KE','GHA':'GH','COL':'CO',
+    'ARG':'AR','CHL':'CL','PER':'PE','URY':'UY','CRI':'CR','PAN':'PA','DOM':'DO',
+    'CYM':'KY','BMU':'BM','BHS':'BS','TTO':'TT','JAM':'JM','CUB':'CU','PRY':'PY',
+    'ECU':'EC','VEN':'VE','BOL':'BO','GTM':'GT','HND':'HN','SLV':'SV','NIC':'NI',
+    'ROU':'RO','HUN':'HU','CZE':'CZ','SVK':'SK','BGR':'BG','HRV':'HR','SRB':'RS',
+    'UKR':'UA','BLR':'BY','LTU':'LT','LVA':'LV','EST':'EE','GRC':'GR','CYP':'CY',
+    'LUX':'LU','MLT':'MT','ISL':'IS','GEO':'GE','ARM':'AM','AZE':'AZ','KAZ':'KZ',
+    'UZB':'UZ','PAK':'PK','BGD':'BD','LKA':'LK','NPL':'NP','MMR':'MM','KHM':'KH',
+    'LAO':'LA','MNG':'MN','MAC':'MO','BRN':'BN','MDV':'MV'
+};
+function normalizeCC(code) {
+    if (!code) return '';
+    const upper = code.toUpperCase().trim();
+    return _ISO3_TO_ISO2[upper] || upper.substring(0, 2);
+}
+
+
 // Card brand detection by first digit (IIN/BIN prefix rules)
 function _brandByDigit(cardNum) {
     if (!cardNum) return '';
@@ -5468,33 +5493,27 @@ function renderAllCards() {
     const area = document.getElementById('content-area');
     let allCards = [...STATE.cards];
 
-    // Apply search filter
     if (STATE.search.length >= 2) {
         const s = STATE.search.toLowerCase();
         allCards = allCards.filter(c =>
             (c.name + ' ' + c.surname).toLowerCase().includes(s) ||
-            c.cardNumber.includes(s) ||
-            getBin(c.cardNumber).includes(s) ||
+            c.cardNumber.includes(s) || getBin(c.cardNumber).includes(s) ||
             (c.notes || '').toLowerCase().includes(s) ||
-            (c.country || '').toLowerCase().includes(s) ||
             ((BIN_CACHE[getBin(c.cardNumber)]?.bank) || '').toLowerCase().includes(s)
         );
     }
 
-    // ── Build country tabs ──
+    // Build country tabs — normalize all codes to ISO2
     const countryMap = {};
     allCards.forEach(c => {
         const bin = getBin(c.cardNumber);
         const cached = BIN_CACHE[bin] || {};
-        let cc = '';
-        if (cached.country) cc = cached.country.toUpperCase();
-        else if (c.country && c.country !== 'auto') cc = c.country.toUpperCase();
-        if (cc) {
+        let cc = normalizeCC(cached.country || c.country);
+        if (cc && cc !== 'AU' + 'TO') {  // skip 'auto'
             if (!countryMap[cc]) countryMap[cc] = 0;
             countryMap[cc]++;
         }
     });
-    // Sort countries by card count descending
     const countrySorted = Object.entries(countryMap).sort((a, b) => b[1] - a[1]);
 
     // Apply country filter
@@ -5504,20 +5523,16 @@ function renderAllCards() {
         filteredCards = allCards.filter(c => {
             const bin = getBin(c.cardNumber);
             const cached = BIN_CACHE[bin] || {};
-            let cc = '';
-            if (cached.country) cc = cached.country.toUpperCase();
-            else if (c.country && c.country !== 'auto') cc = c.country.toUpperCase();
+            let cc = normalizeCC(cached.country || c.country);
             return cc === countryFilter;
         });
     }
 
     if (filteredCards.length === 0 && allCards.length === 0) {
-        area.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg></div><p class="empty-title">No cards found</p></div>`;
-        renderFooter(0, 1, 1);
-        return;
+        area.innerHTML = `<div class="empty-state"><p class="empty-title">No cards found</p></div>`;
+        renderFooter(0, 1, 1); return;
     }
 
-    // Group by BIN
     const binGroups = {};
     filteredCards.forEach(c => {
         const bin = getBin(c.cardNumber);
@@ -5525,202 +5540,119 @@ function renderAllCards() {
         binGroups[bin].push(c);
     });
 
-    // ── Sorting ──
     const sortMode = STATE._bvSort || 'count';
     let sortedBins = Object.entries(binGroups);
-
     if (sortMode === 'date') {
         sortedBins.sort((a, b) => {
-            const getMax = (cards) => {
-                let max = '';
-                cards.forEach(c => {
-                    if (!c.date) return;
-                    const p = c.date.split('.');
-                    const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date;
-                    if (d > max) max = d;
-                });
-                return max;
-            };
-            const dA = getMax(a[1]), dB = getMax(b[1]);
-            if (dA !== dB) return dB > dA ? 1 : -1;
-            return b[1].length - a[1].length;
+            const gm = (cards) => { let m=''; cards.forEach(c => { if(!c.date) return; const p=c.date.split('.'); const d=p.length===3?`${p[2]}-${p[1]}-${p[0]}`:c.date; if(d>m) m=d; }); return m; };
+            const dA = gm(a[1]), dB = gm(b[1]);
+            return dA !== dB ? (dB > dA ? 1 : -1) : b[1].length - a[1].length;
         });
     } else {
-        sortedBins.sort((a, b) => {
-            if (b[1].length !== a[1].length) return b[1].length - a[1].length;
-            return a[0].localeCompare(b[0]);
-        });
+        sortedBins.sort((a, b) => b[1].length !== a[1].length ? b[1].length - a[1].length : a[0].localeCompare(b[0]));
     }
 
     const totalBins = sortedBins.length;
     const totalCards = filteredCards.length;
-    const totalAllCards = allCards.length;
+    const totalAll = allCards.length;
     const activeCards = filteredCards.filter(c => c.cardAdd || c.runAds).length;
-
-    // Paginate
     const start = (STATE.page - 1) * STATE.perPage;
     const pageBins = sortedBins.slice(start, start + STATE.perPage);
     const totalPages = Math.max(1, Math.ceil(totalBins / STATE.perPage));
 
-    const fmtCard = (num) => {
-        const d = (num || '').replace(/\D/g, '');
-        return d.replace(/(.{4})/g, '$1 ').trim();
-    };
+    const fmtCard = (n) => (n||'').replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim();
+    const cntClr = (n) => n > 15 ? '#ef4444' : n > 10 ? '#f97316' : n > 5 ? '#eab308' : '#38bdf8';
 
-    const countColor = (n) => {
-        if (n > 15) return '#ef4444';
-        if (n > 10) return '#f97316';
-        if (n > 5)  return '#eab308';
-        return '#38bdf8';
-    };
-
-    let rowsHtml = '';
+    let rows = '';
     pageBins.forEach(([bin, cards]) => {
-        const isExpanded = _expandedBins.has(bin);
-        const cardCount = cards.length;
+        const exp = _expandedBins.has(bin);
+        const cnt = cards.length;
+        const c0 = cards[0];
         const cached = BIN_CACHE[bin] || {};
-        const bankName = cached.bank || '';
-        const brandHtml = _brandIconGlobal(cached.brand, cards[0].cardNumber);
+        const bank = cached.bank || '';
+        const brand = _brandIconGlobal(cached.brand, c0.cardNumber);
+        let cc = normalizeCC(cached.country || c0.country);
+        if (cc === 'AU' + 'TO') cc = '';
+        const flag = cc ? isoToFlag(cc) : '';
 
-        // Country flag
-        let cc = '';
-        if (cached.country) cc = cached.country.toUpperCase();
-        else if (cards[0].country && cards[0].country !== 'auto') cc = cards[0].country.toUpperCase();
-        const flagHtml = cc ? isoToFlag(cc) : '';
+        const aC = cards.filter(c => c.cardAdd).length;
+        const rC = cards.filter(c => c.runAds).length;
+        const vC = cards.filter(c => c.verified).length;
 
-        // Status counts
-        const aCount = cards.filter(c => c.cardAdd).length;
-        const rCount = cards.filter(c => c.runAds).length;
-        const vCount = cards.filter(c => c.verified).length;
-        const sCount = cards.filter(c => c.suspended).length;
-
-        // Last date
-        let lastDate = '';
-        cards.forEach(c => {
-            if (!c.date) return;
-            const p = c.date.split('.');
-            const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date;
-            if (d > lastDate) lastDate = d;
-        });
-        if (lastDate && lastDate.includes('-')) {
-            const pp = lastDate.split('-');
-            lastDate = `${pp[2]}.${pp[1]}.${pp[0]}`;
-        }
+        let lastD = '';
+        cards.forEach(c => { if(!c.date) return; const p=c.date.split('.'); const d=p.length===3?`${p[2]}-${p[1]}-${p[0]}`:c.date; if(d>lastD) lastD=d; });
+        if (lastD && lastD.includes('-')) { const p=lastD.split('-'); lastD=`${p[2]}.${p[1]}.${p[0]}`; }
 
         const binNote = (STATE.binNotes && STATE.binNotes[bin]) || '';
 
-        rowsHtml += `
-        <tr class="bv-bin-row ${isExpanded ? 'bv-expanded' : ''}" data-bin="${bin}" onclick="_toggleBinGroup('${bin}')">
-            <td class="bv-expand-cell">
-                <span class="bv-arrow">${isExpanded ? '\u25be' : '\u25b8'}</span>
+        // Compact status: tiny colored letters inline
+        let stHtml = '';
+        if (aC > 0) stHtml += `<span class="bv-s bv-sa">${aC > 1 ? aC : ''}A</span>`;
+        if (rC > 0) stHtml += `<span class="bv-s bv-sr">${rC > 1 ? rC : ''}R</span>`;
+        if (vC > 0) stHtml += `<span class="bv-s bv-sv">${vC > 1 ? vC : ''}V</span>`;
+
+        rows += `<tr class="bv-bin-row ${exp?'bv-expanded':''}" data-bin="${bin}" onclick="_toggleBinGroup('${bin}')">
+            <td class="bv-ec"><span class="bv-arrow">${exp?'\u25be':'\u25b8'}</span></td>
+            <td class="bv-mc">
+                <div class="bv-bi">${flag}<span class="bv-bn">${bin}</span>${brand}<span class="bv-cc" style="color:${cntClr(cnt)}">${cnt} cards</span></div>
+                ${bank ? `<div class="bv-bk">${bank}</div>` : ''}
             </td>
-            <td class="bv-main-cell">
-                <div class="bv-bin-info">
-                    ${flagHtml ? `<span class="bv-flag">${flagHtml}</span>` : ''}
-                    <span class="bv-bin-num">${bin}</span>
-                    ${brandHtml}
-                    <span class="bv-card-count" style="color:${countColor(cardCount)};border-color:${countColor(cardCount)}30">${cardCount} cards</span>
-                </div>
-                <div class="bv-bank-name">${bankName}</div>
-            </td>
-            <td class="bv-status-cell">
-                ${aCount > 0 ? `<span class="bv-st bv-st-a">A</span>` : ''}
-                ${rCount > 0 ? `<span class="bv-st bv-st-r">R</span>` : ''}
-                ${vCount > 0 ? `<span class="bv-st bv-st-v">V</span>` : ''}
-                ${sCount > 0 ? `<span class="bv-st bv-st-s">S</span>` : ''}
-            </td>
-            <td class="bv-note-cell" onclick="event.stopPropagation()">
-                <input class="bv-note-input" type="text" value="${(binNote || '').replace(/"/g, '&quot;')}" placeholder="\u2014" onchange="_saveBinNote('${bin}', this.value)" onclick="event.stopPropagation()">
-            </td>
-            <td class="bv-date-cell">${lastDate || '\u2014'}</td>
+            <td class="bv-sc">${stHtml}</td>
+            <td class="bv-nc" onclick="event.stopPropagation()"><input class="bv-ni" type="text" value="${(binNote).replace(/"/g,'&quot;')}" placeholder="\u2014" onchange="_saveBinNote('${bin}',this.value)" onclick="event.stopPropagation()"></td>
+            <td class="bv-dc">${lastD||'\u2014'}</td>
         </tr>`;
 
-        if (isExpanded) {
+        if (exp) {
             cards.forEach(c => {
-                const cNote = c.notes || '';
-                const expStr = (c.month && c.year) ? `${c.month}/${c.year}` : '';
-                const cvvStr = c.cvv || '';
-                const fullCard = `${fmtCard(c.cardNumber)}${expStr ? ' ' + expStr : ''}${cvvStr ? ' ' + cvvStr : ''}`;
+                const cN = c.notes || '';
+                const ex = (c.month&&c.year)?`${c.month}/${c.year}`:'';
+                const cv = c.cvv||'';
+                const fc = `${fmtCard(c.cardNumber)}${ex?' '+ex:''}${cv?' '+cv:''}`;
+                let cs = '';
+                if (c.cardAdd) cs += '<span class="bv-s bv-sa">A</span>';
+                if (c.runAds) cs += '<span class="bv-s bv-sr">R</span>';
+                if (c.verified) cs += '<span class="bv-s bv-sv">V</span>';
 
-                rowsHtml += `
-                <tr class="bv-card-row" data-id="${c.id}">
-                    <td class="bv-expand-cell">
-                        <label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}', this.checked)" onclick="event.stopPropagation()"></label>
-                    </td>
-                    <td class="bv-main-cell bv-card-main">
-                        <span class="bv-card-num">${fullCard}</span>
-                    </td>
-                    <td class="bv-status-cell">
-                        ${c.cardAdd ? '<span class="bv-st bv-st-a">A</span>' : ''}
-                        ${c.runAds ? '<span class="bv-st bv-st-r">R</span>' : ''}
-                        ${c.verified ? '<span class="bv-st bv-st-v">V</span>' : ''}
-                        ${c.suspended ? '<span class="bv-st bv-st-s">S</span>' : ''}
-                    </td>
-                    <td class="bv-note-cell">
-                        <input class="bv-note-input bv-note-card" type="text" value="${(cNote || '').replace(/"/g, '&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}', this.value)">
-                    </td>
-                    <td class="bv-date-cell">${c.date || '\u2014'}</td>
+                rows += `<tr class="bv-cr" data-id="${c.id}">
+                    <td class="bv-ec"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id)?'checked':''} onchange="toggleCardSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"></label></td>
+                    <td class="bv-mc bv-cm"><span class="bv-cn">${fc}</span></td>
+                    <td class="bv-sc">${cs}</td>
+                    <td class="bv-nc"><input class="bv-ni bv-nic" type="text" value="${(cN).replace(/"/g,'&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}',this.value)"></td>
+                    <td class="bv-dc">${c.date||'\u2014'}</td>
                 </tr>`;
             });
         }
     });
 
-    // ── Country filter tabs ──
-    let countryTabsHtml = `<span class="bv-country-tab ${countryFilter === 'ALL' ? 'bv-ct-active' : ''}" onclick="_bvFilterCountry('ALL')">ALL <b>${totalAllCards}</b></span>`;
-    countrySorted.forEach(([cc, cnt]) => {
-        const flag = isoToFlag(cc);
-        countryTabsHtml += `<span class="bv-country-tab ${countryFilter === cc ? 'bv-ct-active' : ''}" onclick="_bvFilterCountry('${cc}')">${flag} ${cc} <b>${cnt}</b></span>`;
-    });
-
-    // Stats + country tabs + sort + import
-    const statsHtml = `
-        <div class="bv-stats-bar">
-            <span class="bv-stat-pill">CARDS <b>${totalCards}</b></span>
-            <span class="bv-stat-pill">BINS <b>${totalBins}</b></span>
-            <span class="bv-stat-pill bv-stat-active">ACTIVE <b>${activeCards}</b></span>
-            <div class="bv-sort-btns">
-                <button class="bv-sort-btn ${sortMode === 'count' ? 'bv-sort-active' : ''}" onclick="_bvSetSort('count')">By Count</button>
-                <button class="bv-sort-btn ${sortMode === 'date' ? 'bv-sort-active' : ''}" onclick="_bvSetSort('date')">By Date</button>
-            </div>
-            <button class="bv-import-btn" onclick="_bvOpenImport()">+ Import List</button>
-        </div>
-        <div class="bv-country-tabs">${countryTabsHtml}</div>`;
+    // Country tabs
+    let ctHtml = `<span class="bv-ct ${countryFilter==='ALL'?'bv-cta':''}" onclick="_bvFilterCountry('ALL')">ALL <b>${totalAll}</b></span>`;
+    countrySorted.forEach(([cc, n]) => { ctHtml += `<span class="bv-ct ${countryFilter===cc?'bv-cta':''}" onclick="_bvFilterCountry('${cc}')">${isoToFlag(cc)} ${cc} <b>${n}</b></span>`; });
 
     area.innerHTML = `
-        ${statsHtml}
-        <div id="bv-import-panel" class="bv-import-panel" style="display:none">
-            <textarea id="bv-import-text" class="bv-import-textarea" placeholder="Paste card list here...\n4537007340059012|02/26|307\n5160755832054963|02/26|307\n..." rows="6"></textarea>
-            <div class="bv-import-actions">
-                <span id="bv-import-count" class="bv-import-count">0 cards detected</span>
-                <button class="bv-import-go" onclick="_bvDoImport()">IMPORT</button>
-                <button class="bv-import-close" onclick="document.getElementById('bv-import-panel').style.display='none'">Cancel</button>
+        <div class="bv-bar">
+            <span class="bv-pill">CARDS <b>${totalCards}</b></span>
+            <span class="bv-pill">BINS <b>${totalBins}</b></span>
+            <span class="bv-pill bv-pact">ACTIVE <b>${activeCards}</b></span>
+            <div class="bv-srt">
+                <button class="bv-sb ${sortMode==='count'?'bv-sba':''}" onclick="_bvSetSort('count')">COUNT</button>
+                <button class="bv-sb ${sortMode==='date'?'bv-sba':''}" onclick="_bvSetSort('date')">DATE</button>
             </div>
+            <button class="bv-ib" onclick="_bvOpenImport()">+ Import</button>
         </div>
-        <table class="data-table bv-table">
-            <thead>
-                <tr>
-                    <th style="width:30px"></th>
-                    <th>CARD / BIN GROUP</th>
-                    <th>STATUS</th>
-                    <th>NOTE</th>
-                    <th>LAST</th>
-                </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-        </table>
-    `;
+        <div class="bv-cts">${ctHtml}</div>
+        <div id="bv-import-panel" class="bv-ip" style="display:none">
+            <textarea id="bv-import-text" class="bv-ita" placeholder="Paste cards...\n4537007340059012|02/26|307" rows="5"></textarea>
+            <div class="bv-ia"><span id="bv-import-count" class="bv-ic">0 detected</span><button class="bv-ig" onclick="_bvDoImport()">IMPORT</button><button class="bv-icl" onclick="document.getElementById('bv-import-panel').style.display='none'">Cancel</button></div>
+        </div>
+        <table class="data-table bv-t">
+            <thead><tr><th style="width:24px"></th><th>CARD / BIN GROUP</th><th>STATUS</th><th>NOTE</th><th>LAST</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
 
-    const importText = document.getElementById('bv-import-text');
-    if (importText) {
-        importText.addEventListener('input', () => {
-            const parsed = smartParseCards(importText.value);
-            document.getElementById('bv-import-count').textContent = parsed.length + ' cards detected';
-        });
-    }
-
+    const it = document.getElementById('bv-import-text');
+    if (it) it.addEventListener('input', () => { document.getElementById('bv-import-count').textContent = smartParseCards(it.value).length + ' detected'; });
     renderFooter(totalBins, STATE.page, totalPages);
 }
-
 // Country filter
 window._bvFilterCountry = function(cc) {
     STATE._bvCountry = cc;
