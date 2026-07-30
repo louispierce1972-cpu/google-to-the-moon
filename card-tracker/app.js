@@ -5631,10 +5631,11 @@ function renderAllCards() {
                 // Duplicate badge
                 const dupCnt = dupMap[c.cardNumber.replace(/\s/g, '')] || 1;
                 const dupBadge = dupCnt > 1 ? `<span class="bv-dup">dbl ${dupCnt}</span>` : '';
+                const amtVal = c.amount ? `<span class="bv-amt">$${c.amount}</span>` : '';
 
                 rows += `<tr class="bv-cr" data-id="${c.id}" oncontextmenu="event.preventDefault();_bvCardCtx(event,'${c.id}')">
                     <td class="bv-ec"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id)?'checked':''} onchange="toggleCardSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"></label></td>
-                    <td class="bv-mc bv-cm"><span class="bv-cn">${fc}</span>${dupBadge}</td>
+                    <td class="bv-mc bv-cm"><span class="bv-cn">${fc}</span>${dupBadge}${amtVal}</td>
                     <td class="bv-sc">${cardSt(c)}</td>
                     <td class="bv-nc"><input class="bv-ni bv-nic" type="text" value="${(cN).replace(/"/g,'&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}',this.value)"></td>
                     <td class="bv-dc">${c.date||'\u2014'}</td>
@@ -5709,19 +5710,20 @@ function renderAllCards() {
     renderFooter(totalBins, STATE.page, totalPages);
 }
 
-// Right-click on card row
+// Right-click on card row — Edit / Clone / Delete
 window._bvCardCtx = function(e, id) {
     const ctx = document.getElementById('bv-ctx-menu');
     ctx.innerHTML = `
         <div class="bv-ctx-item" onclick="_bvEditCard('${id}')">&#9998; Edit</div>
+        <div class="bv-ctx-item" onclick="_bvCloneCard('${id}')">&#10697; Clone</div>
         <div class="bv-ctx-item bv-ctx-danger" onclick="_bvDeleteCard('${id}')">&#x2715; Delete</div>
     `;
     ctx.style.display = 'block';
     ctx.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
-    ctx.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
+    ctx.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
 };
 
-// Edit card modal
+// Edit card modal (no browser confirm)
 window._bvEditCard = function(id) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const card = STATE.cards.find(c => c.id === id);
@@ -5741,6 +5743,8 @@ window._bvEditCard = function(id) {
             </div>
             <label class="bv-edit-lbl">CVV</label>
             <input id="bv-edit-cvv" class="bv-edit-inp bv-edit-sm" type="text" value="${card.cvv||''}" maxlength="4">
+            <label class="bv-edit-lbl">Amount ($)</label>
+            <input id="bv-edit-amount" class="bv-edit-inp bv-edit-sm" type="text" value="${card.amount||''}">
             <label class="bv-edit-lbl">Note</label>
             <input id="bv-edit-note" class="bv-edit-inp" type="text" value="${(card.notes||'').replace(/"/g,'&quot;')}">
             <div class="bv-edit-btns">
@@ -5757,120 +5761,73 @@ window._bvEditCard = function(id) {
 window._bvSaveEdit = function(id) {
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
-
     const num = document.getElementById('bv-edit-num').value.replace(/\s/g, '');
-    const mm = document.getElementById('bv-edit-mm').value;
-    const yy = document.getElementById('bv-edit-yy').value;
-    const cvv = document.getElementById('bv-edit-cvv').value;
-    const note = document.getElementById('bv-edit-note').value;
-
     if (num.length < 13) { toast('Card number too short', 'error'); return; }
-
     card.cardNumber = num;
-    card.month = mm; card.year = yy; card.cvv = cvv;
-    card.notes = note;
+    card.month = document.getElementById('bv-edit-mm').value;
+    card.year = document.getElementById('bv-edit-yy').value;
+    card.cvv = document.getElementById('bv-edit-cvv').value;
+    card.amount = document.getElementById('bv-edit-amount').value;
+    card.notes = document.getElementById('bv-edit-note').value;
     card.cardType = getCardType(num);
-
     save();
     document.getElementById('bv-edit-modal').style.display = 'none';
     renderAllCards();
     toast('Card updated', 'success');
 };
 
-// Delete card
+// Delete card — custom in-app confirm (NO browser dialog)
 window._bvDeleteCard = function(id) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
-    if (!confirm('Delete this card?')) return;
-    STATE.trash.push(card);
-    STATE.cards = STATE.cards.filter(c => c.id !== id);
-    save(); renderAll();
-    toast('Card moved to trash', 'success');
-};
-// Status filter toggle
-window._bvFilterStatus = function(code) {
-    STATE._bvStatusFilter = STATE._bvStatusFilter === code ? '' : code;
-    STATE.page = 1;
-    renderAllCards();
+    _bvShowConfirm('Delete this card?', () => {
+        STATE.trash.push(card);
+        STATE.cards = STATE.cards.filter(c => c.id !== id);
+        save(); renderAll();
+        toast('Card moved to trash', 'success');
+    });
 };
 
-// Right-click on status pill — copy BINs or Cards
-window._bvStatusCtx = function(e, code) {
-    const fieldMap = {A:'cardAdd', R:'runAds', V:'verified', M:'minic', D:'declined'};
-    const field = fieldMap[code];
-    if (!field) return;
-
-    const ctx = document.getElementById('bv-ctx-menu');
-    ctx.innerHTML = `
-        <div class="bv-ctx-item" onclick="_bvCopyByStatus('${field}','bins')">Copy BINs (${code})</div>
-        <div class="bv-ctx-item" onclick="_bvCopyByStatus('${field}','cards')">Copy Cards (${code})</div>
-    `;
-    ctx.style.display = 'block';
-    ctx.style.left = e.clientX + 'px';
-    ctx.style.top = e.clientY + 'px';
-};
-
-// Copy BINs or Cards by status
-window._bvCopyByStatus = function(field, mode) {
+// Clone card
+window._bvCloneCard = function(id) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
-    const cards = STATE.cards.filter(c => c[field]);
-    if (cards.length === 0) { toast('No cards with this status', 'info'); return; }
-
-    let text;
-    if (mode === 'bins') {
-        const bins = [...new Set(cards.map(c => getBin(c.cardNumber)))];
-        text = bins.join('\n');
-        toast(`${bins.length} BINs copied`, 'success');
-    } else {
-        text = cards.map(c => {
-            let line = c.cardNumber;
-            if (c.month && c.year) line += `|${c.month}/${c.year}`;
-            if (c.cvv) line += `|${c.cvv}`;
-            return line;
-        }).join('\n');
-        toast(`${cards.length} cards copied`, 'success');
-    }
-    navigator.clipboard.writeText(text);
-};
-
-// Clear ALL statuses for all cards
-window._bvClearAll = function() {
-    if (!confirm('Clear ALL statuses for all cards?')) return;
-    STATE.cards.forEach(c => { c.cardAdd = false; c.runAds = false; c.verified = false; c.minic = false; c.declined = false; });
-    save(); renderAllCards();
-    toast('All statuses cleared', 'success');
-};
-
-// Bulk set status for selected cards
-window._bvBulkStatus = function(field) {
-    if (_selectedCards.size === 0) return;
-    _selectedCards.forEach(id => {
-        const card = STATE.cards.find(c => c.id === id);
-        if (card) card[field] = true;
-    });
-    save(); renderAllCards();
-    toast(`${_selectedCards.size} cards → ${field} ON`, 'success');
-};
-
-// Bulk clear statuses for selected cards
-window._bvBulkClear = function() {
-    if (_selectedCards.size === 0) return;
-    _selectedCards.forEach(id => {
-        const card = STATE.cards.find(c => c.id === id);
-        if (card) { card.cardAdd = false; card.runAds = false; card.verified = false; card.minic = false; card.declined = false; }
-    });
-    save(); renderAllCards();
-    toast(`${_selectedCards.size} cards cleared`, 'success');
-};
-// Toggle card status
-window._bvToggle = function(id, field) {
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
-    card[field] = !card[field];
-    save();
-    renderAllCards();
+    const clone = JSON.parse(JSON.stringify(card));
+    clone.id = genId();
+    clone.date = todayStr();
+    clone.notes = (clone.notes || '') + ' (clone)';
+    STATE.cards.unshift(clone);
+    save(); renderAllCards();
+    toast('Card cloned', 'success');
 };
+
+// Custom in-app confirm dialog (replaces browser confirm)
+window._bvShowConfirm = function(msg, onYes) {
+    const modal = document.getElementById('bv-edit-modal');
+    modal.innerHTML = `
+        <div class="bv-edit-box bv-confirm-box">
+            <div class="bv-confirm-msg">${msg}</div>
+            <div class="bv-edit-btns">
+                <button class="bv-edit-save bv-confirm-yes" id="bv-confirm-yes">Yes</button>
+                <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    document.getElementById('bv-confirm-yes').onclick = () => { modal.style.display = 'none'; onYes(); };
+};
+
+// Clear ALL statuses — custom confirm (no browser dialog)
+window._bvClearAll = function() {
+    _bvShowConfirm('Clear ALL statuses for all cards?', () => {
+        STATE.cards.forEach(c => { c.cardAdd = false; c.runAds = false; c.verified = false; c.minic = false; c.declined = false; });
+        save(); renderAllCards();
+        toast('All statuses cleared', 'success');
+    });
+};
+
 // Country filter
 window._bvFilterCountry = function(cc) {
     STATE._bvCountry = cc;
