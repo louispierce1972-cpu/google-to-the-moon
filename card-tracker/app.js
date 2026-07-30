@@ -5268,6 +5268,11 @@ function renderContent() {
         footer.style.display = 'none';
         return;
     }
+    if (STATE.currentView === 'minic-bins') {
+        renderMinicBins();
+        footer.style.display = 'none';
+        return;
+    }
     footer.style.display = 'flex';
 
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
@@ -5542,7 +5547,27 @@ function renderAllCards() {
     }
 
     if (filteredCards.length === 0 && allCards.length === 0) {
-        area.innerHTML = `<div class="empty-state"><p class="empty-title">No cards</p></div>`;
+        area.innerHTML = `
+            <div class="bv-bar">
+                <span class="bv-pill">CARDS <b>0</b></span>
+                <span class="bv-pill">BINS <b>0</b></span>
+                <button class="bv-ib" onclick="_bvOpenImport()">+ Import</button>
+            </div>
+            <div id="bv-import-panel" class="bv-ip" style="display:none">
+                <textarea id="bv-import-text" class="bv-ita" placeholder="Paste cards...\n4537007340059012|02/26|307" rows="5"></textarea>
+                <div class="bv-ia"><span id="bv-import-count" class="bv-ic">0 detected</span><button class="bv-ig" onclick="_bvDoImport()">IMPORT</button><button class="bv-icl" onclick="document.getElementById('bv-import-panel').style.display='none'">Cancel</button></div>
+            </div>
+            <div class="empty-state"><p class="empty-title">No cards yet</p><p style="color:#3a3e52;font-size:12px">Click + Import to add cards</p></div>`;
+        // Import text auto-detect
+        const it = document.getElementById('bv-import-text');
+        if (it) it.addEventListener('input', () => { document.getElementById('bv-import-count').textContent = smartParseCards(it.value).length + ' detected'; });
+        // Ensure edit modal exists
+        if (!document.getElementById('bv-edit-modal')) {
+            const m = document.createElement('div');
+            m.id = 'bv-edit-modal'; m.className = 'bv-edit-overlay'; m.style.display = 'none';
+            document.body.appendChild(m);
+            m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+        }
         renderFooter(0, 1, 1); return;
     }
 
@@ -6978,13 +7003,16 @@ function renderPageTitle() {
     // Show/hide buttons
     const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'minic-bins'].includes(STATE.currentView);
 
-    document.getElementById('add-card-btn').style.display = showAdd ? 'flex' : 'none';
+    const addCardBtn = document.getElementById('add-card-btn');
+    if (addCardBtn) addCardBtn.style.display = showAdd ? 'flex' : 'none';
 
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
-        document.getElementById('add-card-btn').style.display = 'flex';
-        document.getElementById('add-btn-text').textContent = 'ADD DOC';
+        if (addCardBtn) addCardBtn.style.display = 'flex';
+        const addTxt = document.getElementById('add-btn-text');
+        if (addTxt) addTxt.textContent = 'ADD DOC';
     } else {
-        document.getElementById('add-btn-text').textContent = 'ADD';
+        const addTxt2 = document.getElementById('add-btn-text');
+        if (addTxt2) addTxt2.textContent = 'ADD';
     }
 
     // GEO filter bar for My Card and Global Docs
@@ -8255,7 +8283,8 @@ document.getElementById('toggle-sidebar')?.addEventListener('click', () => {
 const modalOverlay = document.getElementById('modal-overlay');
 const editOverlay = document.getElementById('edit-modal-overlay');
 
-document.getElementById('add-card-btn').addEventListener('click', () => {
+const _addCardBtnEl = document.getElementById('add-card-btn');
+if (_addCardBtnEl) _addCardBtnEl.addEventListener('click', () => {
     // (translated)
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         openDocModal();
