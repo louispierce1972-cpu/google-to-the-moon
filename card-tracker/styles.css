@@ -30617,3 +30617,22 @@ tr.row-selected td {
     padding:1px 5px; border-radius:2px; margin-left:6px;
     font-family:'JetBrains Mono',monospace; font-weight:600;
 }
+
+/* ===========================================
+   MINIC BINS — Google payment tracker
+   =========================================== */
+.mc-table { border-collapse:collapse; }
+.mc-row { border-bottom:1px solid rgba(255,255,255,0.03); transition:background 0.1s; }
+.mc-row:hover { background:rgba(255,255,255,0.025); }
+.mc-idx { width:30px; padding:6px 8px; color:#3a3e52; font-size:10px; text-align:center; font-family:'JetBrains Mono',monospace; }
+.mc-bin { padding:6px 8px; font-family:'JetBrains Mono',monospace; }
+.mc-bin .bv-bn { font-size:14px; }
+.mc-bin .cx-flag-img { width:14px; height:10px; margin-right:4px; }
+.mc-bank { padding:6px 8px; color:#3a3e52; font-size:10px; text-transform:uppercase; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mc-status { padding:6px 8px; width:60px; }
+.mc-status .bv-s { cursor:pointer; font-size:11px; padding:2px 5px; }
+.mc-status .bv-sa:not(.bv-off) { color:#22c55e!important; background:rgba(34,197,94,0.15)!important; }
+.mc-status .bv-sd:not(.bv-off) { color:#ef4444!important; background:rgba(239,68,68,0.15)!important; }
+.mc-amt { padding:6px 8px; color:#22c55e; font-size:11px; font-family:'JetBrains Mono',monospace; font-weight:600; width:70px; }
+.mc-note { padding:3px 6px; width:160px; }
+.mc-date { padding:6px 8px; color:#3a3e52; font-size:11px; font-family:'JetBrains Mono',monospace; width:75px; }

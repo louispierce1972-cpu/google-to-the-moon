@@ -27,6 +27,7 @@ const STATE = {
     settings: {},
     trashCards: [],
     binNotes: {},
+    minicBins: [],
 
 };
 
@@ -340,6 +341,7 @@ function save() {
 
         localStorage.setItem('ct_trash_cards', JSON.stringify(STATE.trashCards || []));
         localStorage.setItem('ct_bin_notes', JSON.stringify(STATE.binNotes || {}));
+        localStorage.setItem('ct_minic_bins', JSON.stringify(STATE.minicBins || []));
 
         saveBinCache();
     } catch (e) {
@@ -362,6 +364,8 @@ function load() {
         // Load trashCards
         const trashCardsRaw = localStorage.getItem('ct_trash_cards');
         if (trashCardsRaw) STATE.trashCards = JSON.parse(trashCardsRaw);
+        const minicBinsRaw = localStorage.getItem('ct_minic_bins');
+        if (minicBinsRaw) STATE.minicBins = JSON.parse(minicBinsRaw);
         const binNotesRaw = localStorage.getItem('ct_bin_notes');
         if (binNotesRaw) STATE.binNotes = JSON.parse(binNotesRaw);
         // Load parser base
@@ -931,7 +935,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -5828,6 +5832,193 @@ window._bvClearAll = function() {
     });
 };
 
+
+// ═══════════════════════════════════════════
+// MINIC BINS — Google payment BIN tracker
+// ═══════════════════════════════════════════
+function renderMinicBins() {
+    const area = document.getElementById('content-area');
+    const bins = STATE.minicBins || [];
+
+    // Stats
+    const total = bins.length;
+    const passed = bins.filter(b => b.status === 'pass').length;
+    const failed = bins.filter(b => b.status === 'fail').length;
+    const pending = bins.filter(b => !b.status || b.status === 'pending').length;
+
+    let rowsHtml = '';
+    bins.forEach((b, i) => {
+        const cached = BIN_CACHE[b.bin] || {};
+        const bank = cached.bank || '';
+        const brand = cached.brand || _brandByDigit(b.bin) || '';
+        let cc = normalizeCC(cached.country || '');
+        const flag = cc ? isoToFlag(cc) : '';
+        const brandHtml = brand ? _brandIconGlobal(brand, b.bin + '0000000000') : '';
+
+        const passActive = b.status === 'pass' ? '' : 'bv-off';
+        const failActive = b.status === 'fail' ? '' : 'bv-off';
+
+        rowsHtml += `<tr class="mc-row" data-idx="${i}" oncontextmenu="event.preventDefault();_mcCtx(event,${i})">
+            <td class="mc-idx">${i + 1}</td>
+            <td class="mc-bin">${flag} <span class="bv-bn">${b.bin}</span> ${brandHtml}</td>
+            <td class="mc-bank">${bank}</td>
+            <td class="mc-status">
+                <span class="bv-s bv-sa ${passActive}" onclick="_mcSetStatus(${i},'pass')" title="Pass">&#10003;</span>
+                <span class="bv-s bv-sd ${failActive}" onclick="_mcSetStatus(${i},'fail')" title="Fail">&#10007;</span>
+            </td>
+            <td class="mc-amt">${b.amount ? '$' + b.amount : '\u2014'}</td>
+            <td class="mc-note"><input class="bv-ni" type="text" value="${(b.note||'').replace(/"/g,'&quot;')}" placeholder="\u2014" onchange="_mcNote(${i},this.value)"></td>
+            <td class="mc-date">${b.date || '\u2014'}</td>
+        </tr>`;
+    });
+
+    area.innerHTML = `
+        <div class="bv-bar">
+            <span class="bv-pill">TOTAL <b>${total}</b></span>
+            <span class="bv-pill"><span class="bv-s bv-sa">&#10003;</span> <b>${passed}</b></span>
+            <span class="bv-pill"><span class="bv-s bv-sd">&#10007;</span> <b>${failed}</b></span>
+            <span class="bv-pill">PENDING <b>${pending}</b></span>
+            <button class="bv-ib" onclick="_mcOpenAdd()">+ Add BINs</button>
+        </div>
+        <div id="mc-add-panel" class="bv-ip" style="display:none">
+            <textarea id="mc-add-text" class="bv-ita" placeholder="Paste BINs (one per line)...\n453700\n516075\n452001" rows="4"></textarea>
+            <div class="bv-ia">
+                <span id="mc-add-count" class="bv-ic">0 BINs</span>
+                <button class="bv-ig" onclick="_mcDoAdd()">ADD</button>
+                <button class="bv-icl" onclick="document.getElementById('mc-add-panel').style.display='none'">Cancel</button>
+            </div>
+        </div>
+        <table class="data-table bv-t mc-table">
+            <thead><tr>
+                <th style="width:30px">#</th>
+                <th>BIN</th>
+                <th>BANK</th>
+                <th>STATUS</th>
+                <th>AMOUNT</th>
+                <th>NOTE</th>
+                <th>DATE</th>
+            </tr></thead>
+            <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#3a3e52;padding:30px">No BINs added yet</td></tr>'}</tbody>
+        </table>`;
+
+    // Context menu container
+    if (!document.getElementById('bv-ctx-menu')) {
+        const ctx = document.createElement('div');
+        ctx.id = 'bv-ctx-menu'; ctx.className = 'bv-ctx'; ctx.style.display = 'none';
+        document.body.appendChild(ctx);
+        document.addEventListener('click', () => ctx.style.display = 'none');
+    }
+
+    // Auto-count on input
+    const ta = document.getElementById('mc-add-text');
+    if (ta) ta.addEventListener('input', () => {
+        const lines = ta.value.split('\n').map(l => l.trim().replace(/\D/g, '')).filter(l => l.length >= 6);
+        document.getElementById('mc-add-count').textContent = lines.length + ' BINs';
+    });
+
+    renderFooter(total, 1, 1);
+}
+
+// Minic — open add panel
+window._mcOpenAdd = function() {
+    const p = document.getElementById('mc-add-panel');
+    if (p) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; if (p.style.display === 'block') document.getElementById('mc-add-text').focus(); }
+};
+
+// Minic — add BINs from list
+window._mcDoAdd = function() {
+    const text = document.getElementById('mc-add-text').value;
+    const lines = text.split('\n').map(l => l.trim().replace(/\D/g, '').substring(0, 6)).filter(l => l.length >= 6);
+    if (lines.length === 0) { toast('No valid BINs found', 'error'); return; }
+
+    const existing = new Set((STATE.minicBins || []).map(b => b.bin));
+    let added = 0;
+    lines.forEach(bin => {
+        if (existing.has(bin)) return;
+        STATE.minicBins.push({ bin, status: 'pending', amount: '', note: '', date: todayStr() });
+        existing.add(bin);
+        added++;
+    });
+
+    save();
+    document.getElementById('mc-add-text').value = '';
+    document.getElementById('mc-add-panel').style.display = 'none';
+    renderMinicBins();
+    toast(`${added} BINs added (${lines.length - added} duplicates skipped)`, 'success');
+
+    // Auto-lookup BIN info
+    lines.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).then(() => renderMinicBins()); });
+};
+
+// Minic — set status
+window._mcSetStatus = function(idx, status) {
+    const b = STATE.minicBins[idx];
+    if (!b) return;
+    b.status = b.status === status ? 'pending' : status;
+    save(); renderMinicBins();
+};
+
+// Minic — save note
+window._mcNote = function(idx, val) {
+    const b = STATE.minicBins[idx];
+    if (b) { b.note = val; save(); }
+};
+
+// Minic — right-click context menu
+window._mcCtx = function(e, idx) {
+    const ctx = document.getElementById('bv-ctx-menu');
+    ctx.innerHTML = `
+        <div class="bv-ctx-item" onclick="_mcEdit(${idx})">&#9998; Edit Amount</div>
+        <div class="bv-ctx-item bv-ctx-danger" onclick="_mcDelete(${idx})">&#x2715; Delete</div>
+    `;
+    ctx.style.display = 'block';
+    ctx.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+    ctx.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
+};
+
+// Minic — edit amount
+window._mcEdit = function(idx) {
+    document.getElementById('bv-ctx-menu').style.display = 'none';
+    const b = STATE.minicBins[idx];
+    if (!b) return;
+    const modal = document.getElementById('bv-edit-modal');
+    modal.innerHTML = `
+        <div class="bv-edit-box">
+            <div class="bv-edit-title">Edit BIN ${b.bin}</div>
+            <label class="bv-edit-lbl">Amount ($)</label>
+            <input id="mc-edit-amt" class="bv-edit-inp bv-edit-sm" type="text" value="${b.amount || ''}">
+            <label class="bv-edit-lbl">Note</label>
+            <input id="mc-edit-note" class="bv-edit-inp" type="text" value="${(b.note||'').replace(/"/g,'&quot;')}">
+            <div class="bv-edit-btns">
+                <button class="bv-edit-save" onclick="_mcSaveEdit(${idx})">Save</button>
+                <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>`;
+    modal.style.display = 'flex';
+    document.getElementById('mc-edit-amt').focus();
+};
+
+window._mcSaveEdit = function(idx) {
+    const b = STATE.minicBins[idx];
+    if (!b) return;
+    b.amount = document.getElementById('mc-edit-amt').value;
+    b.note = document.getElementById('mc-edit-note').value;
+    save();
+    document.getElementById('bv-edit-modal').style.display = 'none';
+    renderMinicBins();
+    toast('BIN updated', 'success');
+};
+
+// Minic — delete
+window._mcDelete = function(idx) {
+    document.getElementById('bv-ctx-menu').style.display = 'none';
+    _bvShowConfirm('Delete this BIN?', () => {
+        STATE.minicBins.splice(idx, 1);
+        save(); renderMinicBins();
+        toast('BIN deleted', 'success');
+    });
+};
+
 // Country filter
 window._bvFilterCountry = function(cc) {
     STATE._bvCountry = cc;
@@ -6785,7 +6976,7 @@ function renderPageTitle() {
     }
 
     // Show/hide buttons
-    const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards'].includes(STATE.currentView);
+    const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'minic-bins'].includes(STATE.currentView);
 
     document.getElementById('add-card-btn').style.display = showAdd ? 'flex' : 'none';
 
@@ -6871,6 +7062,7 @@ const HASH_TO_VIEW = {
     'google-format': 'google-format',
     'domain':        'domain',
     'bin-tester':    'bin-tester',
+    'minic':         'minic-bins',
 };
 const VIEW_TO_HASH = Object.fromEntries(
     Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
