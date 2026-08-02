@@ -30636,3 +30636,73 @@ tr.row-selected td {
 .mc-amt { padding:6px 8px; color:#22c55e; font-size:11px; font-family:'JetBrains Mono',monospace; font-weight:600; width:70px; }
 .mc-note { padding:3px 6px; width:160px; }
 .mc-date { padding:6px 8px; color:#3a3e52; font-size:11px; font-family:'JetBrains Mono',monospace; width:75px; }
+
+/* ===========================================
+   DOCUMENTS — Unified card-style records
+   =========================================== */
+.dc-list { padding:4px 8px; }
+.dc-empty { text-align:center; color:#3a3e52; padding:40px; font-size:13px; }
+
+.dc-card {
+    background:rgba(255,255,255,0.015); border:1px solid rgba(255,255,255,0.04);
+    border-radius:6px; margin-bottom:6px; padding:10px 14px;
+    transition:border-color 0.15s;
+}
+.dc-card:hover { border-color:rgba(255,255,255,0.08); }
+
+.dc-main { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.dc-info { flex:1; min-width:0; }
+
+.dc-name {
+    font-size:14px; font-weight:700; color:#e2e4ea;
+    font-family:'JetBrains Mono',monospace; margin-bottom:3px;
+}
+.dc-addr {
+    font-size:11px; color:#636780; font-family:'JetBrains Mono',monospace;
+    margin-bottom:2px;
+}
+.dc-gen-addr {
+    font-size:11px; color:#22c55e; font-family:'JetBrains Mono',monospace;
+    margin-bottom:2px; display:flex; align-items:center; gap:4px;
+}
+.dc-gen-tag {
+    font-size:8px; font-weight:700; color:#f59e0b; background:rgba(245,158,11,0.12);
+    padding:1px 4px; border-radius:2px;
+}
+.dc-copy-mini {
+    cursor:pointer; font-size:12px; color:#60a5fa; opacity:0.5;
+    transition:opacity 0.1s;
+}
+.dc-copy-mini:hover { opacity:1; }
+.dc-dob { font-size:10px; color:#3a3e52; margin-top:2px; }
+
+.dc-actions {
+    display:flex; gap:4px; align-items:center; flex-shrink:0;
+}
+.dc-actions .bv-s { font-size:10px; padding:3px 6px; cursor:pointer; }
+
+.dc-btn {
+    font-size:9px; padding:3px 8px; border-radius:2px;
+    border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.03);
+    color:#636780; cursor:pointer; font-family:inherit; letter-spacing:0.3px;
+    transition:all 0.1s;
+}
+.dc-btn:hover { color:#a0a4b8; border-color:rgba(255,255,255,0.1); }
+.dc-btn-gen { color:#f59e0b; border-color:rgba(245,158,11,0.15); }
+.dc-btn-gen:hover { background:rgba(245,158,11,0.08); }
+.dc-btn-del { color:#ef4444; border-color:rgba(239,68,68,0.15); }
+.dc-btn-del:hover { background:rgba(239,68,68,0.08); }
+
+/* ===========================================
+   NOTES — Pin + Rename enhancements
+   =========================================== */
+.nt-pin-icon { font-size:10px; margin-right:2px; }
+.nt-tab.nt-pinned { border-color:rgba(245,158,11,0.2) !important; }
+.nt-sidebar-item.nt-pinned { border-left:2px solid #f59e0b; }
+
+.nt-sidebar-pin {
+    background:none; border:none; font-size:12px; cursor:pointer;
+    padding:0 4px; opacity:0.3; transition:opacity 0.1s;
+}
+.nt-sidebar-pin:hover { opacity:0.7; }
+.nt-sidebar-pin.active { opacity:1; }

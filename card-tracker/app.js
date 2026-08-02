@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -28,6 +28,7 @@ const STATE = {
     trashCards: [],
     binNotes: {},
     minicBins: [],
+    docRecords: [],
 
 };
 
@@ -342,6 +343,7 @@ function save() {
         localStorage.setItem('ct_trash_cards', JSON.stringify(STATE.trashCards || []));
         localStorage.setItem('ct_bin_notes', JSON.stringify(STATE.binNotes || {}));
         localStorage.setItem('ct_minic_bins', JSON.stringify(STATE.minicBins || []));
+        localStorage.setItem('ct_doc_records', JSON.stringify(STATE.docRecords || []));
 
         saveBinCache();
     } catch (e) {
@@ -364,6 +366,8 @@ function load() {
         // Load trashCards
         const trashCardsRaw = localStorage.getItem('ct_trash_cards');
         if (trashCardsRaw) STATE.trashCards = JSON.parse(trashCardsRaw);
+        const docRecordsRaw = localStorage.getItem('ct_doc_records');
+        if (docRecordsRaw) STATE.docRecords = JSON.parse(docRecordsRaw);
         const minicBinsRaw = localStorage.getItem('ct_minic_bins');
         if (minicBinsRaw) STATE.minicBins = JSON.parse(minicBinsRaw);
         const binNotesRaw = localStorage.getItem('ct_bin_notes');
@@ -935,7 +939,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins', 'global-docs', 'docs'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -6044,6 +6048,41 @@ window._mcDelete = function(idx) {
     });
 };
 
+
+// ── Notes: inline rename tab ──
+window._ntStartRename = function(tabId) {
+    const tab = STATE.notesTabs.find(t => t.id === tabId);
+    if (!tab) return;
+    const modal = document.getElementById('bv-edit-modal');
+    if (!modal) return;
+    modal.innerHTML = `
+        <div class="bv-edit-box">
+            <div class="bv-edit-title">Rename Tab</div>
+            <label class="bv-edit-lbl">Tab Name</label>
+            <input id="nt-rename-input" class="bv-edit-inp" type="text" value="${tab.title.replace(/"/g,'&quot;')}" maxlength="50">
+            <div class="bv-edit-btns">
+                <button class="bv-edit-save" onclick="_ntDoRename('${tabId}')">Save</button>
+                <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>`;
+    modal.style.display = 'flex';
+    const inp = document.getElementById('nt-rename-input');
+    inp.focus();
+    inp.select();
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') _ntDoRename(tabId); });
+};
+
+window._ntDoRename = function(tabId) {
+    const tab = STATE.notesTabs.find(t => t.id === tabId);
+    if (!tab) return;
+    const val = document.getElementById('nt-rename-input').value.trim();
+    if (!val) { toast('Name cannot be empty', 'error'); return; }
+    tab.title = val;
+    save();
+    document.getElementById('bv-edit-modal').style.display = 'none';
+    renderNotes();
+    toast('Tab renamed', 'success');
+};
 // Country filter
 window._bvFilterCountry = function(cc) {
     STATE._bvCountry = cc;
@@ -6143,106 +6182,185 @@ window._toggleDocDrawer = function () {};
 
 function renderDocs() {
     const area = document.getElementById('content-area');
-    const docs = getFilteredDocs();
+    const recs = STATE.docRecords || [];
 
-    if (docs.length === 0) {
-        area.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+    const verified = recs.filter(r => r.status === 'verified').length;
+    const suspended = recs.filter(r => r.status === 'suspended').length;
+    const total = recs.length;
+
+    let cardsHtml = '';
+    recs.forEach((r, i) => {
+        const stV = r.status === 'verified' ? '' : 'bv-off';
+        const stS = r.status === 'suspended' ? '' : 'bv-off';
+        const genAddr = r.genAddress || '';
+
+        cardsHtml += `
+        <div class="dc-card" data-idx="${i}">
+            <div class="dc-main">
+                <div class="dc-info">
+                    <div class="dc-name">${r.name} ${r.surname}</div>
+                    <div class="dc-addr">${r.address}</div>
+                    ${genAddr ? `<div class="dc-gen-addr"><span class="dc-gen-tag">ALT</span> ${genAddr} <span class="dc-copy-mini" onclick="_dcCopyText('${genAddr.replace(/'/g,"\\'")}')">&#x2398;</span></div>` : ''}
+                    <div class="dc-dob">DOB: ${r.dob}</div>
                 </div>
-                <p class="empty-title">No documents yet</p>
-                <p class="empty-text">Documents are created automatically when you add cards</p>
+                <div class="dc-actions">
+                    <span class="bv-s bv-sa ${stV}" onclick="_dcSetStatus(${i},'verified')" title="Doc Verified">V</span>
+                    <span class="bv-s bv-sd ${stS}" onclick="_dcSetStatus(${i},'suspended')" title="Suspended">S</span>
+                    <button class="dc-btn" onclick="_dcCopy(${i})" title="Copy">Copy</button>
+                    <button class="dc-btn" onclick="_dcToNotes(${i})" title="Send to Notes">Notes</button>
+                    <button class="dc-btn dc-btn-gen" onclick="_dcGenAddr(${i})" title="Generate Alt Address">Gen Addr</button>
+                    <button class="dc-btn dc-btn-del" onclick="_dcDelete(${i})" title="Delete">&#x2715;</button>
+                </div>
             </div>
-        `;
-        renderFooter(0, 1, 1);
-        return;
-    }
-
-    const flag = ''; // flags shown per-doc from BIN data
-    const geoCode = '';
-
-    const getUseColor = (use) => {
-        if (!use) return '';
-        if (use <= 3) return 'color: var(--green)';
-        if (use <= 6) return 'color: var(--amber)';
-        return 'color: var(--red)';
-    };
-
-    let rows = docs.map((d, i) => {
-        const newBadge = d.docStatus === 'new'
-            ? `<span class="doc-status-new" onclick="event.stopPropagation(); _docClearNew('${d.id}')">NEW</span>`
-            : '';
-        const docFlag = d.country && d.country !== 'auto' && COUNTRY_DB[d.country.toUpperCase()] ? isoToFlag(d.country.toUpperCase()) : '';
-        return `
-        <tr class="doc-row ${_selectedCards.has(d.id) ? 'row-selected' : ''}" data-id="${d.id}">
-            <td class="td-num" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${d.id}" ${_selectedCards.has(d.id) ? 'checked' : ''} onchange="toggleCardSelect('${d.id}', this.checked)"></label></td>
-            <td>
-                <div class="card-cell">
-                    <span class="card-name">
-                        <span class="flag">${docFlag}</span>
-                        ${d.fullName}
-                        ${newBadge}
-                    </span>
-                </div>
-            </td>
-            <td class="note-indicator" onclick="event.stopPropagation()"><span class="editable-note" onclick="openDocNote('${d.id}', this)">${d.notes || '<span class="note-placeholder">+ note</span>'}</span></td>
-            <td class="doc-type" onclick="event.stopPropagation()"><span class="doc-type-badge clickable-type ${(d.type || '').toLowerCase()}" onclick="cycleDocType('${d.id}')" title="Click to change type">${d.type && d.type !== '-' ? d.type : '-'}</span></td>
-            <td><span class="geo-badge">${geoCode}</span></td>
-            <td class="use-cell" style="${getUseColor(d.use || 0)}">${d.use || 0}x</td>
-            <td>
-                <div class="vs-counters" onclick="event.stopPropagation()">
-                    <button class="doc-vs-btn vs-v${(d.verified || 0) === 0 ? ' vs-zero' : ''}" data-doc-id="${d.id}" data-vs="v" onclick="incrementDocV('${d.id}')" oncontextmenu="decrementDocV('${d.id}'); return false;"><span class="vs-label">V</span><span class="vs-num">${d.verified || 0}</span></button>
-                    <button class="doc-vs-btn vs-s${(d.suspended || 0) === 0 ? ' vs-zero' : ''}" data-doc-id="${d.id}" data-vs="s" onclick="incrementDocS('${d.id}')" oncontextmenu="decrementDocS('${d.id}'); return false;"><span class="vs-label">S</span><span class="vs-num">${d.suspended || 0}</span></button>
-                </div>
-            </td>
-            <td class="date-cell">${d.date}</td>
-            <td onclick="event.stopPropagation()"><button class="more-btn" onclick="openDocMenu(event, '${d.id}')">⋯</button></td>
-        </tr>
-    `}).join('');
-
-    const docSortIcon = (field) => {
-        if (STATE.docSortField !== field) return '↕';
-        return STATE.docSortDir === 'asc' ? '↑' : '↓';
-    };
-
-    area.innerHTML = `
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th>
-                    <th class="sortable-doc" data-sort="name">Name ${docSortIcon('name')}</th>
-                    <th class="sortable-doc" data-sort="notes">Notes ${docSortIcon('notes')}</th>
-                    <th class="sortable-doc" data-sort="type">Type ${docSortIcon('type')}</th>
-                    <th class="sortable-doc" data-sort="geo">Geo ${docSortIcon('geo')}</th>
-                    <th class="sortable-doc" data-sort="use">Use ${docSortIcon('use')}</th>
-                    <th class="sortable-doc" data-sort="vs">Status ${docSortIcon('vs')}</th>
-                    <th class="sortable-doc" data-sort="date">Date ${docSortIcon('date')}</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    `;
-
-    // Attach doc sort handlers
-    area.querySelectorAll('.sortable-doc').forEach(th => {
-        th.addEventListener('click', (e) => {
-            if (e.target.classList.contains('col-resize-handle')) return;
-            const field = th.dataset.sort;
-            if (STATE.docSortField === field) {
-                STATE.docSortDir = STATE.docSortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                STATE.docSortField = field;
-                STATE.docSortDir = 'asc';
-            }
-            renderContent();
-        });
+        </div>`;
     });
 
-    initColumnResize(area.querySelector('.data-table'), 'documents');
-    renderFooter(docs.length, 1, 1);
+    area.innerHTML = `
+        <div class="bv-bar">
+            <span class="bv-pill"><span class="bv-s bv-sa">V</span> Verified <b>${verified}</b></span>
+            <span class="bv-pill"><span class="bv-s bv-sd">S</span> Suspended <b>${suspended}</b></span>
+            <span class="bv-pill">TOTAL <b>${total}</b></span>
+            <button class="dc-btn" onclick="_dcCopyAll()" style="margin-left:auto">Copy All</button>
+            <button class="bv-ib" onclick="_dcOpenImport()">+ Import</button>
+        </div>
+        <div id="dc-import-panel" class="bv-ip" style="display:none">
+            <textarea id="dc-import-text" class="bv-ita" placeholder="Paste docs...\n1.\nName: ALEJANDRO\nSurname: CAVALIERE\nAddress: 123 Main St, City, FL 12345\nDOB: 01.08.1977" rows="6"></textarea>
+            <div class="bv-ia">
+                <span id="dc-import-count" class="bv-ic">0 detected</span>
+                <button class="bv-ig" onclick="_dcDoImport()">IMPORT</button>
+                <button class="bv-icl" onclick="document.getElementById('dc-import-panel').style.display='none'">Cancel</button>
+            </div>
+        </div>
+        <div class="dc-list">${cardsHtml || '<div class="dc-empty">No documents yet. Click + Import to add.</div>'}</div>`;
+
+    const ta = document.getElementById('dc-import-text');
+    if (ta) ta.addEventListener('input', () => {
+        document.getElementById('dc-import-count').textContent = _dcParse(ta.value).length + ' detected';
+    });
+
+    // Ensure edit modal
+    if (!document.getElementById('bv-edit-modal')) {
+        const m = document.createElement('div');
+        m.id = 'bv-edit-modal'; m.className = 'bv-edit-overlay'; m.style.display = 'none';
+        document.body.appendChild(m);
+        m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+    }
+
+    renderFooter(total, 1, 1);
 }
+
+// ── Documents parser ──
+function _dcParse(text) {
+    const records = [];
+    const blocks = text.split(/(?:^|\n)\s*\d+\.\s*\n/);
+    blocks.forEach(block => {
+        if (!block.trim()) return;
+        const nameM = block.match(/Name\s*:\s*(.+)/i);
+        const surnM = block.match(/Surname\s*:\s*(.+)/i);
+        const addrM = block.match(/Address\s*:\s*(.+)/i);
+        const dobM = block.match(/DOB\s*:\s*(.+)/i);
+        if (nameM || surnM) {
+            records.push({
+                name: (nameM ? nameM[1].trim() : ''),
+                surname: (surnM ? surnM[1].trim() : ''),
+                address: (addrM ? addrM[1].trim() : ''),
+                dob: (dobM ? dobM[1].trim() : ''),
+            });
+        }
+    });
+    return records;
+}
+
+// ── Documents actions ──
+window._dcOpenImport = function() {
+    const p = document.getElementById('dc-import-panel');
+    if (p) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; if (p.style.display === 'block') document.getElementById('dc-import-text').focus(); }
+};
+
+window._dcDoImport = function() {
+    const text = document.getElementById('dc-import-text').value;
+    const parsed = _dcParse(text);
+    if (parsed.length === 0) { toast('No records detected', 'error'); return; }
+    parsed.forEach(r => {
+        STATE.docRecords.push({
+            id: genId(), name: r.name, surname: r.surname,
+            address: r.address, dob: r.dob,
+            status: '', genAddress: '', date: todayStr()
+        });
+    });
+    save();
+    document.getElementById('dc-import-text').value = '';
+    document.getElementById('dc-import-panel').style.display = 'none';
+    renderDocs();
+    toast(`${parsed.length} records imported`, 'success');
+};
+
+window._dcSetStatus = function(idx, status) {
+    const r = STATE.docRecords[idx];
+    if (!r) return;
+    r.status = r.status === status ? '' : status;
+    save(); renderDocs();
+};
+
+window._dcCopy = function(idx) {
+    const r = STATE.docRecords[idx];
+    if (!r) return;
+    const text = `Name: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`;
+    navigator.clipboard.writeText(text);
+    toast('Copied', 'success');
+};
+
+window._dcCopyText = function(text) {
+    navigator.clipboard.writeText(text);
+    toast('Address copied', 'success');
+};
+
+window._dcCopyAll = function() {
+    const text = STATE.docRecords.map((r, i) => `${i+1}.\nName: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`).join('\n\n');
+    navigator.clipboard.writeText(text);
+    toast(`${STATE.docRecords.length} records copied`, 'success');
+};
+
+window._dcToNotes = function(idx) {
+    const r = STATE.docRecords[idx];
+    if (!r) return;
+    const content = `Name: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`;
+    const newTab = {
+        id: 'tab-' + Date.now(),
+        title: `${r.name} ${r.surname}`,
+        content: content.replace(/\n/g, '<br>'),
+        pinned: false, tag: null,
+        created: Date.now(), scrollPos: 0,
+        exportSource: 'Documents'
+    };
+    STATE.notesTabs.unshift(newTab);
+    STATE.notesActiveTab = newTab.id;
+    save();
+    toast('Sent to Notes', 'success');
+};
+
+window._dcGenAddr = function(idx) {
+    const r = STATE.docRecords[idx];
+    if (!r || !r.address) return;
+    const m = r.address.match(/^(\d+)\s+(.+)/);
+    if (!m) { toast('Cannot parse address number', 'error'); return; }
+    const origNum = parseInt(m[1]);
+    const delta = Math.floor(Math.random() * 11) + 5;
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    const newNum = Math.max(1, origNum + delta * dir);
+    r.genAddress = newNum + ' ' + m[2];
+    save(); renderDocs();
+    toast('Alt address generated', 'success');
+};
+
+window._dcDelete = function(idx) {
+    _bvShowConfirm('Delete this record?', () => {
+        STATE.docRecords.splice(idx, 1);
+        save(); renderDocs();
+        toast('Record deleted', 'success');
+    });
+};
+
 
 function _getActiveNoteTab() {
     return STATE.notesTabs.find(t => t.id === STATE.notesActiveTab) || STATE.notesTabs[0];
@@ -6343,7 +6461,7 @@ function _wireLinePinClicks(container) {
             } else {
                 tab.pinnedLines.push(lineNum);
                 row.classList.add('nl-pinned');
-                row.querySelector('.nl-pin').textContent = '\u{1F4CC}';
+                row.querySelector('.nl-pin').textContent = '📌';
             }
             save();
         });
@@ -6353,13 +6471,12 @@ function _wireLinePinClicks(container) {
 function renderNotes() {
     const area = document.getElementById('content-area');
 
-    // ── Auto-cleanup: remove empty tabs and content-duplicates silently ──
+    // Auto-cleanup
     if (STATE.notesTabs.length > 1) {
         const _normC = (html) => {
             if (!html) return '';
             return html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>\s*<div/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
         };
-        // Remove empty tabs (keep at least 1) — but never remove the active tab or recently created ones
         const now = Date.now();
         const nonEmpty = STATE.notesTabs.filter(t =>
             _normC(t.content) || t.id === STATE.notesActiveTab || (t.created && (now - t.created) < 60000)
@@ -6402,17 +6519,20 @@ function renderNotes() {
     const lineCount = plainText.split('\n').length || 1;
     const lineNumsHTML = _buildLineNumsHTML(lineCount, activeTab.pinnedLines);
 
-    // ── Tab bar (horizontal scrollable row) ──
-    let tabsHTML = tabs.map(t => {
+    // Sort: pinned tabs first
+    const sortedTabs = [...tabs].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
+    // Tab bar
+    let tabsHTML = sortedTabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
-        return `<button class="nt-tab ${isActive ? 'active' : ''}" data-tab="${t.id}">
-            <span class="nt-tab-title" data-tab="${t.id}">${t.title}</span>
+        const pinIcon = t.pinned ? '<span class="nt-pin-icon">📌</span>' : '';
+        return `<button class="nt-tab ${isActive ? 'active' : ''} ${t.pinned ? 'nt-pinned' : ''}" data-tab="${t.id}">
+            ${pinIcon}<span class="nt-tab-title" data-tab="${t.id}">${t.title}</span>
             ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
         </button>`;
     }).join('');
     tabsHTML += `<button class="nt-new-tab" id="nt-new-tab" title="New tab">+</button>`;
 
-    // ── Helper: count cards (lines matching 13-19 digit numbers) ──
     const _countCards = (content) => {
         if (!content) return 0;
         const plain = content.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div><div/gi, '\n').replace(/<[^>]+>/g, '');
@@ -6455,6 +6575,8 @@ function renderNotes() {
                     ${tabsHTML}
                 </div>
                 <div class="nt-toolbar-right">
+                    <button class="nt-tool-btn" id="notes-pin-btn" title="Pin/Unpin tab">📌 PIN</button>
+                    <button class="nt-tool-btn" id="notes-rename-btn" title="Rename tab">RENAME</button>
                     <button class="nt-tool-btn" id="notes-clear-btn" title="Clear current tab">CLEAR</button>
                     <button class="nt-tool-btn" id="notes-save-btn">SAVE</button>
                 </div>
@@ -6520,8 +6642,34 @@ function renderNotes() {
     };
     document.getElementById('nt-sidebar-new-btn')?.addEventListener('click', _createNewTab);
 
+    // ── Sidebar: pin tab ──
+    document.querySelectorAll('.nt-sidebar-pin').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tabId = btn.dataset.tab;
+            const tab = STATE.notesTabs.find(t => t.id === tabId);
+            if (tab) { tab.pinned = !tab.pinned; save(); renderNotes(); }
+        });
+    });
 
+    // ── Pin button in toolbar ──
+    document.getElementById('notes-pin-btn')?.addEventListener('click', () => {
+        const tab = _getActiveNoteTab();
+        if (tab) { tab.pinned = !tab.pinned; save(); renderNotes(); }
+    });
 
+    // ── Rename button in toolbar ──
+    document.getElementById('notes-rename-btn')?.addEventListener('click', () => {
+        _ntStartRename(STATE.notesActiveTab);
+    });
+
+    // ── Double-click tab title to rename ──
+    area.querySelectorAll('.nt-tab-title').forEach(el => {
+        el.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            _ntStartRename(el.dataset.tab);
+        });
+    });
 
     // ── Set initial content into editor AFTER HTML is in DOM ──
     const editor = document.getElementById('notes-editor');
@@ -7001,7 +7149,7 @@ function renderPageTitle() {
     }
 
     // Show/hide buttons
-    const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'minic-bins'].includes(STATE.currentView);
+    const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'minic-bins', 'global-docs', 'docs'].includes(STATE.currentView);
 
     const addCardBtn = document.getElementById('add-card-btn');
     if (addCardBtn) addCardBtn.style.display = showAdd ? 'flex' : 'none';
