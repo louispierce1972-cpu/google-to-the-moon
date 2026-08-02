@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -939,7 +939,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins', 'global-docs', 'docs'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins', 'global-docs', 'docs', 'generator-view'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -3977,26 +3977,10 @@ function _renderGenerator() {
     bar.style.display = 'none';
     bar.innerHTML = '';
     const gen = _CK.generator;
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', 'cc-glue': '🃏', generator: '📄' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', 'cc-glue': 'CC Glue', generator: 'Generator' };
     const prefectures = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi','Hokkaido','Fukuoka','Hyogo','Kyoto','Shizuoka','Hiroshima','Miyagi','Niigata','Nagano'];
 
     area.innerHTML = `
     <div class="ck-container">
-        <div class="ck-header">
-            <div class="ck-title">
-                <span class="ck-icon">📄</span>
-                <span>BILL GENERATOR</span>
-            </div>
-            <div class="ck-modes">
-                ${Object.keys(modeIcons).map(m => `
-                    <button class="ck-mode-btn ${_CK.mode === m ? 'active' : ''}" data-mode="${m}">
-                        <span class="ck-mode-icon">${modeIcons[m]}</span>
-                        <span class="ck-mode-label">${modeLabels[m]}</span>
-                    </button>
-                `).join('')}
-            </div>
-        </div>
 
         <div class="ck-proto-bar">
             <span class="ck-proto-label">Type:</span>
@@ -4039,9 +4023,6 @@ function _renderGenerator() {
     </div>`;
 
     // Bind events
-    area.querySelectorAll('.ck-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => { _CK.mode = btn.dataset.mode; _updateSubHashSilent(); if (_CK.mode === 'glue') _renderGlue(); else if (_CK.mode === 'cc-glue') _renderCCGlue(); else if (_CK.mode === 'generator') _renderGenerator(); else renderChecker(); });
-    });
     area.querySelectorAll('[data-billtype]').forEach(btn => {
         btn.addEventListener('click', () => { gen.type = btn.dataset.billtype; gen.billData = null; _updateSubHashSilent(); _renderGenerator(); });
     });
@@ -4144,20 +4125,16 @@ function _renderGenerator() {
 }
 
 function renderChecker() {
-    // Route to GLUE renderer if in glue mode
-    if (_CK.mode === 'glue') { _renderGlue(); return; }
-    // Route to CC-GLUE renderer
-    if (_CK.mode === 'cc-glue') { _renderCCGlue(); return; }
-    // Route to GENERATOR renderer
-    if (_CK.mode === 'generator') { _renderGenerator(); return; }
+    // Redirect old modes to valid defaults
+    if (['glue', 'cc-glue', 'generator', 'ip', 'auto'].includes(_CK.mode)) { _CK.mode = 'proxy'; }
 
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.style.display = 'none';
     bar.innerHTML = '';
 
-    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', 'cc-glue': '🃏', generator: '📄' };
-    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', 'cc-glue': 'CC Glue', generator: 'Generator' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card' };
     const modePlaceholders = {
         proxy: 'Paste any text containing proxies — they will be extracted automatically\n\nSupported formats:\n• user:pass@host:port\n• host:port:user:pass\n• user:pass:host:port\n• protocol://user:pass@host:port\n• host:port\n• IP:PORT from logs, JSON, HTML\n\nGarbage text is ignored automatically',
         bin: 'Paste any text — BINs will be extracted automatically\n\n4242424242424242|11|26|777\nCard: 5326 1023 4355 9988\nCC: 4111111111111111 Exp: 05/26 CVV: 456\nRandom log text with 5454781003037335...\n\nAll formats supported • Duplicates removed\nOutput: /bin 424242',
@@ -5274,6 +5251,12 @@ function renderContent() {
     }
     if (STATE.currentView === 'minic-bins') {
         renderMinicBins();
+        footer.style.display = 'none';
+        return;
+    }
+    if (STATE.currentView === 'generator-view') {
+        _CK.mode = 'generator';
+        _renderGenerator();
         footer.style.display = 'none';
         return;
     }
@@ -7149,7 +7132,7 @@ function renderPageTitle() {
     }
 
     // Show/hide buttons
-    const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'minic-bins', 'global-docs', 'docs'].includes(STATE.currentView);
+    const showAdd = ['cards', 'my-card', 'ready-to-work', 'all-cards', 'minic-bins', 'global-docs', 'docs', 'generator-view'].includes(STATE.currentView);
 
     const addCardBtn = document.getElementById('add-card-btn');
     if (addCardBtn) addCardBtn.style.display = showAdd ? 'flex' : 'none';
@@ -7239,13 +7222,14 @@ const HASH_TO_VIEW = {
     'domain':        'domain',
     'bin-tester':    'bin-tester',
     'minic':         'minic-bins',
+    'generator':     'generator-view',
 };
 const VIEW_TO_HASH = Object.fromEntries(
     Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
 );
 
 // Valid checker sub-modes that map to _CK.mode
-const CHECKER_SUBMODES = ['proxy', 'bin', 'card', 'ip', 'auto', 'glue', 'cc-glue'];
+const CHECKER_SUBMODES = ['proxy', 'bin', 'card'];
 // Valid generator sub-types that map to _CK.generator.type
 const GENERATOR_SUBTYPES = ['tepco', 'water', 'creditcard', 'driverlicense', 'zipprocessor', 'bankstatement', 'cleanname'];
 
