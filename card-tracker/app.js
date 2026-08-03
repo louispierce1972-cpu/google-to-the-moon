@@ -10779,35 +10779,7 @@ function renderParser() {
             ${compareChipHtml ? `<div class="pz-chips">${compareChipHtml}</div>` : ''}
         </div>
 
-        <!-- STAGE 3: BIN DATABASE — collect BIN→Bank mapping -->
-        <div class="pz-stage pz-stage-3">
-            <div class="pz-stage-header" style="cursor:pointer" id="pz-bindb-toggle">
-                <span class="pz-stage-num">3</span>
-                <span class="pz-stage-title">BIN DATABASE</span>
-                <span class="pz-stage-hint">Collect BIN → Bank from logs</span>
-                <span class="pz-bins-badge pz-bindb-badge" id="pz-bindb-badge" style="display:none"></span>
-                <span id="pz-bindb-arrow" style="margin-left:auto;font-size:12px;color:var(--text-dim)">▼</span>
-            </div>
-            <div id="pz-bindb-body" style="display:none">
-                <div class="pz-upload-single" style="margin-bottom:10px">
-                    <div class="pz-drop-zone pz-drop-bindb" id="pz-bindb-drop" style="padding:14px;min-height:auto">
-                        <input type="file" id="pz-bindb-input" accept=".json" multiple hidden>
-                        <span class="pz-drop-text">Drop result.json or click to add BINs</span>
-                        <span class="pz-drop-hint">Extracts BIN + Bank from 🏦 Bank: lines</span>
-                    </div>
-                </div>
-                <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-                    <button class="pz-btn pz-btn-dim" id="pz-bindb-from-parsed" style="font-size:11px;padding:4px 10px" title="Add BINs from current parsed results">📥 FROM PARSED</button>
-                    <button class="pz-btn pz-btn-dim" id="pz-bindb-export-mini" style="font-size:11px;padding:4px 10px;color:#22c55e" title="Export all BINs to Mini page">🚀 TO MINI</button>
-                    <button class="pz-btn pz-btn-dim" id="pz-bindb-download-json" style="font-size:11px;padding:4px 10px">💾 JSON</button>
-                    <button class="pz-btn pz-btn-dim" id="pz-bindb-download-csv" style="font-size:11px;padding:4px 10px">📄 CSV</button>
-                    <span style="flex:1"></span>
-                    <button class="pz-btn pz-btn-dim" id="pz-bindb-clear" style="font-size:11px;padding:4px 10px;color:#f87171">🗑 CLEAR</button>
-                </div>
-                <div id="pz-bindb-stats" style="font-size:11px;color:var(--text-muted);margin-bottom:8px"></div>
-                <div id="pz-bindb-table" style="max-height:400px;overflow-y:auto"></div>
-            </div>
-        </div>
+
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
@@ -10854,128 +10826,7 @@ function renderParser() {
         _removeCompare();
     });
 
-    // ── BIN DATABASE ──
-    const bindbToggle = document.getElementById('pz-bindb-toggle');
-    const bindbBody = document.getElementById('pz-bindb-body');
-    const bindbArrow = document.getElementById('pz-bindb-arrow');
-    if (bindbToggle && bindbBody) {
-        bindbToggle.addEventListener('click', () => {
-            const open = bindbBody.style.display !== 'none';
-            bindbBody.style.display = open ? 'none' : 'block';
-            if (bindbArrow) bindbArrow.textContent = open ? '▼' : '▲';
-            if (!open) _renderBinDb();
-        });
-    }
-    const bindbDrop = document.getElementById('pz-bindb-drop');
-    const bindbInput = document.getElementById('pz-bindb-input');
-    if (bindbDrop && bindbInput) {
-        bindbDrop.addEventListener('click', () => bindbInput.click());
-        bindbDrop.addEventListener('dragover', (e) => { e.preventDefault(); bindbDrop.classList.add('drag-over'); });
-        bindbDrop.addEventListener('dragleave', () => bindbDrop.classList.remove('drag-over'));
-        bindbDrop.addEventListener('drop', (e) => { e.preventDefault(); bindbDrop.classList.remove('drag-over'); [...e.dataTransfer.files].forEach(f => _binDbLoadFile(f)); });
-        bindbInput.addEventListener('change', () => { [...bindbInput.files].forEach(f => _binDbLoadFile(f)); bindbInput.value = ''; });
-    }
-    // FROM PARSED — add BINs from current parsed cards
-    document.getElementById('pz-bindb-from-parsed')?.addEventListener('click', async () => {
-        if (!PARSER_STATE.collected.length) { toast('No parsed cards to extract BINs from', 'warning'); return; }
-        const db = _loadBinDb();
-        let added = 0, skipped = 0, resolved = 0;
-        const unknownBins = [];
-        
-        for (const c of PARSER_STATE.collected) {
-            const bin = (c.bin || (c.cc || '').substring(0, 6));
-            if (!bin || bin.length < 4) continue;
-            if (_isTestBin(bin)) { skipped++; continue; }
-            
-            let bank = c.bank || '';
-            const country = c.bankCountryCode || c.countryCode || '';
-            const isUnknown = !bank || /^unknown/i.test(bank);
-            
-            if (isUnknown) {
-                const existingBank = _findBankInDb(db, bin);
-                if (existingBank) { bank = existingBank; resolved++; }
-                else {
-                    const cached = BIN_CACHE[bin];
-                    if (cached && cached.bank && !cached.error) { bank = cached.bank; resolved++; }
-                    else { unknownBins.push({ bin, country }); continue; }
-                }
-            }
-            
-            if (bank && !(/^unknown/i.test(bank))) {
-                if (_addBinToDb(db, bank, bin, country)) { added++; }
-            }
-        }
-        
-        // API lookup for unknowns
-        const uniqueUnknown = [...new Map(unknownBins.map(u => [u.bin, u])).values()].slice(0, 30);
-        if (uniqueUnknown.length > 0) {
-            toast(`Looking up ${uniqueUnknown.length} unknown BINs...`, 'info');
-            for (const u of uniqueUnknown) {
-                try {
-                    const info = await lookupBin(u.bin);
-                    if (info && info.bank && !info.error) {
-                        if (_addBinToDb(db, info.bank, u.bin, info.country || u.country)) { added++; resolved++; }
-                    }
-                } catch { }
-            }
-        }
-        
-        _saveBinDb(db);
-        _renderBinDb();
-        _updateBinDbBadge();
-        let msg = `+${added} BINs from parsed`;
-        if (resolved > 0) msg += `, ${resolved} resolved`;
-        if (skipped > 0) msg += `, ${skipped} test skipped`;
-        toast(msg, 'success');
-    });
-    // Download JSON
-    document.getElementById('pz-bindb-export-mini')?.addEventListener('click', () => {
-        _parserExportToMini();
-    });
-    document.getElementById('pz-bindb-download-json')?.addEventListener('click', () => {
-        const db = _loadBinDb();
-        const totalBins = Object.values(db).reduce((s, arr) => s + _getBinsFromEntry(arr).length, 0);
-        if (totalBins === 0) { toast('BIN database is empty', 'warning'); return; }
-        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `bin-database-${totalBins}bins.json`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        toast(`Downloaded ${totalBins} BINs as JSON`, 'success');
-    });
-    // Download CSV
-    document.getElementById('pz-bindb-download-csv')?.addEventListener('click', () => {
-        const db = _loadBinDb();
-        const totalBins = Object.values(db).reduce((s, arr) => s + _getBinsFromEntry(arr).length, 0);
-        if (totalBins === 0) { toast('BIN database is empty', 'warning'); return; }
-        let csv = 'BIN,Bank,Country\n';
-        Object.entries(db).sort((a, b) => _getBinsFromEntry(b[1]).length - _getBinsFromEntry(a[1]).length).forEach(([bank, data]) => {
-            if (Array.isArray(data)) {
-                data.forEach(item => {
-                    const bin = typeof item === 'string' ? item : (item.bin || '');
-                    const country = typeof item === 'object' ? (item.country || '') : '';
-                    csv += `${bin},"${bank}","${country}"\n`;
-                });
-            }
-        });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `bin-database-${totalBins}bins.csv`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        toast(`Downloaded ${totalBins} BINs as CSV`, 'success');
-    });
-    // Clear
-    document.getElementById('pz-bindb-clear')?.addEventListener('click', () => {
-        if (!confirm('Clear entire BIN database?')) return;
-        localStorage.removeItem('ct_bin_database');
-        _renderBinDb();
-        _updateBinDbBadge();
-        toast('BIN database cleared', 'info');
-    });
-    _updateBinDbBadge();
+
 
     // ── PARSE & CLEAN / CLEAR ──
     document.getElementById('parser-parse-btn').addEventListener('click', runParse);
@@ -12897,6 +12748,7 @@ function renderValidCardsResults() {
         <div class="vc-export-bar">
             <button class="pz-btn pz-btn-primary vc-export-btn" id="vc-export-all">📝 EXPORT ALL TO NOTES</button>
             <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-export-selected">📝 EXPORT SELECTED TO NOTES</button>
+            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-export-minic" style="color:#22c55e;border-color:rgba(34,197,94,.25)">🚀 EXPORT TO MINIC</button>
             <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-all">📋 COPY ALL</button>
             <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-selected">📋 COPY SELECTED</button>
         </div>
@@ -13000,6 +12852,35 @@ function renderValidCardsResults() {
         const hasManual = list.length < displayCards.length;
         const title = hasManual ? `VALID — ${list.length} selected` : `VALID — ${selCodes}`;
         exportToNotes(list, title);
+    });
+
+    // EXPORT TO MINIC
+    document.getElementById('vc-export-minic')?.addEventListener('click', () => {
+        const cards = displayCards;
+        if (cards.length === 0) { toast('No cards to export', 'warning'); return; }
+        const binSet = new Set();
+        cards.forEach(c => {
+            const bin = (c.bin || (c.cc || '').substring(0, 6));
+            if (bin && bin.length >= 6) binSet.add(bin.substring(0, 6));
+        });
+        if (binSet.size === 0) { toast('No BINs found', 'warning'); return; }
+        const tabId = 'mctab_' + Date.now();
+        const selCodes = selectedCountries.size > 0 ? [...selectedCountries].join(', ') : 'ALL';
+        const tabName = 'Parse ' + selCodes + ' ' + todayStr();
+        if (!STATE.minicTabs) STATE.minicTabs = [{id:'main',name:'Main'}];
+        STATE.minicTabs.push({ id: tabId, name: tabName });
+        const existing = new Set((STATE.minicBins || []).map(b => b.bin + '|' + (b.tab || 'main')));
+        let added = 0;
+        binSet.forEach(bin => {
+            const key = bin + '|' + tabId;
+            if (existing.has(key)) return;
+            STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr(), tab: tabId });
+            existing.add(key); added++;
+        });
+        STATE.minicActiveTab = tabId;
+        save();
+        toast(added + ' BINs \u2192 "' + tabName + '"', 'success');
+        binSet.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => {}); });
     });
 
     // COPY ALL
