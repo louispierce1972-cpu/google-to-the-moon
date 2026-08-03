@@ -5926,8 +5926,8 @@ function renderMinicBins() {
             ? '<span class="mc-tag-badge" style="background:'+tag.color+'">'+tag.name+'</span>'
             : '<span class="mc-tag-badge mc-tag-pending">PENDING</span>';
 
-        rowsHtml += '<tr class="mc-row" data-idx="'+realIdx+'" oncontextmenu="event.preventDefault();_mcCtx(event,'+realIdx+')">'
-            + '<td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="mc-'+realIdx+'" onchange="toggleCardSelect(\'mc-'+realIdx+'\',this.checked)"></label></td>'
+        rowsHtml += '<tr class="mc-row" data-idx="'+realIdx+'" data-id="mc-'+realIdx+'" oncontextmenu="event.preventDefault();_mcCtx(event,'+realIdx+')">'
+            + '<td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="mc-'+realIdx+'" onchange="toggleCardSelect(this.dataset.cardId,this.checked)"></label></td>'
             + '<td class="mc-idx">'+(realIdx+1)+'</td>'
             + '<td class="mc-bin">'+flag+' <span class="bv-bn">'+b.bin+'</span> '+brandHtml+'</td>'
             + '<td class="mc-bank">'+bank+'</td>'
