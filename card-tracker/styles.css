@@ -30121,7 +30121,7 @@ tr.row-selected td {
 .nctx-sort-valid{color:#4ade80}
 .nctx-sort-valid:hover{background:rgba(74,222,128,.12);color:#86efac}
 /* ===========================================
-   BIN VIEW ó Workspace Redesign (Screenshot Match)
+   BIN VIEW ÔøΩ Workspace Redesign (Screenshot Match)
    =========================================== */
 
 /* Stats bar pills */
@@ -30160,7 +30160,7 @@ tr.row-selected td {
 .bv-arrow { color: #636780; font-size: 11px; }
 .bv-bin-row.bv-expanded .bv-arrow { color: #a0a4b8; }
 
-/* Main cell ó BIN info */
+/* Main cell ÔøΩ BIN info */
 .bv-main-cell { padding: 10px 12px; }
 .bv-bin-info { display: flex; align-items: center; gap: 8px; }
 .bv-bin-num {
@@ -30241,7 +30241,7 @@ tr.row-selected td {
 }
 
 /* ===========================================
-   BIN View ó Import Panel + Sort Buttons
+   BIN View ÔøΩ Import Panel + Sort Buttons
    =========================================== */
 
 /* Sort buttons */
@@ -30314,7 +30314,7 @@ tr.row-selected td {
 }
 
 /* ===========================================
-   BIN View ó Country Filter Tabs
+   BIN View ÔøΩ Country Filter Tabs
    =========================================== */
 .bv-country-tabs {
     display: flex; flex-wrap: wrap; gap: 6px;
@@ -30346,7 +30346,7 @@ tr.row-selected td {
 .bv-flag .cx-flag-img { width: 16px; height: 12px; }
 
 /* ===========================================
-   BIN View v2 ó Compact Notepad-style
+   BIN View v2 ÔøΩ Compact Notepad-style
    =========================================== */
 
 /* Top bar */
@@ -30408,7 +30408,7 @@ tr.row-selected td {
 .bv-cc { font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; padding:1px 5px; border-radius:2px; background:rgba(255,255,255,0.03); }
 .bv-bk { font-size:9px; color:#3a3e52; text-transform:uppercase; letter-spacing:0.3px; margin-top:1px; line-height:1; }
 
-/* Status ó compact tiny letters */
+/* Status ÔøΩ compact tiny letters */
 .bv-sc { padding:5px 6px; white-space:nowrap; width:70px; }
 .bv-s { font-size:9px; font-weight:700; padding:1px 4px; border-radius:2px; margin-right:2px; letter-spacing:0.3px; }
 .bv-sa { color:#22c55e; background:rgba(34,197,94,0.12); }
@@ -30437,12 +30437,12 @@ tr.row-selected td {
 .bv-bi .cx-brand { font-size:8px; padding:1px 4px; border-radius:2px; }
 
 /* ===========================================
-   Status v2 ó M (mini-code), D (decline), toggles
+   Status v2 ÔøΩ M (mini-code), D (decline), toggles
    =========================================== */
 .bv-sm { color:#f59e0b; background:rgba(245,158,11,0.12); }
 .bv-sd { color:#6366f1; background:rgba(99,102,241,0.12); }
 
-/* Off state ó faded, clickable */
+/* Off state ÔøΩ faded, clickable */
 .bv-off { opacity:0.2; }
 .bv-off:hover { opacity:0.5; }
 
@@ -30455,7 +30455,7 @@ tr.row-selected td {
 .bv-st-pill b { font-size:11px; }
 
 /* ===========================================
-   BV ó Bulk Actions, Context Menu, Status Filter
+   BV ÔøΩ Bulk Actions, Context Menu, Status Filter
    =========================================== */
 
 /* Reset all button */
@@ -30509,7 +30509,7 @@ tr.row-selected td {
 .bv-ctx-item:hover { background:rgba(59,130,246,0.12); color:#e2e4ea; }
 
 /* ===========================================
-   BV ó Edit Modal + Duplicate Badge
+   BV ÔøΩ Edit Modal + Duplicate Badge
    =========================================== */
 
 /* Duplicate badge */
@@ -30568,7 +30568,7 @@ tr.row-selected td {
 .bv-edit-cancel:hover { color:#a0a4b8; }
 
 /* ===========================================
-   STATUS OVERRIDE ó All gray, active = green
+   STATUS OVERRIDE ÔøΩ All gray, active = green
    =========================================== */
 .bv-s.bv-sa, .bv-s.bv-sr, .bv-s.bv-sv, .bv-s.bv-sm, .bv-s.bv-sd {
     color: #22c55e !important;
@@ -30584,16 +30584,16 @@ tr.row-selected td {
     background: rgba(255,255,255,0.06) !important;
 }
 
-/* Top bar status pills ó same rule */
+/* Top bar status pills ÔøΩ same rule */
 .bv-st-pill .bv-s { color: #22c55e !important; background: rgba(34,197,94,0.12) !important; }
 
-/* BIN group row status (aggregated) ó green */
+/* BIN group row status (aggregated) ÔøΩ green */
 .bv-bin-row .bv-sc .bv-s {
     color: #22c55e !important;
     background: rgba(34,197,94,0.12) !important;
 }
 
-/* -- BIN row arrow ó bigger, clearer -- */
+/* -- BIN row arrow ÔøΩ bigger, clearer -- */
 .bv-arrow {
     font-size: 14px !important;
     color: #636780 !important;
@@ -30604,7 +30604,7 @@ tr.row-selected td {
 .bv-expanded .bv-arrow { color: #60a5fa !important; transform: rotate(0deg); }
 
 /* ===========================================
-   BV ó Confirm Dialog + Amount + Clone
+   BV ÔøΩ Confirm Dialog + Amount + Clone
    =========================================== */
 .bv-confirm-box { text-align:center; min-width:260px; }
 .bv-confirm-msg { font-size:13px; color:#d0d4e4; margin-bottom:16px; line-height:1.5; }
@@ -30619,7 +30619,7 @@ tr.row-selected td {
 }
 
 /* ===========================================
-   MINIC BINS ó Google payment tracker
+   MINIC BINS ÔøΩ Google payment tracker
    =========================================== */
 .mc-table { border-collapse:collapse; }
 .mc-row { border-bottom:1px solid rgba(255,255,255,0.03); transition:background 0.1s; }
@@ -30638,7 +30638,7 @@ tr.row-selected td {
 .mc-date { padding:6px 8px; color:#3a3e52; font-size:11px; font-family:'JetBrains Mono',monospace; width:75px; }
 
 /* ===========================================
-   DOCUMENTS ó Unified card-style records
+   DOCUMENTS ÔøΩ Unified card-style records
    =========================================== */
 .dc-list { padding:4px 8px; }
 .dc-empty { text-align:center; color:#3a3e52; padding:40px; font-size:13px; }
@@ -30694,7 +30694,7 @@ tr.row-selected td {
 .dc-btn-del:hover { background:rgba(239,68,68,0.08); }
 
 /* ===========================================
-   NOTES ó Pin + Rename enhancements
+   NOTES ÔøΩ Pin + Rename enhancements
    =========================================== */
 .nt-pin-icon { font-size:10px; margin-right:2px; }
 .nt-tab.nt-pinned { border-color:rgba(245,158,11,0.2) !important; }
@@ -30708,7 +30708,7 @@ tr.row-selected td {
 .nt-sidebar-pin.active { opacity:1; }
 
 /* ===========================================================
-   UNIFIED COMPACT DESIGN ó Notes-style across ALL tabs
+   UNIFIED COMPACT DESIGN ÔøΩ Notes-style across ALL tabs
    Monospace font, small sizes, tight padding, max density
    =========================================================== */
 
@@ -30808,7 +30808,7 @@ body, .app, input, select, button, textarea {
     padding: 2px 5px !important;
 }
 
-/* -- Top bars (bv-bar, bv-pill) ó all sections -- */
+/* -- Top bars (bv-bar, bv-pill) ÔøΩ all sections -- */
 .bv-bar {
     padding: 3px 8px !important;
     gap: 4px !important;
@@ -31135,3 +31135,25 @@ tr.row-selected td {
 /* -- Remove old sidebar close/pin buttons -- */
 .nt-sidebar-item-close,
 .nt-sidebar-pin { display: none !important; }
+
+/* ‚ïê‚ïê Mini Tags System ‚ïê‚ïê */
+.mc-tag-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.mc-filter-pill { cursor:pointer; transition:all .15s; border:1px solid transparent; }
+.mc-filter-pill:hover { opacity:.85; }
+.mc-pill-active { background:rgba(255,255,255,.08) !important; border-color:rgba(255,255,255,.2) !important; }
+.mc-tag-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
+.mc-new-tag-btn { font-size:11px !important; padding:3px 10px !important; }
+.mc-tag-badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:10px; font-weight:600; color:#fff; letter-spacing:.3px; }
+.mc-tag-pending { background:#475569; color:#94a3b8; }
+.mc-tag-click { cursor:pointer; user-select:none; }
+.mc-tag-click:hover { opacity:.8; }
+.mc-tag-dd { position:fixed; z-index:9999; background:#1e2030; border:1px solid #2d3150; border-radius:6px; min-width:140px; padding:4px 0; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+.mc-dd-item { padding:6px 14px; font-size:12px; cursor:pointer; color:#e2e8f0; display:flex; align-items:center; gap:6px; }
+.mc-dd-item:hover { background:rgba(255,255,255,.06); }
+.mc-dd-pending { color:#94a3b8; }
+.mc-dd-new { color:#22c55e; font-weight:600; }
+.mc-dd-sep { border-top:1px solid #2d3150; margin:3px 0; }
+.mc-color-row { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+.mc-color-opt { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:all .15s; }
+.mc-color-opt:hover { transform:scale(1.15); }
+.mc-color-opt.mc-color-sel { border-color:#fff; transform:scale(1.2); box-shadow:0 0 8px rgba(255,255,255,.3); }

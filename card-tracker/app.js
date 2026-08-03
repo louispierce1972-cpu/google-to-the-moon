@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARD TRACKER — Application Logic
    ═══════════════════════════════════════════ */
 
@@ -28,6 +28,8 @@ const STATE = {
     trashCards: [],
     binNotes: {},
     minicBins: [],
+    minicTags: [],
+    minicTagFilter: 'all',
     docRecords: [],
 
 };
@@ -343,6 +345,7 @@ function save() {
         localStorage.setItem('ct_trash_cards', JSON.stringify(STATE.trashCards || []));
         localStorage.setItem('ct_bin_notes', JSON.stringify(STATE.binNotes || {}));
         localStorage.setItem('ct_minic_bins', JSON.stringify(STATE.minicBins || []));
+        localStorage.setItem('ct_minic_tags', JSON.stringify(STATE.minicTags || []));
         localStorage.setItem('ct_doc_records', JSON.stringify(STATE.docRecords || []));
 
         saveBinCache();
@@ -370,6 +373,8 @@ function load() {
         if (docRecordsRaw) STATE.docRecords = JSON.parse(docRecordsRaw);
         const minicBinsRaw = localStorage.getItem('ct_minic_bins');
         if (minicBinsRaw) STATE.minicBins = JSON.parse(minicBinsRaw);
+        const minicTagsRaw = localStorage.getItem('ct_minic_tags');
+        if (minicTagsRaw) STATE.minicTags = JSON.parse(minicTagsRaw);
         const binNotesRaw = localStorage.getItem('ct_bin_notes');
         if (binNotesRaw) STATE.binNotes = JSON.parse(binNotesRaw);
         // Load parser base
@@ -5846,20 +5851,40 @@ window._bvClearAll = function() {
 
 
 // ═══════════════════════════════════════════
-// MINIC BINS — Google payment BIN tracker
+// MINIC BINS — Google payment BIN tracker (with custom tags)
 // ═══════════════════════════════════════════
+
 function renderMinicBins() {
     const area = document.getElementById('content-area');
     const bins = STATE.minicBins || [];
+    const tags = STATE.minicTags || [];
+    const filter = STATE.minicTagFilter || 'all';
+
+    // Filter bins
+    let filtered = bins;
+    if (filter === 'pending') filtered = bins.filter(b => !b.tag);
+    else if (filter !== 'all') filtered = bins.filter(b => b.tag === filter);
 
     // Stats
     const total = bins.length;
-    const passed = bins.filter(b => b.status === 'pass').length;
-    const failed = bins.filter(b => b.status === 'fail').length;
-    const pending = bins.filter(b => !b.status || b.status === 'pending').length;
+    const pending = bins.filter(b => !b.tag).length;
+    const tagCounts = {};
+    tags.forEach(t => { tagCounts[t.id] = bins.filter(b => b.tag === t.id).length; });
+
+    // Tag filter pills
+    let filterHtml = '<span class="bv-pill mc-filter-pill '+(filter==='all'?'mc-pill-active':'')+'" onclick="_mcFilter(\'all\')">ALL <b>'+total+'</b></span>';
+    filterHtml += '<span class="bv-pill mc-filter-pill '+(filter==='pending'?'mc-pill-active':'')+'" onclick="_mcFilter(\'pending\')">PENDING <b>'+pending+'</b></span>';
+    tags.forEach(t => {
+        const cnt = tagCounts[t.id] || 0;
+        const active = filter === t.id ? 'mc-pill-active' : '';
+        filterHtml += '<span class="bv-pill mc-filter-pill '+active+'" style="border-color:'+(t.color||'#666')+'" onclick="_mcFilter(\''+t.id+'\')">'
+            + '<span class="mc-tag-dot" style="background:'+(t.color||'#666')+'"></span> '+t.name+' <b>'+cnt+'</b></span>';
+    });
+    filterHtml += '<button class="bv-ib mc-new-tag-btn" onclick="_mcNewTagModal()">+ New Tag</button>';
 
     let rowsHtml = '';
-    bins.forEach((b, i) => {
+    filtered.forEach((b, fi) => {
+        const realIdx = bins.indexOf(b);
         const cached = BIN_CACHE[b.bin] || {};
         const bank = cached.bank || '';
         const brand = cached.brand || _brandByDigit(b.bin) || '';
@@ -5867,29 +5892,26 @@ function renderMinicBins() {
         const flag = cc ? isoToFlag(cc) : '';
         const brandHtml = brand ? _brandIconGlobal(brand, b.bin + '0000000000') : '';
 
-        const passActive = b.status === 'pass' ? '' : 'bv-off';
-        const failActive = b.status === 'fail' ? '' : 'bv-off';
+        const tag = tags.find(t => t.id === b.tag);
+        const tagHtml = tag
+            ? '<span class="mc-tag-badge" style="background:'+tag.color+'">'+tag.name+'</span>'
+            : '<span class="mc-tag-badge mc-tag-pending">PENDING</span>';
 
-        rowsHtml += `<tr class="mc-row ${_selectedCards.has(b.id || 'mc-'+i) ? 'row-selected' : ''}" data-idx="${i}" data-id="${b.id || 'mc-'+i}" onclick="_uniRowClick(event,b.id||'mc-'+i,'minic')" oncontextmenu="event.preventDefault();_mcCtx(event,${i})">
-            <td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${b.id || 'mc-'+i}" ${_selectedCards.has(b.id||'mc-'+i) ? 'checked' : ''} onchange="toggleCardSelect('${b.id||'mc-'+i}',this.checked)"></label></td><td class="mc-idx">${i + 1}</td>
-            <td class="mc-bin">${flag} <span class="bv-bn">${b.bin}</span> ${brandHtml}</td>
-            <td class="mc-bank">${bank}</td>
-            <td class="mc-status">
-                <span class="bv-s bv-sa ${passActive}" onclick="_mcSetStatus(${i},'pass')" title="Pass">&#10003;</span>
-                <span class="bv-s bv-sd ${failActive}" onclick="_mcSetStatus(${i},'fail')" title="Fail">&#10007;</span>
-            </td>
-            <td class="mc-amt">${b.amount ? '$' + b.amount : '\u2014'}</td>
-            <td class="mc-note"><input class="bv-ni" type="text" value="${(b.note||'').replace(/"/g,'&quot;')}" placeholder="\u2014" onchange="_mcNote(${i},this.value)"></td>
-            <td class="mc-date">${b.date || '\u2014'}</td>
-        </tr>`;
+        rowsHtml += '<tr class="mc-row" data-idx="'+realIdx+'" oncontextmenu="event.preventDefault();_mcCtx(event,'+realIdx+')">'
+            + '<td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="mc-'+realIdx+'" onchange="toggleCardSelect(\'mc-'+realIdx+'\',this.checked)"></label></td>'
+            + '<td class="mc-idx">'+(realIdx+1)+'</td>'
+            + '<td class="mc-bin">'+flag+' <span class="bv-bn">'+b.bin+'</span> '+brandHtml+'</td>'
+            + '<td class="mc-bank">'+bank+'</td>'
+            + '<td class="mc-status"><span class="mc-tag-click" onclick="_mcTagMenu(event,'+realIdx+')">'+tagHtml+' ▾</span></td>'
+            + '<td class="mc-amt">'+(b.amount ? '$'+b.amount : '\u2014')+'</td>'
+            + '<td class="mc-note"><input class="bv-ni" type="text" value="'+((b.note||'').replace(/"/g,'&quot;'))+'" placeholder="\u2014" onchange="_mcNote('+realIdx+',this.value)"></td>'
+            + '<td class="mc-date">'+(b.date || '\u2014')+'</td>'
+            + '</tr>';
     });
 
     area.innerHTML = `
+        <div class="bv-bar mc-tag-bar">${filterHtml}</div>
         <div class="bv-bar">
-            <span class="bv-pill">TOTAL <b>${total}</b></span>
-            <span class="bv-pill"><span class="bv-s bv-sa">&#10003;</span> <b>${passed}</b></span>
-            <span class="bv-pill"><span class="bv-s bv-sd">&#10007;</span> <b>${failed}</b></span>
-            <span class="bv-pill">PENDING <b>${pending}</b></span>
             <button class="bv-ib" onclick="_mcOpenAdd()">+ Add BINs</button>
         </div>
         <div id="mc-add-panel" class="bv-ip" style="display:none">
@@ -5905,7 +5927,7 @@ function renderMinicBins() {
                 <th style="width:24px"><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th><th style="width:30px">#</th>
                 <th>BIN</th>
                 <th>BANK</th>
-                <th>STATUS</th>
+                <th>TAG</th>
                 <th>AMOUNT</th>
                 <th>NOTE</th>
                 <th>DATE</th>
@@ -5913,7 +5935,14 @@ function renderMinicBins() {
             <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#3a3e52;padding:30px">No BINs added yet</td></tr>'}</tbody>
         </table>`;
 
-    // Context menu container
+    // Tag dropdown menu container
+    if (!document.getElementById('mc-tag-dropdown')) {
+        const dd = document.createElement('div');
+        dd.id = 'mc-tag-dropdown'; dd.className = 'mc-tag-dd'; dd.style.display = 'none';
+        document.body.appendChild(dd);
+        document.addEventListener('click', () => { dd.style.display = 'none'; });
+    }
+    // Context menu
     if (!document.getElementById('bv-ctx-menu')) {
         const ctx = document.createElement('div');
         ctx.id = 'bv-ctx-menu'; ctx.className = 'bv-ctx'; ctx.style.display = 'none';
@@ -5921,74 +5950,140 @@ function renderMinicBins() {
         document.addEventListener('click', () => ctx.style.display = 'none');
     }
 
-    // Auto-count on input
     const ta = document.getElementById('mc-add-text');
     if (ta) ta.addEventListener('input', () => {
         const lines = ta.value.split('\n').map(l => l.trim().replace(/\D/g, '')).filter(l => l.length >= 6);
         document.getElementById('mc-add-count').textContent = lines.length + ' BINs';
     });
 
-    renderFooter(total, 1, 1);
+    renderFooter(filtered.length, 1, 1);
 }
 
-// Minic — open add panel
+// ── Tag filter ──
+window._mcFilter = function(f) {
+    STATE.minicTagFilter = f;
+    renderMinicBins();
+};
+
+// ── Tag dropdown on click ──
+window._mcTagMenu = function(e, idx) {
+    e.stopPropagation();
+    const dd = document.getElementById('mc-tag-dropdown');
+    const tags = STATE.minicTags || [];
+    let html = '<div class="mc-dd-item mc-dd-pending" onclick="_mcSetTag('+idx+',null)">PENDING</div>';
+    tags.forEach(t => {
+        html += '<div class="mc-dd-item" onclick="_mcSetTag('+idx+',\''+t.id+'\')">'
+            + '<span class="mc-tag-dot" style="background:'+t.color+'"></span> '+t.name+'</div>';
+    });
+    html += '<div class="mc-dd-sep"></div><div class="mc-dd-item mc-dd-new" onclick="_mcNewTagModal()">+ New Tag</div>';
+    dd.innerHTML = html;
+    dd.style.display = 'block';
+    dd.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+    dd.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+};
+
+// ── Assign tag ──
+window._mcSetTag = function(idx, tagId) {
+    const b = STATE.minicBins[idx];
+    if (!b) return;
+    b.tag = tagId;
+    document.getElementById('mc-tag-dropdown').style.display = 'none';
+    save(); renderMinicBins();
+};
+
+// ── New tag modal ──
+window._mcNewTagModal = function() {
+    document.getElementById('mc-tag-dropdown').style.display = 'none';
+    const modal = document.getElementById('bv-edit-modal');
+    const colors = ['#22c55e','#ef4444','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316','#64748b'];
+    let colorsHtml = '';
+    colors.forEach(c => {
+        colorsHtml += '<span class="mc-color-opt" data-color="'+c+'" style="background:'+c+'" onclick="_mcPickColor(this)"></span>';
+    });
+    modal.innerHTML = `
+        <div class="bv-edit-box">
+            <div class="bv-edit-title">Create New Tag</div>
+            <label class="bv-edit-lbl">Tag Name</label>
+            <input id="mc-tag-name" class="bv-edit-inp" type="text" placeholder="e.g. 3DS, Dead, Live, No Mini..." maxlength="20">
+            <label class="bv-edit-lbl">Color</label>
+            <div class="mc-color-row" id="mc-color-row">${colorsHtml}</div>
+            <input id="mc-tag-color" type="hidden" value="${colors[0]}">
+            <div class="bv-edit-btns">
+                <button class="bv-edit-save" onclick="_mcSaveNewTag()">Create</button>
+                <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>`;
+    modal.style.display = 'flex';
+    // Pre-select first color
+    setTimeout(() => {
+        const first = document.querySelector('.mc-color-opt');
+        if (first) first.classList.add('mc-color-sel');
+        document.getElementById('mc-tag-name').focus();
+    }, 50);
+};
+
+window._mcPickColor = function(el) {
+    document.querySelectorAll('.mc-color-opt').forEach(e => e.classList.remove('mc-color-sel'));
+    el.classList.add('mc-color-sel');
+    document.getElementById('mc-tag-color').value = el.dataset.color;
+};
+
+window._mcSaveNewTag = function() {
+    const name = document.getElementById('mc-tag-name').value.trim();
+    if (!name) { toast('Enter a tag name', 'error'); return; }
+    const color = document.getElementById('mc-tag-color').value || '#64748b';
+    const id = 'tag_' + Date.now();
+    if (!STATE.minicTags) STATE.minicTags = [];
+    STATE.minicTags.push({ id, name, color });
+    save();
+    document.getElementById('bv-edit-modal').style.display = 'none';
+    renderMinicBins();
+    toast('Tag "'+name+'" created', 'success');
+};
+
+// ── Open add panel ──
 window._mcOpenAdd = function() {
     const p = document.getElementById('mc-add-panel');
     if (p) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; if (p.style.display === 'block') document.getElementById('mc-add-text').focus(); }
 };
 
-// Minic — add BINs from list
+// ── Add BINs ──
 window._mcDoAdd = function() {
     const text = document.getElementById('mc-add-text').value;
     const lines = text.split('\n').map(l => l.trim().replace(/\D/g, '').substring(0, 6)).filter(l => l.length >= 6);
     if (lines.length === 0) { toast('No valid BINs found', 'error'); return; }
-
     const existing = new Set((STATE.minicBins || []).map(b => b.bin));
     let added = 0;
     lines.forEach(bin => {
         if (existing.has(bin)) return;
-        STATE.minicBins.push({ bin, status: 'pending', amount: '', note: '', date: todayStr() });
-        existing.add(bin);
-        added++;
+        STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr() });
+        existing.add(bin); added++;
     });
-
     save();
     document.getElementById('mc-add-text').value = '';
     document.getElementById('mc-add-panel').style.display = 'none';
     renderMinicBins();
-    toast(`${added} BINs added (${lines.length - added} duplicates skipped)`, 'success');
-
-    // Auto-lookup BIN info
+    toast(added+' BINs added ('+(lines.length - added)+' duplicates skipped)', 'success');
     lines.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).then(() => renderMinicBins()); });
 };
 
-// Minic — set status
-window._mcSetStatus = function(idx, status) {
-    const b = STATE.minicBins[idx];
-    if (!b) return;
-    b.status = b.status === status ? 'pending' : status;
-    save(); renderMinicBins();
-};
-
-// Minic — save note
+// ── Note ──
 window._mcNote = function(idx, val) {
     const b = STATE.minicBins[idx];
     if (b) { b.note = val; save(); }
 };
 
-// Minic — right-click context menu
+// ── Context menu ──
 window._mcCtx = function(e, idx) {
     const ctx = document.getElementById('bv-ctx-menu');
-    ctx.innerHTML = `
-        <div class="bv-ctx-item" onclick="_mcEdit(${idx})">&#9998; Edit Amount</div>
-        <div class="bv-ctx-item bv-ctx-danger" onclick="_mcDelete(${idx})">&#x2715; Delete</div>
-    `;
+    ctx.innerHTML = '<div class="bv-ctx-item" onclick="_mcEdit('+idx+')">&#9998; Edit Amount</div>'
+        + '<div class="bv-ctx-item bv-ctx-danger" onclick="_mcDelete('+idx+')">&#x2715; Delete</div>';
     ctx.style.display = 'block';
     ctx.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
     ctx.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
 };
 
-// Minic — edit amount
+// ── Edit amount ──
 window._mcEdit = function(idx) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const b = STATE.minicBins[idx];
@@ -6021,7 +6116,7 @@ window._mcSaveEdit = function(idx) {
     toast('BIN updated', 'success');
 };
 
-// Minic — delete
+// ── Delete ──
 window._mcDelete = function(idx) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     _bvShowConfirm('Delete this BIN?', () => {
@@ -6029,6 +6124,39 @@ window._mcDelete = function(idx) {
         save(); renderMinicBins();
         toast('BIN deleted', 'success');
     });
+};
+
+// ── Export from Parser to Mini ──
+window._parserExportToMini = function() {
+    const db = _loadBinDb();
+    const allBins = [];
+    Object.entries(db).forEach(([bank, data]) => {
+        if (Array.isArray(data)) {
+            data.forEach(item => {
+                const bin = typeof item === 'string' ? item : (item.bin || '');
+                if (bin && bin.length >= 6) allBins.push(bin.substring(0, 6));
+            });
+        }
+    });
+    if (allBins.length === 0) { toast('BIN database is empty', 'warning'); return; }
+    const existing = new Set((STATE.minicBins || []).map(b => b.bin));
+    let added = 0;
+    allBins.forEach(bin => {
+        if (existing.has(bin)) return;
+        STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr() });
+        existing.add(bin); added++;
+    });
+    save();
+    toast(added + ' BINs exported to Mini (' + (allBins.length - added) + ' duplicates skipped)', 'success');
+    allBins.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => {}); });
+};
+
+// ── Minic — legacy status compat ──
+window._mcSetStatus = function(idx, status) {
+    const b = STATE.minicBins[idx];
+    if (!b) return;
+    b.status = b.status === status ? 'pending' : status;
+    save(); renderMinicBins();
 };
 
 
@@ -10516,6 +10644,7 @@ function renderParser() {
                 </div>
                 <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
                     <button class="pz-btn pz-btn-dim" id="pz-bindb-from-parsed" style="font-size:11px;padding:4px 10px" title="Add BINs from current parsed results">📥 FROM PARSED</button>
+                    <button class="pz-btn pz-btn-dim" id="pz-bindb-export-mini" style="font-size:11px;padding:4px 10px;color:#22c55e" title="Export all BINs to Mini page">🚀 TO MINI</button>
                     <button class="pz-btn pz-btn-dim" id="pz-bindb-download-json" style="font-size:11px;padding:4px 10px">💾 JSON</button>
                     <button class="pz-btn pz-btn-dim" id="pz-bindb-download-csv" style="font-size:11px;padding:4px 10px">📄 CSV</button>
                     <span style="flex:1"></span>
@@ -10646,6 +10775,9 @@ function renderParser() {
         toast(msg, 'success');
     });
     // Download JSON
+    document.getElementById('pz-bindb-export-mini')?.addEventListener('click', () => {
+        _parserExportToMini();
+    });
     document.getElementById('pz-bindb-download-json')?.addEventListener('click', () => {
         const db = _loadBinDb();
         const totalBins = Object.values(db).reduce((s, arr) => s + _getBinsFromEntry(arr).length, 0);
