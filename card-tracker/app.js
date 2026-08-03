@@ -5942,6 +5942,12 @@ function renderMinicBins() {
         document.body.appendChild(dd);
         document.addEventListener('click', () => { dd.style.display = 'none'; });
     }
+    // Edit modal overlay (needed for tag creation)
+    if (!document.getElementById('bv-edit-modal')) {
+        const m = document.createElement('div');
+        m.id = 'bv-edit-modal'; m.className = 'bv-edit-overlay'; m.style.display = 'none';
+        document.body.appendChild(m);
+    }
     // Context menu
     if (!document.getElementById('bv-ctx-menu')) {
         const ctx = document.createElement('div');
