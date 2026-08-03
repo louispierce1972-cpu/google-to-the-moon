@@ -30,6 +30,8 @@ const STATE = {
     minicBins: [],
     minicTags: [],
     minicTagFilter: 'all',
+    minicActiveTab: 'main',
+    minicTabs: [{id:'main',name:'Main'}],
     docRecords: [],
 
 };
@@ -346,6 +348,7 @@ function save() {
         localStorage.setItem('ct_bin_notes', JSON.stringify(STATE.binNotes || {}));
         localStorage.setItem('ct_minic_bins', JSON.stringify(STATE.minicBins || []));
         localStorage.setItem('ct_minic_tags', JSON.stringify(STATE.minicTags || []));
+        localStorage.setItem('ct_minic_tabs', JSON.stringify(STATE.minicTabs || [{id:'main',name:'Main'}]));
         localStorage.setItem('ct_doc_records', JSON.stringify(STATE.docRecords || []));
 
         saveBinCache();
@@ -375,6 +378,8 @@ function load() {
         if (minicBinsRaw) STATE.minicBins = JSON.parse(minicBinsRaw);
         const minicTagsRaw = localStorage.getItem('ct_minic_tags');
         if (minicTagsRaw) STATE.minicTags = JSON.parse(minicTagsRaw);
+        const minicTabsRaw = localStorage.getItem('ct_minic_tabs');
+        if (minicTabsRaw) STATE.minicTabs = JSON.parse(minicTabsRaw);
         const binNotesRaw = localStorage.getItem('ct_bin_notes');
         if (binNotesRaw) STATE.binNotes = JSON.parse(binNotesRaw);
         // Load parser base
@@ -5856,20 +5861,44 @@ window._bvClearAll = function() {
 
 function renderMinicBins() {
     const area = document.getElementById('content-area');
-    const bins = STATE.minicBins || [];
+    const allBins = STATE.minicBins || [];
     const tags = STATE.minicTags || [];
     const filter = STATE.minicTagFilter || 'all';
+    const activeTab = STATE.minicActiveTab || 'main';
+    const tabs = STATE.minicTabs || [{id:'main',name:'Main'}];
 
-    // Filter bins
-    let filtered = bins;
-    if (filter === 'pending') filtered = bins.filter(b => !b.tag);
-    else if (filter !== 'all') filtered = bins.filter(b => b.tag === filter);
+    // Filter by active tab
+    let tabBins = allBins.filter(b => (b.tab || 'main') === activeTab);
+
+    // Then filter by tag
+    let filtered = tabBins;
+    if (filter === 'pending') filtered = tabBins.filter(b => !b.tag);
+    else if (filter !== 'all') filtered = tabBins.filter(b => b.tag === filter);
 
     // Stats
-    const total = bins.length;
-    const pending = bins.filter(b => !b.tag).length;
+    const total = tabBins.length;
+    const pending = tabBins.filter(b => !b.tag).length;
     const tagCounts = {};
-    tags.forEach(t => { tagCounts[t.id] = bins.filter(b => b.tag === t.id).length; });
+    tags.forEach(t => { tagCounts[t.id] = tabBins.filter(b => b.tag === t.id).length; });
+
+    // ── Tab bar (like Notes) ──
+    let tabsHtml = '';
+    tabs.forEach(t => {
+        const isActive = t.id === activeTab;
+        const cnt = allBins.filter(b => (b.tab || 'main') === t.id).length;
+        const closable = t.id !== 'main';
+        tabsHtml += '<div class="mc-tab '+(isActive?'mc-tab-active':'')+'" onclick="_mcSwitchTab(\''+t.id+'\')">'
+            + '<span class="mc-tab-name">'+t.name+'</span>'
+            + ' <span class="mc-tab-cnt">'+cnt+'</span>'
+            + (closable ? ' <span class="mc-tab-close" onclick="event.stopPropagation();_mcCloseTab(\''+t.id+'\')">✕</span>' : '')
+            + '</div>';
+    });
+    tabsHtml += '<div class="mc-tab mc-tab-add" onclick="_mcAddTab()">+</div>';
+
+    // Move to Main button (show only on non-main tabs)
+    const moveBtn = activeTab !== 'main'
+        ? '<button class="bv-ib mc-move-btn" onclick="_mcMoveToMain()" style="color:#60a5fa;border-color:rgba(96,165,250,.25)">📥 Move to Main</button>'
+        : '';
 
     // Tag filter pills
     let filterHtml = '<span class="bv-pill mc-filter-pill '+(filter==='all'?'mc-pill-active':'')+'" onclick="_mcFilter(\'all\')">ALL <b>'+total+'</b></span>';
@@ -5883,8 +5912,8 @@ function renderMinicBins() {
     filterHtml += '<button class="bv-ib mc-new-tag-btn" onclick="_mcNewTagModal()">+ New Tag</button>';
 
     let rowsHtml = '';
-    filtered.forEach((b, fi) => {
-        const realIdx = bins.indexOf(b);
+    filtered.forEach((b) => {
+        const realIdx = allBins.indexOf(b);
         const cached = BIN_CACHE[b.bin] || {};
         const bank = cached.bank || '';
         const brand = cached.brand || _brandByDigit(b.bin) || '';
@@ -5902,7 +5931,7 @@ function renderMinicBins() {
             + '<td class="mc-idx">'+(realIdx+1)+'</td>'
             + '<td class="mc-bin">'+flag+' <span class="bv-bn">'+b.bin+'</span> '+brandHtml+'</td>'
             + '<td class="mc-bank">'+bank+'</td>'
-            + '<td class="mc-status"><span class="mc-tag-click" onclick="_mcTagMenu(event,'+realIdx+')">'+tagHtml+' ▾</span></td>'
+            + '<td class="mc-status"><span class="mc-tag-click" onclick="_mcTagMenu(event,'+realIdx+')">'+tagHtml+' \u25BE</span></td>'
             + '<td class="mc-amt">'+(b.amount ? '$'+b.amount : '\u2014')+'</td>'
             + '<td class="mc-note"><input class="bv-ni" type="text" value="'+((b.note||'').replace(/"/g,'&quot;'))+'" placeholder="\u2014" onchange="_mcNote('+realIdx+',this.value)"></td>'
             + '<td class="mc-date">'+(b.date || '\u2014')+'</td>'
@@ -5910,9 +5939,11 @@ function renderMinicBins() {
     });
 
     area.innerHTML = `
+        <div class="mc-tab-bar">${tabsHtml}</div>
         <div class="bv-bar mc-tag-bar">${filterHtml}</div>
         <div class="bv-bar">
             <button class="bv-ib" onclick="_mcOpenAdd()">+ Add BINs</button>
+            ${moveBtn}
         </div>
         <div id="mc-add-panel" class="bv-ip" style="display:none">
             <textarea id="mc-add-text" class="bv-ita" placeholder="Paste BINs (one per line)...\n453700\n516075\n452001" rows="4"></textarea>
@@ -5932,23 +5963,21 @@ function renderMinicBins() {
                 <th>NOTE</th>
                 <th>DATE</th>
             </tr></thead>
-            <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#3a3e52;padding:30px">No BINs added yet</td></tr>'}</tbody>
+            <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#3a3e52;padding:30px">No BINs in this tab</td></tr>'}</tbody>
         </table>`;
 
-    // Tag dropdown menu container
+    // Ensure overlays exist
     if (!document.getElementById('mc-tag-dropdown')) {
         const dd = document.createElement('div');
         dd.id = 'mc-tag-dropdown'; dd.className = 'mc-tag-dd'; dd.style.display = 'none';
         document.body.appendChild(dd);
         document.addEventListener('click', () => { dd.style.display = 'none'; });
     }
-    // Edit modal overlay (needed for tag creation)
     if (!document.getElementById('bv-edit-modal')) {
         const m = document.createElement('div');
         m.id = 'bv-edit-modal'; m.className = 'bv-edit-overlay'; m.style.display = 'none';
         document.body.appendChild(m);
     }
-    // Context menu
     if (!document.getElementById('bv-ctx-menu')) {
         const ctx = document.createElement('div');
         ctx.id = 'bv-ctx-menu'; ctx.className = 'bv-ctx'; ctx.style.display = 'none';
@@ -5965,7 +5994,78 @@ function renderMinicBins() {
     renderFooter(filtered.length, 1, 1);
 }
 
+
 // ── Tag filter ──
+// ── Tab management ──
+window._mcSwitchTab = function(tabId) {
+    STATE.minicActiveTab = tabId;
+    STATE.minicTagFilter = 'all';
+    renderMinicBins();
+};
+
+window._mcAddTab = function() {
+    const modal = document.getElementById('bv-edit-modal');
+    modal.innerHTML = `
+        <div class="bv-edit-box">
+            <div class="bv-edit-title">New Tab</div>
+            <label class="bv-edit-lbl">Tab Name</label>
+            <input id="mc-new-tab-name" class="bv-edit-inp" type="text" placeholder="e.g. Draft, Session 1..." maxlength="20">
+            <div class="bv-edit-btns">
+                <button class="bv-edit-save" onclick="_mcSaveNewTab()">Create</button>
+                <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
+            </div>
+        </div>`;
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('mc-new-tab-name').focus(), 50);
+};
+
+window._mcSaveNewTab = function() {
+    const name = document.getElementById('mc-new-tab-name').value.trim();
+    if (!name) { toast('Enter a tab name', 'error'); return; }
+    const id = 'mctab_' + Date.now();
+    STATE.minicTabs.push({ id, name });
+    STATE.minicActiveTab = id;
+    save();
+    document.getElementById('bv-edit-modal').style.display = 'none';
+    renderMinicBins();
+    toast('Tab "' + name + '" created', 'success');
+};
+
+window._mcCloseTab = function(tabId) {
+    if (tabId === 'main') return;
+    const tabBins = (STATE.minicBins || []).filter(b => (b.tab || 'main') === tabId);
+    const msg = tabBins.length > 0
+        ? 'Delete tab with ' + tabBins.length + ' BINs? BINs will be removed.'
+        : 'Delete this empty tab?';
+    _bvShowConfirm(msg, () => {
+        STATE.minicBins = STATE.minicBins.filter(b => (b.tab || 'main') !== tabId);
+        STATE.minicTabs = STATE.minicTabs.filter(t => t.id !== tabId);
+        if (STATE.minicActiveTab === tabId) STATE.minicActiveTab = 'main';
+        save(); renderMinicBins();
+        toast('Tab deleted', 'success');
+    });
+};
+
+window._mcMoveToMain = function() {
+    const activeTab = STATE.minicActiveTab;
+    if (activeTab === 'main') return;
+    const tabBins = STATE.minicBins.filter(b => (b.tab || 'main') === activeTab);
+    if (tabBins.length === 0) { toast('No BINs to move', 'warning'); return; }
+    // Check selected — if some selected, move only those
+    const selected = [...document.querySelectorAll('.row-select-cb:checked')].map(cb => parseInt(cb.dataset.cardId.replace('mc-', '')));
+    const toMove = selected.length > 0
+        ? STATE.minicBins.filter((b, i) => selected.includes(i) && (b.tab || 'main') === activeTab)
+        : tabBins;
+    const existingMain = new Set(STATE.minicBins.filter(b => (b.tab || 'main') === 'main').map(b => b.bin));
+    let moved = 0, dupes = 0;
+    toMove.forEach(b => {
+        if (existingMain.has(b.bin)) { dupes++; }
+        else { b.tab = 'main'; existingMain.add(b.bin); moved++; }
+    });
+    save(); renderMinicBins();
+    toast(moved + ' BINs moved to Main' + (dupes > 0 ? ' (' + dupes + ' duplicates skipped)' : ''), 'success');
+};
+
 window._mcFilter = function(f) {
     STATE.minicTagFilter = f;
     renderMinicBins();
@@ -6062,7 +6162,7 @@ window._mcDoAdd = function() {
     let added = 0;
     lines.forEach(bin => {
         if (existing.has(bin)) return;
-        STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr() });
+        STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr(), tab: STATE.minicActiveTab || 'main' });
         existing.add(bin); added++;
     });
     save();
@@ -6145,17 +6245,28 @@ window._parserExportToMini = function() {
         }
     });
     if (allBins.length === 0) { toast('BIN database is empty', 'warning'); return; }
-    const existing = new Set((STATE.minicBins || []).map(b => b.bin));
+
+    // Create a new draft tab with today's date
+    const tabId = 'mctab_' + Date.now();
+    const tabName = 'Parse ' + todayStr();
+    if (!STATE.minicTabs) STATE.minicTabs = [{id:'main',name:'Main'}];
+    STATE.minicTabs.push({ id: tabId, name: tabName });
+
+    const existing = new Set((STATE.minicBins || []).map(b => b.bin + '|' + (b.tab || 'main')));
     let added = 0;
     allBins.forEach(bin => {
-        if (existing.has(bin)) return;
-        STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr() });
-        existing.add(bin); added++;
+        const key = bin + '|' + tabId;
+        if (existing.has(key)) return;
+        STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr(), tab: tabId });
+        existing.add(key); added++;
     });
+
+    STATE.minicActiveTab = tabId;
     save();
-    toast(added + ' BINs exported to Mini (' + (allBins.length - added) + ' duplicates skipped)', 'success');
+    toast(added + ' BINs exported to "' + tabName + '"', 'success');
     allBins.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => {}); });
 };
+
 
 // ── Minic — legacy status compat ──
 window._mcSetStatus = function(idx, status) {

@@ -31157,3 +31157,16 @@ tr.row-selected td {
 .mc-color-opt { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:all .15s; }
 .mc-color-opt:hover { transform:scale(1.15); }
 .mc-color-opt.mc-color-sel { border-color:#fff; transform:scale(1.2); box-shadow:0 0 8px rgba(255,255,255,.3); }
+
+/* ══ Mini Tabs ══ */
+.mc-tab-bar { display:flex; gap:0; padding:0 8px; border-bottom:1px solid rgba(255,255,255,.04); margin-bottom:4px; overflow-x:auto; }
+.mc-tab { padding:6px 12px; font-size:10px; color:#636780; cursor:pointer; border-bottom:2px solid transparent; transition:all .12s; display:flex; align-items:center; gap:4px; white-space:nowrap; user-select:none; }
+.mc-tab:hover { color:#a0a4b8; background:rgba(255,255,255,.02); }
+.mc-tab-active { color:#60a5fa !important; border-bottom-color:#60a5fa !important; background:rgba(96,165,250,.04); }
+.mc-tab-cnt { font-size:9px; color:#3a3e52; background:rgba(255,255,255,.03); padding:0 4px; border-radius:8px; }
+.mc-tab-active .mc-tab-cnt { color:#60a5fa; background:rgba(96,165,250,.1); }
+.mc-tab-close { font-size:9px; color:#3a3e52; margin-left:2px; opacity:.5; transition:all .1s; }
+.mc-tab-close:hover { color:#ef4444; opacity:1; }
+.mc-tab-add { color:#3a3e52; font-size:14px; padding:4px 10px; }
+.mc-tab-add:hover { color:#22c55e; }
+.mc-move-btn { margin-left:auto; }
