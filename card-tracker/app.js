@@ -8007,6 +8007,23 @@ function formatCardForCopy(card) {
 }
 
 function bulkCopyCards() {
+    const view = STATE.currentView;
+    if (view === 'minic-bins') {
+        const bins = (STATE.minicBins||[]).filter((b,i) => _selectedCards.has('mc-'+i));
+        if (bins.length === 0) { toast('Nothing selected','warning'); return; }
+        const text = bins.map(b => b.bin + (b.note ? ' — '+b.note : '')).join('\n');
+        navigator.clipboard?.writeText(text);
+        toast(`${bins.length} BINs copied`, 'success');
+        clearSelection(); return;
+    }
+    if (view === 'global-docs' || view === 'docs') {
+        const recs = (STATE.docRecords||[]).filter(r => _selectedCards.has(r.id));
+        if (recs.length === 0) { toast('Nothing selected','warning'); return; }
+        const text = recs.map(r => r.name+' '+r.surname+'\n'+r.address+'\n'+r.dob).join('\n\n');
+        navigator.clipboard?.writeText(text);
+        toast(`${recs.length} documents copied`, 'success');
+        clearSelection(); return;
+    }
     const cards = STATE.cards.filter(c => _selectedCards.has(c.id));
     if (cards.length === 0) return;
     const text = cards.map(c => formatCardForCopy(c)).join('\n\n');
@@ -8016,10 +8033,30 @@ function bulkCopyCards() {
 }
 
 function bulkDeleteCards() {
+    const view = STATE.currentView;
+    if (view === 'minic-bins') {
+        const ids = [..._selectedCards];
+        const indices = ids.map(id => parseInt(id.replace('mc-',''))).filter(i => !isNaN(i)).sort((a,b) => b-a);
+        if (indices.length === 0) { toast('Nothing selected','warning'); return; }
+        _bvShowConfirm('Delete ' + indices.length + ' BINs?', () => {
+            indices.forEach(i => STATE.minicBins.splice(i, 1));
+            save(); clearSelection(); renderMinicBins();
+            toast(indices.length + ' BINs deleted', 'info');
+        }); return;
+    }
+    if (view === 'global-docs' || view === 'docs') {
+        const ids = [..._selectedCards];
+        const recs = (STATE.docRecords||[]).filter(r => ids.includes(r.id));
+        if (recs.length === 0) { toast('Nothing selected','warning'); return; }
+        _bvShowConfirm('Delete ' + recs.length + ' documents?', () => {
+            STATE.docRecords = (STATE.docRecords||[]).filter(r => !ids.includes(r.id));
+            save(); clearSelection(); renderContent();
+            toast(recs.length + ' documents deleted', 'info');
+        }); return;
+    }
     const ids = [..._selectedCards];
     const cards = STATE.cards.filter(c => ids.includes(c.id));
     if (cards.length === 0) return;
-    // (translated)
     ids.forEach(id => removeCardFromDocs(id));
     STATE.trash.push(...cards);
     STATE.cards = STATE.cards.filter(c => !ids.includes(c.id));
