@@ -31025,3 +31025,113 @@ body, .app, input, select, button, textarea {
     font-size: 10px !important;
     padding: 4px 12px !important;
 }
+
+/* ===========================================
+   MULTI-SELECT + NOTES ENHANCEMENTS
+   =========================================== */
+
+/* -- Selected rows -- */
+.dc-card.dc-selected,
+.dc-card.row-selected {
+    border-color: rgba(96,165,250,0.3) !important;
+    background: rgba(96,165,250,0.06) !important;
+}
+tr.row-selected {
+    background: rgba(96,165,250,0.06) !important;
+}
+tr.row-selected td {
+    border-color: rgba(96,165,250,0.15) !important;
+}
+
+/* -- Documents checkbox layout -- */
+.dc-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.dc-main > .bulk-check {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* -- Bulk action bar -- */
+.bulk-action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(15,17,25,0.95);
+    border-top: 1px solid rgba(96,165,250,0.2);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1000;
+    font-family: var(--font-mono);
+    backdrop-filter: blur(8px);
+}
+.bulk-action-bar.hidden { display: none; }
+.bulk-count {
+    font-size: 11px;
+    color: #60a5fa;
+    font-weight: 600;
+    margin-right: 8px;
+}
+.bulk-btn {
+    font-size: 10px;
+    padding: 4px 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    color: #a0a4b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    transition: all 0.1s;
+}
+.bulk-btn:hover { background: rgba(255,255,255,0.08); color: #e2e4ea; }
+.bulk-btn.bulk-delete { color: #ef4444; border-color: rgba(239,68,68,0.2); }
+.bulk-btn.bulk-delete:hover { background: rgba(239,68,68,0.1); }
+.bulk-btn.bulk-notes { color: #f59e0b; border-color: rgba(245,158,11,0.2); }
+.bulk-btn.bulk-notes:hover { background: rgba(245,158,11,0.1); }
+.bulk-btn.bulk-clear { color: #636780; padding: 4px 8px; }
+
+/* -- Notes tab pencil icon -- */
+.nt-tab-edit {
+    font-size: 10px;
+    opacity: 0;
+    margin-left: 2px;
+    cursor: pointer;
+    transition: opacity 0.1s;
+}
+.nt-tab:hover .nt-tab-edit { opacity: 0.6; }
+.nt-tab-edit:hover { opacity: 1 !important; }
+
+/* -- Notes sidebar action buttons -- */
+.nt-sidebar-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.1s;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.nt-sidebar-item:hover .nt-sidebar-actions { opacity: 1; }
+
+.nt-sidebar-act-btn {
+    background: none;
+    border: none;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background 0.1s;
+}
+.nt-sidebar-act-btn:hover { background: rgba(255,255,255,0.06); }
+.nt-sidebar-act-del:hover { background: rgba(239,68,68,0.15); }
+
+/* -- Remove old sidebar close/pin buttons -- */
+.nt-sidebar-item-close,
+.nt-sidebar-pin { display: none !important; }

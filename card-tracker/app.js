@@ -5870,8 +5870,8 @@ function renderMinicBins() {
         const passActive = b.status === 'pass' ? '' : 'bv-off';
         const failActive = b.status === 'fail' ? '' : 'bv-off';
 
-        rowsHtml += `<tr class="mc-row" data-idx="${i}" oncontextmenu="event.preventDefault();_mcCtx(event,${i})">
-            <td class="mc-idx">${i + 1}</td>
+        rowsHtml += `<tr class="mc-row ${_selectedCards.has(b.id || 'mc-'+i) ? 'row-selected' : ''}" data-idx="${i}" data-id="${b.id || 'mc-'+i}" onclick="_uniRowClick(event,b.id||'mc-'+i,'minic')" oncontextmenu="event.preventDefault();_mcCtx(event,${i})">
+            <td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${b.id || 'mc-'+i}" ${_selectedCards.has(b.id||'mc-'+i) ? 'checked' : ''} onchange="toggleCardSelect('${b.id||'mc-'+i}',this.checked)"></label></td><td class="mc-idx">${i + 1}</td>
             <td class="mc-bin">${flag} <span class="bv-bn">${b.bin}</span> ${brandHtml}</td>
             <td class="mc-bank">${bank}</td>
             <td class="mc-status">
@@ -5902,7 +5902,7 @@ function renderMinicBins() {
         </div>
         <table class="data-table bv-t mc-table">
             <thead><tr>
-                <th style="width:30px">#</th>
+                <th style="width:24px"><label class="bulk-check"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label></th><th style="width:30px">#</th>
                 <th>BIN</th>
                 <th>BANK</th>
                 <th>STATUS</th>
@@ -5910,7 +5910,7 @@ function renderMinicBins() {
                 <th>NOTE</th>
                 <th>DATE</th>
             </tr></thead>
-            <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#3a3e52;padding:30px">No BINs added yet</td></tr>'}</tbody>
+            <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:#3a3e52;padding:30px">No BINs added yet</td></tr>'}</tbody>
         </table>`;
 
     // Context menu container
@@ -6055,6 +6055,21 @@ window._ntStartRename = function(tabId) {
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') _ntDoRename(tabId); });
 };
 
+
+window._ntTogglePin = function(tabId) {
+    const tab = STATE.notesTabs.find(t => t.id === tabId);
+    if (tab) { tab.pinned = !tab.pinned; save(); renderNotes(); }
+};
+
+window._ntDeleteTab = function(tabId) {
+    if (STATE.notesTabs.length <= 1) { toast('Cannot delete last tab','error'); return; }
+    _bvShowConfirm('Delete this tab?', () => {
+        STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
+        if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
+        save(); renderNotes();
+        toast('Tab deleted','success');
+    });
+};
 window._ntDoRename = function(tabId) {
     const tab = STATE.notesTabs.find(t => t.id === tabId);
     if (!tab) return;
@@ -6178,9 +6193,9 @@ function renderDocs() {
         const genAddr = r.genAddress || '';
 
         cardsHtml += `
-        <div class="dc-card" data-idx="${i}">
+        <div class="dc-card ${_selectedCards.has(r.id) ? 'dc-selected' : ''}" data-idx="${i}" data-id="${r.id}" onclick="_uniRowClick(event,'${r.id}','docs')">
             <div class="dc-main">
-                <div class="dc-info">
+                <label class="bulk-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-select-cb" data-card-id="${r.id}" ${_selectedCards.has(r.id) ? 'checked' : ''} onchange="toggleCardSelect('${r.id}',this.checked)"></label><div class="dc-info">
                     <div class="dc-name">${r.name} ${r.surname}</div>
                     <div class="dc-addr">${r.address}</div>
                     ${genAddr ? `<div class="dc-gen-addr"><span class="dc-gen-tag">ALT</span> ${genAddr} <span class="dc-copy-mini" onclick="_dcCopyText('${genAddr.replace(/'/g,"\\'")}')">&#x2398;</span></div>` : ''}
@@ -6203,7 +6218,7 @@ function renderDocs() {
             <span class="bv-pill"><span class="bv-s bv-sa">V</span> Verified <b>${verified}</b></span>
             <span class="bv-pill"><span class="bv-s bv-sd">S</span> Suspended <b>${suspended}</b></span>
             <span class="bv-pill">TOTAL <b>${total}</b></span>
-            <button class="dc-btn" onclick="_dcCopyAll()" style="margin-left:auto">Copy All</button>
+            <label class="bulk-check" style="margin-left:auto"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)"></label><button class="dc-btn" onclick="_dcCopyAll()">Copy All</button>
             <button class="bv-ib" onclick="_dcOpenImport()">+ Import</button>
         </div>
         <div id="dc-import-panel" class="bv-ip" style="display:none">
@@ -6509,8 +6524,8 @@ function renderNotes() {
     let tabsHTML = sortedTabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
         const pinIcon = t.pinned ? '<span class="nt-pin-icon">📌</span>' : '';
-        return `<button class="nt-tab ${isActive ? 'active' : ''} ${t.pinned ? 'nt-pinned' : ''}" data-tab="${t.id}">
-            ${pinIcon}<span class="nt-tab-title" data-tab="${t.id}">${t.title}</span>
+        return `<button class="nt-tab ${isActive ? 'active' : ''} ${t.pinned ? 'nt-pinned' : ''}" data-tab="${t.id}" ondblclick="_ntStartRename('${t.id}')">
+            ${pinIcon}<span class="nt-tab-title" data-tab="${t.id}">${t.title}</span><span class="nt-tab-edit" onclick="event.stopPropagation();_ntStartRename('${t.id}')" title="Rename">✏️</span>
             ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
         </button>`;
     }).join('');
@@ -6530,7 +6545,7 @@ function renderNotes() {
         return `<div class="nt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
             <span class="nt-sidebar-item-title" data-tab="${t.id}">${t.title}</span>
             <span class="nt-sidebar-item-meta">${srcBadge}${cardCount > 0 ? `<span class="nt-meta-cards">💳${cardCount}</span>` : ''}</span>
-            ${tabs.length > 1 ? `<button class="nt-sidebar-item-close" data-tab="${t.id}" title="Close">×</button>` : ''}
+            <div class="nt-sidebar-actions"><button class="nt-sidebar-act-btn" onclick="event.stopPropagation();_ntStartRename('${t.id}')" title="Rename">✏️</button><button class="nt-sidebar-act-btn ${t.pinned ? 'active' : ''}" onclick="event.stopPropagation();_ntTogglePin('${t.id}')" title="${t.pinned ? 'Unpin' : 'Pin'}">${t.pinned ? '📌' : '📍'}</button>${tabs.length > 1 ? `<button class="nt-sidebar-act-btn nt-sidebar-act-del" onclick="event.stopPropagation();_ntDeleteTab('${t.id}')" title="Delete">🗑️</button>` : ''}</div>
         </div>`;
     }).join('');
 
@@ -7719,7 +7734,7 @@ function updateBulkBar() {
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                 Delete
             </button>
-            <button class="bulk-btn bulk-clear" onclick="clearSelection()">✕</button>
+            <button class="bulk-btn bulk-notes" onclick="bulkSendToNotes()">📝 Notes</button><button class="bulk-btn bulk-clear" onclick="clearSelection()">✕</button>
         `;
         document.body.appendChild(bar);
     }
@@ -7769,6 +7784,70 @@ function bulkDeleteCards() {
     toast(`${cards.length} cards moved to trash`, 'info');
 }
 
+
+// ── Unified row click with Shift/Ctrl support ──
+let _lastClickedId = null;
+window._uniRowClick = function(event, id, section) {
+    // Don't select if clicking buttons/inputs/labels
+    if (event.target.closest('button, input, select, label, .bv-s, .dc-btn, .dc-copy-mini, .bv-ni')) return;
+    
+    const getAllIds = () => {
+        if (section === 'docs') return (STATE.docRecords||[]).map(r => r.id);
+        if (section === 'minic') return (STATE.minicBins||[]).map((b,i) => b.id || 'mc-'+i);
+        return [];
+    };
+    
+    if (event.shiftKey && _lastClickedId) {
+        const ids = getAllIds();
+        const startIdx = ids.indexOf(_lastClickedId);
+        const endIdx = ids.indexOf(id);
+        if (startIdx >= 0 && endIdx >= 0) {
+            const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+            for (let i = from; i <= to; i++) _selectedCards.add(ids[i]);
+        }
+    } else if (event.ctrlKey || event.metaKey) {
+        if (_selectedCards.has(id)) _selectedCards.delete(id);
+        else _selectedCards.add(id);
+    } else {
+        _selectedCards.clear();
+        _selectedCards.add(id);
+    }
+    _lastClickedId = id;
+    
+    // Update checkboxes + highlights
+    document.querySelectorAll('.row-select-cb').forEach(cb => { cb.checked = _selectedCards.has(cb.dataset.cardId); });
+    document.querySelectorAll('[data-id]').forEach(el => {
+        if (el.dataset.id) el.classList.toggle('row-selected', _selectedCards.has(el.dataset.id));
+        if (el.dataset.id) el.classList.toggle('dc-selected', _selectedCards.has(el.dataset.id));
+    });
+    updateBulkBar();
+};
+
+function bulkSendToNotes() {
+    const view = STATE.currentView;
+    let text = '';
+    if (view === 'global-docs' || view === 'docs') {
+        const recs = (STATE.docRecords||[]).filter(r => _selectedCards.has(r.id));
+        text = recs.map(r => 'Name: '+r.name+'\nSurname: '+r.surname+'\nAddress: '+r.address+'\nDOB: '+r.dob).join('\n\n');
+    } else if (view === 'minic-bins') {
+        const bins = (STATE.minicBins||[]).filter((b,i) => _selectedCards.has(b.id||'mc-'+i));
+        text = bins.map(b => b.bin + (b.note ? ' — '+b.note : '')).join('\n');
+    } else {
+        const cards = STATE.cards.filter(c => _selectedCards.has(c.id));
+        text = cards.map(c => formatCardForCopy(c)).join('\n\n');
+    }
+    if (!text) { toast('Nothing selected','error'); return; }
+    const newTab = {
+        id: 'tab-' + Date.now(), title: 'Selection ' + new Date().toLocaleTimeString(),
+        content: text.replace(/\n/g, '<br>'), pinned: false, tag: null,
+        created: Date.now(), scrollPos: 0, exportSource: 'Selection'
+    };
+    STATE.notesTabs.unshift(newTab);
+    STATE.notesActiveTab = newTab.id;
+    save();
+    clearSelection();
+    toast('Sent to Notes','success');
+}
 function clearSelection() {
     _selectedCards.clear();
     document.querySelectorAll('.row-select-cb').forEach(cb => { cb.checked = false; });
