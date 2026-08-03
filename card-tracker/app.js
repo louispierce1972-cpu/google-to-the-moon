@@ -6440,7 +6440,7 @@ function renderDocs() {
         cardsHtml += `
         <div class="dc-card ${_selectedCards.has(r.id) ? 'dc-selected' : ''}" data-idx="${i}" data-id="${r.id}" onclick="_uniRowClick(event,'${r.id}','docs')">
             <div class="dc-main">
-                <label class="bulk-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-select-cb" data-card-id="${r.id}" ${_selectedCards.has(r.id) ? 'checked' : ''} onchange="toggleCardSelect('${r.id}',this.checked)"></label><div class="dc-info">
+                <input type="checkbox" class="row-select-cb" data-card-id="${r.id}" ${_selectedCards.has(r.id) ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleCardSelect('${r.id}',this.checked)"><div class="dc-info">
                     <div class="dc-name">${r.name} ${r.surname}</div>
                     <div class="dc-addr">${r.address}</div>
                     ${genAddr ? `<div class="dc-gen-addr"><span class="dc-gen-tag">ALT</span> ${genAddr} <span class="dc-copy-mini" onclick="_dcCopyText('${genAddr.replace(/'/g,"\\'")}')">&#x2398;</span></div>` : ''}
@@ -7964,31 +7964,36 @@ function toggleSelectAll(checked) {
 }
 
 function updateBulkBar() {
-    let bar = document.getElementById('bulk-action-bar');
+    var bar = document.getElementById('bulk-action-bar');
     if (!bar) {
         bar = document.createElement('div');
         bar.id = 'bulk-action-bar';
-        bar.className = 'bulk-action-bar hidden';
-        bar.innerHTML = `
-            <span class="bulk-count"></span>
-            <button class="bulk-btn bulk-copy" onclick="bulkCopyCards()">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
-                Copy All
-            </button>
-            <button class="bulk-btn bulk-delete" onclick="bulkDeleteCards()">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                Delete
-            </button>
-            <button class="bulk-btn bulk-notes" onclick="bulkSendToNotes()">📝 Notes</button><button class="bulk-btn bulk-clear" onclick="clearSelection()">✕</button>
-        `;
+        bar.setAttribute('style',
+            'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+            'align-items:center;gap:10px;padding:8px 16px;' +
+            'background:rgba(15,17,25,0.96);border:1px solid rgba(96,165,250,0.3);' +
+            'border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);' +
+            'backdrop-filter:blur(12px);z-index:9999;' +
+            'font-family:var(--font-mono,monospace);display:none;opacity:1;animation:none !important;'
+        );
+        bar.innerHTML =
+            '<span id="bulk-count-text" style="font-size:11px;font-weight:700;color:#60a5fa;white-space:nowrap;margin-right:4px"></span>' +
+            '<button onclick="bulkCopyCards()" style="font-size:10px;padding:4px 10px;border:1px solid rgba(255,255,255,0.12);border-radius:4px;background:rgba(255,255,255,0.05);color:#c4c8d8;cursor:pointer;font-family:inherit">📋 Copy</button>' +
+            '<button onclick="bulkDeleteCards()" style="font-size:10px;padding:4px 10px;border:1px solid rgba(239,68,68,0.25);border-radius:4px;background:rgba(239,68,68,0.06);color:#ef4444;cursor:pointer;font-family:inherit">🗑 Delete</button>' +
+            '<button onclick="bulkSendToNotes()" style="font-size:10px;padding:4px 10px;border:1px solid rgba(245,158,11,0.25);border-radius:4px;background:rgba(245,158,11,0.06);color:#f59e0b;cursor:pointer;font-family:inherit">📝 Notes</button>' +
+            '<button onclick="clearSelection()" style="font-size:12px;padding:2px 8px;border:none;background:none;color:#636780;cursor:pointer">✕</button>';
         document.body.appendChild(bar);
     }
-    const count = _selectedCards.size;
+    var count = _selectedCards.size;
     if (count > 0) {
-        bar.classList.remove('hidden');
-        bar.querySelector('.bulk-count').textContent = `${count} selected`;
+        bar.setAttribute('style',
+            bar.getAttribute('style').replace('display:none','display:flex')
+        );
+        document.getElementById('bulk-count-text').textContent = count + ' selected';
     } else {
-        bar.classList.add('hidden');
+        bar.setAttribute('style',
+            bar.getAttribute('style').replace('display:flex','display:none')
+        );
     }
 }
 

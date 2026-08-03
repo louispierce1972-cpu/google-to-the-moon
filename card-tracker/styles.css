@@ -31170,3 +31170,11 @@ tr.row-selected td {
 .mc-tab-add { color:#3a3e52; font-size:14px; padding:4px 10px; }
 .mc-tab-add:hover { color:#22c55e; }
 .mc-move-btn { margin-left:auto; }
+
+/* === FIX: Bulk Action Bar opacity bug === */
+.bulk-action-bar:not(.hidden) {
+    display: flex !important;
+    opacity: 1 !important;
+    animation: bulkBarIn 0.2s ease forwards !important;
+    z-index: 1100 !important;
+}
