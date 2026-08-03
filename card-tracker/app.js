@@ -33,6 +33,9 @@ const STATE = {
     minicActiveTab: 'main',
     minicTabs: [{id:'main',name:'Main'}],
     docRecords: [],
+    promptsTabs: [],
+    promptsActiveTab: '',
+    binDbMerchants: [],
 
 };
 
@@ -350,6 +353,9 @@ function save() {
         localStorage.setItem('ct_minic_tags', JSON.stringify(STATE.minicTags || []));
         localStorage.setItem('ct_minic_tabs', JSON.stringify(STATE.minicTabs || [{id:'main',name:'Main'}]));
         localStorage.setItem('ct_doc_records', JSON.stringify(STATE.docRecords || []));
+        localStorage.setItem('ct_prompts_tabs', JSON.stringify(STATE.promptsTabs || []));
+        localStorage.setItem('ct_prompts_active', STATE.promptsActiveTab || '');
+        localStorage.setItem('ct_bin_db_merchants', JSON.stringify(STATE.binDbMerchants || []));
 
         saveBinCache();
     } catch (e) {
@@ -414,6 +420,15 @@ function load() {
             STATE.notesTabs = JSON.parse(tabsRaw);
             STATE.notesActiveTab = localStorage.getItem('activeNoteTab') || localStorage.getItem('ct_notes_active') || (STATE.notesTabs[0]?.id || '');
         }
+        // Load promptsTabs
+        const promptsTabsRaw = localStorage.getItem('ct_prompts_tabs');
+        if (promptsTabsRaw) {
+            STATE.promptsTabs = JSON.parse(promptsTabsRaw);
+            STATE.promptsActiveTab = localStorage.getItem('ct_prompts_active') || (STATE.promptsTabs[0]?.id || '');
+        }
+        // Load binDbMerchants
+        const binDbRaw = localStorage.getItem('ct_bin_db_merchants');
+        if (binDbRaw) STATE.binDbMerchants = JSON.parse(binDbRaw);
 
     } catch (e) {
         console.error('Load error:', e);
@@ -421,6 +436,7 @@ function load() {
     loadBinCache();
     ensureDataIntegrity();
     migrateNotesToTabs();
+    migratePromptsToTabs();
 }
 
 function migrateNotesToTabs() {
@@ -436,6 +452,20 @@ function migrateNotesToTabs() {
         };
         STATE.notesTabs = [firstTab];
         STATE.notesActiveTab = firstTab.id;
+    }
+}
+
+function migratePromptsToTabs() {
+    if (STATE.promptsTabs.length === 0) {
+        const firstTab = {
+            id: 'ptab-' + Date.now(),
+            title: 'My Prompts',
+            content: '',
+            pinned: false,
+            created: Date.now()
+        };
+        STATE.promptsTabs = [firstTab];
+        STATE.promptsActiveTab = firstTab.id;
     }
 }
 
@@ -5222,6 +5252,18 @@ function renderContent() {
         return;
     }
 
+    if (STATE.currentView === 'prompts') {
+        renderPrompts();
+        footer.style.display = 'none';
+        return;
+    }
+
+    if (STATE.currentView === 'bin-db-view') {
+        renderBinDatabase();
+        footer.style.display = 'none';
+        return;
+    }
+
     if (STATE.currentView === 'new-cards') {
         renderParser();
         footer.style.display = 'none';
@@ -7365,6 +7407,10 @@ function renderPageTitle() {
             flagEl.textContent = '📝';
             titleEl.textContent = 'Notes';
             break;
+        case 'prompts':
+            flagEl.textContent = '💡';
+            titleEl.textContent = 'Prompts';
+            break;
         case 'new-cards':
             flagEl.textContent = '🔍';
             titleEl.textContent = 'Parser';
@@ -7483,6 +7529,8 @@ const HASH_TO_VIEW = {
     'bin-tester':    'bin-tester',
     'minic':         'minic-bins',
     'generator':     'generator-view',
+    'prompts':       'prompts',
+    'bin-database':  'bin-db-view',
 };
 const VIEW_TO_HASH = Object.fromEntries(
     Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
@@ -7630,6 +7678,11 @@ function navigate(view) {
             STATE.notesLastSaved = Date.now();
             save();
         }
+    }
+    // Auto-save active prompts tab before leaving prompts view
+    if (STATE.currentView === 'prompts') {
+        _saveActivePromptTab();
+        save();
     }
     STATE.currentView = view;
     STATE.page = 1;
@@ -9691,6 +9744,8 @@ function exportFullBackup() {
         notesTabs: STATE.notesTabs || [],
         notesActiveTab: STATE.notesActiveTab || '',
         notesFontSize: STATE.notesFontSize || 13,
+        promptsTabs: STATE.promptsTabs || [],
+        promptsActiveTab: STATE.promptsActiveTab || '',
         merchants: JSON.parse(localStorage.getItem('ct_merchants') || '[]'),
         merchantBins: JSON.parse(localStorage.getItem('ct_merchant_bins') || '[]'),
         countries: STATE.countries,
@@ -9989,6 +10044,17 @@ function importExtras(data) {
     }
     if (data.merchantBins && Array.isArray(data.merchantBins)) {
         localStorage.setItem('ct_merchant_bins', JSON.stringify(data.merchantBins));
+    }
+    // Prompts
+    if (data.promptsTabs && Array.isArray(data.promptsTabs) && data.promptsTabs.length > 0) {
+        data.promptsTabs.forEach(tab => {
+            const newTab = {
+                ...tab,
+                id: 'ptab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)
+            };
+            STATE.promptsTabs.unshift(newTab);
+        });
+        STATE.promptsActiveTab = STATE.promptsTabs[0]?.id || '';
     }
 }
 
@@ -14563,3 +14629,785 @@ function _tcRenderResults(cards) {
     });
 }
 
+// ═══════════════════════════════════════════
+//    BIN DATABASE TAB — Merchant BIN Manager
+// ═══════════════════════════════════════════
+
+let _binDbActiveMerchant = null;
+
+function _binDbExtract6(raw) {
+    // Extract first 6 digits from any card/bin input
+    const digits = String(raw).replace(/\D/g, '');
+    return digits.length >= 4 ? digits.slice(0, Math.min(6, digits.length)) : '';
+}
+
+function _binDbFormatBin(bin6) {
+    // Format: "5288 89" (4+2 with space) or "528" if short
+    if (bin6.length <= 4) return bin6;
+    return bin6.slice(0, 4) + ' ' + bin6.slice(4);
+}
+
+function _binDbFormatAmount(amount) {
+    // Format amount with commas: 1,215.90 or 3,900.00
+    const num = parseFloat(amount);
+    if (isNaN(num)) return '0.00';
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function _binDbGenerateOutput() {
+    // Generate the full output text for all merchants
+    const merchants = STATE.binDbMerchants || [];
+    if (merchants.length === 0) return '';
+
+    const blocks = merchants.map(m => {
+        let block = `Merchant: ${m.name}\n`;
+        if (m.screenshotCount) {
+            block += `Total screenshots: ${m.screenshotCount}\n`;
+            block += '========================================\n';
+        }
+        block += '\n';
+        (m.bins || []).forEach(b => {
+            const formatted = _binDbFormatBin(b.bin);
+            const amount = _binDbFormatAmount(b.amount);
+            const currency = b.currency || 'USD';
+            block += `BIN: ${formatted} - ${amount} ${currency}\n`;
+        });
+        return block;
+    });
+
+    return blocks.join('\n');
+}
+
+function _binDbCopyAll() {
+    const text = _binDbGenerateOutput();
+    if (!text) { toast('Nothing to copy', 'error'); return; }
+    navigator.clipboard?.writeText(text.trim()).then(() => {
+        toast('Bin Database copied!', 'success');
+    });
+}
+
+function _binDbCopyMerchant(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+
+    let block = `Merchant: ${m.name}\n`;
+    if (m.screenshotCount) {
+        block += `Total screenshots: ${m.screenshotCount}\n`;
+        block += '========================================\n';
+    }
+    block += '\n';
+    (m.bins || []).forEach(b => {
+        const formatted = _binDbFormatBin(b.bin);
+        const amount = _binDbFormatAmount(b.amount);
+        const currency = b.currency || 'USD';
+        block += `BIN: ${formatted} - ${amount} ${currency}\n`;
+    });
+
+    navigator.clipboard?.writeText(block.trim()).then(() => {
+        toast(`Copied ${m.name} (${m.bins.length} BINs)`, 'success');
+    });
+}
+
+function _binDbAddMerchant() {
+    const name = prompt('Merchant name:');
+    if (!name || !name.trim()) return;
+    const merchant = {
+        id: 'bm-' + Date.now(),
+        name: name.trim(),
+        screenshotCount: 0,
+        defaultCurrency: 'USD',
+        bins: []
+    };
+    STATE.binDbMerchants.push(merchant);
+    _binDbActiveMerchant = merchant.id;
+    save();
+    renderBinDatabase();
+}
+
+function _binDbDeleteMerchant(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+    if (m.bins.length > 0 && !confirm(`Delete merchant "${m.name}" with ${m.bins.length} BINs?`)) return;
+    STATE.binDbMerchants = STATE.binDbMerchants.filter(x => x.id !== merchantId);
+    if (_binDbActiveMerchant === merchantId) {
+        _binDbActiveMerchant = STATE.binDbMerchants[0]?.id || null;
+    }
+    save();
+    renderBinDatabase();
+}
+
+function _binDbRenameMerchant(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+    const name = prompt('Rename merchant:', m.name);
+    if (!name || !name.trim()) return;
+    m.name = name.trim();
+    save();
+    renderBinDatabase();
+}
+
+function _binDbSetCurrency(merchantId, currency) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+    m.defaultCurrency = currency;
+    // Update all bins in this merchant to the new currency
+    m.bins.forEach(b => { b.currency = currency; });
+    save();
+    renderBinDatabase();
+}
+
+function _binDbSetScreenshots(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+    const val = prompt('Total screenshots:', m.screenshotCount || '');
+    if (val === null) return;
+    m.screenshotCount = parseInt(val) || 0;
+    save();
+    renderBinDatabase();
+}
+
+function _binDbAddBin(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+
+    const binInput = document.getElementById('bdb-bin-input-' + merchantId);
+    const amtInput = document.getElementById('bdb-amt-input-' + merchantId);
+    if (!binInput || !amtInput) return;
+
+    const rawBin = binInput.value.trim();
+    const rawAmt = amtInput.value.trim();
+
+    if (!rawBin) { toast('Enter a BIN number', 'error'); return; }
+
+    const bin6 = _binDbExtract6(rawBin);
+    if (!bin6 || bin6.length < 4) { toast('BIN must be at least 4 digits', 'error'); return; }
+
+    const amount = parseFloat(rawAmt.replace(/,/g, '')) || 0;
+
+    m.bins.push({
+        id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        bin: bin6,
+        amount: amount,
+        currency: m.defaultCurrency || 'USD'
+    });
+
+    binInput.value = '';
+    amtInput.value = '';
+    binInput.focus();
+    save();
+    renderBinDatabase();
+}
+
+function _binDbRemoveBin(merchantId, binId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+    m.bins = m.bins.filter(b => b.id !== binId);
+    save();
+    renderBinDatabase();
+}
+
+function _binDbClearBins(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+    if (m.bins.length === 0) return;
+    if (!confirm(`Clear all ${m.bins.length} BINs from "${m.name}"?`)) return;
+    m.bins = [];
+    save();
+    renderBinDatabase();
+}
+
+function _binDbBulkAdd(merchantId) {
+    const m = STATE.binDbMerchants.find(x => x.id === merchantId);
+    if (!m) return;
+
+    const textarea = document.getElementById('bdb-bulk-textarea-' + merchantId);
+    if (!textarea) return;
+
+    const text = textarea.value.trim();
+    if (!text) { toast('Paste BIN data first', 'error'); return; }
+
+    const lines = text.split('\n').filter(l => l.trim());
+    let added = 0;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Try format: "BIN: 5288 89 - 14.47 USD"
+        const matchFull = trimmed.match(/^BIN:\s*(\d[\d\s]*)\s*-\s*([\d,\.]+)\s*(\w+)?/i);
+        if (matchFull) {
+            const bin6 = _binDbExtract6(matchFull[1]);
+            const amount = parseFloat(matchFull[2].replace(/,/g, '')) || 0;
+            const currency = matchFull[3] || m.defaultCurrency || 'USD';
+            if (bin6 && bin6.length >= 4) {
+                m.bins.push({
+                    id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6),
+                    bin: bin6, amount, currency
+                });
+                continue;
+            }
+        }
+
+        // Try format: "528889 - 14.47" or "528889 14.47"
+        const matchSimple = trimmed.match(/^(\d[\d\s]*)\s*[-—]\s*([\d,\.]+)\s*(\w+)?/);
+        if (matchSimple) {
+            const bin6 = _binDbExtract6(matchSimple[1]);
+            const amount = parseFloat(matchSimple[2].replace(/,/g, '')) || 0;
+            const currency = matchSimple[3] || m.defaultCurrency || 'USD';
+            if (bin6 && bin6.length >= 4) {
+                m.bins.push({
+                    id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6),
+                    bin: bin6, amount, currency
+                });
+                continue;
+            }
+        }
+
+        // Try format: just digits and amount separated by whitespace
+        const matchParts = trimmed.match(/^(\d[\d\s]{3,})\s+([\d,\.]+)\s*(\w*)/);
+        if (matchParts) {
+            const bin6 = _binDbExtract6(matchParts[1]);
+            const amount = parseFloat(matchParts[2].replace(/,/g, '')) || 0;
+            const currency = matchParts[3] || m.defaultCurrency || 'USD';
+            if (bin6 && bin6.length >= 4) {
+                m.bins.push({
+                    id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6),
+                    bin: bin6, amount, currency
+                });
+            }
+        }
+    }
+
+    if (added > 0) {
+        textarea.value = '';
+        save();
+        renderBinDatabase();
+        toast(`Added ${added} BINs to ${m.name}`, 'success');
+    } else {
+        toast('No valid BIN entries found', 'error');
+    }
+}
+
+function renderBinDatabase() {
+    const area = document.getElementById('content-area');
+    const merchants = STATE.binDbMerchants || [];
+
+    // Auto-select first merchant if none selected
+    if (!_binDbActiveMerchant && merchants.length > 0) {
+        _binDbActiveMerchant = merchants[0].id;
+    }
+
+    const activeMerchant = merchants.find(m => m.id === _binDbActiveMerchant);
+
+    // Merchant sidebar items
+    const merchantListHTML = merchants.map(m => {
+        const isActive = m.id === _binDbActiveMerchant;
+        const binCount = m.bins?.length || 0;
+        const totalAmt = (m.bins || []).reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+        return `<div class="bdb-merchant-item ${isActive ? 'active' : ''}" data-mid="${m.id}">
+            <div class="bdb-merchant-info">
+                <span class="bdb-merchant-name">${m.name}</span>
+                <span class="bdb-merchant-meta">${binCount} BINs${totalAmt > 0 ? ' · ' + _binDbFormatAmount(totalAmt) + ' ' + (m.defaultCurrency || 'USD') : ''}</span>
+            </div>
+            <div class="bdb-merchant-actions">
+                <button class="bdb-act-btn" onclick="event.stopPropagation();_binDbRenameMerchant('${m.id}')" title="Rename">✏️</button>
+                <button class="bdb-act-btn bdb-act-del" onclick="event.stopPropagation();_binDbDeleteMerchant('${m.id}')" title="Delete">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    // BIN list for active merchant
+    let binListHTML = '';
+    let merchantHeaderHTML = '';
+    let addFormHTML = '';
+
+    if (activeMerchant) {
+        const bins = activeMerchant.bins || [];
+        const totalAmt = bins.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+
+        merchantHeaderHTML = `
+            <div class="bdb-merchant-header">
+                <div class="bdb-merchant-title-row">
+                    <h2 class="bdb-merchant-h2">${activeMerchant.name}</h2>
+                    <span class="bdb-count-badge">${bins.length} BINs</span>
+                    <span class="bdb-total-badge">${_binDbFormatAmount(totalAmt)} ${activeMerchant.defaultCurrency || 'USD'}</span>
+                </div>
+                <div class="bdb-merchant-controls">
+                    <label class="bdb-currency-label">Currency:
+                        <select class="bdb-currency-select" id="bdb-currency-${activeMerchant.id}">
+                            <option value="USD" ${activeMerchant.defaultCurrency === 'USD' ? 'selected' : ''}>USD</option>
+                            <option value="EUR" ${activeMerchant.defaultCurrency === 'EUR' ? 'selected' : ''}>EUR</option>
+                            <option value="GBP" ${activeMerchant.defaultCurrency === 'GBP' ? 'selected' : ''}>GBP</option>
+                            <option value="JPY" ${activeMerchant.defaultCurrency === 'JPY' ? 'selected' : ''}>JPY</option>
+                            <option value="CAD" ${activeMerchant.defaultCurrency === 'CAD' ? 'selected' : ''}>CAD</option>
+                            <option value="AUD" ${activeMerchant.defaultCurrency === 'AUD' ? 'selected' : ''}>AUD</option>
+                            <option value="LEI" ${activeMerchant.defaultCurrency === 'LEI' ? 'selected' : ''}>LEI</option>
+                            <option value="RON" ${activeMerchant.defaultCurrency === 'RON' ? 'selected' : ''}>RON</option>
+                            <option value="RUB" ${activeMerchant.defaultCurrency === 'RUB' ? 'selected' : ''}>RUB</option>
+                            <option value="UAH" ${activeMerchant.defaultCurrency === 'UAH' ? 'selected' : ''}>UAH</option>
+                            <option value="PLN" ${activeMerchant.defaultCurrency === 'PLN' ? 'selected' : ''}>PLN</option>
+                            <option value="CZK" ${activeMerchant.defaultCurrency === 'CZK' ? 'selected' : ''}>CZK</option>
+                            <option value="BRL" ${activeMerchant.defaultCurrency === 'BRL' ? 'selected' : ''}>BRL</option>
+                            <option value="MXN" ${activeMerchant.defaultCurrency === 'MXN' ? 'selected' : ''}>MXN</option>
+                            <option value="INR" ${activeMerchant.defaultCurrency === 'INR' ? 'selected' : ''}>INR</option>
+                        </select>
+                    </label>
+                    <button class="bdb-tool-btn" onclick="_binDbSetScreenshots('${activeMerchant.id}')" title="Set screenshot count">📷 Screenshots: ${activeMerchant.screenshotCount || 0}</button>
+                    <button class="bdb-tool-btn bdb-copy-btn" onclick="_binDbCopyMerchant('${activeMerchant.id}')">📋 Copy Merchant</button>
+                    <button class="bdb-tool-btn bdb-clear-btn" onclick="_binDbClearBins('${activeMerchant.id}')">🗑 Clear All BINs</button>
+                </div>
+            </div>
+        `;
+
+        // Add form (single BIN)
+        addFormHTML = `
+            <div class="bdb-add-form">
+                <div class="bdb-add-row">
+                    <input type="text" id="bdb-bin-input-${activeMerchant.id}" class="bdb-input bdb-bin-field" placeholder="BIN (e.g. 528889 or 5288 89)" maxlength="20">
+                    <input type="text" id="bdb-amt-input-${activeMerchant.id}" class="bdb-input bdb-amt-field" placeholder="Amount (e.g. 14.47)" maxlength="15">
+                    <button class="bdb-add-btn" id="bdb-add-single-${activeMerchant.id}">+ Add BIN</button>
+                </div>
+                <div class="bdb-bulk-toggle">
+                    <button class="bdb-toggle-bulk" id="bdb-toggle-bulk-${activeMerchant.id}">📥 Bulk Add</button>
+                </div>
+                <div class="bdb-bulk-area hidden" id="bdb-bulk-area-${activeMerchant.id}">
+                    <textarea id="bdb-bulk-textarea-${activeMerchant.id}" class="bdb-bulk-textarea" rows="5" placeholder="Paste BINs — one per line.\n\nSupported formats:\nBIN: 5288 89 - 14.47 USD\n528889 - 14.47\n5288 89 14.47 USD"></textarea>
+                    <button class="bdb-bulk-parse-btn" id="bdb-bulk-parse-${activeMerchant.id}">⚡ Parse & Add</button>
+                </div>
+            </div>
+        `;
+
+        // BIN list table
+        if (bins.length > 0) {
+            const rows = bins.map((b, idx) => {
+                const formatted = _binDbFormatBin(b.bin);
+                const amount = _binDbFormatAmount(b.amount);
+                return `<tr class="bdb-bin-row" data-bid="${b.id}">
+                    <td class="bdb-col-idx">${idx + 1}</td>
+                    <td class="bdb-col-bin"><span class="bdb-bin-chip">${formatted}</span></td>
+                    <td class="bdb-col-amount">${amount}</td>
+                    <td class="bdb-col-currency">${b.currency || 'USD'}</td>
+                    <td class="bdb-col-actions"><button class="bdb-rm-btn" data-mid="${activeMerchant.id}" data-bid="${b.id}" title="Remove">×</button></td>
+                </tr>`;
+            }).join('');
+
+            binListHTML = `
+                <div class="bdb-bin-list-wrap">
+                    <table class="bdb-bin-table">
+                        <thead><tr>
+                            <th class="bdb-th-idx">#</th>
+                            <th class="bdb-th-bin">BIN</th>
+                            <th class="bdb-th-amount">Amount</th>
+                            <th class="bdb-th-currency">Currency</th>
+                            <th class="bdb-th-actions"></th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            binListHTML = `<div class="bdb-empty-bins">
+                <div class="bdb-empty-icon">📭</div>
+                <p>No BINs added yet</p>
+                <p class="bdb-empty-hint">Add BINs using the form above or paste in bulk</p>
+            </div>`;
+        }
+    } else {
+        merchantHeaderHTML = `<div class="bdb-empty-state">
+            <div class="bdb-empty-icon-lg">🏦</div>
+            <h3>No Merchant Selected</h3>
+            <p>Create a merchant to start adding BINs</p>
+            <button class="bdb-create-first-btn" id="bdb-create-first">+ Create Merchant</button>
+        </div>`;
+    }
+
+    // Preview output
+    const previewText = _binDbGenerateOutput();
+    const previewHTML = previewText ? `
+        <div class="bdb-preview-section">
+            <div class="bdb-preview-header">
+                <span class="bdb-preview-title">📋 Output Preview</span>
+                <button class="bdb-copy-all-btn" id="bdb-copy-all-btn">📋 Copy All</button>
+            </div>
+            <pre class="bdb-preview-text">${previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        </div>
+    ` : '';
+
+    area.innerHTML = `
+        <div class="bdb-container">
+            <div class="bdb-sidebar">
+                <div class="bdb-sidebar-header">
+                    <span class="bdb-sidebar-title">🏦 Merchants</span>
+                    <button class="bdb-new-merchant-btn" id="bdb-new-merchant">+</button>
+                </div>
+                <div class="bdb-merchant-list" id="bdb-merchant-list">${merchantListHTML}</div>
+                ${previewHTML}
+            </div>
+            <div class="bdb-main">
+                ${merchantHeaderHTML}
+                ${addFormHTML}
+                ${binListHTML}
+            </div>
+        </div>
+    `;
+
+    // ── Event wiring ──
+
+    // New merchant
+    document.getElementById('bdb-new-merchant')?.addEventListener('click', _binDbAddMerchant);
+    document.getElementById('bdb-create-first')?.addEventListener('click', _binDbAddMerchant);
+
+    // Copy all
+    document.getElementById('bdb-copy-all-btn')?.addEventListener('click', _binDbCopyAll);
+
+    // Merchant click (switch)
+    document.querySelectorAll('.bdb-merchant-item').forEach(item => {
+        item.addEventListener('click', () => {
+            _binDbActiveMerchant = item.dataset.mid;
+            renderBinDatabase();
+        });
+    });
+
+    if (activeMerchant) {
+        const mid = activeMerchant.id;
+
+        // Currency select
+        const currSel = document.getElementById('bdb-currency-' + mid);
+        currSel?.addEventListener('change', () => {
+            _binDbSetCurrency(mid, currSel.value);
+        });
+
+        // Add single BIN
+        document.getElementById('bdb-add-single-' + mid)?.addEventListener('click', () => _binDbAddBin(mid));
+
+        // Enter key on inputs
+        const binInput = document.getElementById('bdb-bin-input-' + mid);
+        const amtInput = document.getElementById('bdb-amt-input-' + mid);
+        [binInput, amtInput].forEach(inp => {
+            inp?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); _binDbAddBin(mid); }
+            });
+        });
+
+        // Toggle bulk area
+        document.getElementById('bdb-toggle-bulk-' + mid)?.addEventListener('click', () => {
+            const bulkArea = document.getElementById('bdb-bulk-area-' + mid);
+            if (bulkArea) bulkArea.classList.toggle('hidden');
+        });
+
+        // Bulk parse
+        document.getElementById('bdb-bulk-parse-' + mid)?.addEventListener('click', () => _binDbBulkAdd(mid));
+
+        // Remove BIN buttons
+        document.querySelectorAll('.bdb-rm-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                _binDbRemoveBin(btn.dataset.mid, btn.dataset.bid);
+            });
+        });
+    }
+}
+
+// ═══════════════════════════════════════════
+//    PROMPTS TAB — Prompt Storage & Manager
+// ═══════════════════════════════════════════
+
+function _getActivePromptTab() {
+    return STATE.promptsTabs.find(t => t.id === STATE.promptsActiveTab) || STATE.promptsTabs[0];
+}
+
+function _saveActivePromptTab() {
+    const editor = document.getElementById('prompts-editor');
+    if (!editor) return;
+    const tab = _getActivePromptTab();
+    if (tab) {
+        tab.content = editor.innerHTML;
+        tab.scrollPos = editor.scrollTop;
+    }
+}
+
+function _ptStartRename(tabId) {
+    const tab = STATE.promptsTabs.find(t => t.id === tabId);
+    if (!tab) return;
+    const titleEl = document.querySelector(`.pt-tab-title[data-tab="${tabId}"], .pt-sidebar-item-title[data-tab="${tabId}"]`);
+    if (!titleEl) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = tab.title;
+    input.className = 'pt-rename-input';
+    input.style.cssText = 'width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(234,179,8,0.5);border-radius:3px;color:#fff;font-size:11px;padding:2px 6px;outline:none;';
+
+    const finishRename = () => {
+        const newTitle = input.value.trim() || tab.title;
+        tab.title = newTitle;
+        save();
+        renderPrompts();
+    };
+
+    input.addEventListener('blur', finishRename);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finishRename(); }
+        if (e.key === 'Escape') { input.value = tab.title; finishRename(); }
+    });
+
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+}
+
+function _ptTogglePin(tabId) {
+    const tab = STATE.promptsTabs.find(t => t.id === tabId);
+    if (tab) { tab.pinned = !tab.pinned; save(); renderPrompts(); }
+}
+
+function _ptDeleteTab(tabId) {
+    const tab = STATE.promptsTabs.find(t => t.id === tabId);
+    if (!tab) return;
+    if (STATE.promptsTabs.length <= 1) { toast('Cannot delete last tab','error'); return; }
+    if (tab.content && tab.content.replace(/<[^>]+>/g,'').trim()) {
+        if (!confirm(`Delete prompt "${tab.title}"?`)) return;
+    }
+    STATE.promptsTabs = STATE.promptsTabs.filter(t => t.id !== tabId);
+    if (STATE.promptsActiveTab === tabId) STATE.promptsActiveTab = STATE.promptsTabs[0]?.id || '';
+    save();
+    renderPrompts();
+}
+
+function renderPrompts() {
+    const area = document.getElementById('content-area');
+    const activeTab = _getActivePromptTab();
+    if (!activeTab) return;
+
+    const tabs = [...STATE.promptsTabs];
+    const content = activeTab.content || '';
+
+    // Count prompts (non-empty lines)
+    const plainText = content.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>\s*<div/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ');
+    const lineCount = plainText.split('\n').filter(l => l.trim()).length || 0;
+
+    // Sort: pinned tabs first
+    const sortedTabs = [...tabs].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
+    // Tab bar
+    let tabsHTML = sortedTabs.map(t => {
+        const isActive = t.id === STATE.promptsActiveTab;
+        const pinIcon = t.pinned ? '<span class="pt-pin-icon">📌</span>' : '';
+        return `<button class="pt-tab ${isActive ? 'active' : ''} ${t.pinned ? 'pt-pinned' : ''}" data-tab="${t.id}" ondblclick="_ptStartRename('${t.id}')">
+            ${pinIcon}<span class="pt-tab-title" data-tab="${t.id}">${t.title}</span><span class="pt-tab-edit" onclick="event.stopPropagation();_ptStartRename('${t.id}')" title="Rename">✏️</span>
+            ${tabs.length > 1 ? `<span class="pt-tab-close" data-tab="${t.id}">×</span>` : ''}
+        </button>`;
+    }).join('');
+    tabsHTML += `<button class="pt-new-tab" id="pt-new-tab" title="New prompt tab">+</button>`;
+
+    // Sidebar item list
+    const sidebarItemsHTML = tabs.map(t => {
+        const isActive = t.id === STATE.promptsActiveTab;
+        const plainContent = (t.content || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>\s*<div/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ');
+        const promptCount = plainContent.split('\n').filter(l => l.trim()).length;
+        return `<div class="pt-sidebar-item ${isActive ? 'active' : ''}" data-tab="${t.id}">
+            <span class="pt-sidebar-item-title" data-tab="${t.id}">${t.title}</span>
+            <span class="pt-sidebar-item-meta">${promptCount > 0 ? `<span class="pt-meta-count">💡${promptCount}</span>` : ''}</span>
+            <div class="pt-sidebar-actions">
+                <button class="pt-sidebar-act-btn" onclick="event.stopPropagation();_ptStartRename('${t.id}')" title="Rename">✏️</button>
+                <button class="pt-sidebar-act-btn ${t.pinned ? 'active' : ''}" onclick="event.stopPropagation();_ptTogglePin('${t.id}')" title="${t.pinned ? 'Unpin' : 'Pin'}">${t.pinned ? '📌' : '📍'}</button>
+                ${tabs.length > 1 ? `<button class="pt-sidebar-act-btn pt-sidebar-act-del" onclick="event.stopPropagation();_ptDeleteTab('${t.id}')" title="Delete">🗑️</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    area.innerHTML = `
+        <!-- Sidebar overlay (backdrop) -->
+        <div class="pt-sidebar-overlay" id="pt-sidebar-overlay"></div>
+
+        <!-- Sidebar drawer -->
+        <div class="pt-sidebar" id="pt-sidebar">
+            <div class="pt-sidebar-header">
+                <span class="pt-sidebar-title">💡 All Prompts (${tabs.length})</span>
+                <button class="pt-sidebar-close" id="pt-sidebar-close">×</button>
+            </div>
+            <div class="pt-sidebar-new">
+                <button class="pt-sidebar-new-btn" id="pt-sidebar-new-btn">+ New Prompt</button>
+            </div>
+            <div class="pt-sidebar-list" id="pt-sidebar-list">${sidebarItemsHTML}</div>
+        </div>
+
+        <div class="prompts-container">
+            <div class="pt-tab-bar">
+                <div class="pt-tabs-scroll">
+                    <!-- Sidebar toggle -->
+                    <button class="pt-sidebar-toggle" id="pt-sidebar-open" title="All prompts">☰ Prompts</button>
+                    ${tabsHTML}
+                </div>
+                <div class="pt-toolbar-right">
+                    <button class="pt-tool-btn" id="pt-copy-all-btn" title="Copy all content">📋 COPY ALL</button>
+                    <button class="pt-tool-btn" id="pt-pin-btn" title="Pin/Unpin tab">📌 PIN</button>
+                    <button class="pt-tool-btn" id="pt-rename-btn" title="Rename tab">RENAME</button>
+                    <button class="pt-tool-btn" id="pt-clear-btn" title="Clear current tab">CLEAR</button>
+                    <button class="pt-tool-btn" id="pt-save-btn">SAVE</button>
+                </div>
+            </div>
+            <div class="prompts-editor-wrap">
+                <div class="prompts-editor" id="prompts-editor" contenteditable="true" spellcheck="false" data-placeholder="Write your prompts here... Each line is a separate prompt."></div>
+            </div>
+            <div class="prompts-status-bar">
+                <span class="prompts-saved-info">${lineCount} prompt${lineCount !== 1 ? 's' : ''}</span>
+                <span class="prompts-tab-name">${activeTab.title}</span>
+            </div>
+        </div>
+    `;
+
+    // ── Sidebar logic ──
+    const sidebar = document.getElementById('pt-sidebar');
+    const overlay = document.getElementById('pt-sidebar-overlay');
+    const openSidebar = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
+    const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); };
+
+    document.getElementById('pt-sidebar-open')?.addEventListener('click', openSidebar);
+    document.getElementById('pt-sidebar-close')?.addEventListener('click', closeSidebar);
+    overlay?.addEventListener('click', closeSidebar);
+
+    // ── Sidebar: switch tab ──
+    document.querySelectorAll('.pt-sidebar-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            if (e.target.classList.contains('pt-sidebar-act-btn')) return;
+            _saveActivePromptTab();
+            STATE.promptsActiveTab = item.dataset.tab;
+            save();
+            closeSidebar();
+            renderPrompts();
+        });
+    });
+
+    // ── Sidebar: new tab ──
+    const _createNewPromptTab = () => {
+        _saveActivePromptTab();
+        const newTab = {
+            id: 'ptab-' + Date.now(),
+            title: 'Prompt ' + (STATE.promptsTabs.length + 1),
+            content: '', pinned: false,
+            created: Date.now(), scrollPos: 0
+        };
+        STATE.promptsTabs.unshift(newTab);
+        STATE.promptsActiveTab = newTab.id;
+        save();
+        closeSidebar();
+        renderPrompts();
+    };
+    document.getElementById('pt-sidebar-new-btn')?.addEventListener('click', _createNewPromptTab);
+
+    // ── Tab bar: click tab ──
+    document.querySelectorAll('.pt-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _saveActivePromptTab();
+            STATE.promptsActiveTab = btn.dataset.tab;
+            save();
+            renderPrompts();
+        });
+    });
+
+    // ── Tab bar: close tab ──
+    document.querySelectorAll('.pt-tab-close').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _ptDeleteTab(btn.dataset.tab);
+        });
+    });
+
+    // ── Tab bar: new tab ──
+    document.getElementById('pt-new-tab')?.addEventListener('click', _createNewPromptTab);
+
+    // ── Toolbar: Pin ──
+    document.getElementById('pt-pin-btn')?.addEventListener('click', () => {
+        const tab = _getActivePromptTab();
+        if (tab) { tab.pinned = !tab.pinned; save(); renderPrompts(); }
+    });
+
+    // ── Toolbar: Rename ──
+    document.getElementById('pt-rename-btn')?.addEventListener('click', () => {
+        _ptStartRename(STATE.promptsActiveTab);
+    });
+
+    // ── Toolbar: Clear ──
+    document.getElementById('pt-clear-btn')?.addEventListener('click', () => {
+        const tab = _getActivePromptTab();
+        if (tab && tab.content) {
+            if (confirm('Clear all content from this prompt tab?')) {
+                tab.content = '';
+                save();
+                renderPrompts();
+            }
+        }
+    });
+
+    // ── Toolbar: Save ──
+    document.getElementById('pt-save-btn')?.addEventListener('click', () => {
+        _saveActivePromptTab();
+        save();
+        toast('Prompts saved', 'success');
+    });
+
+    // ── Toolbar: Copy All ──
+    document.getElementById('pt-copy-all-btn')?.addEventListener('click', () => {
+        const editor = document.getElementById('prompts-editor');
+        if (!editor) return;
+        const text = editor.innerText || editor.textContent || '';
+        navigator.clipboard?.writeText(text).then(() => {
+            toast('All content copied', 'success');
+        });
+    });
+
+    // ── Editor setup ──
+    const editor = document.getElementById('prompts-editor');
+    if (editor) {
+        editor.innerHTML = content;
+        if (activeTab.scrollPos) editor.scrollTop = activeTab.scrollPos;
+
+        // Auto-save on input
+        let _ptSaveTimer = null;
+        editor.addEventListener('input', () => {
+            clearTimeout(_ptSaveTimer);
+            _ptSaveTimer = setTimeout(() => {
+                _saveActivePromptTab();
+                save();
+                // Update line count in status bar
+                const plain = editor.innerText || '';
+                const count = plain.split('\n').filter(l => l.trim()).length;
+                const info = document.querySelector('.prompts-saved-info');
+                if (info) info.textContent = `${count} prompt${count !== 1 ? 's' : ''}`;
+            }, 800);
+        });
+
+        // Ctrl+S shortcut
+        editor.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                _saveActivePromptTab();
+                save();
+                toast('Prompts saved', 'success');
+            }
+        });
+    }
+}
+
+// Auto-save prompts when navigating away
+const _origNavigate = navigate;
+// Patch navigate to save prompts before switching views (already handled for notes in navigate())
+(function() {
+    const _baseNavigate = navigate;
+    window._promptsNavigatePatched = true;
+})();
+// The navigate function already saves notes; we add prompts saving in the navigate function override
+// Instead, let's hook into the existing navigate pattern via the renderContent dispatcher
+
+// Save prompts on any view change
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && STATE.currentView === 'prompts') {
+        _saveActivePromptTab();
+        save();
+    }
+});
+window.addEventListener('beforeunload', () => {
+    if (STATE.currentView === 'prompts') {
+        _saveActivePromptTab();
+        save();
+    }
+});
