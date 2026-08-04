@@ -979,7 +979,7 @@ document.querySelectorAll('.top-bins-mode').forEach(btn => {
 function renderStats() {
     const bar = document.getElementById('stats-bar');
 
-    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins', 'global-docs', 'docs', 'generator-view'].includes(STATE.currentView)) {
+    if (['notes', 'builder', 'analytics', 'checker', 'google-format', 'domain', 'bin-tester', 'all-cards', 'minic-bins', 'global-docs', 'docs', 'generator-view', 'prompts', 'new-cards', 'bin-db-view'].includes(STATE.currentView)) {
         bar.style.display = 'none';
         return;
     }
@@ -14633,7 +14633,7 @@ function _tcRenderResults(cards) {
 //    BIN DATABASE TAB — Merchant BIN Manager
 // ═══════════════════════════════════════════
 
-let _binDbActiveMerchant = null;
+var _binDbActiveMerchant = null;
 
 function _binDbExtract6(raw) {
     // Extract first 6 digits from any card/bin input
