@@ -13100,8 +13100,8 @@ function runParse() {
         }
     }
 
-    // TYPE filter: ALL selected types must be present in the card's type info
-    // e.g. CREDIT + BUSINESS → only cards that have BOTH "CREDIT" AND "BUSINESS"
+    // TYPE filter: ANY selected type matches (OR logic)
+    // e.g. CREDIT + DEBIT → cards that are CREDIT OR DEBIT
     if (filterTypes.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
@@ -13111,12 +13111,11 @@ function runParse() {
             if (c.cardType) ctParts.push(c.cardType.toUpperCase());
             if (info?.level) ctParts.push(info.level.toUpperCase());
             const ct = ctParts.join(' ');
-            // ALL selected types must match (AND logic)
-            return [...filterTypes].every(ft => ct.includes(ft));
+            // ANY selected type must match (OR logic)
+            return [...filterTypes].some(ft => ct.includes(ft));
         });
     }
-    // CLASS filter: precise word-boundary match
-    // WORLD matches only WORLD, not WORLD_ELITE
+    // CLASS filter: ANY selected class matches (OR logic)
     if (filterClasses.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
@@ -13125,9 +13124,8 @@ function runParse() {
             if (info?.level) levelParts.push(info.level.toUpperCase().replace(/\s+/g, '_'));
             if (c.cardType) levelParts.push(c.cardType.toUpperCase().replace(/\s+/g, '_'));
             const level = levelParts.join(' ');
-            // ALL selected classes must match with exact word matching
-            return [...filterClasses].every(fc => {
-                // Exact match or word boundary: WORLD should not match WORLD_ELITE
+            // ANY selected class must match (OR logic)
+            return [...filterClasses].some(fc => {
                 const regex = new RegExp('(?:^|[\\s_])' + fc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[\\s_]|$)', 'i');
                 return regex.test(level) || level === fc;
             });
