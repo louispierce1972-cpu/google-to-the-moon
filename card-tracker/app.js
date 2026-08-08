@@ -36,6 +36,7 @@ const STATE = {
     promptsTabs: [],
     promptsActiveTab: '',
     binDbMerchants: [],
+    binDbArchivedBatches: [], // Array of { id, date, merchants: [{name, bins:[{bin,amount,currency}]}] }
 
 };
 
@@ -356,6 +357,7 @@ function save() {
         localStorage.setItem('ct_prompts_tabs', JSON.stringify(STATE.promptsTabs || []));
         localStorage.setItem('ct_prompts_active', STATE.promptsActiveTab || '');
         localStorage.setItem('ct_bin_db_merchants', JSON.stringify(STATE.binDbMerchants || []));
+        localStorage.setItem('ct_bin_db_archived', JSON.stringify(STATE.binDbArchivedBatches || []));
 
         saveBinCache();
     } catch (e) {
@@ -429,6 +431,9 @@ function load() {
         // Load binDbMerchants
         const binDbRaw = localStorage.getItem('ct_bin_db_merchants');
         if (binDbRaw) STATE.binDbMerchants = JSON.parse(binDbRaw);
+    // Load archived batches
+    const binDbArchRaw = localStorage.getItem('ct_bin_db_archived');
+    if (binDbArchRaw) STATE.binDbArchivedBatches = JSON.parse(binDbArchRaw);
 
     } catch (e) {
         console.error('Load error:', e);
@@ -14764,6 +14769,30 @@ function _binDbSetScreenshots(merchantId) {
     renderBinDatabase();
 }
 
+function _binDbFindInAllBatches(bin6) {
+    // Search current merchants + all archived batches for this BIN
+    const results = [];
+    // Current active merchants
+    (STATE.binDbMerchants || []).forEach(m => {
+        (m.bins || []).forEach(b => {
+            if (b.bin === bin6) {
+                results.push({ merchant: m.name, merchantId: m.id, amount: b.amount, currency: b.currency, binId: b.id, archived: false, binRef: b });
+            }
+        });
+    });
+    // Archived batches
+    (STATE.binDbArchivedBatches || []).forEach(batch => {
+        (batch.merchants || []).forEach(m => {
+            (m.bins || []).forEach(b => {
+                if (b.bin === bin6) {
+                    results.push({ merchant: m.name, amount: b.amount, currency: b.currency, archived: true, batchDate: batch.date, batchId: batch.id });
+                }
+            });
+        });
+    });
+    return results;
+}
+
 function _binDbAddBin(merchantId) {
     const m = STATE.binDbMerchants.find(x => x.id === merchantId);
     if (!m) return;
@@ -14780,14 +14809,43 @@ function _binDbAddBin(merchantId) {
     const bin6 = _binDbExtract6(rawBin);
     if (!bin6 || bin6.length < 4) { toast('BIN must be at least 4 digits', 'error'); return; }
 
-    const amount = parseFloat(rawAmt.replace(/,/g, '')) || 0;
+    const newAmount = parseFloat(rawAmt.replace(/,/g, '')) || 0;
 
-    m.bins.push({
-        id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-        bin: bin6,
-        amount: amount,
-        currency: m.defaultCurrency || 'USD'
-    });
+    // Smart duplicate check across ALL data
+    const existing = _binDbFindInAllBatches(bin6);
+    if (existing.length > 0) {
+        const best = existing.reduce((a, b) => (b.amount > a.amount ? b : a), existing[0]);
+        const formatted = _binDbFormatBin(bin6);
+        const oldAmt = _binDbFormatAmount(best.amount);
+        const src = best.archived ? `archived batch (${best.batchDate})` : `merchant "${best.merchant}"`;
+        
+        if (newAmount > best.amount) {
+            // New amount is larger — update existing or add
+            toast(`BIN ${formatted} exists in ${src} with ${oldAmt} ${best.currency}. Updating to ${_binDbFormatAmount(newAmount)} (higher)`, 'info');
+            if (!best.archived && best.binRef) {
+                best.binRef.amount = newAmount; // Update in-place
+            } else {
+                // From archive — add new entry to current merchant
+                m.bins.push({
+                    id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                    bin: bin6, amount: newAmount, currency: m.defaultCurrency || 'USD'
+                });
+            }
+        } else {
+            // New amount is same or lower — skip
+            toast(`⚠️ BIN ${formatted} already exists in ${src} with ${oldAmt} ${best.currency} (≥ ${_binDbFormatAmount(newAmount)}). Skipped.`, 'warning');
+            binInput.value = '';
+            amtInput.value = '';
+            binInput.focus();
+            return;
+        }
+    } else {
+        // No duplicate — add normally
+        m.bins.push({
+            id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            bin: bin6, amount: newAmount, currency: m.defaultCurrency || 'USD'
+        });
+    }
 
     binInput.value = '';
     amtInput.value = '';
@@ -14795,7 +14853,6 @@ function _binDbAddBin(merchantId) {
     save();
     renderBinDatabase();
 }
-
 function _binDbRemoveBin(merchantId, binId) {
     const m = STATE.binDbMerchants.find(x => x.id === merchantId);
     if (!m) return;
@@ -14825,64 +14882,178 @@ function _binDbBulkAdd(merchantId) {
     if (!text) { toast('Paste BIN data first', 'error'); return; }
 
     const lines = text.split('\n').filter(l => l.trim());
-    let added = 0;
+    let added = 0, updated = 0, skipped = 0;
 
     for (const line of lines) {
         const trimmed = line.trim();
+        let bin6 = null, amount = 0, currency = m.defaultCurrency || 'USD';
 
         // Try format: "BIN: 5288 89 - 14.47 USD"
         const matchFull = trimmed.match(/^BIN:\s*(\d[\d\s]*)\s*-\s*([\d,\.]+)\s*(\w+)?/i);
         if (matchFull) {
-            const bin6 = _binDbExtract6(matchFull[1]);
-            const amount = parseFloat(matchFull[2].replace(/,/g, '')) || 0;
-            const currency = matchFull[3] || m.defaultCurrency || 'USD';
-            if (bin6 && bin6.length >= 4) {
-                m.bins.push({
-                    id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6),
-                    bin: bin6, amount, currency
-                });
-                continue;
+            bin6 = _binDbExtract6(matchFull[1]);
+            amount = parseFloat(matchFull[2].replace(/,/g, '')) || 0;
+            currency = matchFull[3] || currency;
+        }
+
+        if (!bin6) {
+            const matchSimple = trimmed.match(/^(\d[\d\s]*)\s*[-—]\s*([\d,\.]+)\s*(\w+)?/);
+            if (matchSimple) {
+                bin6 = _binDbExtract6(matchSimple[1]);
+                amount = parseFloat(matchSimple[2].replace(/,/g, '')) || 0;
+                currency = matchSimple[3] || currency;
             }
         }
 
-        // Try format: "528889 - 14.47" or "528889 14.47"
-        const matchSimple = trimmed.match(/^(\d[\d\s]*)\s*[-—]\s*([\d,\.]+)\s*(\w+)?/);
-        if (matchSimple) {
-            const bin6 = _binDbExtract6(matchSimple[1]);
-            const amount = parseFloat(matchSimple[2].replace(/,/g, '')) || 0;
-            const currency = matchSimple[3] || m.defaultCurrency || 'USD';
-            if (bin6 && bin6.length >= 4) {
-                m.bins.push({
-                    id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6),
-                    bin: bin6, amount, currency
-                });
-                continue;
+        if (!bin6) {
+            const matchParts = trimmed.match(/^(\d[\d\s]{3,})\s+([\d,\.]+)\s*(\w*)/);
+            if (matchParts) {
+                bin6 = _binDbExtract6(matchParts[1]);
+                amount = parseFloat(matchParts[2].replace(/,/g, '')) || 0;
+                currency = matchParts[3] || currency;
             }
         }
 
-        // Try format: just digits and amount separated by whitespace
-        const matchParts = trimmed.match(/^(\d[\d\s]{3,})\s+([\d,\.]+)\s*(\w*)/);
-        if (matchParts) {
-            const bin6 = _binDbExtract6(matchParts[1]);
-            const amount = parseFloat(matchParts[2].replace(/,/g, '')) || 0;
-            const currency = matchParts[3] || m.defaultCurrency || 'USD';
-            if (bin6 && bin6.length >= 4) {
-                m.bins.push({
-                    id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6),
-                    bin: bin6, amount, currency
-                });
+        if (!bin6 || bin6.length < 4) continue;
+
+        // Smart duplicate check
+        const existing = _binDbFindInAllBatches(bin6);
+        if (existing.length > 0) {
+            const best = existing.reduce((a, b) => (b.amount > a.amount ? b : a), existing[0]);
+            if (amount > best.amount) {
+                // Update
+                if (!best.archived && best.binRef) {
+                    best.binRef.amount = amount;
+                    updated++;
+                } else {
+                    m.bins.push({ id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6), bin: bin6, amount, currency });
+                    added++;
+                }
+            } else {
+                skipped++;
             }
+        } else {
+            m.bins.push({ id: 'bb-' + Date.now() + '-' + (added++) + Math.random().toString(36).slice(2, 6), bin: bin6, amount, currency });
+            added++;
         }
     }
 
-    if (added > 0) {
+    if (added > 0 || updated > 0) {
         textarea.value = '';
         save();
         renderBinDatabase();
-        toast(`Added ${added} BINs to ${m.name}`, 'success');
+        let msg = [];
+        if (added > 0) msg.push(added + ' added');
+        if (updated > 0) msg.push(updated + ' updated');
+        if (skipped > 0) msg.push(skipped + ' skipped (lower amount)');
+        toast(msg.join(', ') + ' in ' + m.name, 'success');
+    } else if (skipped > 0) {
+        toast(skipped + ' BINs skipped (already exist with higher/equal amount)', 'warning');
     } else {
         toast('No valid BIN entries found', 'error');
     }
+}
+
+
+function _binDbArchiveHistoryHTML() {
+    const batches = STATE.binDbArchivedBatches || [];
+    if (batches.length === 0) return '';
+    
+    let h = '<div class="bdb-archive-section">';
+    h += '<div class="bdb-archive-header">';
+    h += '<span class="bdb-archive-title">📦 Archived Batches (' + batches.length + ')</span>';
+    h += '<button class="bdb-archive-clear-btn" onclick="_binDbClearArchive()" title="Clear all archive">🗑</button>';
+    h += '</div>';
+    h += '<div class="bdb-archive-list">';
+    
+    // Show newest first
+    [...batches].reverse().forEach(batch => {
+        const merchants = batch.merchants || [];
+        const totalBins = batch.totalBins || merchants.reduce((s, m) => s + (m.bins || []).length, 0);
+        h += '<div class="bdb-archive-item" data-batchid="' + batch.id + '">';
+        h += '<span class="bdb-archive-date">' + batch.date + '</span>';
+        h += '<span class="bdb-archive-info">' + totalBins + ' BINs · ' + merchants.length + ' merchants</span>';
+        h += '<button class="bdb-archive-view-btn" onclick="event.stopPropagation();_binDbViewArchive(\'' + batch.id + '\')" title="View batch">👁</button>';
+        h += '</div>';
+    });
+    
+    h += '</div></div>';
+    return h;
+}
+
+function _binDbClearArchive() {
+    if (!confirm('Clear ALL archived batches? This cannot be undone.')) return;
+    STATE.binDbArchivedBatches = [];
+    save();
+    renderBinDatabase();
+    toast('Archive cleared', 'info');
+}
+
+function _binDbViewArchive(batchId) {
+    const batch = (STATE.binDbArchivedBatches || []).find(b => b.id === batchId);
+    if (!batch) return;
+    
+    let text = '📦 ARCHIVED BATCH — ' + batch.date + '\n';
+    text += '═'.repeat(40) + '\n\n';
+    
+    (batch.merchants || []).forEach(m => {
+        text += 'Merchant: ' + m.name + '\n';
+        if (m.screenshotCount) text += 'Screenshots: ' + m.screenshotCount + '\n';
+        text += '\n';
+        (m.bins || []).forEach(b => {
+            text += 'BIN: ' + _binDbFormatBin(b.bin) + ' - ' + _binDbFormatAmount(b.amount) + ' ' + (b.currency || 'USD') + '\n';
+        });
+        text += '\n';
+    });
+    
+    // Show in a simple modal
+    const overlay = document.createElement('div');
+    overlay.className = 'bdb-archive-overlay';
+    overlay.innerHTML = '<div class="bdb-archive-modal">' +
+        '<div class="bdb-archive-modal-header">' +
+        '<span>📦 Batch: ' + batch.date + '</span>' +
+        '<button class="bdb-archive-modal-close" onclick="this.closest(\'.bdb-archive-overlay\').remove()">✕</button>' +
+        '</div>' +
+        '<pre class="bdb-archive-modal-text">' + text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>' +
+        '<div class="bdb-archive-modal-actions">' +
+        '<button class="bdb-tool-btn" onclick="navigator.clipboard.writeText(this.closest(\'.bdb-archive-modal\').querySelector(\'pre\').textContent);toast(\'Copied!\',\'success\')">📋 Copy</button>' +
+        '</div>' +
+        '</div>';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+
+function _binDbArchiveBatch() {
+    const merchants = STATE.binDbMerchants || [];
+    const totalBins = merchants.reduce((s, m) => s + (m.bins || []).length, 0);
+    if (totalBins === 0) { toast('No BINs to archive', 'warning'); return; }
+    
+    if (!confirm('Archive current batch (' + totalBins + ' BINs across ' + merchants.length + ' merchants)?\nBINs will be saved to history and cleared from the active list.')) return;
+    
+    // Create archived batch
+    const batch = {
+        id: 'batch-' + Date.now(),
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        timestamp: Date.now(),
+        totalBins: totalBins,
+        merchants: merchants.map(m => ({
+            name: m.name,
+            screenshotCount: m.screenshotCount || 0,
+            defaultCurrency: m.defaultCurrency || 'USD',
+            bins: (m.bins || []).map(b => ({ bin: b.bin, amount: b.amount, currency: b.currency }))
+        }))
+    };
+    
+    if (!STATE.binDbArchivedBatches) STATE.binDbArchivedBatches = [];
+    STATE.binDbArchivedBatches.push(batch);
+    
+    // Clear BINs from all merchants (keep merchants themselves)
+    merchants.forEach(m => { m.bins = []; });
+    
+    save();
+    renderBinDatabase();
+    toast('📦 Batch archived: ' + totalBins + ' BINs saved to history', 'success');
 }
 
 function renderBinDatabase() {
@@ -14951,6 +15122,7 @@ function renderBinDatabase() {
                     </label>
                     <button class="bdb-tool-btn" onclick="_binDbSetScreenshots('${activeMerchant.id}')" title="Set screenshot count">📷 Screenshots: ${activeMerchant.screenshotCount || 0}</button>
                     <button class="bdb-tool-btn bdb-copy-btn" onclick="_binDbCopyMerchant('${activeMerchant.id}')">📋 Copy Merchant</button>
+                    <button class="bdb-tool-btn bdb-archive-btn" onclick="_binDbArchiveBatch()">📦 Archive & New Batch</button>
                     <button class="bdb-tool-btn bdb-clear-btn" onclick="_binDbClearBins('${activeMerchant.id}')">🗑 Clear All BINs</button>
                 </div>
             </div>
@@ -15039,6 +15211,7 @@ function renderBinDatabase() {
                 </div>
                 <div class="bdb-merchant-list" id="bdb-merchant-list">${merchantListHTML}</div>
                 ${previewHTML}
+                ${_binDbArchiveHistoryHTML()}
             </div>
             <div class="bdb-main">
                 ${merchantHeaderHTML}
