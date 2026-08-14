@@ -31,7 +31,7 @@ const STATE = {
     minicTags: [],
     minicTagFilter: 'all',
     minicActiveTab: 'main',
-    minicTabs: [{id:'main',name:'Main'}],
+    minicTabs: [{ id: 'main', name: 'Main' }],
     docRecords: [],
     promptsTabs: [],
     promptsActiveTab: '',
@@ -41,7 +41,7 @@ const STATE = {
 };
 
 // ──── BILLING ACTIVITY STATE ────
-const BILLING_STATE = { text: '', parsed: [], results: null };
+const BILLING_STATE = { text: '', parsed: [], results: null, files: [] };
 
 // ──── BIN CACHE (RustBin API) ────
 let BIN_CACHE = {};
@@ -187,21 +187,21 @@ function isoToFlag(code) {
 
 // Normalize 3-letter ISO country codes to 2-letter
 const _ISO3_TO_ISO2 = {
-    'CAN':'CA','USA':'US','JPN':'JP','GBR':'GB','AUS':'AU','DEU':'DE','FRA':'FR',
-    'ITA':'IT','ESP':'ES','BRA':'BR','MEX':'MX','IND':'IN','CHN':'CN','RUS':'RU',
-    'KOR':'KR','NLD':'NL','BEL':'BE','CHE':'CH','AUT':'AT','SWE':'SE','NOR':'NO',
-    'DNK':'DK','FIN':'FI','POL':'PL','PRT':'PT','IRL':'IE','NZL':'NZ','SGP':'SG',
-    'HKG':'HK','TWN':'TW','THA':'TH','MYS':'MY','IDN':'ID','PHL':'PH','VNM':'VN',
-    'ARE':'AE','SAU':'SA','QAT':'QA','KWT':'KW','BHR':'BH','OMN':'OM','ISR':'IL',
-    'TUR':'TR','ZAF':'ZA','EGY':'EG','NGA':'NG','KEN':'KE','GHA':'GH','COL':'CO',
-    'ARG':'AR','CHL':'CL','PER':'PE','URY':'UY','CRI':'CR','PAN':'PA','DOM':'DO',
-    'CYM':'KY','BMU':'BM','BHS':'BS','TTO':'TT','JAM':'JM','CUB':'CU','PRY':'PY',
-    'ECU':'EC','VEN':'VE','BOL':'BO','GTM':'GT','HND':'HN','SLV':'SV','NIC':'NI',
-    'ROU':'RO','HUN':'HU','CZE':'CZ','SVK':'SK','BGR':'BG','HRV':'HR','SRB':'RS',
-    'UKR':'UA','BLR':'BY','LTU':'LT','LVA':'LV','EST':'EE','GRC':'GR','CYP':'CY',
-    'LUX':'LU','MLT':'MT','ISL':'IS','GEO':'GE','ARM':'AM','AZE':'AZ','KAZ':'KZ',
-    'UZB':'UZ','PAK':'PK','BGD':'BD','LKA':'LK','NPL':'NP','MMR':'MM','KHM':'KH',
-    'LAO':'LA','MNG':'MN','MAC':'MO','BRN':'BN','MDV':'MV'
+    'CAN': 'CA', 'USA': 'US', 'JPN': 'JP', 'GBR': 'GB', 'AUS': 'AU', 'DEU': 'DE', 'FRA': 'FR',
+    'ITA': 'IT', 'ESP': 'ES', 'BRA': 'BR', 'MEX': 'MX', 'IND': 'IN', 'CHN': 'CN', 'RUS': 'RU',
+    'KOR': 'KR', 'NLD': 'NL', 'BEL': 'BE', 'CHE': 'CH', 'AUT': 'AT', 'SWE': 'SE', 'NOR': 'NO',
+    'DNK': 'DK', 'FIN': 'FI', 'POL': 'PL', 'PRT': 'PT', 'IRL': 'IE', 'NZL': 'NZ', 'SGP': 'SG',
+    'HKG': 'HK', 'TWN': 'TW', 'THA': 'TH', 'MYS': 'MY', 'IDN': 'ID', 'PHL': 'PH', 'VNM': 'VN',
+    'ARE': 'AE', 'SAU': 'SA', 'QAT': 'QA', 'KWT': 'KW', 'BHR': 'BH', 'OMN': 'OM', 'ISR': 'IL',
+    'TUR': 'TR', 'ZAF': 'ZA', 'EGY': 'EG', 'NGA': 'NG', 'KEN': 'KE', 'GHA': 'GH', 'COL': 'CO',
+    'ARG': 'AR', 'CHL': 'CL', 'PER': 'PE', 'URY': 'UY', 'CRI': 'CR', 'PAN': 'PA', 'DOM': 'DO',
+    'CYM': 'KY', 'BMU': 'BM', 'BHS': 'BS', 'TTO': 'TT', 'JAM': 'JM', 'CUB': 'CU', 'PRY': 'PY',
+    'ECU': 'EC', 'VEN': 'VE', 'BOL': 'BO', 'GTM': 'GT', 'HND': 'HN', 'SLV': 'SV', 'NIC': 'NI',
+    'ROU': 'RO', 'HUN': 'HU', 'CZE': 'CZ', 'SVK': 'SK', 'BGR': 'BG', 'HRV': 'HR', 'SRB': 'RS',
+    'UKR': 'UA', 'BLR': 'BY', 'LTU': 'LT', 'LVA': 'LV', 'EST': 'EE', 'GRC': 'GR', 'CYP': 'CY',
+    'LUX': 'LU', 'MLT': 'MT', 'ISL': 'IS', 'GEO': 'GE', 'ARM': 'AM', 'AZE': 'AZ', 'KAZ': 'KZ',
+    'UZB': 'UZ', 'PAK': 'PK', 'BGD': 'BD', 'LKA': 'LK', 'NPL': 'NP', 'MMR': 'MM', 'KHM': 'KH',
+    'LAO': 'LA', 'MNG': 'MN', 'MAC': 'MO', 'BRN': 'BN', 'MDV': 'MV'
 };
 function normalizeCC(code) {
     if (!code) return '';
@@ -352,7 +352,7 @@ function save() {
         localStorage.setItem('ct_bin_notes', JSON.stringify(STATE.binNotes || {}));
         localStorage.setItem('ct_minic_bins', JSON.stringify(STATE.minicBins || []));
         localStorage.setItem('ct_minic_tags', JSON.stringify(STATE.minicTags || []));
-        localStorage.setItem('ct_minic_tabs', JSON.stringify(STATE.minicTabs || [{id:'main',name:'Main'}]));
+        localStorage.setItem('ct_minic_tabs', JSON.stringify(STATE.minicTabs || [{ id: 'main', name: 'Main' }]));
         localStorage.setItem('ct_doc_records', JSON.stringify(STATE.docRecords || []));
         localStorage.setItem('ct_prompts_tabs', JSON.stringify(STATE.promptsTabs || []));
         localStorage.setItem('ct_prompts_active', STATE.promptsActiveTab || '');
@@ -431,9 +431,9 @@ function load() {
         // Load binDbMerchants
         const binDbRaw = localStorage.getItem('ct_bin_db_merchants');
         if (binDbRaw) STATE.binDbMerchants = JSON.parse(binDbRaw);
-    // Load archived batches
-    const binDbArchRaw = localStorage.getItem('ct_bin_db_archived');
-    if (binDbArchRaw) STATE.binDbArchivedBatches = JSON.parse(binDbArchRaw);
+        // Load archived batches
+        const binDbArchRaw = localStorage.getItem('ct_bin_db_archived');
+        if (binDbArchRaw) STATE.binDbArchivedBatches = JSON.parse(binDbArchRaw);
 
     } catch (e) {
         console.error('Load error:', e);
@@ -1437,7 +1437,7 @@ function renderAnalytics() {
     const bins = Object.values(binMap).map(b => {
         b.score = b.a + b.r;
         b.rate = b.used > 0 ? Math.round((b.a / b.used) * 100) : 0;
-        
+
         // Generate trend data
         const numDays = _anPeriod > 0 ? _anPeriod : 30; // default 30 days for 'All'
         const counts = new Array(numDays).fill(0);
@@ -1467,7 +1467,7 @@ function renderAnalytics() {
 
         const firstHalf = data.slice(0, Math.floor(data.length / 2)).reduce((a, b) => a + b, 0);
         const secondHalf = data.slice(Math.floor(data.length / 2)).reduce((a, b) => a + b, 0);
-        
+
         let color = '#71717A'; // gray
         let trendType = 'stable';
         if (secondHalf > firstHalf) { color = '#22C55E'; trendType = 'up'; }
@@ -1529,7 +1529,7 @@ function renderAnalytics() {
 
     let rowsHtml = '';
     bins.forEach((b, i) => {
-        const trClass = i < 3 ? `an-row top-row top-row-${i+1}` : 'an-row';
+        const trClass = i < 3 ? `an-row top-row top-row-${i + 1}` : 'an-row';
         rowsHtml += `<tr class="${trClass}" data-bin="${b.bin}">
                 <td class="td-num">${i + 1} ${getMedal(i)}</td>
                 <td class="bin-cell">${b.bin}</td>
@@ -1731,11 +1731,11 @@ const _CK = {
     proxyProto: 'socks5', // socks5 | http | https
     tabs: {
         proxy: { input: '', output: '' },
-        bin:   { input: '', output: '', binGroups: {}, selectedBins: new Set(), binCards: [] },
-        card:  { input: '', output: '' },
-        ip:    { input: '', output: '' },
-        auto:  { input: '', output: '' },
-        glue:  { input: '', output: '' },
+        bin: { input: '', output: '', binGroups: {}, selectedBins: new Set(), binCards: [] },
+        card: { input: '', output: '' },
+        ip: { input: '', output: '' },
+        auto: { input: '', output: '' },
+        glue: { input: '', output: '' },
         'cc-glue': { input: '', output: '' },
         generator: { input: '', output: '' },
     },
@@ -1806,7 +1806,7 @@ function _ckExtractCards(text) {
 
     // ── Pre-normalize exotic formats into pipe-delimited lines ──
     // JSON objects: {"cc":"4242...","exp_month":"03","exp_year":"27","cvv":"111"}
-    text = text.replace(/\{[^}]*?"(?:cc|card|card_number|number|pan|cardnumber|card_no)"[^}]*?\}/gi, function(block) {
+    text = text.replace(/\{[^}]*?"(?:cc|card|card_number|number|pan|cardnumber|card_no)"[^}]*?\}/gi, function (block) {
         const cc = block.match(/(?:cc|card|card_number|number|pan|cardnumber|card_no)"\s*:\s*"?(\d[\d\s\-]{11,22}\d)"?/i);
         const mm = block.match(/(?:exp_?month|month|mm|exp_mm)"\s*:\s*"?(\d{1,2})"?/i);
         const yy = block.match(/(?:exp_?year|year|yy|yyyy|exp_yy|exp_yyyy)"\s*:\s*"?(\d{2,4})"?/i);
@@ -1815,13 +1815,13 @@ function _ckExtractCards(text) {
         const expC = block.match(/(?:exp|expiry|expiration|valid)"\s*:\s*"?(0?[1-9]|1[0-2])\/?(\d{2,4})"?/i);
         const m = mm ? mm[1] : (expC ? expC[1] : null);
         const y = yy ? yy[1] : (expC ? expC[2] : null);
-        if (cc && m && y && cv) return '\n' + cc[1].replace(/[\s\-]/g,'') + '|' + m + '|' + y + '|' + cv[1] + '\n';
+        if (cc && m && y && cv) return '\n' + cc[1].replace(/[\s\-]/g, '') + '|' + m + '|' + y + '|' + cv[1] + '\n';
         return block;
     });
 
     // Query strings: cc=4242...&month=03&year=27&cvv=111 / card[number]=...&card[exp_month]=...
-    text = text.replace(/(?:cc|card(?:\[number\])?|number|pan)=(\d[\d\s\-]{11,22}\d)[&;].*?(?:month|exp_?month|card\[exp_?month\]|mm)=(\d{1,2})[&;].*?(?:year|exp_?year|card\[exp_?year\]|yy)=(\d{2,4})[&;].*?(?:cvv|cvc|cvv2|card\[cvc\]|security_code)=(\d{3,4})/gi, function(_, c, m, y, v) {
-        return '\n' + c.replace(/[\s\-]/g,'') + '|' + m + '|' + y + '|' + v + '\n';
+    text = text.replace(/(?:cc|card(?:\[number\])?|number|pan)=(\d[\d\s\-]{11,22}\d)[&;].*?(?:month|exp_?month|card\[exp_?month\]|mm)=(\d{1,2})[&;].*?(?:year|exp_?year|card\[exp_?year\]|yy)=(\d{2,4})[&;].*?(?:cvv|cvc|cvv2|card\[cvc\]|security_code)=(\d{3,4})/gi, function (_, c, m, y, v) {
+        return '\n' + c.replace(/[\s\-]/g, '') + '|' + m + '|' + y + '|' + v + '\n';
     });
 
     // HTML entities and tags
@@ -1829,7 +1829,7 @@ function _ckExtractCards(text) {
     text = text.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(?:div|p|tr|li)>/gi, '\n').replace(/<[^>]+>/g, ' ');
 
     // URL-encoded: %7C = |, %2F = /, etc
-    if (text.includes('%')) { try { text = decodeURIComponent(text); } catch(_) {} }
+    if (text.includes('%')) { try { text = decodeURIComponent(text); } catch (_) { } }
 
     // Semicolon and tilde delimiters → pipe
     text = text.replace(/(\d{13,19})\s*[;~]\s*(\d{1,2})\s*[;~]\s*(\d{2,4})\s*[;~]\s*(\d{3,4})/g, '$1|$2|$3|$4');
@@ -2227,11 +2227,11 @@ function _ckAutoExtract(text, proto) {
     if (cards.length) {
         const netStats = {};
         cards.forEach(c => { netStats[c.network || '??'] = (netStats[c.network || '??'] || 0) + 1; });
-        const netStr = Object.entries(netStats).map(([k,v]) => `${k}: ${v}`).join(', ');
+        const netStr = Object.entries(netStats).map(([k, v]) => `${k}: ${v}`).join(', ');
         sections.push(`💳 CARDS (${cards.length}) [${netStr}]\n` + cards.map(c => `${c.ccn} ${c.mm} ${c.yy} ${c.cvv}`).join('\n'));
     }
     if (bins.length) sections.push(`🔢 BINs (${bins.length})\n` + bins.join('\n'));
-    if (ips.length)  sections.push(`📡 IPs (${ips.length})\n` + ips.join('\n'));
+    if (ips.length) sections.push(`📡 IPs (${ips.length})\n` + ips.join('\n'));
     if (proxies.length) sections.push(`🌐 PROXIES (${proxies.length})\n` + proxies.join('\n'));
 
     if (!sections.length) return '';
@@ -2271,7 +2271,7 @@ function _ckProcess() {
             tab.selectedBins = new Set([...tab.selectedBins].filter(b => validBins.has(b)));
             const netStats2 = {};
             binCards.forEach(c => { netStats2[c.network || '??'] = (netStats2[c.network || '??'] || 0) + 1; });
-            const parts2 = Object.entries(netStats2).map(([k,v]) => `${v} ${k}`);
+            const parts2 = Object.entries(netStats2).map(([k, v]) => `${v} ${k}`);
             countLabel = `${result.length} unique BINs` + (parts2.length ? ` • ${binCards.length} cards • ${parts2.join(', ')}` : '');
             break;
         }
@@ -2280,7 +2280,7 @@ function _ckProcess() {
             result = cards.map(c => `${c.ccn} ${c.mm} ${c.yy} ${c.cvv}`);
             const netStats = {};
             cards.forEach(c => { netStats[c.network || '??'] = (netStats[c.network || '??'] || 0) + 1; });
-            const parts = Object.entries(netStats).map(([k,v]) => `${v} ${k}`);
+            const parts = Object.entries(netStats).map(([k, v]) => `${v} ${k}`);
             countLabel = `${cards.length} cards` + (parts.length ? ` • ${parts.join(', ')}` : '');
             break;
         }
@@ -2321,7 +2321,7 @@ function _ckExtractIdentities(text) {
 
     for (const block of blocks) {
         if (!block.trim()) continue;
-        const id = { name:'', surname:'', address:'', city:'', state:'', country:'', zip:'', dob:'', phone:'', email:'' };
+        const id = { name: '', surname: '', address: '', city: '', state: '', country: '', zip: '', dob: '', phone: '', email: '' };
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
         let found = 0;
 
@@ -2382,7 +2382,7 @@ function _ckExtractIdentities(text) {
         }
 
         if (found >= 1 && (id.name || id.surname)) {
-            results.push({...id});
+            results.push({ ...id });
         }
     }
     return results;
@@ -2397,7 +2397,7 @@ function _ckGluePair() {
     const paired = Math.min(cards.length, ids.length);
 
     for (let i = 0; i < paired; i++) {
-        records.push({ card: {...cards[i]}, identity: {...ids[i]} });
+        records.push({ card: { ...cards[i] }, identity: { ...ids[i] } });
     }
 
     g.records = records;
@@ -2636,8 +2636,8 @@ function _renderCCGlue() {
 
     const stepLabels = ['', '1 · PASTE CARDS', '2 · BIN OVERVIEW', '3 · GENERATE'];
     const stepIcons = ['', '💳', '📊', '🃏'];
-    const modeIcons = { proxy:'🌐', bin:'🔢', card:'💳', ip:'📡', auto:'🔍', glue:'🔗', 'cc-glue':'🃏', generator:'📄' };
-    const modeLabels = { proxy:'Proxy', bin:'BIN', card:'Card', ip:'IP', auto:'Auto', glue:'Glue', 'cc-glue':'CC Glue', generator:'Generator' };
+    const modeIcons = { proxy: '🌐', bin: '🔢', card: '💳', ip: '📡', auto: '🔍', glue: '🔗', 'cc-glue': '🃏', generator: '📄' };
+    const modeLabels = { proxy: 'Proxy', bin: 'BIN', card: 'Card', ip: 'IP', auto: 'Auto', glue: 'Glue', 'cc-glue': 'CC Glue', generator: 'Generator' };
 
     area.innerHTML = `
     <div class="ck-container">
@@ -2657,7 +2657,7 @@ function _renderCCGlue() {
             </div>
         </div>
         <div class="glue-steps">
-            ${[1,2,3].map(s => `
+            ${[1, 2, 3].map(s => `
                 <div class="glue-step ${g.step === s ? 'active' : ''} ${g.step > s ? 'done' : ''}" data-step="${s}">
                     <span class="glue-step-num">${g.step > s ? '✓' : s}</span>
                     <span class="glue-step-label">${stepLabels[s]}</span>
@@ -2721,7 +2721,7 @@ function _renderCCGlueStep1() {
 
 function _renderCCGlueStep2() {
     const g = _CK.ccGlue;
-    const bins = Object.keys(g.binGroups).sort((a,b) => g.binGroups[b].length - g.binGroups[a].length);
+    const bins = Object.keys(g.binGroups).sort((a, b) => g.binGroups[b].length - g.binGroups[a].length);
     const totalRemaining = bins.reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
     const selectedCount = g.selectedBins.size;
     const selectedCards = [...g.selectedBins].reduce((s, b) => s + (g.binGroups[b]?.length || 0), 0);
@@ -2767,12 +2767,12 @@ function _renderCCGlueStep2() {
             </div>
             <div class="ccg-bin-grid">
                 ${bins.map(bin => {
-                    const cards = g.binGroups[bin];
-                    const cnt = cards?.length || 0;
-                    const net = cards[0]?.network || getCardType(cards[0]?.ccn || '');
-                    const sel = g.selectedBins.has(bin);
-                    const empty = cnt === 0;
-                    return `
+        const cards = g.binGroups[bin];
+        const cnt = cards?.length || 0;
+        const net = cards[0]?.network || getCardType(cards[0]?.ccn || '');
+        const sel = g.selectedBins.has(bin);
+        const empty = cnt === 0;
+        return `
                     <div class="ccg-bin-card ${sel ? 'selected' : ''} ${empty ? 'ccg-bin-empty' : ''}" data-bin="${bin}">
                         <div class="ccg-bin-check">
                             <input type="checkbox" ${sel ? 'checked' : ''} ${empty ? 'disabled' : ''} data-bincheck="${bin}" style="accent-color:#818cf8">
@@ -2781,7 +2781,7 @@ function _renderCCGlueStep2() {
                         <div class="ccg-bin-net">${net || '—'}</div>
                         <div class="ccg-bin-cnt ${empty ? 'ccg-cnt-zero' : ''}">${cnt}</div>
                     </div>`;
-                }).join('')}
+    }).join('')}
             </div>
             ${output ? `
             <div class="ck-panel" style="max-height:200px">
@@ -2797,7 +2797,7 @@ function _renderCCGlueStep2() {
                 <textarea class="ck-textarea ck-output-text" id="ccg-output" readonly style="min-height:60px;max-height:140px">${output}</textarea>
             </div>
             <div class="ccg-batch-bins">
-                ${g.currentBatch.map(c => `<span class="ccg-batch-bin-tag">${c._bin} · ${c.ccn.replace(/[\s-]/g,'').slice(-4)}</span>`).join('')}
+                ${g.currentBatch.map(c => `<span class="ccg-batch-bin-tag">${c._bin} · ${c.ccn.replace(/[\s-]/g, '').slice(-4)}</span>`).join('')}
             </div>` : ''}
             <div class="glue-bottom-bar">
                 <button class="glue-btn-secondary" id="ccg-back-2">← Back</button>
@@ -2843,11 +2843,11 @@ function _bindCCGlueEvents() {
             if (btn) { btn.disabled = g.parsedCards.length === 0; }
         });
         document.getElementById('ccg-paste-1')?.addEventListener('click', async () => {
-            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted','success'); } catch { toast('Clipboard denied','error'); }
+            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted', 'success'); } catch { toast('Clipboard denied', 'error'); }
         });
-        document.getElementById('ccg-clear-1')?.addEventListener('click', () => { g.cardsRaw = ''; g.parsedCards = []; g.dedupeStats = {total:0,removed:0,clean:0}; _renderCCGlue(); });
+        document.getElementById('ccg-clear-1')?.addEventListener('click', () => { g.cardsRaw = ''; g.parsedCards = []; g.dedupeStats = { total: 0, removed: 0, clean: 0 }; _renderCCGlue(); });
         document.getElementById('ccg-next-1')?.addEventListener('click', () => {
-            if (g.parsedCards.length === 0) { toast('No cards found','error'); return; }
+            if (g.parsedCards.length === 0) { toast('No cards found', 'error'); return; }
             g.binGroups = _ccGlueGroupByBin(g.parsedCards);
             g.selectedBins = new Set(Object.keys(g.binGroups));
             g.batchIndex = {};
@@ -2965,7 +2965,7 @@ function _bindCCGlueEvents() {
         });
         document.getElementById('ccg-copy-batch')?.addEventListener('click', () => {
             const text = _ccGlueFormatBatch(g.currentBatch);
-            navigator.clipboard.writeText(text).then(() => toast('Copied!','success')).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!','success'); });
+            navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success')).catch(() => { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!', 'success'); });
         });
         document.getElementById('ccg-to-notes')?.addEventListener('click', () => {
             const text = '═══ CC GLUE BATCH ═══\n' + new Date().toLocaleString() + '\n\n' + _ccGlueFormatBatch(g.currentBatch);
@@ -2984,7 +2984,7 @@ function _bindCCGlueEvents() {
 }
 
 // Load base on startup
-try { _ccGlueLoadBase(); } catch {}
+try { _ccGlueLoadBase(); } catch { }
 
 /* ──────────────────────────────────────────
    GLUE — Render UI
@@ -3021,7 +3021,7 @@ function _renderGlue() {
 
         <!-- Step indicator -->
         <div class="glue-steps">
-            ${[1,2,3].map(s => `
+            ${[1, 2, 3].map(s => `
                 <div class="glue-step ${g.step === s ? 'active' : ''} ${g.step > s ? 'done' : ''}" data-step="${s}">
                     <span class="glue-step-num">${g.step > s ? '✓' : s}</span>
                     <span class="glue-step-label">${stepLabels[s]}</span>
@@ -3177,11 +3177,11 @@ function _bindGlueEvents() {
             }
         });
         document.getElementById('glue-paste-1')?.addEventListener('click', async () => {
-            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted','success'); } catch { toast('Clipboard denied','error'); }
+            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted', 'success'); } catch { toast('Clipboard denied', 'error'); }
         });
         document.getElementById('glue-clear-1')?.addEventListener('click', () => { g.cardsRaw = ''; g.parsedCards = []; _renderGlue(); });
         document.getElementById('glue-next-1')?.addEventListener('click', () => {
-            if (g.parsedCards.length === 0) { toast('No cards found','error'); return; }
+            if (g.parsedCards.length === 0) { toast('No cards found', 'error'); return; }
             toast(`${g.parsedCards.length} cards extracted`, 'success');
             g.step = 2; _renderGlue();
         });
@@ -3199,12 +3199,12 @@ function _bindGlueEvents() {
             if (btn) btn.disabled = g.parsedIdentities.length === 0;
         });
         document.getElementById('glue-paste-2')?.addEventListener('click', async () => {
-            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted','success'); } catch { toast('Clipboard denied','error'); }
+            try { const t = await navigator.clipboard.readText(); inp.value = t; inp.dispatchEvent(new Event('input')); toast('Pasted', 'success'); } catch { toast('Clipboard denied', 'error'); }
         });
         document.getElementById('glue-clear-2')?.addEventListener('click', () => { g.identityRaw = ''; g.parsedIdentities = []; _renderGlue(); });
         document.getElementById('glue-back-2')?.addEventListener('click', () => { g.step = 1; _renderGlue(); });
         document.getElementById('glue-next-2')?.addEventListener('click', () => {
-            if (g.parsedIdentities.length === 0) { toast('No identities found','error'); return; }
+            if (g.parsedIdentities.length === 0) { toast('No identities found', 'error'); return; }
             _ckGluePair();
             toast(`${g.records.length} records paired`, 'success');
             g.step = 3; _renderGlue();
@@ -3221,7 +3221,7 @@ function _bindGlueEvents() {
         });
         document.getElementById('glue-copy')?.addEventListener('click', () => {
             const text = _ckFormatAllRecords();
-            navigator.clipboard.writeText(text).then(() => toast('Copied!','success')).catch(() => { const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!','success'); });
+            navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success')).catch(() => { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Copied!', 'success'); });
         });
         document.getElementById('glue-to-notes')?.addEventListener('click', () => {
             const text = '═══ GLUE EXPORT ═══\n' + new Date().toLocaleString() + '\n\n' + _ckFormatAllRecords();
@@ -3278,7 +3278,7 @@ function _generateTEPCOData(gen) {
     const stmtDate = new Date(meterDate.getFullYear(), meterDate.getMonth(), meterDay + _genRand(20, 25));
     const dueDate = new Date(stmtDate.getFullYear(), stmtDate.getMonth() + 1, stmtDate.getDate());
     const chargeDueDate = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate() - _genRand(1, 5));
-    const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).toString().slice(-2)}`;
+    const fmt = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).toString().slice(-2)}`;
     const acct = String(_genRand(10000000, 99999999));
     const inv = String(_genRand(100, 999));
     // Real TEPCO usage: 1-2 person household 150-350 kWh
@@ -3338,7 +3338,7 @@ function _renderTEPCOBillHTML(d, font) {
     <div>
       <div style="margin-bottom:2px"><b>Account #:</b> ${d.acct} &nbsp;&nbsp;&nbsp; <b>Invoice:</b> ${d.inv}</div>
       <div><b>Name:</b> ${d.name}</div>
-      <div><b>Address:</b> ${d.address.replace(/\n/g,'<br>')}</div>
+      <div><b>Address:</b> ${d.address.replace(/\n/g, '<br>')}</div>
     </div>
     <div style="text-align:right;max-width:260px">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px">DO NOT PAY</div>
@@ -3388,9 +3388,9 @@ function _renderTEPCOBillHTML(d, font) {
     <div>
       <div style="display:flex;align-items:flex-end;position:relative;height:100px;border-bottom:1px solid #999;padding:0 4px">
         <span style="position:absolute;left:-30px;top:0;font-size:9px;color:#666">${d.yMax}</span>
-        <span style="position:absolute;left:-30px;top:25px;font-size:9px;color:#666">${Math.round(d.yMax*0.75)}</span>
-        <span style="position:absolute;left:-30px;top:50px;font-size:9px;color:#666">${Math.round(d.yMax*0.5)}</span>
-        <span style="position:absolute;left:-30px;top:75px;font-size:9px;color:#666">${Math.round(d.yMax*0.25)}</span>
+        <span style="position:absolute;left:-30px;top:25px;font-size:9px;color:#666">${Math.round(d.yMax * 0.75)}</span>
+        <span style="position:absolute;left:-30px;top:50px;font-size:9px;color:#666">${Math.round(d.yMax * 0.5)}</span>
+        <span style="position:absolute;left:-30px;top:75px;font-size:9px;color:#666">${Math.round(d.yMax * 0.25)}</span>
         <span style="position:absolute;left:-14px;bottom:-14px;font-size:9px;color:#666">0</span>
         <div style="display:flex;align-items:flex-end;gap:3px;margin-left:10px">${barsHtml}</div>
       </div>
@@ -3419,81 +3419,81 @@ function _renderTEPCOBillHTML(d, font) {
 //   US WATER BILL — Provider Data & Generator (50 states)
 // ═══════════════════════════════════════════
 const US_WATER_PROVIDERS = {
-    'AL': { name:'Birmingham Water Works', co:'Birmingham Water Works Board', phone:'(205) 244-4000', web:'bwwb.org', color:'#0066a1', avgBill:[25,45] },
-    'AK': { name:'Anchorage Water', co:'Anchorage Water & Wastewater Utility', phone:'(907) 564-2700', web:'awwu.biz', color:'#005b96', avgBill:[40,80] },
-    'AZ': { name:'Phoenix Water Services', co:'City of Phoenix Water Services Dept', phone:'(602) 262-6251', web:'phoenix.gov/water', color:'#b7312c', avgBill:[30,65] },
-    'AR': { name:'Central Arkansas Water', co:'Central Arkansas Water', phone:'(501) 377-1200', web:'carkw.com', color:'#1a5276', avgBill:[22,42] },
-    'CA': { name:'Cal Water', co:'California Water Service', phone:'(408) 367-8200', web:'calwater.com', color:'#0072bc', avgBill:[55,110] },
-    'CO': { name:'Denver Water', co:'Denver Water', phone:'(303) 893-2444', web:'denverwater.org', color:'#004990', avgBill:[30,60] },
-    'CT': { name:'Aquarion Water', co:'Aquarion Water Company of CT', phone:'(800) 732-9678', web:'aquarionwater.com', color:'#007dba', avgBill:[50,90] },
-    'DE': { name:'Artesian Water', co:'Artesian Water Company', phone:'(302) 453-6900', web:'artesianwater.com', color:'#1b5e20', avgBill:[35,65] },
-    'FL': { name:'Miami-Dade Water', co:'Miami-Dade Water and Sewer Dept', phone:'(305) 665-7471', web:'miamidade.gov/water', color:'#00838f', avgBill:[28,58] },
-    'GA': { name:'Atlanta Watershed', co:'Atlanta Dept of Watershed Management', phone:'(404) 546-0311', web:'atlantawatershed.org', color:'#1565c0', avgBill:[25,55] },
-    'HI': { name:'Honolulu BWS', co:'Board of Water Supply', phone:'(808) 748-5000', web:'boardofwatersupply.com', color:'#0277bd', avgBill:[35,70] },
-    'ID': { name:'Boise Water', co:'United Water Idaho', phone:'(208) 362-7304', web:'unitedwater.com', color:'#2e7d32', avgBill:[25,50] },
-    'IL': { name:'Illinois American Water', co:'Illinois American Water Co.', phone:'(800) 422-2782', web:'amwater.com/ilaw', color:'#01579b', avgBill:[22,50] },
-    'IN': { name:'Indiana American Water', co:'Indiana American Water', phone:'(800) 492-8373', web:'amwater.com/inaw', color:'#01579b', avgBill:[25,55] },
-    'IA': { name:'Iowa American Water', co:'Iowa American Water', phone:'(563) 386-4501', web:'amwater.com/iaaw', color:'#01579b', avgBill:[26,52] },
-    'KS': { name:'WaterOne', co:'WaterOne of Johnson County', phone:'(913) 895-5500', web:'waterone.org', color:'#0d47a1', avgBill:[24,50] },
-    'KY': { name:'Kentucky American Water', co:'Kentucky American Water', phone:'(800) 678-6301', web:'amwater.com/kyaw', color:'#01579b', avgBill:[28,56] },
-    'LA': { name:'Sewerage & Water Board', co:'Sewerage & Water Board of New Orleans', phone:'(504) 529-2837', web:'swbno.org', color:'#1a237e', avgBill:[18,40] },
-    'ME': { name:'Portland Water District', co:'Portland Water District', phone:'(207) 761-8310', web:'pwd.org', color:'#006064', avgBill:[20,45] },
-    'MD': { name:'Maryland American Water', co:'Maryland American Water', phone:'(800) 934-1502', web:'amwater.com/mdaw', color:'#01579b', avgBill:[30,60] },
-    'MA': { name:'Boston Water & Sewer', co:'Boston Water and Sewer Commission', phone:'(617) 989-7000', web:'bwsc.org', color:'#0d47a1', avgBill:[30,65] },
-    'MI': { name:'Great Lakes Water', co:'Great Lakes Water Authority', phone:'(313) 964-9580', web:'glwater.org', color:'#1565c0', avgBill:[25,55] },
-    'MN': { name:'Minneapolis Water', co:'Minneapolis Water Treatment & Distribution', phone:'(612) 673-5600', web:'minneapolismn.gov/water', color:'#0d47a1', avgBill:[24,52] },
-    'MS': { name:'Jackson Water', co:'City of Jackson Water/Sewer Utilities', phone:'(601) 960-2723', web:'jacksonms.gov', color:'#283593', avgBill:[20,42] },
-    'MO': { name:'Missouri American Water', co:'Missouri American Water', phone:'(866) 430-0820', web:'amwater.com/moaw', color:'#01579b', avgBill:[24,52] },
-    'MT': { name:'Mountain Water', co:'Mountain Water Company', phone:'(406) 721-5570', web:'mountainwater.com', color:'#1b5e20', avgBill:[28,55] },
-    'NE': { name:'Metropolitan Utilities', co:'Metropolitan Utilities District', phone:'(402) 554-6666', web:'mudomaha.com', color:'#004d40', avgBill:[20,44] },
-    'NV': { name:'Las Vegas Valley Water', co:'Las Vegas Valley Water District', phone:'(702) 870-4194', web:'lvvwd.com', color:'#0277bd', avgBill:[22,50] },
-    'NH': { name:'Manchester Water Works', co:'Manchester Water Works', phone:'(603) 624-6482', web:'manchesternh.gov', color:'#1a5276', avgBill:[24,50] },
-    'NJ': { name:'NJ American Water', co:'New Jersey American Water', phone:'(800) 652-6987', web:'amwater.com/njaw', color:'#01579b', avgBill:[30,65] },
-    'NM': { name:'Albuquerque Water', co:'Albuquerque Bernalillo County Water Utility', phone:'(505) 842-3400', web:'abcwua.org', color:'#bf360c', avgBill:[28,58] },
-    'NY': { name:'NYC Water Board', co:'New York City Water Board', phone:'(718) 595-7000', web:'nyc.gov/dep', color:'#1565c0', avgBill:[25,55] },
-    'NC': { name:'Charlotte Water', co:'Charlotte Water', phone:'(704) 336-3432', web:'charlottewater.org', color:'#00695c', avgBill:[18,42] },
-    'ND': { name:'Bismarck Water', co:'City of Bismarck Water Department', phone:'(701) 355-1500', web:'bismarcknd.gov', color:'#0d47a1', avgBill:[26,52] },
-    'OH': { name:'Aqua Ohio', co:'Aqua Ohio Inc.', phone:'(877) 987-2782', web:'aquawater.com', color:'#00838f', avgBill:[24,50] },
-    'OK': { name:'OKC Utilities', co:'Oklahoma City Utilities', phone:'(405) 297-2833', web:'okc.gov/utilities', color:'#b71c1c', avgBill:[30,60] },
-    'OR': { name:'Portland Water Bureau', co:'Portland Water Bureau', phone:'(503) 823-7770', web:'portland.gov/water', color:'#1b5e20', avgBill:[55,100] },
-    'PA': { name:'Philadelphia Water', co:'Philadelphia Water Department', phone:'(215) 685-6300', web:'phila.gov/water', color:'#0d47a1', avgBill:[28,60] },
-    'RI': { name:'Providence Water', co:'Providence Water Supply Board', phone:'(401) 521-6300', web:'provwater.com', color:'#1a237e', avgBill:[28,55] },
-    'SC': { name:'Charleston Water', co:'Charleston Water System', phone:'(843) 727-6800', web:'charlestonwater.com', color:'#00695c', avgBill:[28,58] },
-    'SD': { name:'Sioux Falls Water', co:'City of Sioux Falls Water Division', phone:'(605) 367-8601', web:'siouxfalls.org', color:'#0d47a1', avgBill:[22,46] },
-    'TN': { name:'Tennessee American Water', co:'Tennessee American Water', phone:'(866) 736-6420', web:'amwater.com/tnaw', color:'#01579b', avgBill:[26,55] },
-    'TX': { name:'Dallas Water Utilities', co:'Dallas Water Utilities', phone:'(214) 651-1441', web:'dallascityhall.com', color:'#1565c0', avgBill:[28,62] },
-    'UT': { name:'SLC Public Utilities', co:'Salt Lake City Public Utilities', phone:'(801) 483-6900', web:'slc.gov/utilities', color:'#283593', avgBill:[24,52] },
-    'VT': { name:'Burlington Water', co:'Burlington Dept of Public Works', phone:'(802) 863-4501', web:'burlingtonvt.gov/dpw', color:'#2e7d32', avgBill:[15,35] },
-    'VA': { name:'Virginia American Water', co:'Virginia American Water', phone:'(800) 452-6863', web:'amwater.com/vaaw', color:'#01579b', avgBill:[30,60] },
-    'WA': { name:'Seattle Public Utilities', co:'Seattle Public Utilities', phone:'(206) 684-3000', web:'seattle.gov/utilities', color:'#004d40', avgBill:[55,100] },
-    'WV': { name:'WV American Water', co:'West Virginia American Water', phone:'(800) 685-8660', web:'amwater.com/wvaw', color:'#01579b', avgBill:[65,120] },
-    'WI': { name:'Milwaukee Water Works', co:'Milwaukee Water Works', phone:'(414) 286-2830', web:'milwaukee.gov/water', color:'#0d47a1', avgBill:[15,38] },
-    'WY': { name:'Cheyenne Water', co:'Cheyenne Board of Public Utilities', phone:'(307) 637-6460', web:'cheyennebopu.org', color:'#33691e', avgBill:[24,50] },
-    'DC': { name:'DC Water', co:'District of Columbia Water and Sewer Authority', phone:'(202) 354-3600', web:'dcwater.com', color:'#0d47a1', avgBill:[35,70] }
+    'AL': { name: 'Birmingham Water Works', co: 'Birmingham Water Works Board', phone: '(205) 244-4000', web: 'bwwb.org', color: '#0066a1', avgBill: [25, 45] },
+    'AK': { name: 'Anchorage Water', co: 'Anchorage Water & Wastewater Utility', phone: '(907) 564-2700', web: 'awwu.biz', color: '#005b96', avgBill: [40, 80] },
+    'AZ': { name: 'Phoenix Water Services', co: 'City of Phoenix Water Services Dept', phone: '(602) 262-6251', web: 'phoenix.gov/water', color: '#b7312c', avgBill: [30, 65] },
+    'AR': { name: 'Central Arkansas Water', co: 'Central Arkansas Water', phone: '(501) 377-1200', web: 'carkw.com', color: '#1a5276', avgBill: [22, 42] },
+    'CA': { name: 'Cal Water', co: 'California Water Service', phone: '(408) 367-8200', web: 'calwater.com', color: '#0072bc', avgBill: [55, 110] },
+    'CO': { name: 'Denver Water', co: 'Denver Water', phone: '(303) 893-2444', web: 'denverwater.org', color: '#004990', avgBill: [30, 60] },
+    'CT': { name: 'Aquarion Water', co: 'Aquarion Water Company of CT', phone: '(800) 732-9678', web: 'aquarionwater.com', color: '#007dba', avgBill: [50, 90] },
+    'DE': { name: 'Artesian Water', co: 'Artesian Water Company', phone: '(302) 453-6900', web: 'artesianwater.com', color: '#1b5e20', avgBill: [35, 65] },
+    'FL': { name: 'Miami-Dade Water', co: 'Miami-Dade Water and Sewer Dept', phone: '(305) 665-7471', web: 'miamidade.gov/water', color: '#00838f', avgBill: [28, 58] },
+    'GA': { name: 'Atlanta Watershed', co: 'Atlanta Dept of Watershed Management', phone: '(404) 546-0311', web: 'atlantawatershed.org', color: '#1565c0', avgBill: [25, 55] },
+    'HI': { name: 'Honolulu BWS', co: 'Board of Water Supply', phone: '(808) 748-5000', web: 'boardofwatersupply.com', color: '#0277bd', avgBill: [35, 70] },
+    'ID': { name: 'Boise Water', co: 'United Water Idaho', phone: '(208) 362-7304', web: 'unitedwater.com', color: '#2e7d32', avgBill: [25, 50] },
+    'IL': { name: 'Illinois American Water', co: 'Illinois American Water Co.', phone: '(800) 422-2782', web: 'amwater.com/ilaw', color: '#01579b', avgBill: [22, 50] },
+    'IN': { name: 'Indiana American Water', co: 'Indiana American Water', phone: '(800) 492-8373', web: 'amwater.com/inaw', color: '#01579b', avgBill: [25, 55] },
+    'IA': { name: 'Iowa American Water', co: 'Iowa American Water', phone: '(563) 386-4501', web: 'amwater.com/iaaw', color: '#01579b', avgBill: [26, 52] },
+    'KS': { name: 'WaterOne', co: 'WaterOne of Johnson County', phone: '(913) 895-5500', web: 'waterone.org', color: '#0d47a1', avgBill: [24, 50] },
+    'KY': { name: 'Kentucky American Water', co: 'Kentucky American Water', phone: '(800) 678-6301', web: 'amwater.com/kyaw', color: '#01579b', avgBill: [28, 56] },
+    'LA': { name: 'Sewerage & Water Board', co: 'Sewerage & Water Board of New Orleans', phone: '(504) 529-2837', web: 'swbno.org', color: '#1a237e', avgBill: [18, 40] },
+    'ME': { name: 'Portland Water District', co: 'Portland Water District', phone: '(207) 761-8310', web: 'pwd.org', color: '#006064', avgBill: [20, 45] },
+    'MD': { name: 'Maryland American Water', co: 'Maryland American Water', phone: '(800) 934-1502', web: 'amwater.com/mdaw', color: '#01579b', avgBill: [30, 60] },
+    'MA': { name: 'Boston Water & Sewer', co: 'Boston Water and Sewer Commission', phone: '(617) 989-7000', web: 'bwsc.org', color: '#0d47a1', avgBill: [30, 65] },
+    'MI': { name: 'Great Lakes Water', co: 'Great Lakes Water Authority', phone: '(313) 964-9580', web: 'glwater.org', color: '#1565c0', avgBill: [25, 55] },
+    'MN': { name: 'Minneapolis Water', co: 'Minneapolis Water Treatment & Distribution', phone: '(612) 673-5600', web: 'minneapolismn.gov/water', color: '#0d47a1', avgBill: [24, 52] },
+    'MS': { name: 'Jackson Water', co: 'City of Jackson Water/Sewer Utilities', phone: '(601) 960-2723', web: 'jacksonms.gov', color: '#283593', avgBill: [20, 42] },
+    'MO': { name: 'Missouri American Water', co: 'Missouri American Water', phone: '(866) 430-0820', web: 'amwater.com/moaw', color: '#01579b', avgBill: [24, 52] },
+    'MT': { name: 'Mountain Water', co: 'Mountain Water Company', phone: '(406) 721-5570', web: 'mountainwater.com', color: '#1b5e20', avgBill: [28, 55] },
+    'NE': { name: 'Metropolitan Utilities', co: 'Metropolitan Utilities District', phone: '(402) 554-6666', web: 'mudomaha.com', color: '#004d40', avgBill: [20, 44] },
+    'NV': { name: 'Las Vegas Valley Water', co: 'Las Vegas Valley Water District', phone: '(702) 870-4194', web: 'lvvwd.com', color: '#0277bd', avgBill: [22, 50] },
+    'NH': { name: 'Manchester Water Works', co: 'Manchester Water Works', phone: '(603) 624-6482', web: 'manchesternh.gov', color: '#1a5276', avgBill: [24, 50] },
+    'NJ': { name: 'NJ American Water', co: 'New Jersey American Water', phone: '(800) 652-6987', web: 'amwater.com/njaw', color: '#01579b', avgBill: [30, 65] },
+    'NM': { name: 'Albuquerque Water', co: 'Albuquerque Bernalillo County Water Utility', phone: '(505) 842-3400', web: 'abcwua.org', color: '#bf360c', avgBill: [28, 58] },
+    'NY': { name: 'NYC Water Board', co: 'New York City Water Board', phone: '(718) 595-7000', web: 'nyc.gov/dep', color: '#1565c0', avgBill: [25, 55] },
+    'NC': { name: 'Charlotte Water', co: 'Charlotte Water', phone: '(704) 336-3432', web: 'charlottewater.org', color: '#00695c', avgBill: [18, 42] },
+    'ND': { name: 'Bismarck Water', co: 'City of Bismarck Water Department', phone: '(701) 355-1500', web: 'bismarcknd.gov', color: '#0d47a1', avgBill: [26, 52] },
+    'OH': { name: 'Aqua Ohio', co: 'Aqua Ohio Inc.', phone: '(877) 987-2782', web: 'aquawater.com', color: '#00838f', avgBill: [24, 50] },
+    'OK': { name: 'OKC Utilities', co: 'Oklahoma City Utilities', phone: '(405) 297-2833', web: 'okc.gov/utilities', color: '#b71c1c', avgBill: [30, 60] },
+    'OR': { name: 'Portland Water Bureau', co: 'Portland Water Bureau', phone: '(503) 823-7770', web: 'portland.gov/water', color: '#1b5e20', avgBill: [55, 100] },
+    'PA': { name: 'Philadelphia Water', co: 'Philadelphia Water Department', phone: '(215) 685-6300', web: 'phila.gov/water', color: '#0d47a1', avgBill: [28, 60] },
+    'RI': { name: 'Providence Water', co: 'Providence Water Supply Board', phone: '(401) 521-6300', web: 'provwater.com', color: '#1a237e', avgBill: [28, 55] },
+    'SC': { name: 'Charleston Water', co: 'Charleston Water System', phone: '(843) 727-6800', web: 'charlestonwater.com', color: '#00695c', avgBill: [28, 58] },
+    'SD': { name: 'Sioux Falls Water', co: 'City of Sioux Falls Water Division', phone: '(605) 367-8601', web: 'siouxfalls.org', color: '#0d47a1', avgBill: [22, 46] },
+    'TN': { name: 'Tennessee American Water', co: 'Tennessee American Water', phone: '(866) 736-6420', web: 'amwater.com/tnaw', color: '#01579b', avgBill: [26, 55] },
+    'TX': { name: 'Dallas Water Utilities', co: 'Dallas Water Utilities', phone: '(214) 651-1441', web: 'dallascityhall.com', color: '#1565c0', avgBill: [28, 62] },
+    'UT': { name: 'SLC Public Utilities', co: 'Salt Lake City Public Utilities', phone: '(801) 483-6900', web: 'slc.gov/utilities', color: '#283593', avgBill: [24, 52] },
+    'VT': { name: 'Burlington Water', co: 'Burlington Dept of Public Works', phone: '(802) 863-4501', web: 'burlingtonvt.gov/dpw', color: '#2e7d32', avgBill: [15, 35] },
+    'VA': { name: 'Virginia American Water', co: 'Virginia American Water', phone: '(800) 452-6863', web: 'amwater.com/vaaw', color: '#01579b', avgBill: [30, 60] },
+    'WA': { name: 'Seattle Public Utilities', co: 'Seattle Public Utilities', phone: '(206) 684-3000', web: 'seattle.gov/utilities', color: '#004d40', avgBill: [55, 100] },
+    'WV': { name: 'WV American Water', co: 'West Virginia American Water', phone: '(800) 685-8660', web: 'amwater.com/wvaw', color: '#01579b', avgBill: [65, 120] },
+    'WI': { name: 'Milwaukee Water Works', co: 'Milwaukee Water Works', phone: '(414) 286-2830', web: 'milwaukee.gov/water', color: '#0d47a1', avgBill: [15, 38] },
+    'WY': { name: 'Cheyenne Water', co: 'Cheyenne Board of Public Utilities', phone: '(307) 637-6460', web: 'cheyennebopu.org', color: '#33691e', avgBill: [24, 50] },
+    'DC': { name: 'DC Water', co: 'District of Columbia Water and Sewer Authority', phone: '(202) 354-3600', web: 'dcwater.com', color: '#0d47a1', avgBill: [35, 70] }
 };
 const US_STATES_LIST = Object.keys(US_WATER_PROVIDERS).sort();
-const US_STATE_NAMES = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'Washington DC'};
+const US_STATE_NAMES = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'Washington DC' };
 
 // ═══════════════════════════════════════════
 //   CANADA WATER BILL — Provider Data (13 provinces/territories)
 // ═══════════════════════════════════════════
 const CA_WATER_PROVIDERS = {
-    'ON': { name:'Toronto Water', co:'City of Toronto Water', phone:'(416) 338-8888', web:'toronto.ca/water', color:'#1565c0', avgBill:[45,95], currency:'C$', cities:['Toronto','Ottawa','Mississauga','Brampton','Hamilton','London','Markham','Vaughan','Kitchener','Windsor','Richmond Hill','Oakville','Burlington','Oshawa','Barrie','St. Catharines','Cambridge','Guelph','Kingston','Thunder Bay'] },
-    'QC': { name:'Ville de Montréal Eau', co:'Service de l\'eau de Montréal', phone:'(514) 872-3030', web:'montreal.ca/eau', color:'#0d47a1', avgBill:[35,75], currency:'C$', cities:['Montréal','Québec City','Laval','Gatineau','Longueuil','Sherbrooke','Lévis','Saguenay','Trois-Rivières','Terrebonne','Saint-Jean-sur-Richelieu','Repentigny','Brossard','Drummondville','Saint-Jérôme'] },
-    'BC': { name:'Metro Vancouver Water', co:'Metro Vancouver Water Services', phone:'(604) 432-6200', web:'metrovancouver.org', color:'#00695c', avgBill:[40,85], currency:'C$', cities:['Vancouver','Surrey','Burnaby','Richmond','Coquitlam','Langley','Delta','North Vancouver','Abbotsford','Kelowna','Kamloops','Nanaimo','Victoria','Chilliwack','Prince George'] },
-    'AB': { name:'EPCOR Water', co:'EPCOR Water Services Inc.', phone:'(780) 412-4500', web:'epcor.com', color:'#bf360c', avgBill:[50,100], currency:'C$', cities:['Calgary','Edmonton','Red Deer','Lethbridge','St. Albert','Medicine Hat','Grande Prairie','Airdrie','Spruce Grove','Leduc','Fort McMurray','Cochrane','Okotoks','Camrose','Lloydminster'] },
-    'MB': { name:'City of Winnipeg Water', co:'City of Winnipeg Water and Waste Dept', phone:'(204) 986-7550', web:'winnipeg.ca/waterandwaste', color:'#283593', avgBill:[35,70], currency:'C$', cities:['Winnipeg','Brandon','Steinbach','Thompson','Portage la Prairie','Selkirk','Winkler','Morden','Dauphin','The Pas'] },
-    'SK': { name:'SaskWater', co:'Saskatchewan Water Corporation', phone:'(306) 694-3098', web:'saskwater.com', color:'#1b5e20', avgBill:[40,80], currency:'C$', cities:['Saskatoon','Regina','Prince Albert','Moose Jaw','Swift Current','Yorkton','North Battleford','Estevan','Weyburn','Lloydminster'] },
-    'NS': { name:'Halifax Water', co:'Halifax Regional Water Commission', phone:'(902) 420-9287', web:'halifaxwater.ca', color:'#004d40', avgBill:[35,75], currency:'C$', cities:['Halifax','Dartmouth','Sydney','Truro','New Glasgow','Glace Bay','Kentville','Amherst','Bridgewater','Yarmouth'] },
-    'NB': { name:'Saint John Water', co:'Saint John Water', phone:'(506) 658-4455', web:'saintjohn.ca/water', color:'#0277bd', avgBill:[30,65], currency:'C$', cities:['Saint John','Moncton','Fredericton','Dieppe','Miramichi','Edmundston','Bathurst','Campbellton','Oromocto','Grand Falls'] },
-    'NL': { name:'St. John\'s Water', co:'City of St. John\'s Water Dept', phone:'(709) 576-8199', web:'stjohns.ca', color:'#1a237e', avgBill:[30,60], currency:'C$', cities:['St. John\'s','Mount Pearl','Corner Brook','Conception Bay South','Paradise','Grand Falls-Windsor','Gander','Happy Valley-Goose Bay','Labrador City','Stephenville'] },
-    'PE': { name:'Charlottetown Water', co:'City of Charlottetown Water Utility', phone:'(902) 566-5548', web:'charlottetown.ca', color:'#2e7d32', avgBill:[25,55], currency:'C$', cities:['Charlottetown','Summerside','Stratford','Cornwall','Montague','Kensington','Souris','Alberton','Georgetown','Tignish'] },
-    'NT': { name:'Yellowknife Water', co:'City of Yellowknife Public Works', phone:'(867) 920-5600', web:'yellowknife.ca', color:'#33691e', avgBill:[55,110], currency:'C$', cities:['Yellowknife','Hay River','Inuvik','Fort Smith','Behchoko','Norman Wells'] },
-    'YT': { name:'Whitehorse Water', co:'City of Whitehorse Water Ops', phone:'(867) 668-8330', web:'whitehorse.ca', color:'#006064', avgBill:[40,80], currency:'C$', cities:['Whitehorse','Dawson City','Watson Lake','Haines Junction','Carmacks','Mayo'] },
-    'NU': { name:'Iqaluit Water', co:'City of Iqaluit Water Services', phone:'(867) 979-5600', web:'iqaluit.ca', color:'#4a148c', avgBill:[60,130], currency:'C$', cities:['Iqaluit','Rankin Inlet','Arviat','Baker Lake','Cambridge Bay','Igloolik'] }
+    'ON': { name: 'Toronto Water', co: 'City of Toronto Water', phone: '(416) 338-8888', web: 'toronto.ca/water', color: '#1565c0', avgBill: [45, 95], currency: 'C$', cities: ['Toronto', 'Ottawa', 'Mississauga', 'Brampton', 'Hamilton', 'London', 'Markham', 'Vaughan', 'Kitchener', 'Windsor', 'Richmond Hill', 'Oakville', 'Burlington', 'Oshawa', 'Barrie', 'St. Catharines', 'Cambridge', 'Guelph', 'Kingston', 'Thunder Bay'] },
+    'QC': { name: 'Ville de Montréal Eau', co: 'Service de l\'eau de Montréal', phone: '(514) 872-3030', web: 'montreal.ca/eau', color: '#0d47a1', avgBill: [35, 75], currency: 'C$', cities: ['Montréal', 'Québec City', 'Laval', 'Gatineau', 'Longueuil', 'Sherbrooke', 'Lévis', 'Saguenay', 'Trois-Rivières', 'Terrebonne', 'Saint-Jean-sur-Richelieu', 'Repentigny', 'Brossard', 'Drummondville', 'Saint-Jérôme'] },
+    'BC': { name: 'Metro Vancouver Water', co: 'Metro Vancouver Water Services', phone: '(604) 432-6200', web: 'metrovancouver.org', color: '#00695c', avgBill: [40, 85], currency: 'C$', cities: ['Vancouver', 'Surrey', 'Burnaby', 'Richmond', 'Coquitlam', 'Langley', 'Delta', 'North Vancouver', 'Abbotsford', 'Kelowna', 'Kamloops', 'Nanaimo', 'Victoria', 'Chilliwack', 'Prince George'] },
+    'AB': { name: 'EPCOR Water', co: 'EPCOR Water Services Inc.', phone: '(780) 412-4500', web: 'epcor.com', color: '#bf360c', avgBill: [50, 100], currency: 'C$', cities: ['Calgary', 'Edmonton', 'Red Deer', 'Lethbridge', 'St. Albert', 'Medicine Hat', 'Grande Prairie', 'Airdrie', 'Spruce Grove', 'Leduc', 'Fort McMurray', 'Cochrane', 'Okotoks', 'Camrose', 'Lloydminster'] },
+    'MB': { name: 'City of Winnipeg Water', co: 'City of Winnipeg Water and Waste Dept', phone: '(204) 986-7550', web: 'winnipeg.ca/waterandwaste', color: '#283593', avgBill: [35, 70], currency: 'C$', cities: ['Winnipeg', 'Brandon', 'Steinbach', 'Thompson', 'Portage la Prairie', 'Selkirk', 'Winkler', 'Morden', 'Dauphin', 'The Pas'] },
+    'SK': { name: 'SaskWater', co: 'Saskatchewan Water Corporation', phone: '(306) 694-3098', web: 'saskwater.com', color: '#1b5e20', avgBill: [40, 80], currency: 'C$', cities: ['Saskatoon', 'Regina', 'Prince Albert', 'Moose Jaw', 'Swift Current', 'Yorkton', 'North Battleford', 'Estevan', 'Weyburn', 'Lloydminster'] },
+    'NS': { name: 'Halifax Water', co: 'Halifax Regional Water Commission', phone: '(902) 420-9287', web: 'halifaxwater.ca', color: '#004d40', avgBill: [35, 75], currency: 'C$', cities: ['Halifax', 'Dartmouth', 'Sydney', 'Truro', 'New Glasgow', 'Glace Bay', 'Kentville', 'Amherst', 'Bridgewater', 'Yarmouth'] },
+    'NB': { name: 'Saint John Water', co: 'Saint John Water', phone: '(506) 658-4455', web: 'saintjohn.ca/water', color: '#0277bd', avgBill: [30, 65], currency: 'C$', cities: ['Saint John', 'Moncton', 'Fredericton', 'Dieppe', 'Miramichi', 'Edmundston', 'Bathurst', 'Campbellton', 'Oromocto', 'Grand Falls'] },
+    'NL': { name: 'St. John\'s Water', co: 'City of St. John\'s Water Dept', phone: '(709) 576-8199', web: 'stjohns.ca', color: '#1a237e', avgBill: [30, 60], currency: 'C$', cities: ['St. John\'s', 'Mount Pearl', 'Corner Brook', 'Conception Bay South', 'Paradise', 'Grand Falls-Windsor', 'Gander', 'Happy Valley-Goose Bay', 'Labrador City', 'Stephenville'] },
+    'PE': { name: 'Charlottetown Water', co: 'City of Charlottetown Water Utility', phone: '(902) 566-5548', web: 'charlottetown.ca', color: '#2e7d32', avgBill: [25, 55], currency: 'C$', cities: ['Charlottetown', 'Summerside', 'Stratford', 'Cornwall', 'Montague', 'Kensington', 'Souris', 'Alberton', 'Georgetown', 'Tignish'] },
+    'NT': { name: 'Yellowknife Water', co: 'City of Yellowknife Public Works', phone: '(867) 920-5600', web: 'yellowknife.ca', color: '#33691e', avgBill: [55, 110], currency: 'C$', cities: ['Yellowknife', 'Hay River', 'Inuvik', 'Fort Smith', 'Behchoko', 'Norman Wells'] },
+    'YT': { name: 'Whitehorse Water', co: 'City of Whitehorse Water Ops', phone: '(867) 668-8330', web: 'whitehorse.ca', color: '#006064', avgBill: [40, 80], currency: 'C$', cities: ['Whitehorse', 'Dawson City', 'Watson Lake', 'Haines Junction', 'Carmacks', 'Mayo'] },
+    'NU': { name: 'Iqaluit Water', co: 'City of Iqaluit Water Services', phone: '(867) 979-5600', web: 'iqaluit.ca', color: '#4a148c', avgBill: [60, 130], currency: 'C$', cities: ['Iqaluit', 'Rankin Inlet', 'Arviat', 'Baker Lake', 'Cambridge Bay', 'Igloolik'] }
 };
 const CA_PROVINCES_LIST = Object.keys(CA_WATER_PROVIDERS).sort();
-const CA_PROVINCE_NAMES = {ON:'Ontario',QC:'Quebec',BC:'British Columbia',AB:'Alberta',MB:'Manitoba',SK:'Saskatchewan',NS:'Nova Scotia',NB:'New Brunswick',NL:'Newfoundland and Labrador',PE:'Prince Edward Island',NT:'Northwest Territories',YT:'Yukon',NU:'Nunavut'};
+const CA_PROVINCE_NAMES = { ON: 'Ontario', QC: 'Quebec', BC: 'British Columbia', AB: 'Alberta', MB: 'Manitoba', SK: 'Saskatchewan', NS: 'Nova Scotia', NB: 'New Brunswick', NL: 'Newfoundland and Labrador', PE: 'Prince Edward Island', NT: 'Northwest Territories', YT: 'Yukon', NU: 'Nunavut' };
 
 function _generateWaterBillData(gen) {
     const country = gen.waterCountry || 'US';
@@ -3505,38 +3505,38 @@ function _generateWaterBillData(gen) {
     if (!prov) return null;
     const currSym = isCA ? 'C$' : '$';
     const now = new Date();
-    const billDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - _genRand(1,10));
-    const dueDate = new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + _genRand(18,25));
-    const fmtD = d => { const mo=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']; return `${String(d.getDate()).padStart(2,'0')} ${mo[d.getMonth()]}, ${d.getFullYear()}`; };
-    const fmtPay = d => { const mo=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']; return `${mo[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')}, ${d.getFullYear()}`; };
-    const acct = `${_genRand(1,9)}-${String(_genRand(1000,9999))}-${String(_genRand(1000,9999))}`;
-    const billNo = String(_genRand(100000000,999999999));
+    const billDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - _genRand(1, 10));
+    const dueDate = new Date(billDate.getFullYear(), billDate.getMonth(), billDate.getDate() + _genRand(18, 25));
+    const fmtD = d => { const mo = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']; return `${String(d.getDate()).padStart(2, '0')} ${mo[d.getMonth()]}, ${d.getFullYear()}`; };
+    const fmtPay = d => { const mo = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']; return `${mo[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}, ${d.getFullYear()}`; };
+    const acct = `${_genRand(1, 9)}-${String(_genRand(1000, 9999))}-${String(_genRand(1000, 9999))}`;
+    const billNo = String(_genRand(100000000, 999999999));
     // Generate realistic bill amounts
-    const totalBill = Math.round((_genRand(prov.avgBill[0]*100, prov.avgBill[1]*100))/100 * 100)/100;
-    const waterSvc = Math.round(totalBill * _genRand(65,80)/100 * 100)/100;
-    const sewerSvc = Math.round((totalBill - waterSvc) * 100)/100;
-    const prevBal = _genRand(0,1) === 0 ? Math.round(totalBill * _genRand(85,115)/100 * 100)/100 : 0;
-    const paidAmt = prevBal > 0 ? Math.round(prevBal * _genRand(90,100)/100 * 100)/100 : 0;
-    const adj = prevBal > 0 ? -Math.round((prevBal - paidAmt) * 100)/100 : 0;
+    const totalBill = Math.round((_genRand(prov.avgBill[0] * 100, prov.avgBill[1] * 100)) / 100 * 100) / 100;
+    const waterSvc = Math.round(totalBill * _genRand(65, 80) / 100 * 100) / 100;
+    const sewerSvc = Math.round((totalBill - waterSvc) * 100) / 100;
+    const prevBal = _genRand(0, 1) === 0 ? Math.round(totalBill * _genRand(85, 115) / 100 * 100) / 100 : 0;
+    const paidAmt = prevBal > 0 ? Math.round(prevBal * _genRand(90, 100) / 100 * 100) / 100 : 0;
+    const adj = prevBal > 0 ? -Math.round((prevBal - paidAmt) * 100) / 100 : 0;
     const balFwd = 0;
-    const pastDue = prevBal > 0 ? Math.round((prevBal - paidAmt + adj) * 100)/100 : 0;
-    const savedAmt = Math.round(_genRand(1500,5500)/100 * 100)/100;
+    const pastDue = prevBal > 0 ? Math.round((prevBal - paidAmt + adj) * 100) / 100 : 0;
+    const savedAmt = Math.round(_genRand(1500, 5500) / 100 * 100) / 100;
     // Tax: Canada uses GST/HST per province; US uses state-specific
     let taxPct;
     if (isCA) {
-        const caHST = {ON:0.13,NB:0.15,NS:0.15,NL:0.15,PE:0.15,QC:0.14975,BC:0.12,AB:0.05,SK:0.11,MB:0.12,NT:0.05,YT:0.05,NU:0.05};
+        const caHST = { ON: 0.13, NB: 0.15, NS: 0.15, NL: 0.15, PE: 0.15, QC: 0.14975, BC: 0.12, AB: 0.05, SK: 0.11, MB: 0.12, NT: 0.05, YT: 0.05, NU: 0.05 };
         taxPct = caHST[st] || 0.05;
     } else {
-        taxPct = _genRand(0, st==='WA'? 1025 : st==='AZ'?230 : st==='IL'?700 : st==='AL'?400 : 0) / 10000;
+        taxPct = _genRand(0, st === 'WA' ? 1025 : st === 'AZ' ? 230 : st === 'IL' ? 700 : st === 'AL' ? 400 : 0) / 10000;
     }
-    const taxAmt = Math.round(totalBill * taxPct * 100)/100;
-    const totalToPay = Math.round((totalBill + taxAmt) * 100)/100;
+    const taxAmt = Math.round(totalBill * taxPct * 100) / 100;
+    const totalToPay = Math.round((totalBill + taxAmt) * 100) / 100;
     const fullAddr = `${gen.streetAddress.toUpperCase()}\n${gen.city.toUpperCase()}, ${st} ${gen.postalCode}`;
-    const poBox = `PO Box ${_genRand(1000,9999)}`;
+    const poBox = `PO Box ${_genRand(1000, 9999)}`;
     const poCity = isCA
-        ? ['Toronto, ON M5H 2N2','Vancouver, BC V6B 3K9','Montreal, QC H2Y 1C6','Calgary, AB T2P 3M3','Ottawa, ON K1A 0B1','Winnipeg, MB R3C 4T3'][_genRand(0,5)]
-        : ['Camden, NJ 08101','Trenton, NJ 08650','Atlanta, GA 30348','Dallas, TX 75284','Chicago, IL 60677','Denver, CO 80271'][_genRand(0,5)];
-    const postalCode = `##POSTAL${String(_genRand(10000,99999))} ${String(_genRand(100000000,999999999))}`;
+        ? ['Toronto, ON M5H 2N2', 'Vancouver, BC V6B 3K9', 'Montreal, QC H2Y 1C6', 'Calgary, AB T2P 3M3', 'Ottawa, ON K1A 0B1', 'Winnipeg, MB R3C 4T3'][_genRand(0, 5)]
+        : ['Camden, NJ 08101', 'Trenton, NJ 08650', 'Atlanta, GA 30348', 'Dallas, TX 75284', 'Chicago, IL 60677', 'Denver, CO 80271'][_genRand(0, 5)];
+    const postalCode = `##POSTAL${String(_genRand(10000, 99999))} ${String(_genRand(100000000, 999999999))}`;
     return {
         provider: prov, state: st, stateName: nameMap[st] || st,
         country: country, currSym: currSym,
@@ -4022,7 +4022,7 @@ function _renderGenerator() {
     bar.style.display = 'none';
     bar.innerHTML = '';
     const gen = _CK.generator;
-    const prefectures = ['Tokyo','Osaka','Kanagawa','Saitama','Chiba','Aichi','Hokkaido','Fukuoka','Hyogo','Kyoto','Shizuoka','Hiroshima','Miyagi','Niigata','Nagano'];
+    const prefectures = ['Tokyo', 'Osaka', 'Kanagawa', 'Saitama', 'Chiba', 'Aichi', 'Hokkaido', 'Fukuoka', 'Hyogo', 'Kyoto', 'Shizuoka', 'Hiroshima', 'Miyagi', 'Niigata', 'Nagano'];
 
     area.innerHTML = `
     <div class="ck-container">
@@ -4040,7 +4040,7 @@ function _renderGenerator() {
 
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:6px">
             <input type="text" id="gen-name" placeholder="Name" value="${gen.name}" style="flex:1;min-width:120px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
-            <input type="text" id="gen-postal" placeholder="${gen.type==='water'?(gen.waterCountry==='CA'?'Postal Code':'ZIP Code'):'Postal'}" value="${gen.postalCode}" style="width:80px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
+            <input type="text" id="gen-postal" placeholder="${gen.type === 'water' ? (gen.waterCountry === 'CA' ? 'Postal Code' : 'ZIP Code') : 'Postal'}" value="${gen.postalCode}" style="width:80px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             <input type="text" id="gen-street" placeholder="Street Address" value="${gen.streetAddress}" style="flex:1.5;min-width:150px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             <input type="text" id="gen-city" placeholder="City" value="${gen.city}" style="width:100px;height:28px;padding:2px 8px;font-size:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
             ${gen.type === 'water' ? `
@@ -4048,16 +4048,16 @@ function _renderGenerator() {
             <button class="ck-proto-btn ${gen.waterCountry === 'CA' ? 'active' : ''}" data-wcountry="CA" style="height:28px;padding:2px 10px;font-size:11px">🇨🇦 Canada</button>
             <select id="gen-state" style="width:220px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
                 ${gen.waterCountry === 'CA'
-                    ? CA_PROVINCES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${CA_PROVINCE_NAMES[s]}) — ${CA_WATER_PROVIDERS[s].name}</option>`).join('')
-                    : US_STATES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${US_STATE_NAMES[s]}) — ${US_WATER_PROVIDERS[s].name}</option>`).join('')}
+                ? CA_PROVINCES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${CA_PROVINCE_NAMES[s]}) — ${CA_WATER_PROVIDERS[s].name}</option>`).join('')
+                : US_STATES_LIST.map(s => `<option value="${s}" ${gen.waterState === s ? 'selected' : ''}>${s} (${US_STATE_NAMES[s]}) — ${US_WATER_PROVIDERS[s].name}</option>`).join('')}
             </select>` : `
             <select id="gen-pref" style="width:80px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit">
                 ${prefectures.map(p => `<option value="${p}" ${gen.prefecture === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>`}
             <select id="gen-font" style="width:110px;height:28px;padding:2px 4px;font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#e5e7eb;outline:none;font-family:inherit" title="Document Font">
-                ${['Noto Sans','Open Sans','Roboto','Lato','Inter'].map(f => `<option value="${f}" ${gen.font === f ? 'selected' : ''} style="font-family:${f}">${f}</option>`).join('')}
+                ${['Noto Sans', 'Open Sans', 'Roboto', 'Lato', 'Inter'].map(f => `<option value="${f}" ${gen.font === f ? 'selected' : ''} style="font-family:${f}">${f}</option>`).join('')}
             </select>
-            <button class="ck-convert-btn" id="gen-btn" style="padding:4px 16px;height:28px;white-space:nowrap;font-size:11px">${gen.type==='water'?'💧':'⚡'} GENERATE</button>
+            <button class="ck-convert-btn" id="gen-btn" style="padding:4px 16px;height:28px;white-space:nowrap;font-size:11px">${gen.type === 'water' ? '💧' : '⚡'} GENERATE</button>
             ${gen.billData ? `<button class="ck-action-btn ck-btn-copy" id="gen-regen" style="padding:4px 10px;height:28px;font-size:11px">🔄</button><button class="ck-action-btn ck-btn-copy" id="gen-dl-png" style="padding:4px 10px;height:28px;font-size:11px">📥 PNG</button><button class="ck-action-btn ck-btn-copy" id="gen-dl-pdf" style="padding:4px 10px;height:28px;font-size:11px">📄 PDF</button>` : ''}
         </div>
 
@@ -4116,13 +4116,13 @@ function _renderGenerator() {
             document.body.removeChild(tmp);
             const link = document.createElement('a');
             const prefix = gen.type === 'water' ? 'WaterBill' : 'TEPCO';
-            link.download = `${prefix}_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.png`;
+            link.download = `${prefix}_${gen.name.replace(/\s+/g, '_')}_${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             toast('PNG downloaded!', 'success');
-        }).catch(e => { try { document.body.removeChild(tmp); } catch(x){} console.error(e); toast('Export failed', 'error'); });
+        }).catch(e => { try { document.body.removeChild(tmp); } catch (x) { } console.error(e); toast('Export failed', 'error'); });
     });
     document.getElementById('gen-dl-pdf')?.addEventListener('click', () => {
         const elId = gen.type === 'water' ? 'water-bill-render' : 'tepco-bill-render';
@@ -4144,12 +4144,12 @@ function _renderGenerator() {
             const yOff = Math.max(10, (pH - imgH) / 2);
             pdf.addImage(imgData, 'PNG', 10, yOff, imgW, Math.min(imgH, pH - 20));
             const prefix = gen.type === 'water' ? 'WaterBill' : 'TEPCO';
-            pdf.save(`${prefix}_${gen.name.replace(/\s+/g,'_')}_${Date.now()}.pdf`);
+            pdf.save(`${prefix}_${gen.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
             toast('PDF downloaded!', 'success');
         }).catch(e => { document.body.removeChild(tmp); console.error(e); toast('PDF export failed', 'error'); });
     });
     // Save inputs on change
-    ['gen-name','gen-postal','gen-street','gen-city'].forEach(id => {
+    ['gen-name', 'gen-postal', 'gen-street', 'gen-city'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', e => {
             const key = {
                 'gen-name': 'name', 'gen-postal': 'postalCode',
@@ -4254,23 +4254,23 @@ function renderChecker() {
                 </div>
                 <div class="ck-bin-list" id="ck-bin-chips">
                     ${sortedBins.map(bin => {
-                        const cards = bg[bin];
-                        const isSelected = sel.has(bin);
-                        const network = cards[0]?.network || '??';
-                        const netIcon = network === 'VISA' ? '💙' : network === 'MASTERCARD' ? '🧡' : network === 'AMEX' ? '💜' : network === 'JCB' ? '💚' : '⬜';
-                        // Check BIN cache for instant info
-                        const cached = BIN_CACHE[bin];
-                        const flag = cached && cached.country ? isoToFlag(cached.country) : '';
-                        const bankText = cached && !cached.error ? [cached.brand, cached.type, cached.level].filter(Boolean).join(' ') : '';
-                        const bankName = cached && !cached.error && cached.bank ? cached.bank : '';
-                        const countryName = cached && !cached.error && cached.country ? (COUNTRY_DB[cached.country.toUpperCase()] || cached.country) : '';
-                        return `<div class="ck-bin-row ${isSelected ? 'selected' : ''}" data-bin="${bin}" title="${network} • ${cards.length} cards">
+                const cards = bg[bin];
+                const isSelected = sel.has(bin);
+                const network = cards[0]?.network || '??';
+                const netIcon = network === 'VISA' ? '💙' : network === 'MASTERCARD' ? '🧡' : network === 'AMEX' ? '💜' : network === 'JCB' ? '💚' : '⬜';
+                // Check BIN cache for instant info
+                const cached = BIN_CACHE[bin];
+                const flag = cached && cached.country ? isoToFlag(cached.country) : '';
+                const bankText = cached && !cached.error ? [cached.brand, cached.type, cached.level].filter(Boolean).join(' ') : '';
+                const bankName = cached && !cached.error && cached.bank ? cached.bank : '';
+                const countryName = cached && !cached.error && cached.country ? (COUNTRY_DB[cached.country.toUpperCase()] || cached.country) : '';
+                return `<div class="ck-bin-row ${isSelected ? 'selected' : ''}" data-bin="${bin}" title="${network} • ${cards.length} cards">
                             <span class="ck-bin-row-icon">${netIcon}</span>
                             <span class="ck-bin-row-num">${bin}</span>
                             <span class="ck-bin-row-count">×${cards.length}</span>
                             <span class="ck-bin-row-info" id="bin-info-${bin}">${cached ? (flag ? flag + ' ' : '') + (bankText ? '<span class=\"ck-bin-row-type\">' + bankText + '</span>' : '') + (bankName ? ' <span class=\"ck-bin-row-bank\">' + bankName + '</span>' : '') : '<span class=\"ck-bin-row-loading\">⏳</span>'}</span>
                         </div>`;
-                    }).join('')}
+            }).join('')}
                 </div>
             </div>
 
@@ -4601,95 +4601,95 @@ function renderDomain() {
 
     // ── DATA POOLS (Hokkaido only — real addresses & ZIP codes) ──
     const FIRST_NAMES = [
-        'AKITO','HARUTO','REN','YUTO','SORA','KAITO','HIROSHI','TAKESHI','RYOTA','KENJI',
-        'DAIKI','NAOKI','SHOTA','YUKI','KENTA','MASARU','TOSHIRO','SHIN','KAZUYA','NOBORU',
-        'AKIRA','MAKOTO','SATOSHI','YUSEI','HAYATO','RIKU','MINATO','SOUTA','ASAHI','HINATA',
-        'TAIGA','YAMATO','ITSUKI','AOI','HARU','KAI','SHINJI','TSUBASA','KOKI','REI'
+        'AKITO', 'HARUTO', 'REN', 'YUTO', 'SORA', 'KAITO', 'HIROSHI', 'TAKESHI', 'RYOTA', 'KENJI',
+        'DAIKI', 'NAOKI', 'SHOTA', 'YUKI', 'KENTA', 'MASARU', 'TOSHIRO', 'SHIN', 'KAZUYA', 'NOBORU',
+        'AKIRA', 'MAKOTO', 'SATOSHI', 'YUSEI', 'HAYATO', 'RIKU', 'MINATO', 'SOUTA', 'ASAHI', 'HINATA',
+        'TAIGA', 'YAMATO', 'ITSUKI', 'AOI', 'HARU', 'KAI', 'SHINJI', 'TSUBASA', 'KOKI', 'REI'
     ];
     const LAST_NAMES = [
-        'TANAKA','SUZUKI','TAKAHASHI','WATANABE','SATO','ITO','YAMAMOTO','NAKAMURA','KOBAYASHI','KATO',
-        'YOSHIDA','YAMADA','SASAKI','YAMAGUCHI','MATSUMOTO','INOUE','KIMURA','SHIMIZU','HAYASHI','SAITO',
-        'SAGURO','OKAZAKI','UEDA','FUJITA','OGAWA','HASEGAWA','MURAKAMI','KONDOH','ISHIKAWA','MAEDA',
-        'OKADA','NISHIMURA','MORITA','ENDO','AOKI','IKEDA','SAKAMOTO','HASHIMOTO','NOGUCHI','KAWAMURA'
+        'TANAKA', 'SUZUKI', 'TAKAHASHI', 'WATANABE', 'SATO', 'ITO', 'YAMAMOTO', 'NAKAMURA', 'KOBAYASHI', 'KATO',
+        'YOSHIDA', 'YAMADA', 'SASAKI', 'YAMAGUCHI', 'MATSUMOTO', 'INOUE', 'KIMURA', 'SHIMIZU', 'HAYASHI', 'SAITO',
+        'SAGURO', 'OKAZAKI', 'UEDA', 'FUJITA', 'OGAWA', 'HASEGAWA', 'MURAKAMI', 'KONDOH', 'ISHIKAWA', 'MAEDA',
+        'OKADA', 'NISHIMURA', 'MORITA', 'ENDO', 'AOKI', 'IKEDA', 'SAKAMOTO', 'HASHIMOTO', 'NOGUCHI', 'KAWAMURA'
     ];
     const BIZ_FIRST = [
-        'Hokkai','Yukimura','Sapporo','Otaru','Kamui','Tokachi','Shiretoko','Niseko','Furano','Asahiyama',
-        'Kitami','Rumoi','Kushiro','Taisetsu','Sorachi','Ishikari','Hidaka','Kamikawa','Iburi','Oshima'
+        'Hokkai', 'Yukimura', 'Sapporo', 'Otaru', 'Kamui', 'Tokachi', 'Shiretoko', 'Niseko', 'Furano', 'Asahiyama',
+        'Kitami', 'Rumoi', 'Kushiro', 'Taisetsu', 'Sorachi', 'Ishikari', 'Hidaka', 'Kamikawa', 'Iburi', 'Oshima'
     ];
     const BIZ_SECOND = [
-        'Digital','Works','Web','Creative','Studio','Office','Solutions','Tech','Labs','Media',
-        'Nexus','Systems','Cloud','Logic','Hub','Bridge','Link','Net','Point','Core'
+        'Digital', 'Works', 'Web', 'Creative', 'Studio', 'Office', 'Solutions', 'Tech', 'Labs', 'Media',
+        'Nexus', 'Systems', 'Cloud', 'Logic', 'Hub', 'Bridge', 'Link', 'Net', 'Point', 'Core'
     ];
-    const BIZ_SUFFIX = ['JP','Japan','Co','Inc',''];
+    const BIZ_SUFFIX = ['JP', 'Japan', 'Co', 'Inc', ''];
 
     // Real Hokkaido addresses: street + city/ward + ZIP code (all verified)
     const HOKKAIDO_ADDRESSES = [
         // Sapporo — Chuo-ku
-        { street: 'Kita 1-jo Nishi 2-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0001' },
-        { street: 'Kita 2-jo Nishi 3-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0002' },
-        { street: 'Kita 3-jo Nishi 4-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0003' },
-        { street: 'Kita 4-jo Nishi 5-chome',     city: 'Chuo-ku, Sapporo-shi', zip: '060-0004' },
-        { street: 'Kita 5-jo Nishi 2-chome 5',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0005' },
-        { street: 'Odori Nishi 3-chome 6',        city: 'Chuo-ku, Sapporo-shi', zip: '060-0042' },
-        { street: 'Odori Nishi 4-chome 1',        city: 'Chuo-ku, Sapporo-shi', zip: '060-0042' },
-        { street: 'Minami 1-jo Nishi 5-chome',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0061' },
+        { street: 'Kita 1-jo Nishi 2-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0001' },
+        { street: 'Kita 2-jo Nishi 3-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0002' },
+        { street: 'Kita 3-jo Nishi 4-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0003' },
+        { street: 'Kita 4-jo Nishi 5-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0004' },
+        { street: 'Kita 5-jo Nishi 2-chome 5', city: 'Chuo-ku, Sapporo-shi', zip: '060-0005' },
+        { street: 'Odori Nishi 3-chome 6', city: 'Chuo-ku, Sapporo-shi', zip: '060-0042' },
+        { street: 'Odori Nishi 4-chome 1', city: 'Chuo-ku, Sapporo-shi', zip: '060-0042' },
+        { street: 'Minami 1-jo Nishi 5-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0061' },
         { street: 'Minami 1-jo Nishi 6-chome 20-1', city: 'Chuo-ku, Sapporo-shi', zip: '060-0061' },
-        { street: 'Minami 2-jo Nishi 3-chome',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0062' },
-        { street: 'Minami 3-jo Nishi 4-chome',   city: 'Chuo-ku, Sapporo-shi', zip: '060-0063' },
-        { street: 'Minami 4-jo Nishi 4-chome 1',  city: 'Chuo-ku, Sapporo-shi', zip: '060-0064' },
+        { street: 'Minami 2-jo Nishi 3-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0062' },
+        { street: 'Minami 3-jo Nishi 4-chome', city: 'Chuo-ku, Sapporo-shi', zip: '060-0063' },
+        { street: 'Minami 4-jo Nishi 4-chome 1', city: 'Chuo-ku, Sapporo-shi', zip: '060-0064' },
         // Sapporo — Kita-ku
-        { street: 'Kita 7-jo Nishi 2-chome',     city: 'Kita-ku, Sapporo-shi', zip: '060-0807' },
-        { street: 'Kita 8-jo Nishi 3-chome 28',  city: 'Kita-ku, Sapporo-shi', zip: '060-0808' },
-        { street: 'Kita 9-jo Nishi 4-chome',     city: 'Kita-ku, Sapporo-shi', zip: '060-0809' },
-        { street: 'Kita 10-jo Nishi 3-chome',    city: 'Kita-ku, Sapporo-shi', zip: '001-0010' },
+        { street: 'Kita 7-jo Nishi 2-chome', city: 'Kita-ku, Sapporo-shi', zip: '060-0807' },
+        { street: 'Kita 8-jo Nishi 3-chome 28', city: 'Kita-ku, Sapporo-shi', zip: '060-0808' },
+        { street: 'Kita 9-jo Nishi 4-chome', city: 'Kita-ku, Sapporo-shi', zip: '060-0809' },
+        { street: 'Kita 10-jo Nishi 3-chome', city: 'Kita-ku, Sapporo-shi', zip: '001-0010' },
         { street: 'Kita 12-jo Nishi 4-chome 1-1', city: 'Kita-ku, Sapporo-shi', zip: '001-0012' },
-        { street: 'Shinoro 2-jo 5-chome',         city: 'Kita-ku, Sapporo-shi', zip: '002-8021' },
+        { street: 'Shinoro 2-jo 5-chome', city: 'Kita-ku, Sapporo-shi', zip: '002-8021' },
         // Sapporo — Toyohira-ku
         { street: 'Tsukisamu Higashi 1-jo 9-chome', city: 'Toyohira-ku, Sapporo-shi', zip: '062-0051' },
         { street: 'Hiragishi 3-jo 5-chome 1-27', city: 'Toyohira-ku, Sapporo-shi', zip: '062-0933' },
         // Sapporo — Shiroishi-ku
-        { street: 'Nango-dori 1-chome Kita 4-1',  city: 'Shiroishi-ku, Sapporo-shi', zip: '003-0023' },
-        { street: 'Hondori 14-chome Kita 1-3',    city: 'Shiroishi-ku, Sapporo-shi', zip: '003-0027' },
+        { street: 'Nango-dori 1-chome Kita 4-1', city: 'Shiroishi-ku, Sapporo-shi', zip: '003-0023' },
+        { street: 'Hondori 14-chome Kita 1-3', city: 'Shiroishi-ku, Sapporo-shi', zip: '003-0027' },
         // Sapporo — Nishi-ku
-        { street: 'Kotoni 2-jo 1-chome',          city: 'Nishi-ku, Sapporo-shi', zip: '063-0812' },
-        { street: 'Hassamu 6-jo 2-chome',         city: 'Nishi-ku, Sapporo-shi', zip: '063-0826' },
+        { street: 'Kotoni 2-jo 1-chome', city: 'Nishi-ku, Sapporo-shi', zip: '063-0812' },
+        { street: 'Hassamu 6-jo 2-chome', city: 'Nishi-ku, Sapporo-shi', zip: '063-0826' },
         // Asahikawa
-        { street: 'Miyashita-dori 7-chome',       city: 'Asahikawa-shi', zip: '070-0030' },
-        { street: '1-jo-dori 8-chome',            city: 'Asahikawa-shi', zip: '070-0031' },
-        { street: '3-jo-dori 6-chome',            city: 'Asahikawa-shi', zip: '070-0033' },
+        { street: 'Miyashita-dori 7-chome', city: 'Asahikawa-shi', zip: '070-0030' },
+        { street: '1-jo-dori 8-chome', city: 'Asahikawa-shi', zip: '070-0031' },
+        { street: '3-jo-dori 6-chome', city: 'Asahikawa-shi', zip: '070-0033' },
         // Hakodate
-        { street: 'Wakamatsu-cho 33-6',           city: 'Hakodate-shi', zip: '040-0063' },
-        { street: 'Suehiro-cho 14-12',            city: 'Hakodate-shi', zip: '040-0053' },
-        { street: 'Motomachi 12-18',              city: 'Hakodate-shi', zip: '040-0054' },
+        { street: 'Wakamatsu-cho 33-6', city: 'Hakodate-shi', zip: '040-0063' },
+        { street: 'Suehiro-cho 14-12', city: 'Hakodate-shi', zip: '040-0053' },
+        { street: 'Motomachi 12-18', city: 'Hakodate-shi', zip: '040-0054' },
         // Otaru
-        { street: 'Ironai 1-chome 1-1',           city: 'Otaru-shi', zip: '047-0031' },
-        { street: 'Inaho 2-chome 22-1',           city: 'Otaru-shi', zip: '047-0032' },
+        { street: 'Ironai 1-chome 1-1', city: 'Otaru-shi', zip: '047-0031' },
+        { street: 'Inaho 2-chome 22-1', city: 'Otaru-shi', zip: '047-0032' },
         // Obihiro
-        { street: 'Nishi 2-jo Minami 12-chome',  city: 'Obihiro-shi', zip: '080-0012' },
-        { street: 'Odori Minami 7-chome 15',      city: 'Obihiro-shi', zip: '080-0010' },
+        { street: 'Nishi 2-jo Minami 12-chome', city: 'Obihiro-shi', zip: '080-0012' },
+        { street: 'Odori Minami 7-chome 15', city: 'Obihiro-shi', zip: '080-0010' },
         // Kushiro
-        { street: 'Kita-Odori 1-chome 2',         city: 'Kushiro-shi', zip: '085-0015' },
-        { street: 'Saiwai-cho 9-chome 1',         city: 'Kushiro-shi', zip: '085-0017' },
+        { street: 'Kita-Odori 1-chome 2', city: 'Kushiro-shi', zip: '085-0015' },
+        { street: 'Saiwai-cho 9-chome 1', city: 'Kushiro-shi', zip: '085-0017' },
     ];
 
     // Real Sapporo buildings / landmarks
     const BUILDINGS = [
-        'Sapporo Ekimae-dori Building','JR Tower Office Sapporo','Sapporo Factory',
-        'Hokkaido Keizai Center','Sapporo Grand Hotel Annex','Odori Bus Center Building',
-        'Sapporo Tokyu Building','Norubesa Building','Tanuki-koji 2F',
-        'Hokkaido Building','Sapporo Stellar Place','APIA Shopping Mall',
-        'Pole Town Underground','Sapporo TV Tower Side','Akarenga Terrace',
-        'Sapporo ESTA Building','Daimaru Sapporo Building','Mitsui Garden Hotel',
-        'Cross Hotel Sapporo Annex','Sapporo Central Building'
+        'Sapporo Ekimae-dori Building', 'JR Tower Office Sapporo', 'Sapporo Factory',
+        'Hokkaido Keizai Center', 'Sapporo Grand Hotel Annex', 'Odori Bus Center Building',
+        'Sapporo Tokyu Building', 'Norubesa Building', 'Tanuki-koji 2F',
+        'Hokkaido Building', 'Sapporo Stellar Place', 'APIA Shopping Mall',
+        'Pole Town Underground', 'Sapporo TV Tower Side', 'Akarenga Terrace',
+        'Sapporo ESTA Building', 'Daimaru Sapporo Building', 'Mitsui Garden Hotel',
+        'Cross Hotel Sapporo Annex', 'Sapporo Central Building'
     ];
 
     const DOM_PREFIXES = [
-        'hokkaidovault','sapporofield','kamuilogic','tokachinet','otaruworks','nisekohub',
-        'furanolabs','asahicloud','kushirotech','hidakalink','sorachicore','ishikarinova',
-        'shiretokobright','taisetsuzn','iburigate','oshimacraft','rumoimark','kitaminet',
-        'hokkaiworks','yukibridge'
+        'hokkaidovault', 'sapporofield', 'kamuilogic', 'tokachinet', 'otaruworks', 'nisekohub',
+        'furanolabs', 'asahicloud', 'kushirotech', 'hidakalink', 'sorachicore', 'ishikarinova',
+        'shiretokobright', 'taisetsuzn', 'iburigate', 'oshimacraft', 'rumoimark', 'kitaminet',
+        'hokkaiworks', 'yukibridge'
     ];
-    const DOM_SUFFIXES = ['21','337','4082','59','1706','803','247','55','9021','612','78','3301'];
+    const DOM_SUFFIXES = ['21', '337', '4082', '59', '1706', '803', '247', '55', '9021', '612', '78', '3301'];
 
     function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
     function rndNum(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
@@ -4707,7 +4707,7 @@ function renderDomain() {
         const addr = rnd(HOKKAIDO_ADDRESSES);
         const building = rnd(BUILDINGS);
         // Phone: Sapporo area code 011
-        const phone = `11${rndNum(1000000,9999999)}`;
+        const phone = `11${rndNum(1000000, 9999999)}`;
         const firstName = rnd(FIRST_NAMES);
         const lastName = rnd(LAST_NAMES);
 
@@ -4799,7 +4799,7 @@ function renderDomain() {
                     <span class="dom-names-title">Workspace Cleaner</span>
                     <button class="dom-btn dom-btn-gen" id="dom-clean-btn">⚡ Clean</button>
                 </div>
-                <textarea id="dom-cleaner-input" class="dom-cleaner-ta" placeholder="Paste Google Workspace output here...">${STATE._domCleanerInput.replace(/</g,'&lt;')}</textarea>
+                <textarea id="dom-cleaner-input" class="dom-cleaner-ta" placeholder="Paste Google Workspace output here...">${STATE._domCleanerInput.replace(/</g, '&lt;')}</textarea>
                 <div class="dom-cleaner-out-wrap">
                     <div class="dom-cleaner-out" id="dom-cleaner-output">${STATE._domCleanerOutput ? STATE._domCleanerOutput : '<span class="dom-cleaner-ph">login:password lines appear here</span>'}</div>
                     <button class="dom-btn dom-btn-copy dom-cleaner-copy-btn" id="dom-copy-clean" style="${STATE._domCleanerOutput ? '' : 'display:none'}">📋 Copy</button>
@@ -4819,7 +4819,7 @@ function renderDomain() {
         el.addEventListener('click', () => {
             navigator.clipboard.writeText(el.dataset.copy);
             flashCopy(el);
-            toast('Copied: ' + (el.dataset.copy.length > 40 ? el.dataset.copy.slice(0,40)+'…' : el.dataset.copy), 'success');
+            toast('Copied: ' + (el.dataset.copy.length > 40 ? el.dataset.copy.slice(0, 40) + '…' : el.dataset.copy), 'success');
         });
     });
 
@@ -4957,7 +4957,7 @@ function renderDomain() {
 // ──── GOOGLE FORMAT MODULE ────
 function renderGoogleFormat() {
     const area = document.getElementById('content-area');
-    
+
     // Initialize state to persist across tab switches
     if (typeof STATE.gfInput === 'undefined') STATE.gfInput = '';
     if (typeof STATE.gfOutput === 'undefined') STATE.gfOutput = '';
@@ -5023,7 +5023,7 @@ function renderGoogleFormat() {
             STATE.gfInput = text;
             _parseGoogleFormat(text, true);
             toast('Pasted from clipboard', 'info');
-        } catch(e) {
+        } catch (e) {
             toast('Failed to read clipboard', 'error');
         }
     };
@@ -5112,7 +5112,7 @@ function _parseGoogleFormat(text, isExplicitParse = false) {
 
     // PASS 1: Try labeled key:value format first (most reliable)
     for (const line of lines) {
-        const kv = line.match(/^([a-zA-Z0-9_ ]+?)\s*[:=]\s*(.+)$/); 
+        const kv = line.match(/^([a-zA-Z0-9_ ]+?)\s*[:=]\s*(.+)$/);
         if (!kv) continue;
         const key = kv[1].toLowerCase().trim();
         const val = clean(kv[2]);
@@ -5222,11 +5222,11 @@ function _parseGoogleFormat(text, isExplicitParse = false) {
         const cardStr = [ccn, exp, cvv].filter(Boolean).join(' ');
         outLines.push(`card: ${cardStr}`);
     }
-    
+
     if (ccn) {
         const octoName = fullName ? fullName.toUpperCase() : 'UNKNOWN';
-        const octoCard = ccn.length >= 10 ? `${ccn.slice(0,6)}....${ccn.slice(-4)}` : ccn;
-        
+        const octoCard = ccn.length >= 10 ? `${ccn.slice(0, 6)}....${ccn.slice(-4)}` : ccn;
+
         let prefixLabel = '';
         const savedPrefix = localStorage.getItem('googleFormat_octoPrefix');
         if (savedPrefix) {
@@ -5365,7 +5365,7 @@ function renderContent() {
         if (b.includes('UNION') || b.includes('UPI')) return '<span class="cx-brand cx-upi">UPI</span>';
         if (b.includes('DINERS')) return '<span class="cx-brand cx-din">DIN</span>';
         if (b.includes('UATP')) return '<span class="cx-brand cx-uatp">UATP</span>';
-        return '<span class="cx-brand">' + b.substring(0,4) + '</span>';
+        return '<span class="cx-brand">' + b.substring(0, 4) + '</span>';
     };
 
     // Helper: render single card row
@@ -5380,13 +5380,13 @@ function renderContent() {
         const stH = isTrashV
             ? '<button class="btn-secondary btn-restore" onclick="restoreCard(\'' + c.id + '\')">Restore</button>'
             : '<div class="cx-dots">'
-                + '<span class="cx-dot cx-dot-a ' + (c.cardAdd ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'cardAdd\')">A</span>'
-                + '<span class="cx-dot cx-dot-r ' + (c.runAds ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'runAds\')">R</span>'
-                + '<span class="cx-dot cx-dot-v ' + (c.verified ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'verified\')">V</span>'
-                + '<span class="cx-dot cx-dot-d ' + (c.docReady ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'docReady\')">D</span>'
-                + '<span class="cx-dot cx-dot-w ' + (c.waterBill ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'waterBill\')">W</span>'
-                + '<span class="cx-dot cx-dot-m ' + (c.minic ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'minic\')">M</span>'
-                + '</div>';
+            + '<span class="cx-dot cx-dot-a ' + (c.cardAdd ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'cardAdd\')">A</span>'
+            + '<span class="cx-dot cx-dot-r ' + (c.runAds ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'runAds\')">R</span>'
+            + '<span class="cx-dot cx-dot-v ' + (c.verified ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'verified\')">V</span>'
+            + '<span class="cx-dot cx-dot-d ' + (c.docReady ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'docReady\')">D</span>'
+            + '<span class="cx-dot cx-dot-w ' + (c.waterBill ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'waterBill\')">W</span>'
+            + '<span class="cx-dot cx-dot-m ' + (c.minic ? 'on' : '') + '" onclick="toggleStatus(\'' + c.id + '\',\'minic\')">M</span>'
+            + '</div>';
         return '<tr data-id="' + c.id + '" class="cx-row ' + (rowNum != null ? 'cx-child-row' : '') + ' ' + (_selectedCards.has(c.id) ? 'row-selected' : '') + '">'
             + '<td class="cx-chk"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="' + c.id + '" ' + (_selectedCards.has(c.id) ? 'checked' : '') + ' onchange="toggleCardSelect(\'' + c.id + '\', this.checked)"></label></td>'
             + '<td class="cx-cbt-cell">' + rnH + ' ' + cflag + ' <span class="cx-bin-num">' + cbin + '</span><span class="cx-mask">\u2022\u2022\u2022\u2022' + maskCard(c.cardNumber).slice(-4) + '</span> ' + starH + ' ' + _brandIcon('', c.cardNumber) + '</td>'
@@ -5401,7 +5401,7 @@ function renderContent() {
 
     // BIN group state
     if (!window._wsExpandedBins) window._wsExpandedBins = new Set();
-    window._wsToggleBin = function(binKey) {
+    window._wsToggleBin = function (binKey) {
         if (window._wsExpandedBins.has(binKey)) window._wsExpandedBins.delete(binKey);
         else window._wsExpandedBins.add(binKey);
         renderContent();
@@ -5539,7 +5539,7 @@ function _brandIconGlobal(brand, cardNum) {
     if (b.includes('JCB')) return '<span class="cx-brand cx-jcb">JCB</span>';
     if (b.includes('UNION') || b.includes('UPI')) return '<span class="cx-brand cx-upi">UPI</span>';
     if (b.includes('DINERS')) return '<span class="cx-brand cx-din">DIN</span>';
-    return '<span class="cx-brand">' + b.substring(0,4) + '</span>';
+    return '<span class="cx-brand">' + b.substring(0, 4) + '</span>';
 }
 
 function renderAllCards() {
@@ -5569,7 +5569,7 @@ function renderAllCards() {
         const bin = getBin(c.cardNumber);
         const cached = BIN_CACHE[bin] || {};
         let cc = normalizeCC(cached.country || c.country);
-        if (cc && cc !== 'AU' + 'TO') { countryMap[cc] = (countryMap[cc]||0) + 1; }
+        if (cc && cc !== 'AU' + 'TO') { countryMap[cc] = (countryMap[cc] || 0) + 1; }
     });
     const countrySorted = Object.entries(countryMap).sort((a, b) => b[1] - a[1]);
 
@@ -5585,7 +5585,7 @@ function renderAllCards() {
 
     const stFilter = STATE._bvStatusFilter || '';
     if (stFilter) {
-        const fieldMap = {A:'cardAdd', R:'runAds', V:'verified', M:'minic', D:'declined'};
+        const fieldMap = { A: 'cardAdd', R: 'runAds', V: 'verified', M: 'minic', D: 'declined' };
         const field = fieldMap[stFilter];
         if (field) filteredCards = filteredCards.filter(c => c[field]);
     }
@@ -5628,7 +5628,7 @@ function renderAllCards() {
     let sortedBins = Object.entries(binGroups);
     if (sortMode === 'date') {
         sortedBins.sort((a, b) => {
-            const gm = (cards) => { let m=''; cards.forEach(c => { if(!c.date) return; const p=c.date.split('.'); const d=p.length===3?`${p[2]}-${p[1]}-${p[0]}`:c.date; if(d>m) m=d; }); return m; };
+            const gm = (cards) => { let m = ''; cards.forEach(c => { if (!c.date) return; const p = c.date.split('.'); const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date; if (d > m) m = d; }); return m; };
             return gm(b[1]) > gm(a[1]) ? 1 : gm(b[1]) < gm(a[1]) ? -1 : b[1].length - a[1].length;
         });
     } else {
@@ -5642,28 +5642,28 @@ function renderAllCards() {
     const pageBins = sortedBins.slice(start, start + STATE.perPage);
     const totalPages = Math.max(1, Math.ceil(totalBins / STATE.perPage));
 
-    const fmtCard = (n) => (n||'').replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim();
+    const fmtCard = (n) => (n || '').replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
     const cntClr = (n) => n > 15 ? '#ef4444' : n > 10 ? '#f97316' : n > 5 ? '#eab308' : '#38bdf8';
 
     const binSt = (cards) => {
-        const a=cards.filter(c=>c.cardAdd).length, r=cards.filter(c=>c.runAds).length,
-              v=cards.filter(c=>c.verified).length, m=cards.filter(c=>c.minic).length,
-              d=cards.filter(c=>c.declined).length;
+        const a = cards.filter(c => c.cardAdd).length, r = cards.filter(c => c.runAds).length,
+            v = cards.filter(c => c.verified).length, m = cards.filter(c => c.minic).length,
+            d = cards.filter(c => c.declined).length;
         let h = '';
-        if (a) h += `<span class="bv-s bv-sa">${a>1?a:''}A</span>`;
-        if (r) h += `<span class="bv-s bv-sr">${r>1?r:''}R</span>`;
-        if (v) h += `<span class="bv-s bv-sv">${v>1?v:''}V</span>`;
-        if (m) h += `<span class="bv-s bv-sm">${m>1?m:''}M</span>`;
-        if (d) h += `<span class="bv-s bv-sd">${d>1?d:''}D</span>`;
+        if (a) h += `<span class="bv-s bv-sa">${a > 1 ? a : ''}A</span>`;
+        if (r) h += `<span class="bv-s bv-sr">${r > 1 ? r : ''}R</span>`;
+        if (v) h += `<span class="bv-s bv-sv">${v > 1 ? v : ''}V</span>`;
+        if (m) h += `<span class="bv-s bv-sm">${m > 1 ? m : ''}M</span>`;
+        if (d) h += `<span class="bv-s bv-sd">${d > 1 ? d : ''}D</span>`;
         return h;
     };
 
     const cardSt = (c) => {
-        return `<span class="bv-s bv-sa ${c.cardAdd?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','cardAdd')">A</span>`
-             + `<span class="bv-s bv-sr ${c.runAds?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','runAds')">R</span>`
-             + `<span class="bv-s bv-sv ${c.verified?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','verified')">V</span>`
-             + `<span class="bv-s bv-sm ${c.minic?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','minic')">M</span>`
-             + `<span class="bv-s bv-sd ${c.declined?'':'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','declined')">D</span>`;
+        return `<span class="bv-s bv-sa ${c.cardAdd ? '' : 'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','cardAdd')">A</span>`
+            + `<span class="bv-s bv-sr ${c.runAds ? '' : 'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','runAds')">R</span>`
+            + `<span class="bv-s bv-sv ${c.verified ? '' : 'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','verified')">V</span>`
+            + `<span class="bv-s bv-sm ${c.minic ? '' : 'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','minic')">M</span>`
+            + `<span class="bv-s bv-sd ${c.declined ? '' : 'bv-off'}" onclick="event.stopPropagation();_bvToggle('${c.id}','declined')">D</span>`;
     };
 
     let rows = '';
@@ -5679,49 +5679,49 @@ function renderAllCards() {
         const flag = cc ? isoToFlag(cc) : '';
 
         let lastD = '';
-        cards.forEach(c => { if(!c.date) return; const p=c.date.split('.'); const d=p.length===3?`${p[2]}-${p[1]}-${p[0]}`:c.date; if(d>lastD) lastD=d; });
-        if (lastD && lastD.includes('-')) { const p=lastD.split('-'); lastD=`${p[2]}.${p[1]}.${p[0]}`; }
+        cards.forEach(c => { if (!c.date) return; const p = c.date.split('.'); const d = p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : c.date; if (d > lastD) lastD = d; });
+        if (lastD && lastD.includes('-')) { const p = lastD.split('-'); lastD = `${p[2]}.${p[1]}.${p[0]}`; }
 
         const binNote = (STATE.binNotes && STATE.binNotes[bin]) || '';
 
-        rows += `<tr class="bv-bin-row ${exp?'bv-expanded':''}" data-bin="${bin}" onclick="_toggleBinGroup('${bin}')">
-            <td class="bv-ec"><span class="bv-arrow">${exp?'\u25be':'\u25b8'}</span></td>
+        rows += `<tr class="bv-bin-row ${exp ? 'bv-expanded' : ''}" data-bin="${bin}" onclick="_toggleBinGroup('${bin}')">
+            <td class="bv-ec"><span class="bv-arrow">${exp ? '\u25be' : '\u25b8'}</span></td>
             <td class="bv-mc">
                 <div class="bv-bi">${flag}<span class="bv-bn">${bin}</span>${brand}<span class="bv-cc" style="color:${cntClr(cnt)}">${cnt} cards</span></div>
                 ${bank ? `<div class="bv-bk">${bank}</div>` : ''}
             </td>
             <td class="bv-sc">${binSt(cards)}</td>
-            <td class="bv-nc" onclick="event.stopPropagation()"><input class="bv-ni" type="text" value="${(binNote).replace(/"/g,'&quot;')}" placeholder="\u2014" onchange="_saveBinNote('${bin}',this.value)" onclick="event.stopPropagation()"></td>
-            <td class="bv-dc">${lastD||'\u2014'}</td>
+            <td class="bv-nc" onclick="event.stopPropagation()"><input class="bv-ni" type="text" value="${(binNote).replace(/"/g, '&quot;')}" placeholder="\u2014" onchange="_saveBinNote('${bin}',this.value)" onclick="event.stopPropagation()"></td>
+            <td class="bv-dc">${lastD || '\u2014'}</td>
         </tr>`;
 
         if (exp) {
             cards.forEach(c => {
                 const cN = c.notes || '';
-                const ex = (c.month&&c.year)?`${c.month}/${c.year}`:'';
-                const cv = c.cvv||'';
-                const fc = `${fmtCard(c.cardNumber)}${ex?' '+ex:''}${cv?' '+cv:''}`;
+                const ex = (c.month && c.year) ? `${c.month}/${c.year}` : '';
+                const cv = c.cvv || '';
+                const fc = `${fmtCard(c.cardNumber)}${ex ? ' ' + ex : ''}${cv ? ' ' + cv : ''}`;
                 // Duplicate badge
                 const dupCnt = dupMap[c.cardNumber.replace(/\s/g, '')] || 1;
                 const dupBadge = dupCnt > 1 ? `<span class="bv-dup">dbl ${dupCnt}</span>` : '';
                 const amtVal = c.amount ? `<span class="bv-amt">$${c.amount}</span>` : '';
 
                 rows += `<tr class="bv-cr" data-id="${c.id}" oncontextmenu="event.preventDefault();_bvCardCtx(event,'${c.id}')">
-                    <td class="bv-ec"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id)?'checked':''} onchange="toggleCardSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"></label></td>
+                    <td class="bv-ec"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="${c.id}" ${_selectedCards.has(c.id) ? 'checked' : ''} onchange="toggleCardSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"></label></td>
                     <td class="bv-mc bv-cm"><span class="bv-cn">${fc}</span>${dupBadge}${amtVal}</td>
                     <td class="bv-sc">${cardSt(c)}</td>
-                    <td class="bv-nc"><input class="bv-ni bv-nic" type="text" value="${(cN).replace(/"/g,'&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}',this.value)"></td>
-                    <td class="bv-dc">${c.date||'\u2014'}</td>
+                    <td class="bv-nc"><input class="bv-ni bv-nic" type="text" value="${(cN).replace(/"/g, '&quot;')}" placeholder="" onchange="_saveCardNote('${c.id}',this.value)"></td>
+                    <td class="bv-dc">${c.date || '\u2014'}</td>
                 </tr>`;
             });
         }
     });
 
-    let ctHtml = `<span class="bv-ct ${countryFilter==='ALL'?'bv-cta':''}" onclick="_bvFilterCountry('ALL')">ALL <b>${totalAll}</b></span>`;
-    countrySorted.forEach(([cc, n]) => { ctHtml += `<span class="bv-ct ${countryFilter===cc?'bv-cta':''}" onclick="_bvFilterCountry('${cc}')">${isoToFlag(cc)} ${cc} <b>${n}</b></span>`; });
+    let ctHtml = `<span class="bv-ct ${countryFilter === 'ALL' ? 'bv-cta' : ''}" onclick="_bvFilterCountry('ALL')">ALL <b>${totalAll}</b></span>`;
+    countrySorted.forEach(([cc, n]) => { ctHtml += `<span class="bv-ct ${countryFilter === cc ? 'bv-cta' : ''}" onclick="_bvFilterCountry('${cc}')">${isoToFlag(cc)} ${cc} <b>${n}</b></span>`; });
 
     const sf = STATE._bvStatusFilter || '';
-    const stPill = (code, cls, count) => `<span class="bv-pill bv-st-pill ${sf===code?'bv-st-filt':''}" onclick="_bvFilterStatus('${code}')" oncontextmenu="event.preventDefault();_bvStatusCtx(event,'${code}')"><span class="bv-s ${cls}">${code}</span> <b>${count}</b></span>`;
+    const stPill = (code, cls, count) => `<span class="bv-pill bv-st-pill ${sf === code ? 'bv-st-filt' : ''}" onclick="_bvFilterStatus('${code}')" oncontextmenu="event.preventDefault();_bvStatusCtx(event,'${code}')"><span class="bv-s ${cls}">${code}</span> <b>${count}</b></span>`;
 
     const selCount = _selectedCards.size;
     const bulkHtml = selCount > 0 ? `
@@ -5737,17 +5737,17 @@ function renderAllCards() {
 
     area.innerHTML = `
         <div class="bv-bar">
-            ${stPill('A','bv-sa',gA)}
-            ${stPill('R','bv-sr',gR)}
-            ${stPill('V','bv-sv',gV)}
-            ${stPill('M','bv-sm',gM)}
-            ${stPill('D','bv-sd',gD)}
+            ${stPill('A', 'bv-sa', gA)}
+            ${stPill('R', 'bv-sr', gR)}
+            ${stPill('V', 'bv-sv', gV)}
+            ${stPill('M', 'bv-sm', gM)}
+            ${stPill('D', 'bv-sd', gD)}
             <span class="bv-pill">CARDS <b>${totalCards}</b></span>
             <span class="bv-pill">BINS <b>${totalBins}</b></span>
             <button class="bv-clr-all" onclick="_bvClearAll()" title="Clear ALL statuses">&#x2715; Reset</button>
             <div class="bv-srt">
-                <button class="bv-sb ${sortMode==='count'?'bv-sba':''}" onclick="_bvSetSort('count')">COUNT</button>
-                <button class="bv-sb ${sortMode==='date'?'bv-sba':''}" onclick="_bvSetSort('date')">DATE</button>
+                <button class="bv-sb ${sortMode === 'count' ? 'bv-sba' : ''}" onclick="_bvSetSort('count')">COUNT</button>
+                <button class="bv-sb ${sortMode === 'date' ? 'bv-sba' : ''}" onclick="_bvSetSort('date')">DATE</button>
             </div>
             <button class="bv-ib" onclick="_bvOpenImport()">+ Import</button>
         </div>
@@ -5784,7 +5784,7 @@ function renderAllCards() {
 }
 
 // Right-click on card row — Edit / Clone / Delete
-window._bvCardCtx = function(e, id) {
+window._bvCardCtx = function (e, id) {
     const ctx = document.getElementById('bv-ctx-menu');
     ctx.innerHTML = `
         <div class="bv-ctx-item" onclick="_bvEditCard('${id}')">&#9998; Edit</div>
@@ -5797,7 +5797,7 @@ window._bvCardCtx = function(e, id) {
 };
 
 // Edit card modal (no browser confirm)
-window._bvEditCard = function(id) {
+window._bvEditCard = function (id) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
@@ -5810,16 +5810,16 @@ window._bvEditCard = function(id) {
             <input id="bv-edit-num" class="bv-edit-inp" type="text" value="${card.cardNumber}">
             <label class="bv-edit-lbl">Exp (MM/YY)</label>
             <div class="bv-edit-row">
-                <input id="bv-edit-mm" class="bv-edit-inp bv-edit-sm" type="text" value="${card.month||''}" placeholder="MM" maxlength="2">
+                <input id="bv-edit-mm" class="bv-edit-inp bv-edit-sm" type="text" value="${card.month || ''}" placeholder="MM" maxlength="2">
                 <span class="bv-edit-sep">/</span>
-                <input id="bv-edit-yy" class="bv-edit-inp bv-edit-sm" type="text" value="${card.year||''}" placeholder="YY" maxlength="2">
+                <input id="bv-edit-yy" class="bv-edit-inp bv-edit-sm" type="text" value="${card.year || ''}" placeholder="YY" maxlength="2">
             </div>
             <label class="bv-edit-lbl">CVV</label>
-            <input id="bv-edit-cvv" class="bv-edit-inp bv-edit-sm" type="text" value="${card.cvv||''}" maxlength="4">
+            <input id="bv-edit-cvv" class="bv-edit-inp bv-edit-sm" type="text" value="${card.cvv || ''}" maxlength="4">
             <label class="bv-edit-lbl">Amount ($)</label>
-            <input id="bv-edit-amount" class="bv-edit-inp bv-edit-sm" type="text" value="${card.amount||''}">
+            <input id="bv-edit-amount" class="bv-edit-inp bv-edit-sm" type="text" value="${card.amount || ''}">
             <label class="bv-edit-lbl">Note</label>
-            <input id="bv-edit-note" class="bv-edit-inp" type="text" value="${(card.notes||'').replace(/"/g,'&quot;')}">
+            <input id="bv-edit-note" class="bv-edit-inp" type="text" value="${(card.notes || '').replace(/"/g, '&quot;')}">
             <div class="bv-edit-btns">
                 <button class="bv-edit-save" onclick="_bvSaveEdit('${id}')">Save</button>
                 <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
@@ -5831,7 +5831,7 @@ window._bvEditCard = function(id) {
 };
 
 // Save edited card
-window._bvSaveEdit = function(id) {
+window._bvSaveEdit = function (id) {
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
     const num = document.getElementById('bv-edit-num').value.replace(/\s/g, '');
@@ -5850,7 +5850,7 @@ window._bvSaveEdit = function(id) {
 };
 
 // Delete card — custom in-app confirm (NO browser dialog)
-window._bvDeleteCard = function(id) {
+window._bvDeleteCard = function (id) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
@@ -5863,7 +5863,7 @@ window._bvDeleteCard = function(id) {
 };
 
 // Clone card
-window._bvCloneCard = function(id) {
+window._bvCloneCard = function (id) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const card = STATE.cards.find(c => c.id === id);
     if (!card) return;
@@ -5877,7 +5877,7 @@ window._bvCloneCard = function(id) {
 };
 
 // Custom in-app confirm dialog (replaces browser confirm)
-window._bvShowConfirm = function(msg, onYes) {
+window._bvShowConfirm = function (msg, onYes) {
     const modal = document.getElementById('bv-edit-modal');
     modal.innerHTML = `
         <div class="bv-edit-box bv-confirm-box">
@@ -5893,7 +5893,7 @@ window._bvShowConfirm = function(msg, onYes) {
 };
 
 // Clear ALL statuses — custom confirm (no browser dialog)
-window._bvClearAll = function() {
+window._bvClearAll = function () {
     _bvShowConfirm('Clear ALL statuses for all cards?', () => {
         STATE.cards.forEach(c => { c.cardAdd = false; c.runAds = false; c.verified = false; c.minic = false; c.declined = false; });
         save(); renderAllCards();
@@ -5912,7 +5912,7 @@ function renderMinicBins() {
     const tags = STATE.minicTags || [];
     const filter = STATE.minicTagFilter || 'all';
     const activeTab = STATE.minicActiveTab || 'main';
-    const tabs = STATE.minicTabs || [{id:'main',name:'Main'}];
+    const tabs = STATE.minicTabs || [{ id: 'main', name: 'Main' }];
 
     // Filter by active tab
     let tabBins = allBins.filter(b => (b.tab || 'main') === activeTab);
@@ -5934,10 +5934,10 @@ function renderMinicBins() {
         const isActive = t.id === activeTab;
         const cnt = allBins.filter(b => (b.tab || 'main') === t.id).length;
         const closable = t.id !== 'main';
-        tabsHtml += '<div class="mc-tab '+(isActive?'mc-tab-active':'')+'" onclick="_mcSwitchTab(\''+t.id+'\')">'
-            + '<span class="mc-tab-name">'+t.name+'</span>'
-            + ' <span class="mc-tab-cnt">'+cnt+'</span>'
-            + (closable ? ' <span class="mc-tab-close" onclick="event.stopPropagation();_mcCloseTab(\''+t.id+'\')">✕</span>' : '')
+        tabsHtml += '<div class="mc-tab ' + (isActive ? 'mc-tab-active' : '') + '" onclick="_mcSwitchTab(\'' + t.id + '\')">'
+            + '<span class="mc-tab-name">' + t.name + '</span>'
+            + ' <span class="mc-tab-cnt">' + cnt + '</span>'
+            + (closable ? ' <span class="mc-tab-close" onclick="event.stopPropagation();_mcCloseTab(\'' + t.id + '\')">✕</span>' : '')
             + '</div>';
     });
     tabsHtml += '<div class="mc-tab mc-tab-add" onclick="_mcAddTab()">+</div>';
@@ -5948,13 +5948,13 @@ function renderMinicBins() {
         : '';
 
     // Tag filter pills
-    let filterHtml = '<span class="bv-pill mc-filter-pill '+(filter==='all'?'mc-pill-active':'')+'" onclick="_mcFilter(\'all\')">ALL <b>'+total+'</b></span>';
-    filterHtml += '<span class="bv-pill mc-filter-pill '+(filter==='pending'?'mc-pill-active':'')+'" onclick="_mcFilter(\'pending\')">PENDING <b>'+pending+'</b></span>';
+    let filterHtml = '<span class="bv-pill mc-filter-pill ' + (filter === 'all' ? 'mc-pill-active' : '') + '" onclick="_mcFilter(\'all\')">ALL <b>' + total + '</b></span>';
+    filterHtml += '<span class="bv-pill mc-filter-pill ' + (filter === 'pending' ? 'mc-pill-active' : '') + '" onclick="_mcFilter(\'pending\')">PENDING <b>' + pending + '</b></span>';
     tags.forEach(t => {
         const cnt = tagCounts[t.id] || 0;
         const active = filter === t.id ? 'mc-pill-active' : '';
-        filterHtml += '<span class="bv-pill mc-filter-pill '+active+'" style="border-color:'+(t.color||'#666')+'" onclick="_mcFilter(\''+t.id+'\')">'
-            + '<span class="mc-tag-dot" style="background:'+(t.color||'#666')+'"></span> '+t.name+' <b>'+cnt+'</b></span>';
+        filterHtml += '<span class="bv-pill mc-filter-pill ' + active + '" style="border-color:' + (t.color || '#666') + '" onclick="_mcFilter(\'' + t.id + '\')">'
+            + '<span class="mc-tag-dot" style="background:' + (t.color || '#666') + '"></span> ' + t.name + ' <b>' + cnt + '</b></span>';
     });
     filterHtml += '<button class="bv-ib mc-new-tag-btn" onclick="_mcNewTagModal()">+ New Tag</button>';
 
@@ -5970,18 +5970,18 @@ function renderMinicBins() {
 
         const tag = tags.find(t => t.id === b.tag);
         const tagHtml = tag
-            ? '<span class="mc-tag-badge" style="background:'+tag.color+'">'+tag.name+'</span>'
+            ? '<span class="mc-tag-badge" style="background:' + tag.color + '">' + tag.name + '</span>'
             : '<span class="mc-tag-badge mc-tag-pending">PENDING</span>';
 
-        rowsHtml += '<tr class="mc-row" data-idx="'+realIdx+'" data-id="mc-'+realIdx+'" oncontextmenu="event.preventDefault();_mcCtx(event,'+realIdx+')">'
-            + '<td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="mc-'+realIdx+'" onchange="toggleCardSelect(this.dataset.cardId,this.checked)"></label></td>'
-            + '<td class="mc-idx">'+(realIdx+1)+'</td>'
-            + '<td class="mc-bin">'+flag+' <span class="bv-bn">'+b.bin+'</span> '+brandHtml+'</td>'
-            + '<td class="mc-bank">'+bank+'</td>'
-            + '<td class="mc-status"><span class="mc-tag-click" onclick="_mcTagMenu(event,'+realIdx+')">'+tagHtml+' \u25BE</span></td>'
-            + '<td class="mc-amt">'+(b.amount ? '$'+b.amount : '\u2014')+'</td>'
-            + '<td class="mc-note"><input class="bv-ni" type="text" value="'+((b.note||'').replace(/"/g,'&quot;'))+'" placeholder="\u2014" onchange="_mcNote('+realIdx+',this.value)"></td>'
-            + '<td class="mc-date">'+(b.date || '\u2014')+'</td>'
+        rowsHtml += '<tr class="mc-row" data-idx="' + realIdx + '" data-id="mc-' + realIdx + '" oncontextmenu="event.preventDefault();_mcCtx(event,' + realIdx + ')">'
+            + '<td class="mc-chk" onclick="event.stopPropagation()"><label class="bulk-check"><input type="checkbox" class="row-select-cb" data-card-id="mc-' + realIdx + '" onchange="toggleCardSelect(this.dataset.cardId,this.checked)"></label></td>'
+            + '<td class="mc-idx">' + (realIdx + 1) + '</td>'
+            + '<td class="mc-bin">' + flag + ' <span class="bv-bn">' + b.bin + '</span> ' + brandHtml + '</td>'
+            + '<td class="mc-bank">' + bank + '</td>'
+            + '<td class="mc-status"><span class="mc-tag-click" onclick="_mcTagMenu(event,' + realIdx + ')">' + tagHtml + ' \u25BE</span></td>'
+            + '<td class="mc-amt">' + (b.amount ? '$' + b.amount : '\u2014') + '</td>'
+            + '<td class="mc-note"><input class="bv-ni" type="text" value="' + ((b.note || '').replace(/"/g, '&quot;')) + '" placeholder="\u2014" onchange="_mcNote(' + realIdx + ',this.value)"></td>'
+            + '<td class="mc-date">' + (b.date || '\u2014') + '</td>'
             + '</tr>';
     });
 
@@ -6044,13 +6044,13 @@ function renderMinicBins() {
 
 // ── Tag filter ──
 // ── Tab management ──
-window._mcSwitchTab = function(tabId) {
+window._mcSwitchTab = function (tabId) {
     STATE.minicActiveTab = tabId;
     STATE.minicTagFilter = 'all';
     renderMinicBins();
 };
 
-window._mcAddTab = function() {
+window._mcAddTab = function () {
     const modal = document.getElementById('bv-edit-modal');
     modal.innerHTML = `
         <div class="bv-edit-box">
@@ -6066,7 +6066,7 @@ window._mcAddTab = function() {
     setTimeout(() => document.getElementById('mc-new-tab-name').focus(), 50);
 };
 
-window._mcSaveNewTab = function() {
+window._mcSaveNewTab = function () {
     const name = document.getElementById('mc-new-tab-name').value.trim();
     if (!name) { toast('Enter a tab name', 'error'); return; }
     const id = 'mctab_' + Date.now();
@@ -6078,7 +6078,7 @@ window._mcSaveNewTab = function() {
     toast('Tab "' + name + '" created', 'success');
 };
 
-window._mcCloseTab = function(tabId) {
+window._mcCloseTab = function (tabId) {
     if (tabId === 'main') return;
     const tabBins = (STATE.minicBins || []).filter(b => (b.tab || 'main') === tabId);
     const msg = tabBins.length > 0
@@ -6093,7 +6093,7 @@ window._mcCloseTab = function(tabId) {
     });
 };
 
-window._mcMoveToMain = function() {
+window._mcMoveToMain = function () {
     const activeTab = STATE.minicActiveTab;
     if (activeTab === 'main') return;
     const tabBins = STATE.minicBins.filter(b => (b.tab || 'main') === activeTab);
@@ -6113,20 +6113,20 @@ window._mcMoveToMain = function() {
     toast(moved + ' BINs moved to Main' + (dupes > 0 ? ' (' + dupes + ' duplicates skipped)' : ''), 'success');
 };
 
-window._mcFilter = function(f) {
+window._mcFilter = function (f) {
     STATE.minicTagFilter = f;
     renderMinicBins();
 };
 
 // ── Tag dropdown on click ──
-window._mcTagMenu = function(e, idx) {
+window._mcTagMenu = function (e, idx) {
     e.stopPropagation();
     const dd = document.getElementById('mc-tag-dropdown');
     const tags = STATE.minicTags || [];
-    let html = '<div class="mc-dd-item mc-dd-pending" onclick="_mcSetTag('+idx+',null)">PENDING</div>';
+    let html = '<div class="mc-dd-item mc-dd-pending" onclick="_mcSetTag(' + idx + ',null)">PENDING</div>';
     tags.forEach(t => {
-        html += '<div class="mc-dd-item" onclick="_mcSetTag('+idx+',\''+t.id+'\')">'
-            + '<span class="mc-tag-dot" style="background:'+t.color+'"></span> '+t.name+'</div>';
+        html += '<div class="mc-dd-item" onclick="_mcSetTag(' + idx + ',\'' + t.id + '\')">'
+            + '<span class="mc-tag-dot" style="background:' + t.color + '"></span> ' + t.name + '</div>';
     });
     html += '<div class="mc-dd-sep"></div><div class="mc-dd-item mc-dd-new" onclick="_mcNewTagModal()">+ New Tag</div>';
     dd.innerHTML = html;
@@ -6136,7 +6136,7 @@ window._mcTagMenu = function(e, idx) {
 };
 
 // ── Assign tag ──
-window._mcSetTag = function(idx, tagId) {
+window._mcSetTag = function (idx, tagId) {
     const b = STATE.minicBins[idx];
     if (!b) return;
     b.tag = tagId;
@@ -6145,13 +6145,13 @@ window._mcSetTag = function(idx, tagId) {
 };
 
 // ── New tag modal ──
-window._mcNewTagModal = function() {
+window._mcNewTagModal = function () {
     document.getElementById('mc-tag-dropdown').style.display = 'none';
     const modal = document.getElementById('bv-edit-modal');
-    const colors = ['#22c55e','#ef4444','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316','#64748b'];
+    const colors = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#64748b'];
     let colorsHtml = '';
     colors.forEach(c => {
-        colorsHtml += '<span class="mc-color-opt" data-color="'+c+'" style="background:'+c+'" onclick="_mcPickColor(this)"></span>';
+        colorsHtml += '<span class="mc-color-opt" data-color="' + c + '" style="background:' + c + '" onclick="_mcPickColor(this)"></span>';
     });
     modal.innerHTML = `
         <div class="bv-edit-box">
@@ -6175,13 +6175,13 @@ window._mcNewTagModal = function() {
     }, 50);
 };
 
-window._mcPickColor = function(el) {
+window._mcPickColor = function (el) {
     document.querySelectorAll('.mc-color-opt').forEach(e => e.classList.remove('mc-color-sel'));
     el.classList.add('mc-color-sel');
     document.getElementById('mc-tag-color').value = el.dataset.color;
 };
 
-window._mcSaveNewTag = function() {
+window._mcSaveNewTag = function () {
     const name = document.getElementById('mc-tag-name').value.trim();
     if (!name) { toast('Enter a tag name', 'error'); return; }
     const color = document.getElementById('mc-tag-color').value || '#64748b';
@@ -6191,17 +6191,17 @@ window._mcSaveNewTag = function() {
     save();
     document.getElementById('bv-edit-modal').style.display = 'none';
     renderMinicBins();
-    toast('Tag "'+name+'" created', 'success');
+    toast('Tag "' + name + '" created', 'success');
 };
 
 // ── Open add panel ──
-window._mcOpenAdd = function() {
+window._mcOpenAdd = function () {
     const p = document.getElementById('mc-add-panel');
     if (p) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; if (p.style.display === 'block') document.getElementById('mc-add-text').focus(); }
 };
 
 // ── Add BINs ──
-window._mcDoAdd = function() {
+window._mcDoAdd = function () {
     const text = document.getElementById('mc-add-text').value;
     const lines = text.split('\n').map(l => l.trim().replace(/\D/g, '').substring(0, 6)).filter(l => l.length >= 6);
     if (lines.length === 0) { toast('No valid BINs found', 'error'); return; }
@@ -6216,28 +6216,28 @@ window._mcDoAdd = function() {
     document.getElementById('mc-add-text').value = '';
     document.getElementById('mc-add-panel').style.display = 'none';
     renderMinicBins();
-    toast(added+' BINs added ('+(lines.length - added)+' duplicates skipped)', 'success');
+    toast(added + ' BINs added (' + (lines.length - added) + ' duplicates skipped)', 'success');
     lines.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).then(() => renderMinicBins()); });
 };
 
 // ── Note ──
-window._mcNote = function(idx, val) {
+window._mcNote = function (idx, val) {
     const b = STATE.minicBins[idx];
     if (b) { b.note = val; save(); }
 };
 
 // ── Context menu ──
-window._mcCtx = function(e, idx) {
+window._mcCtx = function (e, idx) {
     const ctx = document.getElementById('bv-ctx-menu');
-    ctx.innerHTML = '<div class="bv-ctx-item" onclick="_mcEdit('+idx+')">&#9998; Edit Amount</div>'
-        + '<div class="bv-ctx-item bv-ctx-danger" onclick="_mcDelete('+idx+')">&#x2715; Delete</div>';
+    ctx.innerHTML = '<div class="bv-ctx-item" onclick="_mcEdit(' + idx + ')">&#9998; Edit Amount</div>'
+        + '<div class="bv-ctx-item bv-ctx-danger" onclick="_mcDelete(' + idx + ')">&#x2715; Delete</div>';
     ctx.style.display = 'block';
     ctx.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
     ctx.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
 };
 
 // ── Edit amount ──
-window._mcEdit = function(idx) {
+window._mcEdit = function (idx) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     const b = STATE.minicBins[idx];
     if (!b) return;
@@ -6248,7 +6248,7 @@ window._mcEdit = function(idx) {
             <label class="bv-edit-lbl">Amount ($)</label>
             <input id="mc-edit-amt" class="bv-edit-inp bv-edit-sm" type="text" value="${b.amount || ''}">
             <label class="bv-edit-lbl">Note</label>
-            <input id="mc-edit-note" class="bv-edit-inp" type="text" value="${(b.note||'').replace(/"/g,'&quot;')}">
+            <input id="mc-edit-note" class="bv-edit-inp" type="text" value="${(b.note || '').replace(/"/g, '&quot;')}">
             <div class="bv-edit-btns">
                 <button class="bv-edit-save" onclick="_mcSaveEdit(${idx})">Save</button>
                 <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
@@ -6258,7 +6258,7 @@ window._mcEdit = function(idx) {
     document.getElementById('mc-edit-amt').focus();
 };
 
-window._mcSaveEdit = function(idx) {
+window._mcSaveEdit = function (idx) {
     const b = STATE.minicBins[idx];
     if (!b) return;
     b.amount = document.getElementById('mc-edit-amt').value;
@@ -6270,7 +6270,7 @@ window._mcSaveEdit = function(idx) {
 };
 
 // ── Delete ──
-window._mcDelete = function(idx) {
+window._mcDelete = function (idx) {
     document.getElementById('bv-ctx-menu').style.display = 'none';
     _bvShowConfirm('Delete this BIN?', () => {
         STATE.minicBins.splice(idx, 1);
@@ -6280,7 +6280,7 @@ window._mcDelete = function(idx) {
 };
 
 // ── Export from Parser to Mini ──
-window._parserExportToMini = function() {
+window._parserExportToMini = function () {
     const db = _loadBinDb();
     const allBins = [];
     Object.entries(db).forEach(([bank, data]) => {
@@ -6296,7 +6296,7 @@ window._parserExportToMini = function() {
     // Create a new draft tab with today's date
     const tabId = 'mctab_' + Date.now();
     const tabName = 'Parse ' + todayStr();
-    if (!STATE.minicTabs) STATE.minicTabs = [{id:'main',name:'Main'}];
+    if (!STATE.minicTabs) STATE.minicTabs = [{ id: 'main', name: 'Main' }];
     STATE.minicTabs.push({ id: tabId, name: tabName });
 
     const existing = new Set((STATE.minicBins || []).map(b => b.bin + '|' + (b.tab || 'main')));
@@ -6311,12 +6311,12 @@ window._parserExportToMini = function() {
     STATE.minicActiveTab = tabId;
     save();
     toast(added + ' BINs exported to "' + tabName + '"', 'success');
-    allBins.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => {}); });
+    allBins.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => { }); });
 };
 
 
 // ── Minic — legacy status compat ──
-window._mcSetStatus = function(idx, status) {
+window._mcSetStatus = function (idx, status) {
     const b = STATE.minicBins[idx];
     if (!b) return;
     b.status = b.status === status ? 'pending' : status;
@@ -6325,7 +6325,7 @@ window._mcSetStatus = function(idx, status) {
 
 
 // ── Notes: inline rename tab ──
-window._ntStartRename = function(tabId) {
+window._ntStartRename = function (tabId) {
     const tab = STATE.notesTabs.find(t => t.id === tabId);
     if (!tab) return;
     const modal = document.getElementById('bv-edit-modal');
@@ -6334,7 +6334,7 @@ window._ntStartRename = function(tabId) {
         <div class="bv-edit-box">
             <div class="bv-edit-title">Rename Tab</div>
             <label class="bv-edit-lbl">Tab Name</label>
-            <input id="nt-rename-input" class="bv-edit-inp" type="text" value="${tab.title.replace(/"/g,'&quot;')}" maxlength="50">
+            <input id="nt-rename-input" class="bv-edit-inp" type="text" value="${tab.title.replace(/"/g, '&quot;')}" maxlength="50">
             <div class="bv-edit-btns">
                 <button class="bv-edit-save" onclick="_ntDoRename('${tabId}')">Save</button>
                 <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
@@ -6348,21 +6348,21 @@ window._ntStartRename = function(tabId) {
 };
 
 
-window._ntTogglePin = function(tabId) {
+window._ntTogglePin = function (tabId) {
     const tab = STATE.notesTabs.find(t => t.id === tabId);
     if (tab) { tab.pinned = !tab.pinned; save(); renderNotes(); }
 };
 
-window._ntDeleteTab = function(tabId) {
-    if (STATE.notesTabs.length <= 1) { toast('Cannot delete last tab','error'); return; }
+window._ntDeleteTab = function (tabId) {
+    if (STATE.notesTabs.length <= 1) { toast('Cannot delete last tab', 'error'); return; }
     _bvShowConfirm('Delete this tab?', () => {
         STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
         if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
         save(); renderNotes();
-        toast('Tab deleted','success');
+        toast('Tab deleted', 'success');
     });
 };
-window._ntDoRename = function(tabId) {
+window._ntDoRename = function (tabId) {
     const tab = STATE.notesTabs.find(t => t.id === tabId);
     if (!tab) return;
     const val = document.getElementById('nt-rename-input').value.trim();
@@ -6374,20 +6374,20 @@ window._ntDoRename = function(tabId) {
     toast('Tab renamed', 'success');
 };
 // Country filter
-window._bvFilterCountry = function(cc) {
+window._bvFilterCountry = function (cc) {
     STATE._bvCountry = cc;
     STATE.page = 1;
     renderAllCards();
 };
 // Sort toggle
-window._bvSetSort = function(mode) {
+window._bvSetSort = function (mode) {
     STATE._bvSort = mode;
     STATE.page = 1;
     renderAllCards();
 };
 
 // Open import panel
-window._bvOpenImport = function() {
+window._bvOpenImport = function () {
     const panel = document.getElementById('bv-import-panel');
     if (panel) {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -6398,7 +6398,7 @@ window._bvOpenImport = function() {
 };
 
 // Do bulk import from workspace
-window._bvDoImport = function() {
+window._bvDoImport = function () {
     const text = document.getElementById('bv-import-text').value;
     if (!text.trim()) { toast('Paste a card list first', 'info'); return; }
 
@@ -6441,19 +6441,19 @@ window._bvDoImport = function() {
     document.getElementById('bv-import-panel').style.display = 'none';
 };
 // Save BIN-level note
-window._saveBinNote = function(bin, val) {
+window._saveBinNote = function (bin, val) {
     if (!STATE.binNotes) STATE.binNotes = {};
     STATE.binNotes[bin] = val;
     save();
 };
 
 // Save card-level note
-window._saveCardNote = function(id, val) {
+window._saveCardNote = function (id, val) {
     const card = STATE.cards.find(c => c.id === id);
     if (card) { card.notes = val; save(); }
 };
 // Toggle BIN group expand/collapse
-window._toggleBinGroup = function(bin) {
+window._toggleBinGroup = function (bin) {
     if (_expandedBins.has(bin)) {
         _expandedBins.delete(bin);
     } else {
@@ -6465,10 +6465,10 @@ window._toggleBinGroup = function(bin) {
 
 // All Cards detail drawer toggle
 // All Cards drawer removed — no expand on click
-window._toggleAllCardsDrawer = function () {};
+window._toggleAllCardsDrawer = function () { };
 
 // Documents drawer removed — no expand on click
-window._toggleDocDrawer = function () {};
+window._toggleDocDrawer = function () { };
 
 function renderDocs() {
     const area = document.getElementById('content-area');
@@ -6490,7 +6490,7 @@ function renderDocs() {
                 <input type="checkbox" class="row-select-cb" data-card-id="${r.id}" ${_selectedCards.has(r.id) ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleCardSelect('${r.id}',this.checked)"><div class="dc-info">
                     <div class="dc-name">${r.name} ${r.surname}</div>
                     <div class="dc-addr">${r.address}</div>
-                    ${genAddr ? `<div class="dc-gen-addr"><span class="dc-gen-tag">ALT</span> ${genAddr} <span class="dc-copy-mini" onclick="_dcCopyText('${genAddr.replace(/'/g,"\\'")}')">&#x2398;</span></div>` : ''}
+                    ${genAddr ? `<div class="dc-gen-addr"><span class="dc-gen-tag">ALT</span> ${genAddr} <span class="dc-copy-mini" onclick="_dcCopyText('${genAddr.replace(/'/g, "\\'")}')">&#x2398;</span></div>` : ''}
                     <div class="dc-dob">DOB: ${r.dob}</div>
                 </div>
                 <div class="dc-actions">
@@ -6562,12 +6562,12 @@ function _dcParse(text) {
 }
 
 // ── Documents actions ──
-window._dcOpenImport = function() {
+window._dcOpenImport = function () {
     const p = document.getElementById('dc-import-panel');
     if (p) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; if (p.style.display === 'block') document.getElementById('dc-import-text').focus(); }
 };
 
-window._dcDoImport = function() {
+window._dcDoImport = function () {
     const text = document.getElementById('dc-import-text').value;
     const parsed = _dcParse(text);
     if (parsed.length === 0) { toast('No records detected', 'error'); return; }
@@ -6585,14 +6585,14 @@ window._dcDoImport = function() {
     toast(`${parsed.length} records imported`, 'success');
 };
 
-window._dcSetStatus = function(idx, status) {
+window._dcSetStatus = function (idx, status) {
     const r = STATE.docRecords[idx];
     if (!r) return;
     r.status = r.status === status ? '' : status;
     save(); renderDocs();
 };
 
-window._dcCopy = function(idx) {
+window._dcCopy = function (idx) {
     const r = STATE.docRecords[idx];
     if (!r) return;
     const text = `Name: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`;
@@ -6600,18 +6600,18 @@ window._dcCopy = function(idx) {
     toast('Copied', 'success');
 };
 
-window._dcCopyText = function(text) {
+window._dcCopyText = function (text) {
     navigator.clipboard.writeText(text);
     toast('Address copied', 'success');
 };
 
-window._dcCopyAll = function() {
-    const text = STATE.docRecords.map((r, i) => `${i+1}.\nName: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`).join('\n\n');
+window._dcCopyAll = function () {
+    const text = STATE.docRecords.map((r, i) => `${i + 1}.\nName: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`).join('\n\n');
     navigator.clipboard.writeText(text);
     toast(`${STATE.docRecords.length} records copied`, 'success');
 };
 
-window._dcToNotes = function(idx) {
+window._dcToNotes = function (idx) {
     const r = STATE.docRecords[idx];
     if (!r) return;
     const content = `Name: ${r.name}\nSurname: ${r.surname}\nAddress: ${r.address}\nDOB: ${r.dob}${r.genAddress ? '\nAlt Address: ' + r.genAddress : ''}`;
@@ -6629,7 +6629,7 @@ window._dcToNotes = function(idx) {
     toast('Sent to Notes', 'success');
 };
 
-window._dcGenAddr = function(idx) {
+window._dcGenAddr = function (idx) {
     const r = STATE.docRecords[idx];
     if (!r || !r.address) return;
     const m = r.address.match(/^(\d+)\s+(.+)/);
@@ -6643,7 +6643,7 @@ window._dcGenAddr = function(idx) {
     toast('Alt address generated', 'success');
 };
 
-window._dcDelete = function(idx) {
+window._dcDelete = function (idx) {
     _bvShowConfirm('Delete this record?', () => {
         STATE.docRecords.splice(idx, 1);
         save(); renderDocs();
@@ -6879,7 +6879,7 @@ function renderNotes() {
                 <span class="notes-saved-info">${lineCount} lines</span>
             </div>
         </div>
-    `; 
+    `;
 
     const sidebar = document.getElementById('nt-sidebar');
     const overlay = document.getElementById('nt-sidebar-overlay');
@@ -6973,15 +6973,15 @@ function renderNotes() {
 
     // ── Unified right-click context menu (colors + split + sort) ──
     const NOTE_COLORS = [
-        { label: 'Red',    color: '#ef4444' },
+        { label: 'Red', color: '#ef4444' },
         { label: 'Orange', color: '#f97316' },
         { label: 'Yellow', color: '#eab308' },
-        { label: 'Green',  color: '#22c55e' },
-        { label: 'Blue',   color: '#3b82f6' },
+        { label: 'Green', color: '#22c55e' },
+        { label: 'Blue', color: '#3b82f6' },
         { label: 'Purple', color: '#a855f7' },
-        { label: 'Cyan',   color: '#06b6d4' },
-        { label: 'Pink',   color: '#ec4899' },
-        { label: 'White',  color: '#f1f5f9' },
+        { label: 'Cyan', color: '#06b6d4' },
+        { label: 'Pink', color: '#ec4899' },
+        { label: 'White', color: '#f1f5f9' },
     ];
 
     function _removeNotesCtxMenu() {
@@ -7167,7 +7167,7 @@ function renderNotes() {
             if (x + mw > window.innerWidth - 8) x = window.innerWidth - mw - 8;
             if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
             menu.style.left = x + 'px';
-            menu.style.top  = y + 'px';
+            menu.style.top = y + 'px';
 
             const _closeMenu = (ev) => {
                 if (!menu.contains(ev.target)) {
@@ -7522,20 +7522,20 @@ function renderAll() {
 // ──── HASH ROUTING (with sub-routes) ────
 // Maps friendly hash names ↔ internal view names
 const HASH_TO_VIEW = {
-    'workspace':     'all-cards',
-    'documents':     'global-docs',
-    'parser':        'new-cards',
-    'checker':       'checker',
-    'notes':         'notes',
-    'analytics':     'analytics',
-    'trash':         'trash',
+    'workspace': 'all-cards',
+    'documents': 'global-docs',
+    'parser': 'new-cards',
+    'checker': 'checker',
+    'notes': 'notes',
+    'analytics': 'analytics',
+    'trash': 'trash',
     'google-format': 'google-format',
-    'domain':        'domain',
-    'bin-tester':    'bin-tester',
-    'minic':         'minic-bins',
-    'generator':     'generator-view',
-    'prompts':       'prompts',
-    'bin-database':  'bin-db-view',
+    'domain': 'domain',
+    'bin-tester': 'bin-tester',
+    'minic': 'minic-bins',
+    'generator': 'generator-view',
+    'prompts': 'prompts',
+    'bin-database': 'bin-db-view',
 };
 const VIEW_TO_HASH = Object.fromEntries(
     Object.entries(HASH_TO_VIEW).map(([k, v]) => [v, k])
@@ -7833,11 +7833,11 @@ window.toggleStatus = function (id, field) {
             // Support both old (.status-btn) and new compact (.cx-dot) layouts
             const fields = {
                 cardAdd: ['.status-btn.btn-a', '.cx-dot-a'],
-                runAds:  ['.status-btn.btn-r', '.cx-dot-r'],
-                verified:['.status-btn.btn-v', '.cx-dot-v'],
-                docReady:['.status-btn.btn-d', '.cx-dot-d'],
-                waterBill:['.status-btn.btn-w', '.cx-dot-w'],
-                minic:   ['.status-btn.btn-m', '.cx-dot-m'],
+                runAds: ['.status-btn.btn-r', '.cx-dot-r'],
+                verified: ['.status-btn.btn-v', '.cx-dot-v'],
+                docReady: ['.status-btn.btn-d', '.cx-dot-d'],
+                waterBill: ['.status-btn.btn-w', '.cx-dot-w'],
+                minic: ['.status-btn.btn-m', '.cx-dot-m'],
             };
             for (const [f, selectors] of Object.entries(fields)) {
                 for (const sel of selectors) {
@@ -8045,12 +8045,12 @@ function updateBulkBar() {
     var count = _selectedCards.size;
     if (count > 0) {
         bar.setAttribute('style',
-            bar.getAttribute('style').replace('display:none','display:flex')
+            bar.getAttribute('style').replace('display:none', 'display:flex')
         );
         document.getElementById('bulk-count-text').textContent = count + ' selected';
     } else {
         bar.setAttribute('style',
-            bar.getAttribute('style').replace('display:flex','display:none')
+            bar.getAttribute('style').replace('display:flex', 'display:none')
         );
     }
 }
@@ -8072,17 +8072,17 @@ function formatCardForCopy(card) {
 function bulkCopyCards() {
     const view = STATE.currentView;
     if (view === 'minic-bins') {
-        const bins = (STATE.minicBins||[]).filter((b,i) => _selectedCards.has('mc-'+i));
-        if (bins.length === 0) { toast('Nothing selected','warning'); return; }
-        const text = bins.map(b => b.bin + (b.note ? ' — '+b.note : '')).join('\n');
+        const bins = (STATE.minicBins || []).filter((b, i) => _selectedCards.has('mc-' + i));
+        if (bins.length === 0) { toast('Nothing selected', 'warning'); return; }
+        const text = bins.map(b => b.bin + (b.note ? ' — ' + b.note : '')).join('\n');
         navigator.clipboard?.writeText(text);
         toast(`${bins.length} BINs copied`, 'success');
         clearSelection(); return;
     }
     if (view === 'global-docs' || view === 'docs') {
-        const recs = (STATE.docRecords||[]).filter(r => _selectedCards.has(r.id));
-        if (recs.length === 0) { toast('Nothing selected','warning'); return; }
-        const text = recs.map(r => r.name+' '+r.surname+'\n'+r.address+'\n'+r.dob).join('\n\n');
+        const recs = (STATE.docRecords || []).filter(r => _selectedCards.has(r.id));
+        if (recs.length === 0) { toast('Nothing selected', 'warning'); return; }
+        const text = recs.map(r => r.name + ' ' + r.surname + '\n' + r.address + '\n' + r.dob).join('\n\n');
         navigator.clipboard?.writeText(text);
         toast(`${recs.length} documents copied`, 'success');
         clearSelection(); return;
@@ -8099,8 +8099,8 @@ function bulkDeleteCards() {
     const view = STATE.currentView;
     if (view === 'minic-bins') {
         const ids = [..._selectedCards];
-        const indices = ids.map(id => parseInt(id.replace('mc-',''))).filter(i => !isNaN(i)).sort((a,b) => b-a);
-        if (indices.length === 0) { toast('Nothing selected','warning'); return; }
+        const indices = ids.map(id => parseInt(id.replace('mc-', ''))).filter(i => !isNaN(i)).sort((a, b) => b - a);
+        if (indices.length === 0) { toast('Nothing selected', 'warning'); return; }
         _bvShowConfirm('Delete ' + indices.length + ' BINs?', () => {
             indices.forEach(i => STATE.minicBins.splice(i, 1));
             save(); clearSelection(); renderMinicBins();
@@ -8109,10 +8109,10 @@ function bulkDeleteCards() {
     }
     if (view === 'global-docs' || view === 'docs') {
         const ids = [..._selectedCards];
-        const recs = (STATE.docRecords||[]).filter(r => ids.includes(r.id));
-        if (recs.length === 0) { toast('Nothing selected','warning'); return; }
+        const recs = (STATE.docRecords || []).filter(r => ids.includes(r.id));
+        if (recs.length === 0) { toast('Nothing selected', 'warning'); return; }
         _bvShowConfirm('Delete ' + recs.length + ' documents?', () => {
-            STATE.docRecords = (STATE.docRecords||[]).filter(r => !ids.includes(r.id));
+            STATE.docRecords = (STATE.docRecords || []).filter(r => !ids.includes(r.id));
             save(); clearSelection(); renderContent();
             toast(recs.length + ' documents deleted', 'info');
         }); return;
@@ -8132,16 +8132,16 @@ function bulkDeleteCards() {
 
 // ── Unified row click with Shift/Ctrl support ──
 let _lastClickedId = null;
-window._uniRowClick = function(event, id, section) {
+window._uniRowClick = function (event, id, section) {
     // Don't select if clicking buttons/inputs/labels
     if (event.target.closest('button, input, select, label, .bv-s, .dc-btn, .dc-copy-mini, .bv-ni')) return;
-    
+
     const getAllIds = () => {
-        if (section === 'docs') return (STATE.docRecords||[]).map(r => r.id);
-        if (section === 'minic') return (STATE.minicBins||[]).map((b,i) => b.id || 'mc-'+i);
+        if (section === 'docs') return (STATE.docRecords || []).map(r => r.id);
+        if (section === 'minic') return (STATE.minicBins || []).map((b, i) => b.id || 'mc-' + i);
         return [];
     };
-    
+
     if (event.shiftKey && _lastClickedId) {
         const ids = getAllIds();
         const startIdx = ids.indexOf(_lastClickedId);
@@ -8158,7 +8158,7 @@ window._uniRowClick = function(event, id, section) {
         _selectedCards.add(id);
     }
     _lastClickedId = id;
-    
+
     // Update checkboxes + highlights
     document.querySelectorAll('.row-select-cb').forEach(cb => { cb.checked = _selectedCards.has(cb.dataset.cardId); });
     document.querySelectorAll('[data-id]').forEach(el => {
@@ -8172,16 +8172,16 @@ function bulkSendToNotes() {
     const view = STATE.currentView;
     let text = '';
     if (view === 'global-docs' || view === 'docs') {
-        const recs = (STATE.docRecords||[]).filter(r => _selectedCards.has(r.id));
-        text = recs.map(r => 'Name: '+r.name+'\nSurname: '+r.surname+'\nAddress: '+r.address+'\nDOB: '+r.dob).join('\n\n');
+        const recs = (STATE.docRecords || []).filter(r => _selectedCards.has(r.id));
+        text = recs.map(r => 'Name: ' + r.name + '\nSurname: ' + r.surname + '\nAddress: ' + r.address + '\nDOB: ' + r.dob).join('\n\n');
     } else if (view === 'minic-bins') {
-        const bins = (STATE.minicBins||[]).filter((b,i) => _selectedCards.has(b.id||'mc-'+i));
-        text = bins.map(b => b.bin + (b.note ? ' — '+b.note : '')).join('\n');
+        const bins = (STATE.minicBins || []).filter((b, i) => _selectedCards.has(b.id || 'mc-' + i));
+        text = bins.map(b => b.bin + (b.note ? ' — ' + b.note : '')).join('\n');
     } else {
         const cards = STATE.cards.filter(c => _selectedCards.has(c.id));
         text = cards.map(c => formatCardForCopy(c)).join('\n\n');
     }
-    if (!text) { toast('Nothing selected','error'); return; }
+    if (!text) { toast('Nothing selected', 'error'); return; }
     const newTab = {
         id: 'tab-' + Date.now(), title: 'Selection ' + new Date().toLocaleTimeString(),
         content: text.replace(/\n/g, '<br>'), pinned: false, tag: null,
@@ -8191,7 +8191,7 @@ function bulkSendToNotes() {
     STATE.notesActiveTab = newTab.id;
     save();
     clearSelection();
-    toast('Sent to Notes','success');
+    toast('Sent to Notes', 'success');
 }
 function clearSelection() {
     _selectedCards.clear();
@@ -8844,7 +8844,7 @@ if (_addCardBtnEl) _addCardBtnEl.addEventListener('click', () => {
     // (translated)
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
         openDocModal();
-    // (translated)
+        // (translated)
     } else if (STATE.currentView === 'all-cards') {
         openAddCardOnlyModal();
     } else {
@@ -8946,11 +8946,11 @@ function openAddCardOnlyModal() {
     // Save
     document.getElementById('ac-only-save').onclick = () => {
         const cardNum = document.getElementById('ac-only-card').value.replace(/\s/g, '');
-        const month   = document.getElementById('ac-only-month').value.trim();
-        const year    = document.getElementById('ac-only-year').value.trim();
-        const cvv     = document.getElementById('ac-only-cvv').value.trim();
+        const month = document.getElementById('ac-only-month').value.trim();
+        const year = document.getElementById('ac-only-year').value.trim();
+        const cvv = document.getElementById('ac-only-cvv').value.trim();
         const country = 'auto'; // BIN auto-detects
-        const notes   = document.getElementById('ac-only-notes').value.trim();
+        const notes = document.getElementById('ac-only-notes').value.trim();
 
         if (cardNum.length < 13 || !month || !year || !cvv) {
             toast('Fill in all required fields', 'error');
@@ -9741,21 +9741,49 @@ function exportFullBackup() {
     const backup = {
         version: '2.0',
         exported_at: new Date().toISOString(),
+        // Core data
         cards: STATE.cards,
         docs: STATE.docs,
         trash: STATE.trash || [],
         trashCards: STATE.trashCards || [],
+        countries: STATE.countries,
+        // Notes
         notes: STATE.notes || '',
         notesTabs: STATE.notesTabs || [],
         notesActiveTab: STATE.notesActiveTab || '',
         notesFontSize: STATE.notesFontSize || 13,
+        // Prompts
         promptsTabs: STATE.promptsTabs || [],
         promptsActiveTab: STATE.promptsActiveTab || '',
+        // Minic
+        minicBins: STATE.minicBins || [],
+        minicTags: STATE.minicTags || [],
+        minicTabs: STATE.minicTabs || [{ id: 'main', name: 'Main' }],
+        minicActiveTab: STATE.minicActiveTab || 'main',
+        minicTagFilter: STATE.minicTagFilter || 'all',
+        // Bin Database
+        binDbMerchants: STATE.binDbMerchants || [],
+        binDbArchivedBatches: STATE.binDbArchivedBatches || [],
+        // BIN notes & cache
+        binNotes: STATE.binNotes || {},
+        binCache: BIN_CACHE || {},
+        // Document records
+        docRecords: STATE.docRecords || [],
+        // Settings
+        settings: STATE.settings || {},
+        density: STATE.density || 'default',
+        perPage: STATE.perPage || 50,
+        // Legacy merchants
         merchants: JSON.parse(localStorage.getItem('ct_merchants') || '[]'),
         merchantBins: JSON.parse(localStorage.getItem('ct_merchant_bins') || '[]'),
-        countries: STATE.countries,
-        density: STATE.density || 'default',
-        perPage: STATE.perPage || 50
+        // BIN Tester
+        binTester: JSON.parse(localStorage.getItem('ct_bin_tester') || 'null'),
+        // Google Format preferences
+        gfDefaultPassword: localStorage.getItem('gf_default_password') || '',
+        gfOctoPrefix: localStorage.getItem('googleFormat_octoPrefix') || '',
+        gfOctoPrefixCounter: localStorage.getItem('googleFormat_octoPrefixCounter') || '',
+        // Parser filters
+        parserFilters: JSON.parse(localStorage.getItem('parserFilters') || 'null'),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -10060,6 +10088,69 @@ function importExtras(data) {
             STATE.promptsTabs.unshift(newTab);
         });
         STATE.promptsActiveTab = STATE.promptsTabs[0]?.id || '';
+    }
+    // Minic
+    if (data.minicBins && Array.isArray(data.minicBins)) {
+        const existingBins = new Set((STATE.minicBins || []).map(b => b.bin));
+        data.minicBins.forEach(b => {
+            if (!existingBins.has(b.bin)) { STATE.minicBins.push(b); existingBins.add(b.bin); }
+        });
+    }
+    if (data.minicTags && Array.isArray(data.minicTags)) {
+        const existingTags = new Set((STATE.minicTags || []).map(t => t.id));
+        data.minicTags.forEach(t => {
+            if (!existingTags.has(t.id)) STATE.minicTags.push(t);
+        });
+    }
+    if (data.minicTabs && Array.isArray(data.minicTabs)) {
+        const existingTabIds = new Set((STATE.minicTabs || []).map(t => t.id));
+        data.minicTabs.forEach(t => {
+            if (!existingTabIds.has(t.id)) STATE.minicTabs.push(t);
+        });
+    }
+    // Bin Database
+    if (data.binDbMerchants && Array.isArray(data.binDbMerchants)) {
+        const existingMids = new Set((STATE.binDbMerchants || []).map(m => m.id));
+        data.binDbMerchants.forEach(m => {
+            if (!existingMids.has(m.id)) STATE.binDbMerchants.push(m);
+        });
+    }
+    if (data.binDbArchivedBatches && Array.isArray(data.binDbArchivedBatches)) {
+        const existingBids = new Set((STATE.binDbArchivedBatches || []).map(b => b.id));
+        data.binDbArchivedBatches.forEach(b => {
+            if (!existingBids.has(b.id)) STATE.binDbArchivedBatches.push(b);
+        });
+    }
+    // BIN Notes
+    if (data.binNotes && typeof data.binNotes === 'object') {
+        if (!STATE.binNotes) STATE.binNotes = {};
+        Object.entries(data.binNotes).forEach(([k, v]) => {
+            if (!STATE.binNotes[k]) STATE.binNotes[k] = v;
+        });
+    }
+    // Document records
+    if (data.docRecords && Array.isArray(data.docRecords)) {
+        const existingDrIds = new Set((STATE.docRecords || []).map(d => d.id));
+        data.docRecords.forEach(d => {
+            if (!existingDrIds.has(d.id)) STATE.docRecords.push(d);
+        });
+    }
+    // Settings
+    if (data.settings && typeof data.settings === 'object') {
+        STATE.settings = { ...(STATE.settings || {}), ...data.settings };
+    }
+    // BIN Tester
+    if (data.binTester && typeof data.binTester === 'object') {
+        STATE._bt = data.binTester;
+        try { localStorage.setItem('ct_bin_tester', JSON.stringify(data.binTester)); } catch { }
+    }
+    // Google Format preferences
+    if (data.gfDefaultPassword) localStorage.setItem('gf_default_password', data.gfDefaultPassword);
+    if (data.gfOctoPrefix) localStorage.setItem('googleFormat_octoPrefix', data.gfOctoPrefix);
+    if (data.gfOctoPrefixCounter) localStorage.setItem('googleFormat_octoPrefixCounter', data.gfOctoPrefixCounter);
+    // Parser filters
+    if (data.parserFilters) {
+        try { localStorage.setItem('parserFilters', JSON.stringify(data.parserFilters)); } catch { }
     }
 }
 
@@ -10781,27 +10872,27 @@ function renderParser() {
                 <div class="parser-filter-level">
                     <span class="parser-filter-level-label">TYPE</span>
                     <div class="parser-filter-level-btns">
-                        ${['CREDIT','DEBIT','PREPAID','BUSINESS'].map(t =>
-                            `<button class="parser-level-btn${PARSER_STATE.filters.filterTypes.has(t) ? ' active' : ''}" data-filter-type="${t}">${t}</button>`
-                        ).join('')}
+                        ${['CREDIT', 'DEBIT', 'PREPAID', 'BUSINESS'].map(t =>
+        `<button class="parser-level-btn${PARSER_STATE.filters.filterTypes.has(t) ? ' active' : ''}" data-filter-type="${t}">${t}</button>`
+    ).join('')}
                     </div>
                 </div>
                 <!-- Level 2 — Card Class -->
                 <div class="parser-filter-level">
                     <span class="parser-filter-level-label">CLASS</span>
                     <div class="parser-filter-level-btns">
-                        ${['CLASSIC','STANDARD','GOLD','PLATINUM','TITANIUM','SIGNATURE','WORLD','WORLD_ELITE','INFINITE','BLACK','ELECTRON','MAESTRO'].map(t =>
-                            `<button class="parser-level-btn${PARSER_STATE.filters.filterClasses.has(t) ? ' active' : ''}" data-filter-class="${t}">${t.replace('_',' ')}</button>`
-                        ).join('')}
+                        ${['CLASSIC', 'STANDARD', 'GOLD', 'PLATINUM', 'TITANIUM', 'SIGNATURE', 'WORLD', 'WORLD_ELITE', 'INFINITE', 'BLACK', 'ELECTRON', 'MAESTRO'].map(t =>
+        `<button class="parser-level-btn${PARSER_STATE.filters.filterClasses.has(t) ? ' active' : ''}" data-filter-class="${t}">${t.replace('_', ' ')}</button>`
+    ).join('')}
                     </div>
                 </div>
                 <!-- Level 3 — Payment Network -->
                 <div class="parser-filter-level">
                     <span class="parser-filter-level-label">NETWORK</span>
                     <div class="parser-filter-level-btns">
-                        ${['VISA','MASTERCARD','AMEX','DISCOVER','UNIONPAY','JCB'].map(t =>
-                            `<button class="parser-level-btn${PARSER_STATE.filters.filterPaymentSystems.has(t) ? ' active' : ''}" data-filter-network="${t}">${t}</button>`
-                        ).join('')}
+                        ${['VISA', 'MASTERCARD', 'AMEX', 'DISCOVER', 'UNIONPAY', 'JCB'].map(t =>
+        `<button class="parser-level-btn${PARSER_STATE.filters.filterPaymentSystems.has(t) ? ' active' : ''}" data-filter-network="${t}">${t}</button>`
+    ).join('')}
                     </div>
                 </div>
                 <!-- Filter actions (Reset and TEST MODE) -->
@@ -10856,25 +10947,6 @@ function renderParser() {
         </div>
 
 
-
-        <!-- STAGE 3: BILLING ACTIVITY -->
-        <div class="pz-stage pz-stage-3">
-            <div class="pz-stage-header">
-                <span class="pz-stage-num">3</span>
-                <span class="pz-stage-title">BILLING ACTIVITY</span>
-                <span class="pz-stage-hint">Paste billing records · match with full card data from your bases</span>
-            </div>
-            <textarea class="billing-textarea" id="billing-textarea" rows="6" placeholder="Paste billing activity here...
-1 Visa ...4117 - ¥50,000 - 23.06.26
-2 Mastercard ...9430 - ¥25,000 - 25.07.26
-3 American Express ...8905 - ¥9,060 - 01.07.26">${BILLING_STATE.text || ''}</textarea>
-            <div class="billing-toolbar">
-                <button class="pz-btn pz-btn-go" id="billing-match-btn">⚡ MATCH CARDS</button>
-                <button class="pz-btn pz-btn-dim" id="billing-clear-btn">✕ CLEAR</button>
-                <span class="billing-count" id="billing-count"></span>
-            </div>
-            <div id="billing-results"></div>
-        </div>
 
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
@@ -11016,7 +11088,7 @@ function renderParser() {
         _saveParserFilters();
         toast('Filters reset', 'info');
     });
-    
+
     // Save filters on text field input
     ['parser-bins', 'parser-country', 'parser-bank', 'parser-min-expiry'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', _saveParserFilters);
@@ -11077,9 +11149,6 @@ function renderParser() {
     } else if (hasParsed) {
         renderParserResults();
     }
-
-    // ── BILLING ACTIVITY events ──
-    _bindBillingEvents();
 }
 // ──── LIST BINS — popup для вставки BIN списком (столбиком) ────
 
@@ -11332,7 +11401,7 @@ function _updateBinDbBadge() {
 }
 
 // Test/fake card BINs to skip
-const _TEST_BINS = new Set(['424242','411111','400000','555555','510510','378282','371449','601111','300569','305693','361234','543210','123456','000000','999999']);
+const _TEST_BINS = new Set(['424242', '411111', '400000', '555555', '510510', '378282', '371449', '601111', '300569', '305693', '361234', '543210', '123456', '000000', '999999']);
 function _isTestBin(bin) {
     if (_TEST_BINS.has(bin)) return true;
     // All same digits (111111, 222222, etc)
@@ -11387,14 +11456,14 @@ async function _binDbLoadFile(file) {
 
             // Extract cards using existing parser
             const cards = extractCardsFromMessages(messages);
-            
+
             // Collect unknown BINs for batch lookup
             const unknownBins = [];
 
             for (const c of cards) {
                 const bin = (c.bin || (c.cc || '').substring(0, 6));
                 if (!bin || bin.length < 4) continue;
-                
+
                 // Skip test cards
                 if (_isTestBin(bin)) { skipped++; continue; }
 
@@ -11430,7 +11499,7 @@ async function _binDbLoadFile(file) {
             // Batch lookup unknown BINs via API (max 20 at a time to avoid overload)
             const uniqueUnknown = [...new Map(unknownBins.map(u => [u.bin, u])).values()];
             const lookupBatch = uniqueUnknown.slice(0, 30);
-            
+
             if (lookupBatch.length > 0) {
                 toast(`Looking up ${lookupBatch.length} unknown BINs...`, 'info');
                 for (const u of lookupBatch) {
@@ -11855,7 +11924,7 @@ function _initTrashCardModal() {
 
 /* (translated) */
 const CML_STATE = {
-    cleanCards:   [], // (translated)
+    cleanCards: [], // (translated)
     trashMatches: [], // (translated)
     stats: null       // { checked, foundTrash, clean, dupes }
 };
@@ -11868,11 +11937,11 @@ function _initTrashTabs() {
     const overlay = document.getElementById('trash-cards-overlay');
     if (!overlay) return;
 
-    const tabs    = overlay.querySelectorAll('.trash-tab');
-    const panels  = overlay.querySelectorAll('.trash-tab-panel');
+    const tabs = overlay.querySelectorAll('.trash-tab');
+    const panels = overlay.querySelectorAll('.trash-tab-panel');
     const subtitle = document.getElementById('trash-modal-subtitle');
     const subtitles = {
-        add:   'Paste checker output — collects 💀 DEAD and ❌ INVALID cards',
+        add: 'Paste checker output — collects 💀 DEAD and ❌ INVALID cards',
         check: 'Check your card list against the saved trash database'
     };
 
@@ -11901,19 +11970,19 @@ function _initTrashTabs() {
  * (translated)
  */
 function _initCheckMyList() {
-    const textarea     = document.getElementById('cml-textarea');
-    const checkBtn     = document.getElementById('cml-check-btn');
-    const clearBtn     = document.getElementById('cml-clear-btn');
-    const closeBtn     = document.getElementById('cml-close-btn');
-    const inputCount   = document.getElementById('cml-input-count');
-    const statsEl      = document.getElementById('cml-stats');
-    const resultsEl    = document.getElementById('cml-results');
-    const trashListEl  = document.getElementById('cml-trash-list');
-    const cleanListEl  = document.getElementById('cml-clean-list');
+    const textarea = document.getElementById('cml-textarea');
+    const checkBtn = document.getElementById('cml-check-btn');
+    const clearBtn = document.getElementById('cml-clear-btn');
+    const closeBtn = document.getElementById('cml-close-btn');
+    const inputCount = document.getElementById('cml-input-count');
+    const statsEl = document.getElementById('cml-stats');
+    const resultsEl = document.getElementById('cml-results');
+    const trashListEl = document.getElementById('cml-trash-list');
+    const cleanListEl = document.getElementById('cml-clean-list');
     const copyTrashBtn = document.getElementById('cml-copy-trash');
     const copyCleanBtn = document.getElementById('cml-copy-clean');
-    const exportNotes  = document.getElementById('cml-export-notes');
-    const overlay      = document.getElementById('trash-cards-overlay');
+    const exportNotes = document.getElementById('cml-export-notes');
+    const overlay = document.getElementById('trash-cards-overlay');
 
     if (!textarea || !checkBtn) return;
 
@@ -11930,11 +11999,11 @@ function _initCheckMyList() {
     clearBtn?.addEventListener('click', () => {
         textarea.value = '';
         if (inputCount) inputCount.textContent = '';
-        statsEl.style.display  = 'none';
+        statsEl.style.display = 'none';
         resultsEl.style.display = 'none';
-        CML_STATE.cleanCards   = [];
+        CML_STATE.cleanCards = [];
         CML_STATE.trashMatches = [];
-        CML_STATE.stats        = null;
+        CML_STATE.stats = null;
     });
 
     // (translated)
@@ -11947,7 +12016,7 @@ function _initCheckMyList() {
 
         const seenCC = new Set();
         let dupes = 0;
-        const clean   = [];
+        const clean = [];
         const matched = [];
 
         // (translated)
@@ -11973,12 +12042,12 @@ function _initCheckMyList() {
         });
 
         // Save results and render
-        CML_STATE.cleanCards   = clean;
+        CML_STATE.cleanCards = clean;
         CML_STATE.trashMatches = matched;
         CML_STATE.stats = {
-            checked:    seenCC.size,
+            checked: seenCC.size,
             foundTrash: matched.length,
-            clean:      clean.length,
+            clean: clean.length,
             dupes
         };
 
@@ -12060,7 +12129,7 @@ function _renderCMLStats() {
 
 /* (translated) */
 function _renderCMLLists() {
-    const resultsEl   = document.getElementById('cml-results');
+    const resultsEl = document.getElementById('cml-results');
     const trashListEl = document.getElementById('cml-trash-list');
     const cleanListEl = document.getElementById('cml-clean-list');
     if (!resultsEl) return;
@@ -12094,17 +12163,17 @@ function _initBaseSubtractModal() {
     const overlay = document.getElementById('base-subtract-overlay');
     if (!overlay) return;
 
-    const closeBtn    = overlay.querySelector('.bs-close');
-    const dropZone    = document.getElementById('bs-drop-zone');
-    const fileInput   = document.getElementById('bs-file-input');
-    const baseInfo    = document.getElementById('bs-base-info');
-    const textarea    = document.getElementById('bs-textarea');
-    const extractBtn  = document.getElementById('bs-extract-btn');
-    const clearBtn    = document.getElementById('bs-clear-btn');
-    const statsEl     = document.getElementById('bs-stats');
-    const resultBox   = document.getElementById('bs-result-box');
-    const resultArea  = document.getElementById('bs-result-area');
-    const copyBtn     = document.getElementById('bs-copy-btn');
+    const closeBtn = overlay.querySelector('.bs-close');
+    const dropZone = document.getElementById('bs-drop-zone');
+    const fileInput = document.getElementById('bs-file-input');
+    const baseInfo = document.getElementById('bs-base-info');
+    const textarea = document.getElementById('bs-textarea');
+    const extractBtn = document.getElementById('bs-extract-btn');
+    const clearBtn = document.getElementById('bs-clear-btn');
+    const statsEl = document.getElementById('bs-stats');
+    const resultBox = document.getElementById('bs-result-box');
+    const resultArea = document.getElementById('bs-result-area');
+    const copyBtn = document.getElementById('bs-copy-btn');
 
     const closeModal = () => overlay.classList.add('hidden');
     closeBtn?.addEventListener('click', closeModal);
@@ -12150,8 +12219,8 @@ function _initBaseSubtractModal() {
         if (extracted.length === 0) { toast('No card numbers found in pasted text', 'error'); return; }
 
         // Subtract base
-        const clean   = extracted.filter(c => !_bsBaseSet.has(c.cc));
-        const removed = extracted.filter(c =>  _bsBaseSet.has(c.cc));
+        const clean = extracted.filter(c => !_bsBaseSet.has(c.cc));
+        const removed = extracted.filter(c => _bsBaseSet.has(c.cc));
 
         // Show stats
         if (statsEl) {
@@ -12166,8 +12235,8 @@ function _initBaseSubtractModal() {
         // Show result
         const resultText = clean.map(c => c.line).join('\n');
         if (resultArea) resultArea.value = resultText;
-        if (resultBox)  resultBox.style.display = 'block';
-        if (copyBtn)    copyBtn.dataset.text = resultText;
+        if (resultBox) resultBox.style.display = 'block';
+        if (copyBtn) copyBtn.dataset.text = resultText;
 
         toast(`Done: ${removed.length} removed, ${clean.length} clean cards left`, removed.length > 0 ? 'success' : 'info');
     });
@@ -12184,12 +12253,12 @@ function _initBaseSubtractModal() {
         _bsBaseSet = null;
         _bsBaseFileName = '';
         _bsBaseCardCount = 0;
-        if (textarea)  textarea.value = '';
+        if (textarea) textarea.value = '';
         if (resultArea) resultArea.value = '';
-        if (statsEl)   { statsEl.style.display = 'none'; statsEl.innerHTML = ''; }
+        if (statsEl) { statsEl.style.display = 'none'; statsEl.innerHTML = ''; }
         if (resultBox) resultBox.style.display = 'none';
-        if (baseInfo)  { baseInfo.textContent = 'No base loaded'; baseInfo.className = 'bs-base-info'; }
-        if (dropZone)  dropZone.querySelector('.bs-drop-text') && (dropZone.querySelector('.bs-drop-text').textContent = 'Drop JSON base or click');
+        if (baseInfo) { baseInfo.textContent = 'No base loaded'; baseInfo.className = 'bs-base-info'; }
+        if (dropZone) dropZone.querySelector('.bs-drop-text') && (dropZone.querySelector('.bs-drop-text').textContent = 'Drop JSON base or click');
         toast('Cleared', 'info');
     });
 }
@@ -12336,13 +12405,13 @@ function _parseCheckerOutput(text) {
 
 /* (translated) */
 const _TRASH_KEYWORDS = [
-    'DEAD','INVALID','DECLINED','DO NOT HONOR','DO NOT TRY AGAIN',
-    'FRAUD','SUSPECTED FRAUD','CLOSED CARD','PROCESSOR DECLINED',
-    'CARD ISSUER DECLINED','CALL ISSUER','INSUFFICIENT FUNDS',
-    'NOT HONOR','INSUFFICIENT_FUNDS',
+    'DEAD', 'INVALID', 'DECLINED', 'DO NOT HONOR', 'DO NOT TRY AGAIN',
+    'FRAUD', 'SUSPECTED FRAUD', 'CLOSED CARD', 'PROCESSOR DECLINED',
+    'CARD ISSUER DECLINED', 'CALL ISSUER', 'INSUFFICIENT FUNDS',
+    'NOT HONOR', 'INSUFFICIENT_FUNDS',
     // Russian checker bot keywords
-    'TRAN NOT ALLOWED','INV ACCT NUM','CANCELLED','NOT ALLOWED',
-    'NOPERMISSION','CARD ISSUER DECLINED CVV','TRANSACTION NOT ALLOWED'
+    'TRAN NOT ALLOWED', 'INV ACCT NUM', 'CANCELLED', 'NOT ALLOWED',
+    'NOPERMISSION', 'CARD ISSUER DECLINED CVV', 'TRANSACTION NOT ALLOWED'
 ];
 
 /* (translated) */
@@ -12400,7 +12469,7 @@ function _parseClassicFormat(text) {
         const line = rawLine.trim();
         if (!line) continue;
         const hasEmoji = /^[\u2705\u{1F480}\u274C]/u.test(line);
-        const hasWord  = /\b(ALIVE|DEAD|INVALID)\b/i.test(line);
+        const hasWord = /\b(ALIVE|DEAD|INVALID)\b/i.test(line);
         if (!hasEmoji && !hasWord) continue;
         const cc = _extractCC(line);
         if (!cc) continue;
@@ -12440,7 +12509,7 @@ function _parseBlockFormat(text) {
     for (const rawLine of lines) {
         const line = rawLine.trim();
         if (!line) continue;
-        if (/\u{1F7E5}{2,}/u.test(line)) { blockTrash = true;  cardFound = false; continue; }
+        if (/\u{1F7E5}{2,}/u.test(line)) { blockTrash = true; cardFound = false; continue; }
         if (/\u{1F7E9}{2,}/u.test(line)) { blockTrash = false; cardFound = false; continue; }
         if (blockTrash !== null && !cardFound) {
             const cc = _extractCC(line);
@@ -12509,8 +12578,8 @@ function _parseMultiFormat(text) {
     const format = _detectCheckerFormat(text);
     let all = [];
     if (format === 'classic' || format === 'mixed' || format === 'unknown') all = all.concat(_parseClassicFormat(text));
-    if (format === 'pipe'    || format === 'mixed') all = all.concat(_parsePipeFormat(text));
-    if (format === 'block'   || format === 'mixed') all = all.concat(_parseBlockFormat(text));
+    if (format === 'pipe' || format === 'mixed') all = all.concat(_parsePipeFormat(text));
+    if (format === 'block' || format === 'mixed') all = all.concat(_parseBlockFormat(text));
     if (format === 'results' || format === 'mixed') all = all.concat(_parseResultsFormat(text));
 
     // (translated)
@@ -12917,7 +12986,7 @@ function renderValidCardsResults() {
     });
 
     // Helper function: build card list for export
-    const buildExportLines = (list) => list.map(c => `${c.cc} ${(c.mm||'').padStart(2,'0')} ${c.yy||''} ${c.cvv||'000'}`).join('\n');
+    const buildExportLines = (list) => list.map(c => `${c.cc} ${(c.mm || '').padStart(2, '0')} ${c.yy || ''} ${c.cvv || '000'}`).join('\n');
 
     // Helper function: create Notes tab
     const exportToNotes = (list, title) => {
@@ -12965,7 +13034,7 @@ function renderValidCardsResults() {
         const tabId = 'mctab_' + Date.now();
         const selCodes = selectedCountries.size > 0 ? [...selectedCountries].join(', ') : 'ALL';
         const tabName = 'Parse ' + selCodes + ' ' + todayStr();
-        if (!STATE.minicTabs) STATE.minicTabs = [{id:'main',name:'Main'}];
+        if (!STATE.minicTabs) STATE.minicTabs = [{ id: 'main', name: 'Main' }];
         STATE.minicTabs.push({ id: tabId, name: tabName });
         const existing = new Set((STATE.minicBins || []).map(b => b.bin + '|' + (b.tab || 'main')));
         let added = 0;
@@ -12978,7 +13047,7 @@ function renderValidCardsResults() {
         STATE.minicActiveTab = tabId;
         save();
         toast(added + ' BINs \u2192 "' + tabName + '"', 'success');
-        binSet.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => {}); });
+        binSet.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => { }); });
     });
 
     // COPY ALL
@@ -13246,12 +13315,12 @@ function _updateStatsBar() {
     if (stats) {
         bar.style.display = '';
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-        set('ps-total',     stats.totalRaw        || 0);
-        set('ps-trash',     stats.trashRemoved    || 0);
-        set('ps-compared',  stats.compareRemoved  || 0);
+        set('ps-total', stats.totalRaw || 0);
+        set('ps-trash', stats.trashRemoved || 0);
+        set('ps-compared', stats.compareRemoved || 0);
         set('ps-workspace', stats.workspaceRemoved || 0);
-        set('ps-dupes',     stats.dupRemoved      || 0);
-        set('ps-net',       PARSER_STATE.collected.length);
+        set('ps-dupes', stats.dupRemoved || 0);
+        set('ps-net', PARSER_STATE.collected.length);
         // Exclude banks counter
         const exWrap = document.getElementById('ps-exclude-wrap');
         if (exWrap) {
@@ -13268,7 +13337,7 @@ function _updateStatsBar() {
             const testCards = _applyTestMode(PARSER_STATE.collected, false);
             if (testEl) testEl.style.display = '';
             set('ps-test-cards', testCards.length);
-            set('ps-test-bins',  new Set(testCards.map(c => c.bin)).size);
+            set('ps-test-bins', new Set(testCards.map(c => c.bin)).size);
         } else {
             if (testEl) testEl.style.display = 'none';
         }
@@ -13376,6 +13445,8 @@ function importToProject() {
     toast(`${lines.length} cards exported → "${tabTitle}"`, 'success');
 }
 
+
+
 // ──── RENDER RESULTS ────
 
 function renderParserResults(geoFilter) {
@@ -13394,8 +13465,8 @@ function renderParserResults(geoFilter) {
         if (geo) geoMap[geo] = (geoMap[geo] || 0) + 1;
     });
     const geoList = Object.entries(geoMap).sort((a, b) => b[1] - a[1]);
-    const countryFlags = { US:'🇺🇸',CA:'🇨🇦',GB:'🇬🇧',DE:'🇩🇪',FR:'🇫🇷',AE:'🇦🇪',AU:'🇦🇺',IT:'🇮🇹',ES:'🇪🇸',NL:'🇳🇱',BR:'🇧🇷',MX:'🇲🇽',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',CH:'🇨🇭',AT:'🇦🇹',BE:'🇧🇪',IE:'🇮🇪',PT:'🇵🇹',IL:'🇮🇱',SG:'🇸🇬',NZ:'🇳🇿',ZA:'🇿🇦',TR:'🇹🇷' };
-    const countryNames = { US:'United States',CA:'Canada',GB:'United Kingdom',DE:'Germany',FR:'France',AE:'UAE',AU:'Australia',IT:'Italy',ES:'Spain',NL:'Netherlands',BR:'Brazil',MX:'Mexico',JP:'Japan',KR:'South Korea',IN:'India',SE:'Sweden',NO:'Norway',DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',BE:'Belgium',IE:'Ireland',PT:'Portugal',IL:'Israel',SG:'Singapore',NZ:'New Zealand',ZA:'South Africa',TR:'Turkey' };
+    const countryFlags = { US: '🇺🇸', CA: '🇨🇦', GB: '🇬🇧', DE: '🇩🇪', FR: '🇫🇷', AE: '🇦🇪', AU: '🇦🇺', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BR: '🇧🇷', MX: '🇲🇽', JP: '🇯🇵', KR: '🇰🇷', IN: '🇮🇳', SE: '🇸🇪', NO: '🇳🇴', DK: '🇩🇰', FI: '🇫🇮', CH: '🇨🇭', AT: '🇦🇹', BE: '🇧🇪', IE: '🇮🇪', PT: '🇵🇹', IL: '🇮🇱', SG: '🇸🇬', NZ: '🇳🇿', ZA: '🇿🇦', TR: '🇹🇷' };
+    const countryNames = { US: 'United States', CA: 'Canada', GB: 'United Kingdom', DE: 'Germany', FR: 'France', AE: 'UAE', AU: 'Australia', IT: 'Italy', ES: 'Spain', NL: 'Netherlands', BR: 'Brazil', MX: 'Mexico', JP: 'Japan', KR: 'South Korea', IN: 'India', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria', BE: 'Belgium', IE: 'Ireland', PT: 'Portugal', IL: 'Israel', SG: 'Singapore', NZ: 'New Zealand', ZA: 'South Africa', TR: 'Turkey' };
 
     const activeGeo = geoFilter || '';
     let displayList = activeGeo ? list.filter(c => (c.detectedGeo || '').toUpperCase() === activeGeo) : list;
@@ -13422,8 +13493,8 @@ function renderParserResults(geoFilter) {
     const binCounts = {};
     displayList.forEach(c => { binCounts[c.bin] = (binCounts[c.bin] || 0) + 1; });
     let sortedDisplay = [...displayList];
-    if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin]||0) - (binCounts[a.bin]||0));
-    else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin]||0) - (binCounts[b.bin]||0));
+    if (sortBy === 'bin-desc') sortedDisplay.sort((a, b) => (binCounts[b.bin] || 0) - (binCounts[a.bin] || 0));
+    else if (sortBy === 'bin-asc') sortedDisplay.sort((a, b) => (binCounts[a.bin] || 0) - (binCounts[b.bin] || 0));
 
     const displayCount = displayList.length;
 
@@ -13431,10 +13502,10 @@ function renderParserResults(geoFilter) {
     const geoChips = `
         <button class="pres-geo-chip ${!activeGeo ? 'active' : ''}" data-geo="">ALL <span>${list.length}</span></button>
         ${geoList.map(([code, cnt]) =>
-            `<button class="pres-geo-chip ${code === activeGeo ? 'active' : ''}" data-geo="${code}">
+        `<button class="pres-geo-chip ${code === activeGeo ? 'active' : ''}" data-geo="${code}">
                 ${countryFlags[code] || '🏳'} ${code} <span>${cnt}</span>
             </button>`
-        ).join('')}`;
+    ).join('')}`;
 
     // ── BIN analytics cards ──
     const binAnalytics = {};
@@ -13573,7 +13644,7 @@ function renderParserResults(geoFilter) {
     const buildBinLines = (binVal) => {
         return displayList
             .filter(c => c.bin === binVal)
-            .map(c => `${(c.cc||'').replace(/\s/g,'')} ${(c.mm||'').padStart(2,'0')} ${c.yy||''} ${c.cvv||'000'}`)
+            .map(c => `${(c.cc || '').replace(/\s/g, '')} ${(c.mm || '').padStart(2, '0')} ${c.yy || ''} ${c.cvv || '000'}`)
             .join('\n');
     };
 
@@ -14246,9 +14317,9 @@ function initColumnResize(table, storageKey) {
 
 /** Today Cards mini-parser state */
 const TC = {
-    cards:     [],   // parsed cards
+    cards: [],   // parsed cards
     dateLabel: '',   // date label for report header
-    rawText:   '',   // last pasted text
+    rawText: '',   // last pasted text
 };
 
 /** Open Today Cards modal */
@@ -14259,7 +14330,7 @@ function _openTodayCardsModal() {
     // (translated)
     const dp = document.getElementById('tc-date');
     if (dp && !dp.value) {
-        dp.value = new Date().toISOString().slice(0,10);
+        dp.value = new Date().toISOString().slice(0, 10);
     }
     _tcUpdateDetected();
 }
@@ -14278,19 +14349,19 @@ function _tcUpdateDetected() {
  * (translated)
  */
 function _initTodayCardsModal() {
-    const overlay  = document.getElementById('today-cards-overlay');
+    const overlay = document.getElementById('today-cards-overlay');
     if (!overlay) return;
 
-    const ta        = document.getElementById('tc-textarea');
+    const ta = document.getElementById('tc-textarea');
     const fileInput = document.getElementById('tc-file');
-    const parseBtn  = document.getElementById('tc-parse-btn');
-    const clearBtn  = document.getElementById('tc-clear-btn');
-    const closeBtn  = document.getElementById('tc-close-btn');
+    const parseBtn = document.getElementById('tc-parse-btn');
+    const clearBtn = document.getElementById('tc-clear-btn');
+    const closeBtn = document.getElementById('tc-close-btn');
     const cancelBtn = document.getElementById('tc-cancel-btn');
 
     // (translated)
     const closeModal = () => overlay.classList.add('hidden');
-    closeBtn?.addEventListener('click',  closeModal);
+    closeBtn?.addEventListener('click', closeModal);
     cancelBtn?.addEventListener('click', closeModal);
     overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
@@ -14316,11 +14387,11 @@ function _initTodayCardsModal() {
                 // (translated)
                 const obj = JSON.parse(content);
                 const msgs = Array.isArray(obj) ? obj
-                           : (Array.isArray(obj.messages) ? obj.messages : []);
+                    : (Array.isArray(obj.messages) ? obj.messages : []);
                 // (translated)
                 const text = msgs.map(m => {
                     if (typeof m.text === 'string') return m.text;
-                    if (Array.isArray(m.text)) return m.text.map(t => typeof t === 'string' ? t : (t.text||'')).join('');
+                    if (Array.isArray(m.text)) return m.text.map(t => typeof t === 'string' ? t : (t.text || '')).join('');
                     return '';
                 }).join('\n');
                 if (ta) ta.value = text;
@@ -14328,7 +14399,7 @@ function _initTodayCardsModal() {
                 const firstDate = msgs.find(m => m.date)?.date;
                 if (firstDate) {
                     const dp = document.getElementById('tc-date');
-                    if (dp && !dp.value) dp.value = firstDate.slice(0,10);
+                    if (dp && !dp.value) dp.value = firstDate.slice(0, 10);
                 }
             } catch {
                 // (translated)
@@ -14374,17 +14445,17 @@ function _tcRunParse() {
     if (parsed.length > 0) {
         // (translated)
         cards = parsed.map(p => ({
-            cc:       p.cc,
-            mm:       p.mm,
-            yy:       p.yy,
-            cvv:      p.cvv,
-            status:   p.status,
-            bin:      p.cc.slice(0,6),
+            cc: p.cc,
+            mm: p.mm,
+            yy: p.yy,
+            cvv: p.cvv,
+            status: p.status,
+            bin: p.cc.slice(0, 6),
             cardType: p.level || p.type || '',
-            bank:     p.bank || '',
-            country:  p.geo  || '',
+            bank: p.bank || '',
+            country: p.geo || '',
             detectedGeo: p.geo || '',
-            msgDate:  null,
+            msgDate: null,
         }));
     } else {
         // (translated)
@@ -14399,7 +14470,7 @@ function _tcRunParse() {
             const rest = line.replace(cc, '');
             const dates = rest.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
             cards.push({
-                cc, bin: cc.slice(0,6),
+                cc, bin: cc.slice(0, 6),
                 mm: dates?.[1] || '',
                 yy: dates?.[2] || '',
                 cvv: dates?.[3] || '',
@@ -14427,24 +14498,24 @@ function _tcStats(cards) {
     const geoMap = {}, typeMap = {}, levelMap = {}, sysMap = {}, bankMap = {}, statusMap = {};
 
     cards.forEach(c => {
-        const geo    = (c.detectedGeo || c.country || 'Other').toUpperCase().slice(0,2) || 'Other';
+        const geo = (c.detectedGeo || c.country || 'Other').toUpperCase().slice(0, 2) || 'Other';
         const rawType = (c.cardType || '').toUpperCase();
-        const type   = rawType.includes('CREDIT')  ? 'CREDIT'
-                     : rawType.includes('DEBIT')   ? 'DEBIT'
-                     : rawType.includes('PREPAID') ? 'PREPAID'
-                     : rawType.includes('BUSINESS')? 'BUSINESS'
-                     : 'UNKNOWN';
-        const level  = rawType.replace(/CREDIT|DEBIT|PREPAID|BUSINESS/g,'').trim() || 'STANDARD';
-        const sys    = (typeof getCardType === 'function' ? getCardType(c.cc||'') : '') || 'OTHER';
-        const bank   = c.bank || 'Unknown';
+        const type = rawType.includes('CREDIT') ? 'CREDIT'
+            : rawType.includes('DEBIT') ? 'DEBIT'
+                : rawType.includes('PREPAID') ? 'PREPAID'
+                    : rawType.includes('BUSINESS') ? 'BUSINESS'
+                        : 'UNKNOWN';
+        const level = rawType.replace(/CREDIT|DEBIT|PREPAID|BUSINESS/g, '').trim() || 'STANDARD';
+        const sys = (typeof getCardType === 'function' ? getCardType(c.cc || '') : '') || 'OTHER';
+        const bank = c.bank || 'Unknown';
         const status = c.status || 'unknown';
 
-        geoMap[geo]     = (geoMap[geo]     || 0) + 1;
-        typeMap[type]   = (typeMap[type]   || 0) + 1;
+        geoMap[geo] = (geoMap[geo] || 0) + 1;
+        typeMap[type] = (typeMap[type] || 0) + 1;
         levelMap[level] = (levelMap[level] || 0) + 1;
-        sysMap[sys]     = (sysMap[sys]     || 0) + 1;
-        bankMap[bank]   = (bankMap[bank]   || 0) + 1;
-        statusMap[status]=(statusMap[status]||0)+ 1;
+        sysMap[sys] = (sysMap[sys] || 0) + 1;
+        bankMap[bank] = (bankMap[bank] || 0) + 1;
+        statusMap[status] = (statusMap[status] || 0) + 1;
     });
 
     return { total, geoMap, typeMap, levelMap, sysMap, bankMap, statusMap };
@@ -14452,52 +14523,54 @@ function _tcStats(cards) {
 
 /* (translated) */
 function _tcGeoName(code) {
-    const M = {CA:'Canada',US:'United States',AU:'Australia',GB:'United Kingdom',
-        DE:'Germany',FR:'France',NL:'Netherlands',NO:'Norway',SE:'Sweden',
-        DK:'Denmark',FI:'Finland',CH:'Switzerland',AT:'Austria',IT:'Italy',
-        ES:'Spain',PL:'Poland',CZ:'Czechia',PT:'Portugal',BE:'Belgium',
-        NZ:'New Zealand',SG:'Singapore',JP:'Japan',KR:'South Korea',
-        IE:'Ireland',IL:'Israel',BR:'Brazil',MX:'Mexico',ZA:'South Africa',
-        IN:'India',AE:'UAE',TR:'Turkey',UA:'Ukraine',RU:'Russia'};
+    const M = {
+        CA: 'Canada', US: 'United States', AU: 'Australia', GB: 'United Kingdom',
+        DE: 'Germany', FR: 'France', NL: 'Netherlands', NO: 'Norway', SE: 'Sweden',
+        DK: 'Denmark', FI: 'Finland', CH: 'Switzerland', AT: 'Austria', IT: 'Italy',
+        ES: 'Spain', PL: 'Poland', CZ: 'Czechia', PT: 'Portugal', BE: 'Belgium',
+        NZ: 'New Zealand', SG: 'Singapore', JP: 'Japan', KR: 'South Korea',
+        IE: 'Ireland', IL: 'Israel', BR: 'Brazil', MX: 'Mexico', ZA: 'South Africa',
+        IN: 'India', AE: 'UAE', TR: 'Turkey', UA: 'Ukraine', RU: 'Russia'
+    };
     return M[code] || code;
 }
 
 /* (translated) */
 function _tcFlag(code) {
     if (!code || code.length !== 2) return '🌐';
-    return String.fromCodePoint(...[...code.toUpperCase()].map(c=>0x1F1E0+c.charCodeAt(0)-65));
+    return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E0 + c.charCodeAt(0) - 65));
 }
 
 /* (translated) */
 function _tcTextReport(s) {
-    const pct = n => (n/s.total*100).toFixed(1)+'%';
+    const pct = n => (n / s.total * 100).toFixed(1) + '%';
     const sep = '━'.repeat(27);
     let out = `📊 DAILY REPORT — ${TC.dateLabel}\n${sep}\n`;
     out += `💳 Total Cards: ${s.total}\n`;
 
     // (translated)
     const alive = s.statusMap['alive'] || 0;
-    const dead  = s.statusMap['dead']  || 0;
-    const inv   = s.statusMap['invalid']||0;
-    if (alive||dead||inv) out += `✅ Alive: ${alive}  💀 Dead: ${dead}  ❌ Invalid: ${inv}\n`;
+    const dead = s.statusMap['dead'] || 0;
+    const inv = s.statusMap['invalid'] || 0;
+    if (alive || dead || inv) out += `✅ Alive: ${alive}  💀 Dead: ${dead}  ❌ Invalid: ${inv}\n`;
 
     out += `\n🌍 BY COUNTRY:\n`;
-    Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([code,n])=>{
+    Object.entries(s.geoMap).sort((a, b) => b[1] - a[1]).slice(0, 8).forEach(([code, n]) => {
         out += `${_tcFlag(code)} ${_tcGeoName(code)} — ${n} (${pct(n)})\n`;
     });
 
     out += `\n💳 BY TYPE:\n`;
-    Object.entries(s.typeMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
+    Object.entries(s.typeMap).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => {
         out += `${k} — ${n} (${pct(n)})\n`;
     });
 
     out += `\n💰 BY SYSTEM:\n`;
-    Object.entries(s.sysMap).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
+    Object.entries(s.sysMap).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => {
         out += `${k} — ${n} (${pct(n)})\n`;
     });
 
     out += `\n🏆 BY LEVEL:\n`;
-    Object.entries(s.levelMap).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([k,n])=>{
+    Object.entries(s.levelMap).sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([k, n]) => {
         out += `${k} — ${n} (${pct(n)})\n`;
     });
     out += sep;
@@ -14511,50 +14584,50 @@ function _tcRenderResults(cards) {
     el.style.display = 'block';
 
     const s = _tcStats(cards);
-    const pct = n => (n/s.total*100).toFixed(1);
+    const pct = n => (n / s.total * 100).toFixed(1);
 
     // (translated)
-    const bar = (p,col) => {
-        const w = Math.round(+p/100*16);
+    const bar = (p, col) => {
+        const w = Math.round(+p / 100 * 16);
         return `<span class="tcr-bar" style="--w:${w};--c:${col}"></span>`;
     };
 
     // (translated)
-    const mkRows = (map,col) => Object.entries(map).sort((a,b)=>b[1]-a[1])
-        .map(([k,n])=>`<div class="tcr-row">
+    const mkRows = (map, col) => Object.entries(map).sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `<div class="tcr-row">
             <span class="tcr-lbl">${k}</span>
-            ${bar(pct(n),col)}
+            ${bar(pct(n), col)}
             <span class="tcr-n">${n}</span>
             <span class="tcr-pct">${pct(n)}%</span>
         </div>`).join('');
 
     // (translated)
-    const geoEntries = Object.entries(s.geoMap).sort((a,b)=>b[1]-a[1]);
-    const geoRows = geoEntries.slice(0,10).map(([code,n])=>`<div class="tcr-row">
+    const geoEntries = Object.entries(s.geoMap).sort((a, b) => b[1] - a[1]);
+    const geoRows = geoEntries.slice(0, 10).map(([code, n]) => `<div class="tcr-row">
         <span class="tcr-flag">${_tcFlag(code)}</span>
         <span class="tcr-lbl">${_tcGeoName(code)}</span>
-        ${bar(pct(n),'#818cf8')}
+        ${bar(pct(n), '#818cf8')}
         <span class="tcr-n">${n}</span>
         <span class="tcr-pct">${pct(n)}%</span>
     </div>`).join('');
 
     // (translated)
-    const rows = cards.map((c,i)=>{
-        const cc = c.cc||'';
-        const masked = cc.length>=10 ? cc.slice(0,6)+'••••'+cc.slice(-4) : cc;
-        const statusBadge = c.status==='alive'?'<span class="tcr-alive">✅</span>'
-            : c.status==='dead'?'<span class="tcr-dead">💀</span>'
-            : c.status==='invalid'?'<span class="tcr-inv">❌</span>':'';
+    const rows = cards.map((c, i) => {
+        const cc = c.cc || '';
+        const masked = cc.length >= 10 ? cc.slice(0, 6) + '••••' + cc.slice(-4) : cc;
+        const statusBadge = c.status === 'alive' ? '<span class="tcr-alive">✅</span>'
+            : c.status === 'dead' ? '<span class="tcr-dead">💀</span>'
+                : c.status === 'invalid' ? '<span class="tcr-inv">❌</span>' : '';
         return `<tr>
             <td><input type="checkbox" class="tc-row-cb" data-idx="${i}"></td>
             <td>${statusBadge}</td>
             <td class="tcr-card">${masked}</td>
-            <td>${c.mm||''}/${c.yy||''}</td>
-            <td>${c.cvv||''}</td>
-            <td>${c.bin||''}</td>
-            <td>${c.detectedGeo||c.country||''}</td>
-            <td class="tcr-bank">${c.bank||''}</td>
-            <td>${c.cardType||''}</td>
+            <td>${c.mm || ''}/${c.yy || ''}</td>
+            <td>${c.cvv || ''}</td>
+            <td>${c.bin || ''}</td>
+            <td>${c.detectedGeo || c.country || ''}</td>
+            <td class="tcr-bank">${c.bank || ''}</td>
+            <td>${c.cardType || ''}</td>
         </tr>`;
     }).join('');
 
@@ -14570,9 +14643,9 @@ function _tcRenderResults(cards) {
     <!-- (comment) -->
     <div class="tcr-summary">
         <div class="tcr-total"><span class="tcr-total-n">${s.total}</span><span class="tcr-total-lbl">TOTAL CARDS</span></div>
-        ${s.statusMap['alive']?`<div class="tcr-chip tcr-alive-chip">✅ Alive: ${s.statusMap['alive']}</div>`:''}
-        ${s.statusMap['dead'] ?`<div class="tcr-chip tcr-dead-chip">💀 Dead: ${s.statusMap['dead']}</div>` :''}
-        ${s.statusMap['invalid']?`<div class="tcr-chip tcr-inv-chip">❌ Invalid: ${s.statusMap['invalid']}</div>`:''}
+        ${s.statusMap['alive'] ? `<div class="tcr-chip tcr-alive-chip">✅ Alive: ${s.statusMap['alive']}</div>` : ''}
+        ${s.statusMap['dead'] ? `<div class="tcr-chip tcr-dead-chip">💀 Dead: ${s.statusMap['dead']}</div>` : ''}
+        ${s.statusMap['invalid'] ? `<div class="tcr-chip tcr-inv-chip">❌ Invalid: ${s.statusMap['invalid']}</div>` : ''}
     </div>
 
     <!-- (comment) -->
@@ -14581,13 +14654,13 @@ function _tcRenderResults(cards) {
             <div class="tcr-section-title">🌍 BY COUNTRY</div>${geoRows}
         </div>
         <div class="tcr-section">
-            <div class="tcr-section-title">💳 BY TYPE</div>${mkRows(s.typeMap,'#34d399')}
-            <div class="tcr-section-title" style="margin-top:12px">💰 BY SYSTEM</div>${mkRows(s.sysMap,'#60a5fa')}
-            <div class="tcr-section-title" style="margin-top:12px">🏆 BY LEVEL</div>${mkRows(s.levelMap,'#fbbf24')}
+            <div class="tcr-section-title">💳 BY TYPE</div>${mkRows(s.typeMap, '#34d399')}
+            <div class="tcr-section-title" style="margin-top:12px">💰 BY SYSTEM</div>${mkRows(s.sysMap, '#60a5fa')}
+            <div class="tcr-section-title" style="margin-top:12px">🏆 BY LEVEL</div>${mkRows(s.levelMap, '#fbbf24')}
             <div class="tcr-section-title" style="margin-top:12px">🏦 TOP BANKS</div>
-            ${Object.entries(s.bankMap).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,n],i)=>
-                `<div class="tcr-row"><span class="tcr-rank">${i+1}</span><span class="tcr-lbl">${k}</span><span class="tcr-n">${n}</span><span class="tcr-pct">${pct(n)}%</span></div>`
-            ).join('')}
+            ${Object.entries(s.bankMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, n], i) =>
+        `<div class="tcr-row"><span class="tcr-rank">${i + 1}</span><span class="tcr-lbl">${k}</span><span class="tcr-n">${n}</span><span class="tcr-pct">${pct(n)}%</span></div>`
+    ).join('')}
         </div>
     </div>
 
@@ -14608,21 +14681,21 @@ function _tcRenderResults(cards) {
     </div>`;
 
     // SELECT ALL
-    document.getElementById('tc-select-all')?.addEventListener('change', e=>{
-        document.querySelectorAll('.tc-row-cb').forEach(cb=>cb.checked=e.target.checked);
+    document.getElementById('tc-select-all')?.addEventListener('change', e => {
+        document.querySelectorAll('.tc-row-cb').forEach(cb => cb.checked = e.target.checked);
     });
 
     // COPY REPORT
-    document.getElementById('tc-copy-report')?.addEventListener('click', ()=>{
+    document.getElementById('tc-copy-report')?.addEventListener('click', () => {
         navigator.clipboard?.writeText(_tcTextReport(s));
         toast('Report copied to clipboard', 'success');
     });
 
     // EXPORT ALL TO NOTES
-    document.getElementById('tc-export-all')?.addEventListener('click', ()=>{
-        const lines = TC.cards.map(c=>`${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}`);
+    document.getElementById('tc-export-all')?.addEventListener('click', () => {
+        const lines = TC.cards.map(c => `${(c.cc || '').replace(/\s/g, '')} ${c.mm || ''} ${c.yy || ''} ${c.cvv || '000'}`);
         const title = `REPORT ${TC.dateLabel} — ${lines.length} cards`;
-        STATE.notesTabs.unshift({id:'tab-tc-'+Date.now(),title,content:lines.join('\n'),pinned:false,tag:null,created:Date.now(),scrollPos:0});
+        STATE.notesTabs.unshift({ id: 'tab-tc-' + Date.now(), title, content: lines.join('\n'), pinned: false, tag: null, created: Date.now(), scrollPos: 0 });
         STATE.notesActiveTab = STATE.notesTabs[0].id;
         save();
         document.querySelector('[data-view="notes"]')?.click();
@@ -14631,14 +14704,14 @@ function _tcRenderResults(cards) {
     });
 
     // EXPORT SELECTED TO NOTES
-    document.getElementById('tc-export-sel')?.addEventListener('click', ()=>{
-        const sel = [...document.querySelectorAll('.tc-row-cb:checked')].map(cb=>{
+    document.getElementById('tc-export-sel')?.addEventListener('click', () => {
+        const sel = [...document.querySelectorAll('.tc-row-cb:checked')].map(cb => {
             const c = TC.cards[+cb.dataset.idx];
-            return c ? `${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}` : '';
+            return c ? `${(c.cc || '').replace(/\s/g, '')} ${c.mm || ''} ${c.yy || ''} ${c.cvv || '000'}` : '';
         }).filter(Boolean);
         if (!sel.length) { toast('No rows selected', 'warning'); return; }
         const title = `SELECTED ${TC.dateLabel} — ${sel.length} cards`;
-        STATE.notesTabs.unshift({id:'tab-tcs-'+Date.now(),title,content:sel.join('\n'),pinned:false,tag:null,created:Date.now(),scrollPos:0});
+        STATE.notesTabs.unshift({ id: 'tab-tcs-' + Date.now(), title, content: sel.join('\n'), pinned: false, tag: null, created: Date.now(), scrollPos: 0 });
         STATE.notesActiveTab = STATE.notesTabs[0].id;
         save();
         document.querySelector('[data-view="notes"]')?.click();
@@ -14647,8 +14720,8 @@ function _tcRenderResults(cards) {
     });
 
     // COPY ALL
-    document.getElementById('tc-copy-all')?.addEventListener('click', ()=>{
-        const txt = TC.cards.map(c=>`${(c.cc||'').replace(/\s/g,'')} ${c.mm||''} ${c.yy||''} ${c.cvv||'000'}`).join('\n');
+    document.getElementById('tc-copy-all')?.addEventListener('click', () => {
+        const txt = TC.cards.map(c => `${(c.cc || '').replace(/\s/g, '')} ${c.mm || ''} ${c.yy || ''} ${c.cvv || '000'}`).join('\n');
         navigator.clipboard?.writeText(txt);
         toast(`Copied ${TC.cards.length} cards`, 'success');
     });
@@ -14840,7 +14913,7 @@ function _binDbAddBin(merchantId) {
         const formatted = _binDbFormatBin(bin6);
         const oldAmt = _binDbFormatAmount(best.amount);
         const src = best.archived ? `archived batch (${best.batchDate})` : `merchant "${best.merchant}"`;
-        
+
         if (newAmount > best.amount) {
             // New amount is larger — update existing or add
             toast(`BIN ${formatted} exists in ${src} with ${oldAmt} ${best.currency}. Updating to ${_binDbFormatAmount(newAmount)} (higher)`, 'info');
@@ -14980,14 +15053,14 @@ function _binDbBulkAdd(merchantId) {
 function _binDbArchiveHistoryHTML() {
     const batches = STATE.binDbArchivedBatches || [];
     if (batches.length === 0) return '';
-    
+
     let h = '<div class="bdb-archive-section">';
     h += '<div class="bdb-archive-header">';
     h += '<span class="bdb-archive-title">📦 Archived Batches (' + batches.length + ')</span>';
     h += '<button class="bdb-archive-clear-btn" onclick="_binDbClearArchive()" title="Clear all archive">🗑</button>';
     h += '</div>';
     h += '<div class="bdb-archive-list">';
-    
+
     // Show newest first
     [...batches].reverse().forEach(batch => {
         const merchants = batch.merchants || [];
@@ -14998,7 +15071,7 @@ function _binDbArchiveHistoryHTML() {
         h += '<button class="bdb-archive-view-btn" onclick="event.stopPropagation();_binDbViewArchive(\'' + batch.id + '\')" title="View batch">👁</button>';
         h += '</div>';
     });
-    
+
     h += '</div></div>';
     return h;
 }
@@ -15014,10 +15087,10 @@ function _binDbClearArchive() {
 function _binDbViewArchive(batchId) {
     const batch = (STATE.binDbArchivedBatches || []).find(b => b.id === batchId);
     if (!batch) return;
-    
+
     let text = '📦 ARCHIVED BATCH — ' + batch.date + '\n';
     text += '═'.repeat(40) + '\n\n';
-    
+
     (batch.merchants || []).forEach(m => {
         text += 'Merchant: ' + m.name + '\n';
         if (m.screenshotCount) text += 'Screenshots: ' + m.screenshotCount + '\n';
@@ -15027,7 +15100,7 @@ function _binDbViewArchive(batchId) {
         });
         text += '\n';
     });
-    
+
     // Show in a simple modal
     const overlay = document.createElement('div');
     overlay.className = 'bdb-archive-overlay';
@@ -15036,7 +15109,7 @@ function _binDbViewArchive(batchId) {
         '<span>📦 Batch: ' + batch.date + '</span>' +
         '<button class="bdb-archive-modal-close" onclick="this.closest(\'.bdb-archive-overlay\').remove()">✕</button>' +
         '</div>' +
-        '<pre class="bdb-archive-modal-text">' + text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>' +
+        '<pre class="bdb-archive-modal-text">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>' +
         '<div class="bdb-archive-modal-actions">' +
         '<button class="bdb-tool-btn" onclick="navigator.clipboard.writeText(this.closest(\'.bdb-archive-modal\').querySelector(\'pre\').textContent);toast(\'Copied!\',\'success\')">📋 Copy</button>' +
         '</div>' +
@@ -15050,9 +15123,9 @@ function _binDbArchiveBatch() {
     const merchants = STATE.binDbMerchants || [];
     const totalBins = merchants.reduce((s, m) => s + (m.bins || []).length, 0);
     if (totalBins === 0) { toast('No BINs to archive', 'warning'); return; }
-    
+
     if (!confirm('Archive current batch (' + totalBins + ' BINs across ' + merchants.length + ' merchants)?\nBINs will be saved to history and cleared from the active list.')) return;
-    
+
     // Create archived batch
     const batch = {
         id: 'batch-' + Date.now(),
@@ -15066,13 +15139,13 @@ function _binDbArchiveBatch() {
             bins: (m.bins || []).map(b => ({ bin: b.bin, amount: b.amount, currency: b.currency }))
         }))
     };
-    
+
     if (!STATE.binDbArchivedBatches) STATE.binDbArchivedBatches = [];
     STATE.binDbArchivedBatches.push(batch);
-    
+
     // Clear BINs from all merchants (keep merchants themselves)
     merchants.forEach(m => { m.bins = []; });
-    
+
     save();
     renderBinDatabase();
     toast('📦 Batch archived: ' + totalBins + ' BINs saved to history', 'success');
@@ -15300,274 +15373,6 @@ function renderBinDatabase() {
 }
 
 // ═══════════════════════════════════════════
-//    BILLING ACTIVITY — Text-based Parser
-// ═══════════════════════════════════════════
-
-function _billingParseText(text) {
-    // Parse lines like: "1 Visa ...4117 - ¥50,000 - 23.06.26"
-    // or: "1 Mastercard ...9430 - ¥25,000 - 25.07.26"
-    // or: "1 American Express ...8905 - ¥9,060 - 01.07.26"
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const records = [];
-    for (const line of lines) {
-        const m = line.match(/^\d+\s+(Visa|Mastercard|American Express|Amex|Discover|JCB)\s+\.{2,3}(\d{4})\s*-\s*([¥$€£]?)([\d,]+(?:\.\d{1,2})?)\s*-\s*(\d{1,2}\.\d{1,2}\.\d{2,4})/i);
-        if (!m) continue;
-        const network = m[1].toUpperCase().replace('AMERICAN EXPRESS', 'AMEX');
-        const last4 = m[2];
-        const currency = m[3] === '¥' ? 'JPY' : m[3] === '$' ? 'USD' : m[3] === '€' ? 'EUR' : m[3] === '£' ? 'GBP' : 'JPY';
-        const amount = parseFloat(m[4].replace(/,/g, '')) || 0;
-        const dateParts = m[5].split('.');
-        const dateStr = dateParts.length === 3 ? `20${dateParts[2].length === 2 ? dateParts[2] : dateParts[2].slice(-2)}-${dateParts[1].padStart(2,'0')}-${dateParts[0].padStart(2,'0')}` : m[5];
-        records.push({ network, last4, currency, amount, date: dateStr, raw: line });
-    }
-    return records;
-}
-
-function _billingCollectFullCards() {
-    const allFC = [];
-    const seen = new Set();
-    const add = (num, src, mm, yy, cvv, holder, email) => {
-        num = (num || '').replace(/\s/g, '');
-        if (num.length < 13 || seen.has(num)) return;
-        seen.add(num);
-        allFC.push({ num, source: src, mm: mm || '', yy: yy || '', cvv: cvv || '', holder: holder || '', email: email || '' });
-    };
-
-    // 1) Workspace cards
-    (STATE.cards || []).forEach(c => add(c.cardNumber, 'workspace', c.expMonth, c.expYear, c.cvv, c.holder, c.email));
-
-    // 2) Parser collected
-    (PARSER_STATE.collected || []).forEach(c => add(c.cc, 'parser', c.mm, c.yy, c.cvv, c.holder, c.email));
-
-    // 3) Raw messages from loaded JSON bases (CC: 4444 3333 2222 1111 pattern)
-    const ccRe = /CC:\s*([\d\s]{13,19})/gi;
-    const valRe = /Validity:\s*(\d{2})\/(\d{2,4})/i;
-    const cvvRe = /CVV:\s*(\d{3,4})/i;
-    const holderRe = /Holder:\s*(.+)/i;
-    const emailRe = /Email:\s*(\S+)/i;
-    (PARSER_STATE.rawMessages || []).forEach(msg => {
-        const text = typeof msg.text === 'string' ? msg.text :
-            Array.isArray(msg.text) ? msg.text.map(t => typeof t === 'string' ? t : t.text || '').join('') : '';
-        if (!text) return;
-        let m; ccRe.lastIndex = 0;
-        while ((m = ccRe.exec(text)) !== null) {
-            const num = m[1].replace(/\s/g, '');
-            const vm = text.match(valRe), cm = text.match(cvvRe);
-            const hm = text.match(holderRe), em = text.match(emailRe);
-            add(num, 'base', vm?.[1], vm?.[2], cm?.[1], hm?.[1]?.trim(), em?.[1]?.trim());
-        }
-    });
-
-    // 4) Trash cards
-    (STATE.trashCards || []).forEach(n => {
-        const p = n.trim().split(/\s+/);
-        add(p[0], 'trash', p[1], p[2], p[3]);
-    });
-
-    return allFC;
-}
-
-function _billingMatch() {
-    const textarea = document.getElementById('billing-textarea');
-    if (!textarea) return;
-    const text = textarea.value.trim();
-    if (!text) { toast('Paste billing data first', 'warning'); return; }
-
-    BILLING_STATE.text = text;
-    const records = _billingParseText(text);
-    if (records.length === 0) { toast('No valid billing records found', 'error'); return; }
-    BILLING_STATE.parsed = records;
-
-    // Collect all full cards
-    const allFC = _billingCollectFullCards();
-
-    // Build last4 index
-    const l4map = {};
-    allFC.forEach(fc => {
-        const l4 = fc.num.slice(-4);
-        if (!l4map[l4]) l4map[l4] = [];
-        l4map[l4].push(fc);
-    });
-
-    // Match
-    const matched = [], unmatched = [];
-    let totalAmount = 0;
-    records.forEach(rec => {
-        const fcs = l4map[rec.last4] || [];
-        totalAmount += rec.amount;
-        if (fcs.length > 0) matched.push({ ...rec, fullCards: fcs });
-        else unmatched.push({ ...rec, fullCards: [] });
-    });
-
-    BILLING_STATE.results = { matched, unmatched, allFC };
-
-    const cur = s => s === 'JPY' ? '¥' : s === 'USD' ? '$' : s === 'EUR' ? '€' : '¥';
-    const fmt = n => (n || 0).toLocaleString('en-US');
-
-    // Summary
-    let h = '<div class="billing-results-wrap">';
-    h += '<div class="billing-summary">';
-    h += '<div class="billing-stat"><span class="billing-stat-num">' + records.length + '</span><span class="billing-stat-label">Records</span></div>';
-    h += '<div class="billing-stat billing-stat-match"><span class="billing-stat-num">' + matched.length + '</span><span class="billing-stat-label">Matched</span></div>';
-    h += '<div class="billing-stat billing-stat-unmatch"><span class="billing-stat-num">' + unmatched.length + '</span><span class="billing-stat-label">Not Matched</span></div>';
-    h += '<div class="billing-stat billing-stat-charged"><span class="billing-stat-num">' + cur('JPY') + fmt(totalAmount) + '</span><span class="billing-stat-label">Total Amount</span></div>';
-    h += '<div class="billing-stat"><span class="billing-stat-num">' + allFC.length + '</span><span class="billing-stat-label">Cards in DB</span></div>';
-    h += '</div>';
-
-    // Actions
-    h += '<div class="billing-actions">';
-    h += '<button class="pz-btn pz-btn-go" id="billing-copy-matched">📋 Copy Matched (' + matched.length + ')</button>';
-    h += '<button class="pz-btn pz-btn-valid" id="billing-add-workspace">📥 Add to Workspace (' + records.length + ')</button>';
-    h += '<button class="pz-btn pz-btn-dim" id="billing-export-bindb">🚀 Export BINs → Bin DB</button>';
-    h += '</div>';
-
-    // Table
-    h += '<table class="billing-table"><thead><tr>';
-    h += '<th>#</th><th>NET</th><th>LAST 4</th><th>AMOUNT</th><th>DATE</th><th>FULL CARD DATA</th>';
-    h += '</tr></thead><tbody>';
-
-    let idx = 0;
-    const renderRow = (rec) => {
-        idx++;
-        const cls = rec.fullCards.length > 0 ? 'billing-row-matched' : '';
-        const netBadge = rec.network === 'VISA' ? '<span class="billing-net billing-visa">VISA</span>' :
-            rec.network === 'MASTERCARD' ? '<span class="billing-net billing-mc">MC</span>' :
-            rec.network === 'AMEX' ? '<span class="billing-net billing-amex">AMEX</span>' :
-            '<span class="billing-net">' + rec.network + '</span>';
-
-        let fcHTML = '<span class="billing-no-match">—</span>';
-        if (rec.fullCards.length > 0) {
-            fcHTML = rec.fullCards.map(fc => {
-                const full = fc.num + (fc.mm ? ' ' + fc.mm + '/' + fc.yy : '') + (fc.cvv ? ' ' + fc.cvv : '');
-                const icon = fc.source === 'workspace' ? '🟢' : fc.source === 'parser' ? '📥' : fc.source === 'base' ? '📦' : '🗑';
-                return '<span class="billing-full-card" data-copy="' + full.replace(/"/g, '&quot;') + '" title="Click to copy · source: ' + fc.source + '">' +
-                    icon + ' ' + fc.num.replace(/(\d{4})/g, '$1 ').trim() +
-                    (fc.mm ? ' <span class="billing-fc-exp">' + fc.mm + '/' + fc.yy + '</span>' : '') +
-                    (fc.cvv ? ' <span class="billing-fc-cvv">' + fc.cvv + '</span>' : '') +
-                    '</span>';
-            }).join('<br>');
-        }
-
-        return '<tr class="' + cls + '">' +
-            '<td class="billing-idx">' + idx + '</td>' +
-            '<td>' + netBadge + '</td>' +
-            '<td class="billing-last4">•••• ' + rec.last4 + '</td>' +
-            '<td class="billing-amt-charged">' + cur(rec.currency) + fmt(rec.amount) + '</td>' +
-            '<td class="billing-date">' + rec.date + '</td>' +
-            '<td>' + fcHTML + '</td></tr>';
-    };
-
-    if (matched.length > 0) {
-        h += '<tr class="billing-section-row"><td colspan="6">✅ MATCHED — ' + matched.length + ' records</td></tr>';
-        matched.forEach(r => h += renderRow(r));
-    }
-    if (unmatched.length > 0) {
-        idx = 0;
-        h += '<tr class="billing-section-row billing-section-unmatch"><td colspan="6">❌ NOT MATCHED — ' + unmatched.length + ' records</td></tr>';
-        unmatched.forEach(r => h += renderRow(r));
-    }
-    h += '</tbody></table></div>';
-
-    document.getElementById('billing-results').innerHTML = h;
-    document.getElementById('billing-count').textContent = records.length + ' records parsed';
-
-    // Bind click-to-copy on full cards
-    document.querySelectorAll('.billing-full-card').forEach(el => {
-        el.addEventListener('click', () => {
-            navigator.clipboard?.writeText(el.dataset.copy);
-            el.style.background = 'rgba(34,197,94,.3)';
-            setTimeout(() => el.style.background = '', 600);
-            toast('Copied: ' + el.dataset.copy, 'success');
-        });
-    });
-
-    // Copy all matched
-    document.getElementById('billing-copy-matched')?.addEventListener('click', () => {
-        const lines = [];
-        matched.forEach(rec => rec.fullCards.forEach(fc => {
-            lines.push(fc.num + (fc.mm ? ' ' + fc.mm + ' ' + fc.yy : '') + (fc.cvv ? ' ' + fc.cvv : ''));
-        }));
-        if (!lines.length) { toast('No matched cards', 'warning'); return; }
-        navigator.clipboard?.writeText(lines.join('\n'));
-        toast('Copied ' + lines.length + ' full cards', 'success');
-    });
-
-    // Add to workspace
-    document.getElementById('billing-add-workspace')?.addEventListener('click', () => {
-        let added = 0;
-        records.forEach(rec => {
-            const existing = (STATE.cards || []).find(c => (c.cardNumber || '').replace(/\s/g, '').endsWith(rec.last4));
-            if (existing) {
-                // Update existing card with billing info
-                if (!existing.billingHistory) existing.billingHistory = [];
-                existing.billingHistory.push({ amount: rec.amount, currency: rec.currency, date: rec.date, network: rec.network });
-                existing.lastBillingAmount = rec.amount;
-                existing.lastBillingDate = rec.date;
-                existing.lastBillingCurrency = rec.currency;
-            } else {
-                // Create new card entry with last4 only
-                STATE.cards.push({
-                    id: 'card-billing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
-                    cardNumber: '•••• •••• •••• ' + rec.last4,
-                    network: rec.network,
-                    lastBillingAmount: rec.amount,
-                    lastBillingDate: rec.date,
-                    lastBillingCurrency: rec.currency,
-                    billingHistory: [{ amount: rec.amount, currency: rec.currency, date: rec.date, network: rec.network }],
-                    source: 'billing',
-                    addedAt: new Date().toISOString()
-                });
-            }
-            added++;
-        });
-        save();
-        toast('Added/updated ' + added + ' billing records in Workspace', 'success');
-    });
-
-    // Export BINs to BinDB
-    document.getElementById('billing-export-bindb')?.addEventListener('click', () => {
-        if (!matched.length) { toast('No matched cards', 'warning'); return; }
-        let merchant = STATE.binDbMerchants.find(m => m.name === 'Billing Import');
-        if (!merchant) {
-            merchant = { id: 'bm-billing-' + Date.now(), name: 'Billing Import', screenshotCount: 0, defaultCurrency: 'JPY', bins: [] };
-            STATE.binDbMerchants.push(merchant);
-        }
-        let added = 0;
-        matched.forEach(rec => rec.fullCards.forEach(fc => {
-            const bin6 = fc.num.slice(0, 6);
-            if (!merchant.bins.some(b => b.bin === bin6)) {
-                merchant.bins.push({ id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), bin: bin6, amount: rec.amount, currency: rec.currency });
-                added++;
-            }
-        }));
-        save();
-        toast('Exported ' + added + ' BINs → Bin Database', 'success');
-    });
-
-    toast('Parsed ' + records.length + ' records · Matched ' + matched.length + ' · DB has ' + allFC.length + ' cards', 'success');
-}
-
-function _bindBillingEvents() {
-    document.getElementById('billing-match-btn')?.addEventListener('click', _billingMatch);
-    document.getElementById('billing-clear-btn')?.addEventListener('click', () => {
-        BILLING_STATE.text = '';
-        BILLING_STATE.parsed = [];
-        BILLING_STATE.results = null;
-        const ta = document.getElementById('billing-textarea');
-        if (ta) ta.value = '';
-        document.getElementById('billing-results').innerHTML = '';
-        document.getElementById('billing-count').textContent = '';
-    });
-    // Auto-count on paste
-    document.getElementById('billing-textarea')?.addEventListener('input', () => {
-        const ta = document.getElementById('billing-textarea');
-        const lines = (ta?.value || '').split('\n').filter(l => l.trim()).length;
-        const counter = document.getElementById('billing-count');
-        if (counter) counter.textContent = lines > 0 ? lines + ' lines' : '';
-    });
-}
-
-// ═══════════════════════════════════════════
 //    PROMPTS TAB — Prompt Storage & Manager
 // ═══════════════════════════════════════════
 
@@ -15623,8 +15428,8 @@ function _ptTogglePin(tabId) {
 function _ptDeleteTab(tabId) {
     const tab = STATE.promptsTabs.find(t => t.id === tabId);
     if (!tab) return;
-    if (STATE.promptsTabs.length <= 1) { toast('Cannot delete last tab','error'); return; }
-    if (tab.content && tab.content.replace(/<[^>]+>/g,'').trim()) {
+    if (STATE.promptsTabs.length <= 1) { toast('Cannot delete last tab', 'error'); return; }
+    if (tab.content && tab.content.replace(/<[^>]+>/g, '').trim()) {
         if (!confirm(`Delete prompt "${tab.title}"?`)) return;
     }
     STATE.promptsTabs = STATE.promptsTabs.filter(t => t.id !== tabId);
@@ -15852,7 +15657,7 @@ function renderPrompts() {
 // Auto-save prompts when navigating away
 const _origNavigate = navigate;
 // Patch navigate to save prompts before switching views (already handled for notes in navigate())
-(function() {
+(function () {
     const _baseNavigate = navigate;
     window._promptsNavigatePatched = true;
 })();
