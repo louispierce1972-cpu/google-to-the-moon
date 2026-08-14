@@ -40,6 +40,13 @@ const STATE = {
 
 };
 
+// ──── BILLING PARSER STATE ────
+const BILLING_STATE = {
+    files: [],       // [{name, txCount, rows: [{date,type,network,last4,amount,currency,status,refId,description}]}]
+    results: null,   // parsed analysis results
+};
+
+
 
 
 
@@ -9741,21 +9748,49 @@ function exportFullBackup() {
     const backup = {
         version: '2.0',
         exported_at: new Date().toISOString(),
+        // Core data
         cards: STATE.cards,
         docs: STATE.docs,
         trash: STATE.trash || [],
         trashCards: STATE.trashCards || [],
+        countries: STATE.countries,
+        // Notes
         notes: STATE.notes || '',
         notesTabs: STATE.notesTabs || [],
         notesActiveTab: STATE.notesActiveTab || '',
         notesFontSize: STATE.notesFontSize || 13,
+        // Prompts
         promptsTabs: STATE.promptsTabs || [],
         promptsActiveTab: STATE.promptsActiveTab || '',
+        // Minic
+        minicBins: STATE.minicBins || [],
+        minicTags: STATE.minicTags || [],
+        minicTabs: STATE.minicTabs || [{id:'main',name:'Main'}],
+        minicActiveTab: STATE.minicActiveTab || 'main',
+        minicTagFilter: STATE.minicTagFilter || 'all',
+        // Bin Database
+        binDbMerchants: STATE.binDbMerchants || [],
+        binDbArchivedBatches: STATE.binDbArchivedBatches || [],
+        // BIN notes & cache
+        binNotes: STATE.binNotes || {},
+        binCache: BIN_CACHE || {},
+        // Document records
+        docRecords: STATE.docRecords || [],
+        // Settings
+        settings: STATE.settings || {},
+        density: STATE.density || 'default',
+        perPage: STATE.perPage || 50,
+        // Legacy merchants
         merchants: JSON.parse(localStorage.getItem('ct_merchants') || '[]'),
         merchantBins: JSON.parse(localStorage.getItem('ct_merchant_bins') || '[]'),
-        countries: STATE.countries,
-        density: STATE.density || 'default',
-        perPage: STATE.perPage || 50
+        // BIN Tester
+        binTester: JSON.parse(localStorage.getItem('ct_bin_tester') || 'null'),
+        // Google Format preferences
+        gfDefaultPassword: localStorage.getItem('gf_default_password') || '',
+        gfOctoPrefix: localStorage.getItem('googleFormat_octoPrefix') || '',
+        gfOctoPrefixCounter: localStorage.getItem('googleFormat_octoPrefixCounter') || '',
+        // Parser filters
+        parserFilters: JSON.parse(localStorage.getItem('parserFilters') || 'null'),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -10060,6 +10095,69 @@ function importExtras(data) {
             STATE.promptsTabs.unshift(newTab);
         });
         STATE.promptsActiveTab = STATE.promptsTabs[0]?.id || '';
+    }
+    // Minic
+    if (data.minicBins && Array.isArray(data.minicBins)) {
+        const existingBins = new Set((STATE.minicBins || []).map(b => b.bin));
+        data.minicBins.forEach(b => {
+            if (!existingBins.has(b.bin)) { STATE.minicBins.push(b); existingBins.add(b.bin); }
+        });
+    }
+    if (data.minicTags && Array.isArray(data.minicTags)) {
+        const existingTags = new Set((STATE.minicTags || []).map(t => t.id));
+        data.minicTags.forEach(t => {
+            if (!existingTags.has(t.id)) STATE.minicTags.push(t);
+        });
+    }
+    if (data.minicTabs && Array.isArray(data.minicTabs)) {
+        const existingTabIds = new Set((STATE.minicTabs || []).map(t => t.id));
+        data.minicTabs.forEach(t => {
+            if (!existingTabIds.has(t.id)) STATE.minicTabs.push(t);
+        });
+    }
+    // Bin Database
+    if (data.binDbMerchants && Array.isArray(data.binDbMerchants)) {
+        const existingMids = new Set((STATE.binDbMerchants || []).map(m => m.id));
+        data.binDbMerchants.forEach(m => {
+            if (!existingMids.has(m.id)) STATE.binDbMerchants.push(m);
+        });
+    }
+    if (data.binDbArchivedBatches && Array.isArray(data.binDbArchivedBatches)) {
+        const existingBids = new Set((STATE.binDbArchivedBatches || []).map(b => b.id));
+        data.binDbArchivedBatches.forEach(b => {
+            if (!existingBids.has(b.id)) STATE.binDbArchivedBatches.push(b);
+        });
+    }
+    // BIN Notes
+    if (data.binNotes && typeof data.binNotes === 'object') {
+        if (!STATE.binNotes) STATE.binNotes = {};
+        Object.entries(data.binNotes).forEach(([k, v]) => {
+            if (!STATE.binNotes[k]) STATE.binNotes[k] = v;
+        });
+    }
+    // Document records
+    if (data.docRecords && Array.isArray(data.docRecords)) {
+        const existingDrIds = new Set((STATE.docRecords || []).map(d => d.id));
+        data.docRecords.forEach(d => {
+            if (!existingDrIds.has(d.id)) STATE.docRecords.push(d);
+        });
+    }
+    // Settings
+    if (data.settings && typeof data.settings === 'object') {
+        STATE.settings = { ...(STATE.settings || {}), ...data.settings };
+    }
+    // BIN Tester
+    if (data.binTester && typeof data.binTester === 'object') {
+        STATE._bt = data.binTester;
+        try { localStorage.setItem('ct_bin_tester', JSON.stringify(data.binTester)); } catch {}
+    }
+    // Google Format preferences
+    if (data.gfDefaultPassword) localStorage.setItem('gf_default_password', data.gfDefaultPassword);
+    if (data.gfOctoPrefix) localStorage.setItem('googleFormat_octoPrefix', data.gfOctoPrefix);
+    if (data.gfOctoPrefixCounter) localStorage.setItem('googleFormat_octoPrefixCounter', data.gfOctoPrefixCounter);
+    // Parser filters
+    if (data.parserFilters) {
+        try { localStorage.setItem('parserFilters', JSON.stringify(data.parserFilters)); } catch {}
     }
 }
 
@@ -10857,6 +10955,25 @@ function renderParser() {
 
 
 
+        <!-- STAGE 3: BILLING PARSER -->
+        <div class="pz-stage pz-stage-3">
+            <div class="pz-stage-header">
+                <span class="pz-stage-num">3</span>
+                <span class="pz-stage-title">BILLING PARSER</span>
+                <span class="pz-stage-hint">Load Google Ads billing CSV · match last 4 digits with full card numbers</span>
+            </div>
+            <div class="pz-upload-single">
+                <div class="pz-drop-zone pz-drop-billing" id="pz-billing-drop">
+                    <input type="file" id="pz-billing-input" accept=".csv" multiple hidden>
+                    <span class="pz-drop-text">${BILLING_STATE.files.length === 0 ? 'Drop Billing CSV files or click' : 'Drop more billing CSVs +'}</span>
+                    <span class="pz-drop-hint">Billing activity report · CSV format</span>
+                </div>
+            </div>
+            ${_billingChipsHTML()}
+            ${BILLING_STATE.files.length > 0 ? '<div class="billing-toolbar"><button class="pz-btn pz-btn-go" id="billing-parse-btn">⚡ ANALYZE BILLING</button><button class="pz-btn pz-btn-dim" id="billing-clear-btn">✕ CLEAR</button></div>' : ''}
+            <div id="billing-results">${BILLING_STATE.results ? _billingResultsHTML() : ''}</div>
+        </div>
+
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
     </div>`;
@@ -11058,6 +11175,9 @@ function renderParser() {
     } else if (hasParsed) {
         renderParserResults();
     }
+
+    // ── BILLING PARSER events ──
+    _bindBillingEvents();
 }
 // ──── LIST BINS — popup для вставки BIN списком (столбиком) ────
 
@@ -13354,6 +13474,8 @@ function importToProject() {
     toast(`${lines.length} cards exported → "${tabTitle}"`, 'success');
 }
 
+
+
 // ──── RENDER RESULTS ────
 
 function renderParserResults(geoFilter) {
@@ -15275,6 +15397,388 @@ function renderBinDatabase() {
             });
         });
     }
+}
+
+
+// ═══════════════════════════════════════════
+//    BILLING PARSER — Google Ads CSV Analysis
+// ═══════════════════════════════════════════
+
+function _billingChipsHTML() {
+    if (BILLING_STATE.files.length === 0) return '';
+    return '<div class="pz-chips" id="pz-billing-chips">' +
+        BILLING_STATE.files.map((f, i) =>
+            '<span class="pz-file-chip pz-file-chip-billing">📊 ' + f.name +
+            ' <span class="pz-chip-count">' + f.txCount + ' tx</span>' +
+            '<button class="pz-chip-remove pz-billing-chip-remove" data-billing-idx="' + i + '" title="Remove">×</button></span>'
+        ).join('') + '</div>';
+}
+
+function _billingParseCSV(text) {
+    // Parse Google Ads billing CSV
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const rows = [];
+
+    for (const line of lines) {
+        // Skip header lines
+        if (line.startsWith('Billing activity') || line.startsWith('Date,') || line.startsWith('"') && !line.includes('Payments')) continue;
+
+        // Only process Payment rows
+        if (!line.includes('Payments')) continue;
+
+        // Parse CSV respecting quotes
+        const fields = [];
+        let field = '', inQuote = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') { inQuote = !inQuote; continue; }
+            if (ch === ',' && !inQuote) { fields.push(field.trim()); field = ''; continue; }
+            field += ch;
+        }
+        fields.push(field.trim());
+
+        const [date, type, description, , costs, credits] = fields;
+        if (type !== 'Payments') continue;
+
+        // Extract card info: "Visa  • • • • 1687" or "Mastercard  • • • • 6192"
+        const cardMatch = description.match(/(Visa|Mastercard|Amex|American Express|Discover|JCB)\s+[•\s]+([\d]{4})/i);
+        if (!cardMatch) continue;
+
+        const network = cardMatch[1].toUpperCase().replace('AMERICAN EXPRESS', 'AMEX');
+        const last4 = cardMatch[2];
+
+        // Extract amount from Credits column (negative = charged, positive = chargeback)
+        // Or from description for declined
+        let amount = 0;
+        let currency = '¥';
+
+        // Determine status
+        let status = 'unknown';
+        if (/Threshold charge:|Monthly charge:|Manual payment:/i.test(description) && !/declined|cancelled/i.test(description)) {
+            status = 'charged';
+        } else if (/charged back/i.test(description)) {
+            status = 'chargeback';
+        } else if (/declined/i.test(description)) {
+            status = 'declined';
+        } else if (/cancelled/i.test(description)) {
+            status = 'cancelled';
+        }
+
+        // Parse amount
+        const amtFromCredits = credits ? credits.replace(/[^\d.,\-]/g, '').replace(/,/g, '') : '';
+        const amtFromCosts = costs ? costs.replace(/[^\d.,\-]/g, '').replace(/,/g, '') : '';
+        
+        if (status === 'charged' && amtFromCredits) {
+            amount = Math.abs(parseFloat(amtFromCredits)) || 0;
+        } else if (status === 'chargeback' && amtFromCosts) {
+            amount = Math.abs(parseFloat(amtFromCosts)) || 0;
+        } else if (status === 'declined') {
+            // Amount from description: "for ¥100,000"
+            const descAmt = description.match(/for\s*[¥$€£]?([\d,]+)/);
+            if (descAmt) amount = parseFloat(descAmt[1].replace(/,/g, '')) || 0;
+        }
+
+        // Currency symbol from text
+        if (description.includes('¥') || (credits && credits.includes('¥')) || (costs && costs.includes('¥'))) currency = '¥';
+        else if (description.includes('$')) currency = '$';
+        else if (description.includes('€')) currency = '€';
+
+        // Reference ID
+        const refMatch = description.match(/([A-Z]\d{15,}|P\w{7,})/);
+        const refId = refMatch ? refMatch[1] : '';
+
+        rows.push({ date, network, last4, amount, currency, status, refId, description });
+    }
+    return rows;
+}
+
+function _billingLoadFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const rows = _billingParseCSV(text);
+        if (rows.length === 0) {
+            toast('No payment transactions found in ' + file.name, 'warning');
+            return;
+        }
+        // Check duplicate file
+        if (BILLING_STATE.files.some(f => f.name === file.name)) {
+            toast('File already loaded: ' + file.name, 'info');
+            return;
+        }
+        BILLING_STATE.files.push({ name: file.name, txCount: rows.length, rows });
+        toast('Loaded ' + rows.length + ' transactions from ' + file.name, 'success');
+        renderParser();
+    };
+    reader.readAsText(file);
+}
+
+function _billingAnalyze() {
+    // Merge all transactions
+    const allTx = [];
+    BILLING_STATE.files.forEach(f => allTx.push(...f.rows));
+
+    if (allTx.length === 0) {
+        toast('No transactions to analyze', 'warning');
+        return;
+    }
+
+    // Group by last4 + network
+    const cardMap = {}; // key: "VISA-1687"
+    allTx.forEach(tx => {
+        const key = tx.network + '-' + tx.last4;
+        if (!cardMap[key]) {
+            cardMap[key] = {
+                network: tx.network, last4: tx.last4, currency: tx.currency,
+                charged: 0, chargedCount: 0,
+                chargeback: 0, chargebackCount: 0,
+                declined: 0, declinedCount: 0,
+                cancelled: 0, cancelledCount: 0,
+                totalAmount: 0, totalTx: 0,
+                transactions: [],
+                fullCards: [] // matched full card numbers
+            };
+        }
+        const c = cardMap[key];
+        c.transactions.push(tx);
+        c.totalTx++;
+        if (tx.status === 'charged') { c.charged += tx.amount; c.chargedCount++; }
+        if (tx.status === 'chargeback') { c.chargeback += tx.amount; c.chargebackCount++; }
+        if (tx.status === 'declined') { c.declined += tx.amount; c.declinedCount++; }
+        if (tx.status === 'cancelled') { c.cancelled += tx.amount; c.cancelledCount++; }
+        c.totalAmount += (tx.status === 'charged' ? tx.amount : 0);
+    });
+
+    // Match last4 with full card numbers from:
+    // 1) STATE.cards (workspace)
+    // 2) PARSER_STATE.collected (parsed cards)
+    // 3) Raw messages from loaded JSON bases (CC: pattern)
+    // 4) Trash cards
+    const allFullCards = [];
+    const seenNums = new Set();
+
+    const _addCard = (num, source, mm, yy, cvv) => {
+        if (seenNums.has(num)) return;
+        seenNums.add(num);
+        allFullCards.push({ num, source, mm: mm || '', yy: yy || '', cvv: cvv || '' });
+    };
+
+    // From workspace
+    (STATE.cards || []).forEach(c => {
+        const num = (c.cardNumber || '').replace(/\s/g, '');
+        if (num.length >= 13) _addCard(num, 'workspace', c.expMonth, c.expYear, c.cvv);
+    });
+
+    // From parser collected
+    (PARSER_STATE.collected || []).forEach(c => {
+        const num = (c.cc || '').replace(/\s/g, '');
+        if (num.length >= 13) _addCard(num, 'parser', c.mm, c.yy, c.cvv);
+    });
+
+    // From raw messages (loaded JSON bases)
+    const ccRegex = /CC:\s*([\d\s]{13,19})/gi;
+    const valRegex = /Validity:\s*(\d{2})\/(\d{2,4})/i;
+    const cvvRegex = /CVV:\s*(\d{3,4})/i;
+    (PARSER_STATE.rawMessages || []).forEach(msg => {
+        const text = typeof msg.text === 'string' ? msg.text :
+            Array.isArray(msg.text) ? msg.text.map(t => typeof t === 'string' ? t : t.text || '').join('') : '';
+        if (!text) return;
+        const ccMatches = text.match(ccRegex);
+        if (!ccMatches) return;
+        const valM = text.match(valRegex);
+        const cvvM = text.match(cvvRegex);
+        ccMatches.forEach(raw => {
+            const num = raw.replace(/CC:\s*/i, '').replace(/\s/g, '');
+            if (num.length >= 13 && num.length <= 19) {
+                _addCard(num, 'base', valM ? valM[1] : '', valM ? valM[2] : '', cvvM ? cvvM[1] : '');
+            }
+        });
+    });
+
+    // From trash cards
+    (STATE.trashCards || []).forEach(n => {
+        const parts = n.trim().split(/\s+/);
+        const num = (parts[0] || '').replace(/\s/g, '');
+        if (num.length >= 13) _addCard(num, 'trash', parts[1] || '', parts[2] || '', parts[3] || '');
+    });
+
+    // Match
+    Object.values(cardMap).forEach(card => {
+        const matched = allFullCards.filter(fc => fc.num.endsWith(card.last4));
+        card.fullCards = matched;
+    });
+
+    BILLING_STATE.results = {
+        cards: Object.values(cardMap).sort((a, b) => b.totalAmount - a.totalAmount),
+        totalTx: allTx.length,
+        totalFiles: BILLING_STATE.files.length,
+    };
+
+    toast('Analyzed ' + allTx.length + ' transactions across ' + Object.keys(cardMap).length + ' cards', 'success');
+    renderParser();
+}
+
+function _billingResultsHTML() {
+    const r = BILLING_STATE.results;
+    if (!r) return '';
+
+    const totalCharged = r.cards.reduce((s, c) => s + c.charged, 0);
+    const totalCB = r.cards.reduce((s, c) => s + c.chargeback, 0);
+    const totalDeclined = r.cards.reduce((s, c) => s + c.declined, 0);
+    const matchedCards = r.cards.filter(c => c.fullCards.length > 0).length;
+    const cur = r.cards[0]?.currency || '¥';
+
+    let h = '<div class="billing-results-wrap">';
+
+    // Summary stats
+    h += '<div class="billing-summary">';
+    h += '<div class="billing-stat"><span class="billing-stat-num">' + r.totalTx + '</span><span class="billing-stat-label">Transactions</span></div>';
+    h += '<div class="billing-stat billing-stat-charged"><span class="billing-stat-num">' + cur + _fmtAmt(totalCharged) + '</span><span class="billing-stat-label">Charged</span></div>';
+    h += '<div class="billing-stat billing-stat-cb"><span class="billing-stat-num">' + cur + _fmtAmt(totalCB) + '</span><span class="billing-stat-label">Chargebacks</span></div>';
+    h += '<div class="billing-stat billing-stat-declined"><span class="billing-stat-num">' + cur + _fmtAmt(totalDeclined) + '</span><span class="billing-stat-label">Declined</span></div>';
+    h += '<div class="billing-stat billing-stat-match"><span class="billing-stat-num">' + matchedCards + '/' + r.cards.length + '</span><span class="billing-stat-label">Cards Matched</span></div>';
+    h += '</div>';
+
+    // Copy buttons
+    h += '<div class="billing-actions">';
+    h += '<button class="pz-btn pz-btn-go" id="billing-copy-all">📋 Copy All Matched Cards</button>';
+    h += '<button class="pz-btn pz-btn-valid" id="billing-export-bindb">🚀 Export BINs to Bin Database</button>';
+    h += '</div>';
+
+    // Cards table
+    h += '<table class="billing-table"><thead><tr>';
+    h += '<th>NETWORK</th><th>LAST 4</th><th>CHARGED</th><th>CB</th><th>DECLINED</th><th>TX</th><th>FULL CARD</th>';
+    h += '</tr></thead><tbody>';
+
+    r.cards.forEach(card => {
+        const statusCls = card.chargebackCount > 0 ? 'billing-row-cb' : card.chargedCount > 0 ? 'billing-row-ok' : 'billing-row-declined';
+        const networkBadge = card.network === 'VISA' ? '<span class="billing-net billing-visa">VISA</span>' :
+            card.network === 'MASTERCARD' ? '<span class="billing-net billing-mc">MC</span>' :
+            '<span class="billing-net">' + card.network + '</span>';
+
+        let fullCardHTML = '<span class="billing-no-match">—</span>';
+        if (card.fullCards.length > 0) {
+            fullCardHTML = card.fullCards.map(fc => {
+                const full = fc.num + (fc.mm ? ' ' + fc.mm + '/' + fc.yy : '') + (fc.cvv ? ' ' + fc.cvv : '');
+                const src = fc.source === 'workspace' ? '🟢' : fc.source === 'parser' ? '📥' : '🗑';
+                return '<span class="billing-full-card" data-copy="' + full + '" title="' + fc.source + ' · click to copy">' +
+                    src + ' ' + fc.num.slice(0, 4) + ' ' + fc.num.slice(4, 8) + ' ' + fc.num.slice(8, 12) + ' ' + fc.num.slice(12) +
+                    (fc.mm ? ' <span class="billing-fc-exp">' + fc.mm + '/' + fc.yy + '</span>' : '') +
+                    (fc.cvv ? ' <span class="billing-fc-cvv">' + fc.cvv + '</span>' : '') +
+                    '</span>';
+            }).join('<br>');
+        }
+
+        h += '<tr class="' + statusCls + '">';
+        h += '<td>' + networkBadge + '</td>';
+        h += '<td class="billing-last4">•••• ' + card.last4 + '</td>';
+        h += '<td class="billing-amt-charged">' + (card.chargedCount > 0 ? card.currency + _fmtAmt(card.charged) + ' <small>(' + card.chargedCount + ')</small>' : '—') + '</td>';
+        h += '<td class="billing-amt-cb">' + (card.chargebackCount > 0 ? card.currency + _fmtAmt(card.chargeback) + ' <small>(' + card.chargebackCount + ')</small>' : '—') + '</td>';
+        h += '<td class="billing-amt-declined">' + (card.declinedCount > 0 ? '<small>' + card.declinedCount + 'x</small>' : '—') + '</td>';
+        h += '<td>' + card.totalTx + '</td>';
+        h += '<td>' + fullCardHTML + '</td>';
+        h += '</tr>';
+    });
+
+    h += '</tbody></table></div>';
+    return h;
+}
+
+function _fmtAmt(n) {
+    return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function _bindBillingEvents() {
+    // Drop zone
+    const drop = document.getElementById('pz-billing-drop');
+    const input = document.getElementById('pz-billing-input');
+    if (drop && input) {
+        drop.addEventListener('click', () => input.click());
+        drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+        drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+        drop.addEventListener('drop', e => {
+            e.preventDefault(); drop.classList.remove('drag-over');
+            [...e.dataTransfer.files].forEach(f => { if (f.name.endsWith('.csv')) _billingLoadFile(f); });
+        });
+        input.addEventListener('change', () => {
+            [...input.files].forEach(f => _billingLoadFile(f));
+            input.value = '';
+        });
+    }
+
+    // Remove chips
+    document.querySelectorAll('.pz-billing-chip-remove').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.billingIdx);
+            BILLING_STATE.files.splice(idx, 1);
+            BILLING_STATE.results = null;
+            renderParser();
+        });
+    });
+
+    // Analyze button
+    document.getElementById('billing-parse-btn')?.addEventListener('click', _billingAnalyze);
+
+    // Clear button
+    document.getElementById('billing-clear-btn')?.addEventListener('click', () => {
+        BILLING_STATE.files = [];
+        BILLING_STATE.results = null;
+        renderParser();
+    });
+
+    // Copy full card click
+    document.querySelectorAll('.billing-full-card').forEach(el => {
+        el.addEventListener('click', () => {
+            navigator.clipboard?.writeText(el.dataset.copy);
+            toast('Copied: ' + el.dataset.copy, 'success');
+        });
+    });
+
+    // Copy all matched
+    document.getElementById('billing-copy-all')?.addEventListener('click', () => {
+        if (!BILLING_STATE.results) return;
+        const lines = [];
+        BILLING_STATE.results.cards.forEach(card => {
+            card.fullCards.forEach(fc => {
+                const line = fc.num + (fc.mm ? ' ' + fc.mm + ' ' + fc.yy : '') + (fc.cvv ? ' ' + fc.cvv : '');
+                lines.push(line);
+            });
+        });
+        if (lines.length === 0) { toast('No matched cards to copy', 'warning'); return; }
+        navigator.clipboard?.writeText(lines.join('\n'));
+        toast('Copied ' + lines.length + ' full card numbers', 'success');
+    });
+
+    // Export BINs to Bin Database
+    document.getElementById('billing-export-bindb')?.addEventListener('click', () => {
+        if (!BILLING_STATE.results) return;
+        const cards = BILLING_STATE.results.cards.filter(c => c.chargedCount > 0);
+        if (cards.length === 0) { toast('No charged cards to export', 'warning'); return; }
+
+        // Create or find merchant
+        let merchant = STATE.binDbMerchants.find(m => m.name === 'Billing Import');
+        if (!merchant) {
+            merchant = { id: 'bm-billing-' + Date.now(), name: 'Billing Import', screenshotCount: 0, defaultCurrency: 'JPY', bins: [] };
+            STATE.binDbMerchants.push(merchant);
+        }
+
+        let added = 0;
+        cards.forEach(card => {
+            card.fullCards.forEach(fc => {
+                const bin6 = fc.num.slice(0, 6);
+                if (!merchant.bins.some(b => b.bin === bin6)) {
+                    merchant.bins.push({
+                        id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                        bin: bin6, amount: card.charged, currency: card.currency === '¥' ? 'JPY' : 'USD'
+                    });
+                    added++;
+                }
+            });
+        });
+        save();
+        toast('Exported ' + added + ' BINs to Bin Database → "Billing Import"', 'success');
+    });
 }
 
 // ═══════════════════════════════════════════
