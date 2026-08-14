@@ -40,8 +40,8 @@ const STATE = {
 
 };
 
-
-
+// ──── BILLING ACTIVITY STATE ────
+const BILLING_STATE = { text: '', parsed: [], results: null };
 
 // ──── BIN CACHE (RustBin API) ────
 let BIN_CACHE = {};
@@ -10857,6 +10857,25 @@ function renderParser() {
 
 
 
+        <!-- STAGE 3: BILLING ACTIVITY -->
+        <div class="pz-stage pz-stage-3">
+            <div class="pz-stage-header">
+                <span class="pz-stage-num">3</span>
+                <span class="pz-stage-title">BILLING ACTIVITY</span>
+                <span class="pz-stage-hint">Paste billing records · match with full card data from your bases</span>
+            </div>
+            <textarea class="billing-textarea" id="billing-textarea" rows="6" placeholder="Paste billing activity here...
+1 Visa ...4117 - ¥50,000 - 23.06.26
+2 Mastercard ...9430 - ¥25,000 - 25.07.26
+3 American Express ...8905 - ¥9,060 - 01.07.26">${BILLING_STATE.text || ''}</textarea>
+            <div class="billing-toolbar">
+                <button class="pz-btn pz-btn-go" id="billing-match-btn">⚡ MATCH CARDS</button>
+                <button class="pz-btn pz-btn-dim" id="billing-clear-btn">✕ CLEAR</button>
+                <span class="billing-count" id="billing-count"></span>
+            </div>
+            <div id="billing-results"></div>
+        </div>
+
         <!-- RESULTS -->
         <div class="parser-results" id="parser-results"></div>
     </div>`;
@@ -11058,6 +11077,9 @@ function renderParser() {
     } else if (hasParsed) {
         renderParserResults();
     }
+
+    // ── BILLING ACTIVITY events ──
+    _bindBillingEvents();
 }
 // ──── LIST BINS — popup для вставки BIN списком (столбиком) ────
 
@@ -15275,6 +15297,274 @@ function renderBinDatabase() {
             });
         });
     }
+}
+
+// ═══════════════════════════════════════════
+//    BILLING ACTIVITY — Text-based Parser
+// ═══════════════════════════════════════════
+
+function _billingParseText(text) {
+    // Parse lines like: "1 Visa ...4117 - ¥50,000 - 23.06.26"
+    // or: "1 Mastercard ...9430 - ¥25,000 - 25.07.26"
+    // or: "1 American Express ...8905 - ¥9,060 - 01.07.26"
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const records = [];
+    for (const line of lines) {
+        const m = line.match(/^\d+\s+(Visa|Mastercard|American Express|Amex|Discover|JCB)\s+\.{2,3}(\d{4})\s*-\s*([¥$€£]?)([\d,]+(?:\.\d{1,2})?)\s*-\s*(\d{1,2}\.\d{1,2}\.\d{2,4})/i);
+        if (!m) continue;
+        const network = m[1].toUpperCase().replace('AMERICAN EXPRESS', 'AMEX');
+        const last4 = m[2];
+        const currency = m[3] === '¥' ? 'JPY' : m[3] === '$' ? 'USD' : m[3] === '€' ? 'EUR' : m[3] === '£' ? 'GBP' : 'JPY';
+        const amount = parseFloat(m[4].replace(/,/g, '')) || 0;
+        const dateParts = m[5].split('.');
+        const dateStr = dateParts.length === 3 ? `20${dateParts[2].length === 2 ? dateParts[2] : dateParts[2].slice(-2)}-${dateParts[1].padStart(2,'0')}-${dateParts[0].padStart(2,'0')}` : m[5];
+        records.push({ network, last4, currency, amount, date: dateStr, raw: line });
+    }
+    return records;
+}
+
+function _billingCollectFullCards() {
+    const allFC = [];
+    const seen = new Set();
+    const add = (num, src, mm, yy, cvv, holder, email) => {
+        num = (num || '').replace(/\s/g, '');
+        if (num.length < 13 || seen.has(num)) return;
+        seen.add(num);
+        allFC.push({ num, source: src, mm: mm || '', yy: yy || '', cvv: cvv || '', holder: holder || '', email: email || '' });
+    };
+
+    // 1) Workspace cards
+    (STATE.cards || []).forEach(c => add(c.cardNumber, 'workspace', c.expMonth, c.expYear, c.cvv, c.holder, c.email));
+
+    // 2) Parser collected
+    (PARSER_STATE.collected || []).forEach(c => add(c.cc, 'parser', c.mm, c.yy, c.cvv, c.holder, c.email));
+
+    // 3) Raw messages from loaded JSON bases (CC: 4444 3333 2222 1111 pattern)
+    const ccRe = /CC:\s*([\d\s]{13,19})/gi;
+    const valRe = /Validity:\s*(\d{2})\/(\d{2,4})/i;
+    const cvvRe = /CVV:\s*(\d{3,4})/i;
+    const holderRe = /Holder:\s*(.+)/i;
+    const emailRe = /Email:\s*(\S+)/i;
+    (PARSER_STATE.rawMessages || []).forEach(msg => {
+        const text = typeof msg.text === 'string' ? msg.text :
+            Array.isArray(msg.text) ? msg.text.map(t => typeof t === 'string' ? t : t.text || '').join('') : '';
+        if (!text) return;
+        let m; ccRe.lastIndex = 0;
+        while ((m = ccRe.exec(text)) !== null) {
+            const num = m[1].replace(/\s/g, '');
+            const vm = text.match(valRe), cm = text.match(cvvRe);
+            const hm = text.match(holderRe), em = text.match(emailRe);
+            add(num, 'base', vm?.[1], vm?.[2], cm?.[1], hm?.[1]?.trim(), em?.[1]?.trim());
+        }
+    });
+
+    // 4) Trash cards
+    (STATE.trashCards || []).forEach(n => {
+        const p = n.trim().split(/\s+/);
+        add(p[0], 'trash', p[1], p[2], p[3]);
+    });
+
+    return allFC;
+}
+
+function _billingMatch() {
+    const textarea = document.getElementById('billing-textarea');
+    if (!textarea) return;
+    const text = textarea.value.trim();
+    if (!text) { toast('Paste billing data first', 'warning'); return; }
+
+    BILLING_STATE.text = text;
+    const records = _billingParseText(text);
+    if (records.length === 0) { toast('No valid billing records found', 'error'); return; }
+    BILLING_STATE.parsed = records;
+
+    // Collect all full cards
+    const allFC = _billingCollectFullCards();
+
+    // Build last4 index
+    const l4map = {};
+    allFC.forEach(fc => {
+        const l4 = fc.num.slice(-4);
+        if (!l4map[l4]) l4map[l4] = [];
+        l4map[l4].push(fc);
+    });
+
+    // Match
+    const matched = [], unmatched = [];
+    let totalAmount = 0;
+    records.forEach(rec => {
+        const fcs = l4map[rec.last4] || [];
+        totalAmount += rec.amount;
+        if (fcs.length > 0) matched.push({ ...rec, fullCards: fcs });
+        else unmatched.push({ ...rec, fullCards: [] });
+    });
+
+    BILLING_STATE.results = { matched, unmatched, allFC };
+
+    const cur = s => s === 'JPY' ? '¥' : s === 'USD' ? '$' : s === 'EUR' ? '€' : '¥';
+    const fmt = n => (n || 0).toLocaleString('en-US');
+
+    // Summary
+    let h = '<div class="billing-results-wrap">';
+    h += '<div class="billing-summary">';
+    h += '<div class="billing-stat"><span class="billing-stat-num">' + records.length + '</span><span class="billing-stat-label">Records</span></div>';
+    h += '<div class="billing-stat billing-stat-match"><span class="billing-stat-num">' + matched.length + '</span><span class="billing-stat-label">Matched</span></div>';
+    h += '<div class="billing-stat billing-stat-unmatch"><span class="billing-stat-num">' + unmatched.length + '</span><span class="billing-stat-label">Not Matched</span></div>';
+    h += '<div class="billing-stat billing-stat-charged"><span class="billing-stat-num">' + cur('JPY') + fmt(totalAmount) + '</span><span class="billing-stat-label">Total Amount</span></div>';
+    h += '<div class="billing-stat"><span class="billing-stat-num">' + allFC.length + '</span><span class="billing-stat-label">Cards in DB</span></div>';
+    h += '</div>';
+
+    // Actions
+    h += '<div class="billing-actions">';
+    h += '<button class="pz-btn pz-btn-go" id="billing-copy-matched">📋 Copy Matched (' + matched.length + ')</button>';
+    h += '<button class="pz-btn pz-btn-valid" id="billing-add-workspace">📥 Add to Workspace (' + records.length + ')</button>';
+    h += '<button class="pz-btn pz-btn-dim" id="billing-export-bindb">🚀 Export BINs → Bin DB</button>';
+    h += '</div>';
+
+    // Table
+    h += '<table class="billing-table"><thead><tr>';
+    h += '<th>#</th><th>NET</th><th>LAST 4</th><th>AMOUNT</th><th>DATE</th><th>FULL CARD DATA</th>';
+    h += '</tr></thead><tbody>';
+
+    let idx = 0;
+    const renderRow = (rec) => {
+        idx++;
+        const cls = rec.fullCards.length > 0 ? 'billing-row-matched' : '';
+        const netBadge = rec.network === 'VISA' ? '<span class="billing-net billing-visa">VISA</span>' :
+            rec.network === 'MASTERCARD' ? '<span class="billing-net billing-mc">MC</span>' :
+            rec.network === 'AMEX' ? '<span class="billing-net billing-amex">AMEX</span>' :
+            '<span class="billing-net">' + rec.network + '</span>';
+
+        let fcHTML = '<span class="billing-no-match">—</span>';
+        if (rec.fullCards.length > 0) {
+            fcHTML = rec.fullCards.map(fc => {
+                const full = fc.num + (fc.mm ? ' ' + fc.mm + '/' + fc.yy : '') + (fc.cvv ? ' ' + fc.cvv : '');
+                const icon = fc.source === 'workspace' ? '🟢' : fc.source === 'parser' ? '📥' : fc.source === 'base' ? '📦' : '🗑';
+                return '<span class="billing-full-card" data-copy="' + full.replace(/"/g, '&quot;') + '" title="Click to copy · source: ' + fc.source + '">' +
+                    icon + ' ' + fc.num.replace(/(\d{4})/g, '$1 ').trim() +
+                    (fc.mm ? ' <span class="billing-fc-exp">' + fc.mm + '/' + fc.yy + '</span>' : '') +
+                    (fc.cvv ? ' <span class="billing-fc-cvv">' + fc.cvv + '</span>' : '') +
+                    '</span>';
+            }).join('<br>');
+        }
+
+        return '<tr class="' + cls + '">' +
+            '<td class="billing-idx">' + idx + '</td>' +
+            '<td>' + netBadge + '</td>' +
+            '<td class="billing-last4">•••• ' + rec.last4 + '</td>' +
+            '<td class="billing-amt-charged">' + cur(rec.currency) + fmt(rec.amount) + '</td>' +
+            '<td class="billing-date">' + rec.date + '</td>' +
+            '<td>' + fcHTML + '</td></tr>';
+    };
+
+    if (matched.length > 0) {
+        h += '<tr class="billing-section-row"><td colspan="6">✅ MATCHED — ' + matched.length + ' records</td></tr>';
+        matched.forEach(r => h += renderRow(r));
+    }
+    if (unmatched.length > 0) {
+        idx = 0;
+        h += '<tr class="billing-section-row billing-section-unmatch"><td colspan="6">❌ NOT MATCHED — ' + unmatched.length + ' records</td></tr>';
+        unmatched.forEach(r => h += renderRow(r));
+    }
+    h += '</tbody></table></div>';
+
+    document.getElementById('billing-results').innerHTML = h;
+    document.getElementById('billing-count').textContent = records.length + ' records parsed';
+
+    // Bind click-to-copy on full cards
+    document.querySelectorAll('.billing-full-card').forEach(el => {
+        el.addEventListener('click', () => {
+            navigator.clipboard?.writeText(el.dataset.copy);
+            el.style.background = 'rgba(34,197,94,.3)';
+            setTimeout(() => el.style.background = '', 600);
+            toast('Copied: ' + el.dataset.copy, 'success');
+        });
+    });
+
+    // Copy all matched
+    document.getElementById('billing-copy-matched')?.addEventListener('click', () => {
+        const lines = [];
+        matched.forEach(rec => rec.fullCards.forEach(fc => {
+            lines.push(fc.num + (fc.mm ? ' ' + fc.mm + ' ' + fc.yy : '') + (fc.cvv ? ' ' + fc.cvv : ''));
+        }));
+        if (!lines.length) { toast('No matched cards', 'warning'); return; }
+        navigator.clipboard?.writeText(lines.join('\n'));
+        toast('Copied ' + lines.length + ' full cards', 'success');
+    });
+
+    // Add to workspace
+    document.getElementById('billing-add-workspace')?.addEventListener('click', () => {
+        let added = 0;
+        records.forEach(rec => {
+            const existing = (STATE.cards || []).find(c => (c.cardNumber || '').replace(/\s/g, '').endsWith(rec.last4));
+            if (existing) {
+                // Update existing card with billing info
+                if (!existing.billingHistory) existing.billingHistory = [];
+                existing.billingHistory.push({ amount: rec.amount, currency: rec.currency, date: rec.date, network: rec.network });
+                existing.lastBillingAmount = rec.amount;
+                existing.lastBillingDate = rec.date;
+                existing.lastBillingCurrency = rec.currency;
+            } else {
+                // Create new card entry with last4 only
+                STATE.cards.push({
+                    id: 'card-billing-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+                    cardNumber: '•••• •••• •••• ' + rec.last4,
+                    network: rec.network,
+                    lastBillingAmount: rec.amount,
+                    lastBillingDate: rec.date,
+                    lastBillingCurrency: rec.currency,
+                    billingHistory: [{ amount: rec.amount, currency: rec.currency, date: rec.date, network: rec.network }],
+                    source: 'billing',
+                    addedAt: new Date().toISOString()
+                });
+            }
+            added++;
+        });
+        save();
+        toast('Added/updated ' + added + ' billing records in Workspace', 'success');
+    });
+
+    // Export BINs to BinDB
+    document.getElementById('billing-export-bindb')?.addEventListener('click', () => {
+        if (!matched.length) { toast('No matched cards', 'warning'); return; }
+        let merchant = STATE.binDbMerchants.find(m => m.name === 'Billing Import');
+        if (!merchant) {
+            merchant = { id: 'bm-billing-' + Date.now(), name: 'Billing Import', screenshotCount: 0, defaultCurrency: 'JPY', bins: [] };
+            STATE.binDbMerchants.push(merchant);
+        }
+        let added = 0;
+        matched.forEach(rec => rec.fullCards.forEach(fc => {
+            const bin6 = fc.num.slice(0, 6);
+            if (!merchant.bins.some(b => b.bin === bin6)) {
+                merchant.bins.push({ id: 'bb-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), bin: bin6, amount: rec.amount, currency: rec.currency });
+                added++;
+            }
+        }));
+        save();
+        toast('Exported ' + added + ' BINs → Bin Database', 'success');
+    });
+
+    toast('Parsed ' + records.length + ' records · Matched ' + matched.length + ' · DB has ' + allFC.length + ' cards', 'success');
+}
+
+function _bindBillingEvents() {
+    document.getElementById('billing-match-btn')?.addEventListener('click', _billingMatch);
+    document.getElementById('billing-clear-btn')?.addEventListener('click', () => {
+        BILLING_STATE.text = '';
+        BILLING_STATE.parsed = [];
+        BILLING_STATE.results = null;
+        const ta = document.getElementById('billing-textarea');
+        if (ta) ta.value = '';
+        document.getElementById('billing-results').innerHTML = '';
+        document.getElementById('billing-count').textContent = '';
+    });
+    // Auto-count on paste
+    document.getElementById('billing-textarea')?.addEventListener('input', () => {
+        const ta = document.getElementById('billing-textarea');
+        const lines = (ta?.value || '').split('\n').filter(l => l.trim()).length;
+        const counter = document.getElementById('billing-count');
+        if (counter) counter.textContent = lines > 0 ? lines + ' lines' : '';
+    });
 }
 
 // ═══════════════════════════════════════════
