@@ -9741,21 +9741,49 @@ function exportFullBackup() {
     const backup = {
         version: '2.0',
         exported_at: new Date().toISOString(),
+        // Core data
         cards: STATE.cards,
         docs: STATE.docs,
         trash: STATE.trash || [],
         trashCards: STATE.trashCards || [],
+        countries: STATE.countries,
+        // Notes
         notes: STATE.notes || '',
         notesTabs: STATE.notesTabs || [],
         notesActiveTab: STATE.notesActiveTab || '',
         notesFontSize: STATE.notesFontSize || 13,
+        // Prompts
         promptsTabs: STATE.promptsTabs || [],
         promptsActiveTab: STATE.promptsActiveTab || '',
+        // Minic
+        minicBins: STATE.minicBins || [],
+        minicTags: STATE.minicTags || [],
+        minicTabs: STATE.minicTabs || [{id:'main',name:'Main'}],
+        minicActiveTab: STATE.minicActiveTab || 'main',
+        minicTagFilter: STATE.minicTagFilter || 'all',
+        // Bin Database
+        binDbMerchants: STATE.binDbMerchants || [],
+        binDbArchivedBatches: STATE.binDbArchivedBatches || [],
+        // BIN notes & cache
+        binNotes: STATE.binNotes || {},
+        binCache: BIN_CACHE || {},
+        // Document records
+        docRecords: STATE.docRecords || [],
+        // Settings
+        settings: STATE.settings || {},
+        density: STATE.density || 'default',
+        perPage: STATE.perPage || 50,
+        // Legacy merchants
         merchants: JSON.parse(localStorage.getItem('ct_merchants') || '[]'),
         merchantBins: JSON.parse(localStorage.getItem('ct_merchant_bins') || '[]'),
-        countries: STATE.countries,
-        density: STATE.density || 'default',
-        perPage: STATE.perPage || 50
+        // BIN Tester
+        binTester: JSON.parse(localStorage.getItem('ct_bin_tester') || 'null'),
+        // Google Format preferences
+        gfDefaultPassword: localStorage.getItem('gf_default_password') || '',
+        gfOctoPrefix: localStorage.getItem('googleFormat_octoPrefix') || '',
+        gfOctoPrefixCounter: localStorage.getItem('googleFormat_octoPrefixCounter') || '',
+        // Parser filters
+        parserFilters: JSON.parse(localStorage.getItem('parserFilters') || 'null'),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -10060,6 +10088,69 @@ function importExtras(data) {
             STATE.promptsTabs.unshift(newTab);
         });
         STATE.promptsActiveTab = STATE.promptsTabs[0]?.id || '';
+    }
+    // Minic
+    if (data.minicBins && Array.isArray(data.minicBins)) {
+        const existingBins = new Set((STATE.minicBins || []).map(b => b.bin));
+        data.minicBins.forEach(b => {
+            if (!existingBins.has(b.bin)) { STATE.minicBins.push(b); existingBins.add(b.bin); }
+        });
+    }
+    if (data.minicTags && Array.isArray(data.minicTags)) {
+        const existingTags = new Set((STATE.minicTags || []).map(t => t.id));
+        data.minicTags.forEach(t => {
+            if (!existingTags.has(t.id)) STATE.minicTags.push(t);
+        });
+    }
+    if (data.minicTabs && Array.isArray(data.minicTabs)) {
+        const existingTabIds = new Set((STATE.minicTabs || []).map(t => t.id));
+        data.minicTabs.forEach(t => {
+            if (!existingTabIds.has(t.id)) STATE.minicTabs.push(t);
+        });
+    }
+    // Bin Database
+    if (data.binDbMerchants && Array.isArray(data.binDbMerchants)) {
+        const existingMids = new Set((STATE.binDbMerchants || []).map(m => m.id));
+        data.binDbMerchants.forEach(m => {
+            if (!existingMids.has(m.id)) STATE.binDbMerchants.push(m);
+        });
+    }
+    if (data.binDbArchivedBatches && Array.isArray(data.binDbArchivedBatches)) {
+        const existingBids = new Set((STATE.binDbArchivedBatches || []).map(b => b.id));
+        data.binDbArchivedBatches.forEach(b => {
+            if (!existingBids.has(b.id)) STATE.binDbArchivedBatches.push(b);
+        });
+    }
+    // BIN Notes
+    if (data.binNotes && typeof data.binNotes === 'object') {
+        if (!STATE.binNotes) STATE.binNotes = {};
+        Object.entries(data.binNotes).forEach(([k, v]) => {
+            if (!STATE.binNotes[k]) STATE.binNotes[k] = v;
+        });
+    }
+    // Document records
+    if (data.docRecords && Array.isArray(data.docRecords)) {
+        const existingDrIds = new Set((STATE.docRecords || []).map(d => d.id));
+        data.docRecords.forEach(d => {
+            if (!existingDrIds.has(d.id)) STATE.docRecords.push(d);
+        });
+    }
+    // Settings
+    if (data.settings && typeof data.settings === 'object') {
+        STATE.settings = { ...(STATE.settings || {}), ...data.settings };
+    }
+    // BIN Tester
+    if (data.binTester && typeof data.binTester === 'object') {
+        STATE._bt = data.binTester;
+        try { localStorage.setItem('ct_bin_tester', JSON.stringify(data.binTester)); } catch {}
+    }
+    // Google Format preferences
+    if (data.gfDefaultPassword) localStorage.setItem('gf_default_password', data.gfDefaultPassword);
+    if (data.gfOctoPrefix) localStorage.setItem('googleFormat_octoPrefix', data.gfOctoPrefix);
+    if (data.gfOctoPrefixCounter) localStorage.setItem('googleFormat_octoPrefixCounter', data.gfOctoPrefixCounter);
+    // Parser filters
+    if (data.parserFilters) {
+        try { localStorage.setItem('parserFilters', JSON.stringify(data.parserFilters)); } catch {}
     }
 }
 
