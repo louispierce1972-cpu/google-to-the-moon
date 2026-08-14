@@ -11175,6 +11175,9 @@ function renderParser() {
     } else if (hasParsed) {
         renderParserResults();
     }
+
+    // ── BILLING PARSER events ──
+    _bindBillingEvents();
 }
 // ──── LIST BINS — popup для вставки BIN списком (столбиком) ────
 
@@ -13470,9 +13473,6 @@ function importToProject() {
     save();
     toast(`${lines.length} cards exported → "${tabTitle}"`, 'success');
 }
-
-// ── BILLING PARSER EVENT BINDINGS ──
-_bindBillingEvents();
 
 
 
