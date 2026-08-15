@@ -4249,7 +4249,7 @@ function renderChecker() {
                     <span class="ck-panel-title">🔢 BINs <span class="ck-count ck-count-active">${sortedBins.length}</span></span>
                     <div class="ck-panel-actions">
                         <button class="ck-action-btn ck-bin-toggle-all" id="ck-bin-toggle-all" title="${allSelected ? 'Deselect All' : 'Select All'}">${allSelected ? '☐ None' : '☑ All'}</button>
-                        <button class="ck-action-btn ck-btn-copy" id="ck-copy-btn" title="Copy BINs" ${!outLines ? 'disabled' : ''}>📋</button>
+                        <button class="ck-action-btn ck-btn-copy" id="ck-copy-bins-only" title="Copy only 6-digit BINs" ${sortedBins.length === 0 ? 'disabled' : ''}>📋 BINs</button>
                     </div>
                 </div>
                 <div class="ck-bin-list" id="ck-bin-chips">
@@ -4451,34 +4451,37 @@ function renderChecker() {
                 else sel.add(bin);
                 _ckUpdateBinUI();
             });
-            // Right-click → copy /bin format
+            // Right-click → copy BIN (6 digits) or /bin format
             chip.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 const bin = chip.dataset.bin;
                 const binText = `/bin ${bin}`;
                 // Remove any existing bin context menu
                 document.querySelectorAll('.ck-bin-ctx').forEach(el => el.remove());
-                // Create mini context menu
+                // Create mini context menu with two options
                 const ctx = document.createElement('div');
                 ctx.className = 'ck-bin-ctx';
-                ctx.innerHTML = `<button class="ck-bin-ctx-item">📋 Copy <span style="color:#a78bfa;font-family:var(--font-mono,'JetBrains Mono',monospace)">${binText}</span></button>`;
-                ctx.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
-                ctx.style.top = Math.min(e.clientY, window.innerHeight - 40) + 'px';
+                ctx.innerHTML = `<button class="ck-bin-ctx-item" data-copy="${bin}">📋 Copy <span style="color:#34d399;font-family:var(--font-mono,'JetBrains Mono',monospace);font-weight:600">${bin}</span></button><button class="ck-bin-ctx-item" data-copy="${binText}">📋 Copy <span style="color:#a78bfa;font-family:var(--font-mono,'JetBrains Mono',monospace)">${binText}</span></button>`;
+                ctx.style.left = Math.min(e.clientX, window.innerWidth - 220) + 'px';
+                ctx.style.top = Math.min(e.clientY, window.innerHeight - 70) + 'px';
                 document.body.appendChild(ctx);
-                // Click item → copy & close
-                ctx.querySelector('.ck-bin-ctx-item').addEventListener('click', () => {
-                    navigator.clipboard.writeText(binText).then(() => {
-                        toast(`Copied: ${binText}`, 'success');
-                    }).catch(() => {
-                        const ta = document.createElement('textarea');
-                        ta.value = binText;
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(ta);
-                        toast(`Copied: ${binText}`, 'success');
+                // Click any item → copy & close
+                ctx.querySelectorAll('.ck-bin-ctx-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const copyVal = item.dataset.copy;
+                        navigator.clipboard.writeText(copyVal).then(() => {
+                            toast(`Copied: ${copyVal}`, 'success');
+                        }).catch(() => {
+                            const ta = document.createElement('textarea');
+                            ta.value = copyVal;
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            toast(`Copied: ${copyVal}`, 'success');
+                        });
+                        ctx.remove();
                     });
-                    ctx.remove();
                 });
                 // Dismiss on click outside
                 const dismiss = (ev) => {
@@ -4517,6 +4520,29 @@ function renderChecker() {
                 document.execCommand('copy');
                 document.body.removeChild(ta);
                 toast('Cards copied!', 'success');
+            });
+        });
+
+        // Copy BINs only (6-digit numbers)
+        document.getElementById('ck-copy-bins-only')?.addEventListener('click', () => {
+            const tab = _CK.tabs.bin;
+            const bg = tab.binGroups;
+            const sel = tab.selectedBins;
+            const allBins = Object.keys(bg).sort();
+            // If some are selected, copy only selected; otherwise copy all
+            const binsToCopy = sel.size > 0 ? allBins.filter(b => sel.has(b)) : allBins;
+            if (binsToCopy.length === 0) { toast('No BINs to copy', 'warning'); return; }
+            const text = binsToCopy.join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                toast(`${binsToCopy.length} BINs copied!`, 'success');
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                toast(`${binsToCopy.length} BINs copied!`, 'success');
             });
         });
 
