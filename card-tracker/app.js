@@ -10914,6 +10914,7 @@ function renderParser() {
             <button class="pz-btn pz-btn-valid" id="parser-valid-btn" title="View cards verified as ALIVE by checker">✅ VALID CARDS</button>
             <button class="pz-btn pz-btn-today" id="parser-today-btn" title="Show cards from today's messages">📅 TODAY CARDS</button>
             <button class="pz-btn pz-btn-subtract" id="parser-subtract-btn" title="Subtract a JSON base from your card list — removes already known cards">⊖ BASE SUBTRACT</button>
+            <button class="pz-btn pz-btn-billings" id="parser-billings-btn" title="Match billing records (last 4 digits) against parsed cards">💳 FIND BILLINGS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -11034,6 +11035,8 @@ function renderParser() {
     document.getElementById('parser-today-btn')?.addEventListener('click', () => {
         _openTodayCardsModal();
     });
+    // ── FIND BILLINGS BUTTON ──
+    document.getElementById('parser-billings-btn')?.addEventListener('click', _openFindBillingsModal);
     // (translated)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -14321,6 +14324,253 @@ const TC = {
     dateLabel: '',   // date label for report header
     rawText: '',   // last pasted text
 };
+
+/** Open Find Billings modal — match billing records (last 4 digits) to full card numbers */
+function _openFindBillingsModal() {
+    // Need cards from parsed data
+    const allCards = extractCardsFromMessages(PARSER_STATE.rawMessages || []);
+    if (allCards.length === 0) {
+        toast('Load and parse a base file first', 'warning');
+        return;
+    }
+
+    // Build last4 → cards map
+    const last4Map = {};
+    allCards.forEach(c => {
+        const cc = (c.cc || '').replace(/\s/g, '');
+        if (cc.length >= 4) {
+            const l4 = cc.slice(-4);
+            if (!last4Map[l4]) last4Map[l4] = [];
+            last4Map[l4].push(c);
+        }
+    });
+
+    // Remove existing overlay if any
+    document.getElementById('billings-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'billings-overlay';
+    overlay.className = 'billings-overlay';
+    overlay.innerHTML = `
+        <div class="billings-modal">
+            <div class="billings-header">
+                <span class="billings-title">💳 Find Billings</span>
+                <span class="billings-subtitle">${allCards.length} cards loaded · Match by last 4 digits</span>
+                <button class="billings-close" id="billings-close">✕</button>
+            </div>
+            <div class="billings-body">
+                <div class="billings-input-section">
+                    <label class="billings-label">Paste billing records:</label>
+                    <textarea id="billings-textarea" class="billings-textarea" rows="8" placeholder="1 Mastercard ...6449 - ¥298 - 01.08.26&#10;2 Visa ...0866 - ¥56 - 01.08.26&#10;Visa ...1698 - $8 - 01.08.26&#10;&#10;Supports: with/without line numbers&#10;Currencies: ¥ $ € £ or plain numbers"></textarea>
+                    <div class="billings-input-actions">
+                        <button class="billings-btn billings-btn-primary" id="billings-match-btn">🔍 Match Cards</button>
+                        <button class="billings-btn billings-btn-dim" id="billings-clear-btn">✕ Clear</button>
+                    </div>
+                </div>
+                <div class="billings-results-section hidden" id="billings-results-section">
+                    <div class="billings-results-header">
+                        <span class="billings-results-title" id="billings-results-title">Results</span>
+                        <div class="billings-results-actions">
+                            <button class="billings-btn billings-btn-sm" id="billings-copy-full">📋 Copy Full</button>
+                            <button class="billings-btn billings-btn-sm" id="billings-copy-cards">📋 Cards Only</button>
+                            <button class="billings-btn billings-btn-sm" id="billings-export-notes">📤 To Notes</button>
+                        </div>
+                    </div>
+                    <div class="billings-results-list" id="billings-results-list"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Close
+    document.getElementById('billings-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    // Clear
+    document.getElementById('billings-clear-btn').addEventListener('click', () => {
+        document.getElementById('billings-textarea').value = '';
+        document.getElementById('billings-results-section').classList.add('hidden');
+    });
+
+    // Store results for copy/export
+    let matchedResults = [];
+
+    // Match
+    document.getElementById('billings-match-btn').addEventListener('click', () => {
+        const text = document.getElementById('billings-textarea').value.trim();
+        if (!text) { toast('Paste billing data first', 'warning'); return; }
+
+        const lines = text.split('\n').filter(l => l.trim());
+        matchedResults = [];
+        let notFound = 0;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // Parse billing line:
+            // Formats: "1 Mastercard ...6449 - ¥298 - 01.08.26"
+            //          "Visa ...0866 - ¥56 - 01.08.26"
+            //          "Mastercard ...6449 ¥298 01.08.26"
+
+            // Extract last 4 digits: look for ...NNNN or *NNNN or ending 4 digits after card type
+            const last4Match = trimmed.match(/(?:\.{2,3}|\*{1,4})(\d{4})/);
+            if (!last4Match) continue;
+            const last4 = last4Match[1];
+
+            // Extract amount: look for currency symbol + number or just number after dash
+            const amountMatch = trimmed.match(/[-–—]\s*([¥$€£₽₴₹]?\s*[\d,]+(?:\.\d{1,2})?)/);
+            const amount = amountMatch ? amountMatch[1].trim() : '';
+
+            // Extract date: DD.MM.YY or DD.MM.YYYY or DD/MM/YY
+            const dateMatch = trimmed.match(/(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})(?:\s|$)/);
+            const billingDate = dateMatch ? dateMatch[1] : '';
+
+            // Extract card network
+            const networkMatch = trimmed.match(/\b(Visa|Mastercard|Amex|Discover|JCB|UnionPay|Maestro)\b/i);
+            const network = networkMatch ? networkMatch[1] : '';
+
+            // Find matching cards
+            const candidates = last4Map[last4] || [];
+
+            if (candidates.length > 0) {
+                // If multiple matches — pick best by network if possible
+                let best = candidates[0];
+                if (network && candidates.length > 1) {
+                    const networkUpper = network.toUpperCase();
+                    const byNetwork = candidates.find(c => {
+                        const ct = (c.cardType || '').toUpperCase();
+                        return ct.includes(networkUpper) || (networkUpper === 'VISA' && ct.includes('VISA')) || (networkUpper === 'MASTERCARD' && ct.includes('MASTER'));
+                    });
+                    if (byNetwork) best = byNetwork;
+                }
+                matchedResults.push({
+                    last4,
+                    cc: best.cc,
+                    mm: best.mm,
+                    yy: best.yy,
+                    cvv: best.cvv,
+                    holder: (best.name || '') + (best.surname ? ' ' + best.surname : ''),
+                    bank: best.bank || '',
+                    cardType: best.cardType || '',
+                    country: best.country || best.countryCode || '',
+                    amount,
+                    billingDate,
+                    network,
+                    matchCount: candidates.length
+                });
+            } else {
+                matchedResults.push({
+                    last4,
+                    cc: null,
+                    amount,
+                    billingDate,
+                    network,
+                    matchCount: 0
+                });
+                notFound++;
+            }
+        }
+
+        // Show results
+        const section = document.getElementById('billings-results-section');
+        section.classList.remove('hidden');
+
+        const found = matchedResults.filter(r => r.cc);
+        document.getElementById('billings-results-title').textContent =
+            `Found: ${found.length} / ${matchedResults.length} · Not matched: ${notFound}`;
+
+        let html = '<table class="billings-table"><thead><tr>' +
+            '<th>#</th><th>Last4</th><th>Full Card Number</th><th>Exp</th><th>CVV</th><th>Amount</th><th>Date</th><th>Bank</th><th>Type</th>' +
+            '</tr></thead><tbody>';
+
+        matchedResults.forEach((r, i) => {
+            const rowClass = r.cc ? '' : 'billings-row-miss';
+            if (r.cc) {
+                html += `<tr class="${rowClass}">
+                    <td>${i + 1}</td>
+                    <td class="bl-last4">${r.last4}</td>
+                    <td class="bl-cc"><span class="bl-copyable" data-copy="${r.cc}">${r.cc}</span></td>
+                    <td>${r.mm}/${r.yy}</td>
+                    <td>${r.cvv}</td>
+                    <td class="bl-amount">${r.amount}</td>
+                    <td>${r.billingDate}</td>
+                    <td class="bl-bank">${r.bank}</td>
+                    <td class="bl-type">${r.cardType}</td>
+                </tr>`;
+            } else {
+                html += `<tr class="${rowClass}">
+                    <td>${i + 1}</td>
+                    <td class="bl-last4">${r.last4}</td>
+                    <td colspan="3" class="bl-notfound">❌ Not found in base</td>
+                    <td class="bl-amount">${r.amount}</td>
+                    <td>${r.billingDate}</td>
+                    <td colspan="2">—</td>
+                </tr>`;
+            }
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('billings-results-list').innerHTML = html;
+
+        // Click to copy individual cards
+        document.querySelectorAll('.bl-copyable').forEach(el => {
+            el.addEventListener('click', () => {
+                navigator.clipboard?.writeText(el.dataset.copy);
+                el.classList.add('bl-flash');
+                setTimeout(() => el.classList.remove('bl-flash'), 500);
+                toast('Copied: ' + el.dataset.copy, 'success');
+            });
+        });
+
+        toast(`Matched ${found.length} of ${matchedResults.length} billing records`, found.length > 0 ? 'success' : 'warning');
+    });
+
+    // Copy full results
+    document.getElementById('billings-copy-full').addEventListener('click', () => {
+        const found = matchedResults.filter(r => r.cc);
+        if (!found.length) { toast('No matches to copy', 'warning'); return; }
+        const lines = found.map((r, i) =>
+            `${i + 1}. ${r.cc} ${r.mm} ${r.yy} ${r.cvv} | ${r.amount} | ${r.billingDate} | ${r.bank}`
+        );
+        navigator.clipboard?.writeText(lines.join('\n'));
+        toast(`Copied ${found.length} matched records`, 'success');
+    });
+
+    // Copy cards only (cc mm yy cvv format)
+    document.getElementById('billings-copy-cards').addEventListener('click', () => {
+        const found = matchedResults.filter(r => r.cc);
+        if (!found.length) { toast('No matches to copy', 'warning'); return; }
+        const lines = found.map(r => `${r.cc} ${r.mm} ${r.yy} ${r.cvv}`);
+        navigator.clipboard?.writeText(lines.join('\n'));
+        toast(`Copied ${found.length} card numbers`, 'success');
+    });
+
+    // Export to notes
+    document.getElementById('billings-export-notes').addEventListener('click', () => {
+        const found = matchedResults.filter(r => r.cc);
+        if (!found.length) { toast('No matches to export', 'warning'); return; }
+        const lines = ['BILLING MATCH RESULTS', '═'.repeat(40), ''];
+        found.forEach((r, i) => {
+            lines.push(`${i + 1}. ${r.cc} ${r.mm}/${r.yy} ${r.cvv} — ${r.amount} — ${r.billingDate} — ${r.bank}`);
+        });
+        const notFoundItems = matchedResults.filter(r => !r.cc);
+        if (notFoundItems.length > 0) {
+            lines.push('', '--- NOT FOUND ---');
+            notFoundItems.forEach(r => {
+                lines.push(`...${r.last4} — ${r.amount} — ${r.billingDate}`);
+            });
+        }
+        STATE.notesTabs.unshift({
+            id: 'tab-bill-' + Date.now(),
+            title: 'Billing Match ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }),
+            content: lines.join('\n'),
+            pinned: false, tag: null, created: Date.now(), scrollPos: 0
+        });
+        STATE.notesActiveTab = STATE.notesTabs[0].id;
+        save();
+        toast(`Exported ${found.length} matches to Notes`, 'success');
+    });
+}
 
 /** Open Today Cards modal */
 function _openTodayCardsModal() {
