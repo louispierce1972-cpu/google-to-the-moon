@@ -12330,14 +12330,29 @@ function _parseCheckerOutput(text) {
         return m ? m[1] : null;
     }
 
-    // Extract card number
+    // Extract exp/cvv from checker output — supports many formats
     function extractExpCvv(str) {
-        const m = str.match(/\b(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
+        // Format: 01 27 622 (space-separated: MM YY CVV)
+        const m = str.match(/\b(0[1-9]|1[0-2])\s+(2[4-9]|3[0-9]|\d{2})\s+(\d{3,4})\b/);
         if (m) return { mm: m[1], yy: m[2], cvv: m[3] };
-        const m2 = str.match(/\b(0[1-9]|1[0-2])\/(\d{2})\s+(\d{3,4})\b/);
+        // Format: 01/27 622 (slash-separated exp + space + CVV)
+        const m2 = str.match(/\b(0[1-9]|1[0-2])\/(2[4-9]|3[0-9]|\d{2})\s+(\d{3,4})\b/);
         if (m2) return { mm: m2[1], yy: m2[2], cvv: m2[3] };
+        // Format: |01|27|622 (pipe-separated)
         const m3 = str.match(/\|(\d{2})\|(\d{2})\|(\d{3,4})/);
         if (m3) return { mm: m3[1], yy: m3[2], cvv: m3[3] };
+        // Format: 01|27|622 (pipe-separated without leading pipe)
+        const m3b = str.match(/\b(\d{2})\|(\d{2})\|(\d{3,4})\b/);
+        if (m3b) return { mm: m3b[1], yy: m3b[2], cvv: m3b[3] };
+        // Format: 1 27 622 (single-digit month)
+        const m4 = str.match(/\b([1-9])\s+(2[4-9]|3[0-9])\s+(\d{3,4})\b/);
+        if (m4) return { mm: m4[1].padStart(2, '0'), yy: m4[2], cvv: m4[3] };
+        // Format: MM/YYYY CVV (4-digit year)
+        const m5 = str.match(/\b(0[1-9]|1[0-2])\/(20\d{2})\s+(\d{3,4})\b/);
+        if (m5) return { mm: m5[1], yy: m5[2].slice(2), cvv: m5[3] };
+        // Format: MM YY CVV with any separators (dash, comma, etc.)
+        const m6 = str.match(/\b(0[1-9]|1[0-2])\s*[-\/|]\s*(\d{2})\s*[-\/|,\s]\s*(\d{3,4})\b/);
+        if (m6) return { mm: m6[1], yy: m6[2], cvv: m6[3] };
         return { mm: '', yy: '', cvv: '' };
     }
 
@@ -12785,6 +12800,34 @@ function _initValidCardsModal() {
 function _processValidCards(text) {
     const parsed = _parseCheckerOutput(text);
 
+    // ── ENRICH: fill missing mm/yy/cvv from loaded base (result.json) ──
+    // Build a lookup map: card number → {mm, yy, cvv} from the parsed base
+    const baseCards = extractCardsFromMessages(PARSER_STATE.rawMessages || []);
+    const baseMap = {};
+    baseCards.forEach(c => {
+        const cc = (c.cc || '').replace(/\s/g, '');
+        if (cc && cc.length >= 13) {
+            // Keep best data (prefer entries with actual mm/yy/cvv)
+            if (!baseMap[cc] || (!baseMap[cc].cvv && c.cvv)) {
+                baseMap[cc] = { mm: c.mm || '', yy: c.yy || '', cvv: c.cvv || '' };
+            }
+        }
+    });
+
+    // Enrich each parsed card
+    parsed.forEach(c => {
+        const ccClean = (c.cc || '').replace(/\s/g, '');
+        const base = baseMap[ccClean];
+        if (base) {
+            // Fill missing fields from base
+            if (!c.mm || c.mm === '00') c.mm = base.mm || c.mm;
+            if (!c.yy) c.yy = base.yy || c.yy;
+            if (!c.cvv || c.cvv === '000') c.cvv = base.cvv || c.cvv;
+            // Update key with enriched data
+            c.key = `${c.cc}|${c.mm}|${c.yy}|${c.cvv}`;
+        }
+    });
+
     // (translated)
     const badKeys = new Set();
     // (translated)
@@ -12825,9 +12868,13 @@ function _processValidCards(text) {
         skippedDupes
     };
 
+    // Log enrichment stats
+    const enriched = validCards.filter(c => c.mm && c.yy && c.cvv && c.cvv !== '000').length;
+    console.log(`[Valid Cards] ${validCards.length} valid, ${enriched} enriched from base (${baseCards.length} cards in base)`);
+
     // (translated)
     navigate('new-cards');
-    toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}`, 'success');
+    toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}${enriched > 0 ? ` · 📎 ${enriched} enriched from base` : ''}`, 'success');
     renderValidCardsResults();
 }
 
