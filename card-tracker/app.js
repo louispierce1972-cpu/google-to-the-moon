@@ -12729,7 +12729,6 @@ function _initValidCardsModal() {
             reader.onload = ev => {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    // Support Telegram format: { messages: [...] } or array of messages
                     const messages = Array.isArray(data) ? data : (data.messages || []);
 
                     if (messages.length === 0) {
@@ -12737,44 +12736,125 @@ function _initValidCardsModal() {
                         return;
                     }
 
-                    // Extract text from all messages
-                    // Telegram stores text in text field (string or entity array)
-                    const lines = [];
+                    // ── SMART TELEGRAM CHECKER BOT PARSER ──
+                    // Phase 1: Build card data map from ALL messages
+                    //   User sends: "4147202626727323 08 28 020"
+                    //   Format: CARD_NUMBER MM YY CVV (space-separated)
+                    // Phase 2: Extract statuses from bot check results
+                    //   Bot sends: "Результаты проверки:\n4147202626727323 | Approved ✅\n..."
+                    // Phase 3: Merge card data + status → enriched output
+
+                    const cardDataMap = {}; // cc → { mm, yy, cvv }
+                    const statusMap = {};   // cc → 'alive'|'dead'|'invalid'
+                    const ccRe = /\b(\d{13,19})\b/g;
+                    const expCvvAfterCC = /^\s*[\s|]*(\d{2})\s+(\d{2})\s+(\d{3,4})\b/;
+                    const expCvvPipe = /^\s*\|(\d{2})\|(\d{2})\|(\d{3,4})/;
+
                     messages.forEach(msg => {
                         if (!msg) return;
                         let text = '';
                         if (typeof msg.text === 'string') {
                             text = msg.text;
                         } else if (Array.isArray(msg.text)) {
-                            // Telegram entities — take only text parts
                             text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
                         } else if (typeof msg === 'string') {
                             text = msg;
                         }
-                        if (text.trim()) lines.push(text.trim());
+                        if (!text.trim()) return;
+
+                        // Split into lines for per-line analysis
+                        const lines = text.split(/\n/);
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (!trimmed) continue;
+
+                            // Try extracting card + exp/cvv (user message format)
+                            const ccMatch = trimmed.match(/^[^0-9]*(\d{13,19})/);
+                            if (ccMatch) {
+                                const cc = ccMatch[1];
+                                const afterCC = trimmed.substring(trimmed.indexOf(cc) + cc.length);
+
+                                // Try space-separated: MM YY CVV
+                                const spM = afterCC.match(expCvvAfterCC);
+                                if (spM) {
+                                    cardDataMap[cc] = { mm: spM[1], yy: spM[2], cvv: spM[3] };
+                                }
+                                // Try pipe-separated: |MM|YY|CVV
+                                const pM = afterCC.match(expCvvPipe);
+                                if (pM && !cardDataMap[cc]) {
+                                    cardDataMap[cc] = { mm: pM[1], yy: pM[2], cvv: pM[3] };
+                                }
+
+                                // Check for status on same line (bot result format)
+                                if (/Approved|✅/u.test(afterCC)) {
+                                    statusMap[cc] = 'alive';
+                                } else if (/⛔|INV ACCT|DECLINED|Declined|TRAN NOT|NOT ALLOWED|Card Issuer/i.test(afterCC)) {
+                                    statusMap[cc] = 'dead';
+                                } else if (/❌|INVALID/i.test(afterCC)) {
+                                    statusMap[cc] = 'invalid';
+                                }
+                            }
+                        }
                     });
 
-                    if (lines.length === 0) {
-                        toast(`${file.name}: no text found in messages`, 'warning');
+                    // Phase 3: Build enriched checker text for _processValidCards
+                    const allCCs = new Set([...Object.keys(cardDataMap), ...Object.keys(statusMap)]);
+                    const enrichedLines = [];
+
+                    // Only include cards that have a status (were checked)
+                    for (const cc of allCCs) {
+                        const status = statusMap[cc];
+                        if (!status) continue; // Skip cards with no check result
+
+                        const d = cardDataMap[cc] || {};
+                        const mm = d.mm || '';
+                        const yy = d.yy || '';
+                        const cvv = d.cvv || '';
+                        const statusLabel = status === 'alive' ? 'ALIVE' : status === 'dead' ? 'DEAD' : 'INVALID';
+                        const emoji = status === 'alive' ? '✅' : status === 'dead' ? '💀' : '❌';
+
+                        // Format: ✅ CARD MM YY CVV - ALIVE
+                        if (mm && yy && cvv) {
+                            enrichedLines.push(`${emoji} ${cc} ${mm} ${yy} ${cvv} - ${statusLabel}`);
+                        } else {
+                            enrichedLines.push(`${emoji} ${cc} - ${statusLabel}`);
+                        }
+                    }
+
+                    if (enrichedLines.length === 0) {
+                        // Fallback: try old method with combined text
+                        const lines = [];
+                        messages.forEach(msg => {
+                            if (!msg) return;
+                            let text = '';
+                            if (typeof msg.text === 'string') text = msg.text;
+                            else if (Array.isArray(msg.text)) text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
+                            else if (typeof msg === 'string') text = msg;
+                            if (text.trim()) lines.push(text.trim());
+                        });
+                        const combinedText = lines.join('\n');
+                        const preview = _parseCheckerOutput(combinedText);
+                        if (preview.length === 0) {
+                            toast(`${file.name}: no cards with check results found`, 'warning');
+                            return;
+                        }
+                        close();
+                        _processValidCards(combinedText);
+                        const aliveC = preview.filter(c => c.status === 'alive').length;
+                        const badC = preview.filter(c => c.status === 'dead' || c.status === 'invalid').length;
+                        toast(`${file.name}: ✅ ${aliveC} ALIVE · 💀/❌ ${badC} DEAD/INVALID`, 'success');
                         return;
                     }
 
-                    const combinedText = lines.join('\n');
+                    const enrichedText = enrichedLines.join('\n');
+                    const aliveCount = enrichedLines.filter(l => l.includes('ALIVE')).length;
+                    const badCount = enrichedLines.filter(l => l.includes('DEAD') || l.includes('INVALID')).length;
 
-                    // Preliminary check — are there any cards with markers
-                    const preview = _parseCheckerOutput(combinedText);
-                    const aliveCount = preview.filter(c => c.status === 'alive').length;
-                    const badCount = preview.filter(c => c.status === 'dead' || c.status === 'invalid').length;
+                    console.log(`[Mini Parser] ${Object.keys(cardDataMap).length} cards with data, ${Object.keys(statusMap).length} with status, ${enrichedLines.length} enriched lines`);
 
-                    if (preview.length === 0) {
-                        toast(`${file.name}: no cards with ALIVE/DEAD/INVALID markers found`, 'warning');
-                        return;
-                    }
-
-                    // Process immediately — skip textarea, run directly
                     close();
-                    _processValidCards(combinedText);
-                    toast(`${file.name}: ✅ ${aliveCount} ALIVE · 💀/❌ ${badCount} DEAD/INVALID — ${messages.length} messages`, 'success');
+                    _processValidCards(enrichedText);
+                    toast(`${file.name}: ✅ ${aliveCount} ALIVE · 💀/❌ ${badCount} DEAD/INVALID — ${messages.length} msgs`, 'success');
 
                 } catch (err) {
                     toast(`${file.name}: invalid JSON — ${err.message}`, 'error');
@@ -12801,28 +12881,78 @@ function _processValidCards(text) {
     const parsed = _parseCheckerOutput(text);
 
     // ── ENRICH: fill missing mm/yy/cvv from loaded base (result.json) ──
-    // Build a lookup map: card number → {mm, yy, cvv} from the parsed base
-    const baseCards = extractCardsFromMessages(PARSER_STATE.rawMessages || []);
+    // Universal extractor: handles ALL base formats from Telegram exports
+    //   Format 1 (logs): "💳 CC: 4500 0337 2426 2090\n📅 Validity: 12 / 27\n🔐 CVV: 769"
+    //   Format 2 (pipe): "4500033724262090|12|27|769"
+    //   Format 3 (space): "4147202633282619 09 28 992"
     const baseMap = {};
-    baseCards.forEach(c => {
+
+    // Method 1: Try extractCardsFromMessages (handles 💳 CC: format)
+    const emojiCards = extractCardsFromMessages(PARSER_STATE.rawMessages || []);
+    emojiCards.forEach(c => {
         const cc = (c.cc || '').replace(/\s/g, '');
-        if (cc && cc.length >= 13) {
-            // Keep best data (prefer entries with actual mm/yy/cvv)
-            if (!baseMap[cc] || (!baseMap[cc].cvv && c.cvv)) {
-                baseMap[cc] = { mm: c.mm || '', yy: c.yy || '', cvv: c.cvv || '' };
+        if (cc && cc.length >= 13 && c.cvv) {
+            baseMap[cc] = { mm: c.mm || '', yy: c.yy || '', cvv: c.cvv || '' };
+        }
+    });
+
+    // Method 2: Scan raw messages for pipe/space formats (handles ALL other formats)
+    (PARSER_STATE.rawMessages || []).forEach(msg => {
+        if (!msg) return;
+        let text2 = '';
+        if (typeof msg.text === 'string') {
+            text2 = msg.text;
+        } else if (Array.isArray(msg.text)) {
+            text2 = msg.text.map(t => (typeof t === 'string' ? t : (t && t.text ? String(t.text) : ''))).join('');
+        }
+        if (!text2) return;
+
+        // Split into lines and extract card data
+        for (const line of text2.split(/\n/)) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+
+            const ccM = trimmed.match(/(\d{13,19})/);
+            if (!ccM) continue;
+            const cc = ccM[1];
+            if (baseMap[cc]) continue; // Already have data
+
+            const afterCC = trimmed.substring(trimmed.indexOf(cc) + cc.length);
+
+            // Pipe format: |12|27|769
+            const pipeM = afterCC.match(/\|(\d{2})\|(\d{2})\|(\d{3,4})/);
+            if (pipeM) {
+                baseMap[cc] = { mm: pipeM[1], yy: pipeM[2], cvv: pipeM[3] };
+                continue;
+            }
+            // Space format: 09 28 992
+            const spaceM = afterCC.match(/^\s+(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
+            if (spaceM) {
+                baseMap[cc] = { mm: spaceM[1], yy: spaceM[2], cvv: spaceM[3] };
+                continue;
+            }
+            // Slash format: 12/27 769
+            const slashM = afterCC.match(/^\s+(0[1-9]|1[0-2])\/(\d{2})\s+(\d{3,4})\b/);
+            if (slashM) {
+                baseMap[cc] = { mm: slashM[1], yy: slashM[2], cvv: slashM[3] };
+                continue;
             }
         }
     });
 
+    console.log(`[Enrichment] Base map: ${Object.keys(baseMap).length} cards with mm/yy/cvv`);
+
     // Enrich each parsed card
+    let enrichedCount = 0;
     parsed.forEach(c => {
         const ccClean = (c.cc || '').replace(/\s/g, '');
         const base = baseMap[ccClean];
         if (base) {
             // Fill missing fields from base
-            if (!c.mm || c.mm === '00') c.mm = base.mm || c.mm;
-            if (!c.yy) c.yy = base.yy || c.yy;
-            if (!c.cvv || c.cvv === '000') c.cvv = base.cvv || c.cvv;
+            if (!c.mm || c.mm === '00') { c.mm = base.mm || c.mm; }
+            if (!c.yy) { c.yy = base.yy || c.yy; }
+            if (!c.cvv || c.cvv === '000') { c.cvv = base.cvv || c.cvv; }
+            if (c.mm && c.yy && c.cvv) enrichedCount++;
             // Update key with enriched data
             c.key = `${c.cc}|${c.mm}|${c.yy}|${c.cvv}`;
         }
