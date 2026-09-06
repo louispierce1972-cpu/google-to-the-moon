@@ -7215,11 +7215,13 @@ function renderNotes() {
                     if (cardStatus.size === 0 && last4Status.size === 0) { toast('No card numbers found', 'error'); return; }
 
                     let lineEls = editor.innerHTML.replace(/<div>/gi, '\n<div>').replace(/<br\s*\/?>/gi, '\n').split('\n').filter(l => l.trim());
-                    const valid = [], dead = [], unknown = [];
+                    const valid = [], dead = [], yellowUnknown = [], unchecked = [];
                     lineEls.forEach(lh => {
-                        const plain = lh.replace(/<[^>]+>/g, '');
+                        // Strip ALL existing color spans from previous sorts
+                        const stripped = lh.replace(/<span\s+style="color:[^"]*">/gi, '').replace(/<\/span>/gi, '').replace(/<\/?div[^>]*>/gi, '');
+                        const plain = stripped.replace(/<[^>]+>/g, '');
                         const nums = plain.match(/\d{13,19}/g);
-                        if (!nums) { unknown.push(lh); return; }
+                        if (!nums) { unchecked.push(stripped); return; }
 
                         let status = null;
 
@@ -7241,24 +7243,23 @@ function renderNotes() {
                         if (status === false) status = 'dead';
 
                         if (status) {
-                            const s = lh.replace(/<\/?div[^>]*>/gi, '');
                             const colorMap = { valid: '#4ade80', dead: '#f87171', unknown: '#facc15' };
-                            const c = '<span style="color:' + (colorMap[status] || '#f87171') + '">' + s + '</span>';
+                            const c = '<span style="color:' + (colorMap[status] || '#f87171') + '">' + stripped + '</span>';
                             if (status === 'valid') valid.push(c);
-                            else if (status === 'unknown') unknown.push(c);
+                            else if (status === 'unknown') yellowUnknown.push(c);
                             else dead.push(c);
                         } else {
-                            unknown.push(lh);
+                            // Not in checker results — keep white (no color wrap)
+                            unchecked.push(stripped);
                         }
                     });
-                    editor.innerHTML = [...valid, ...unknown, ...dead].join('<br>');
+                    // Order: valid (green) → unchecked (white) → unknown (yellow) → dead (red)
+                    editor.innerHTML = [...valid, ...unchecked, ...yellowUnknown, ...dead].join('<br>');
                     _saveActiveTab();
                     const tab = _getActiveNoteTab();
                     if (tab) tab.content = editor.innerHTML;
                     save(); modal.remove(); renderNotes();
-                    const unchecked = unknown.filter(u => !u.includes('color:#facc15')).length;
-                    const yellowCount = unknown.length - unchecked;
-                    toast('Sorted: ' + valid.length + ' valid, ' + dead.length + ' dead' + (yellowCount > 0 ? ', ' + yellowCount + ' unknown' : '') + (unchecked > 0 ? ', ' + unchecked + ' unchecked' : ''), 'success');
+                    toast('Sorted: ' + valid.length + ' valid, ' + dead.length + ' dead' + (yellowUnknown.length > 0 ? ', ' + yellowUnknown.length + ' unknown' : '') + (unchecked.length > 0 ? ', ' + unchecked.length + ' unchecked' : ''), 'success');
                 };
             });
             menu.appendChild(sortBtn);
