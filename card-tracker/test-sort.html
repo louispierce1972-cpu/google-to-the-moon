@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head><title>Sort Test</title></head>
+<body style="background:#1a1a2e;color:#e0e0e0;font-family:monospace;padding:20px">
+<h2>Sort Valid Cards — Test</h2>
+<div id="results"></div>
+<script>
+// Simulate the sort logic from app.js
+function testSort(editorCards, checkerInput) {
+    const raw = checkerInput;
+    const cardStatus = new Map();
+    const last4Status = new Map();
+
+    const isBreakdownFormat = raw.includes('┃') && /\d{4,6}[•\u2022]{2,}\d{3,4}/.test(raw);
+
+    if (isBreakdownFormat) {
+        const lines = raw.split('\n');
+        for (const line of lines) {
+            let status = null;
+            if (line.includes('\u{1F7E2}')) status = 'valid';
+            else if (line.includes('\u{1F534}')) status = 'dead';
+            else if (line.includes('\u{1F7E1}')) status = 'unknown';
+            if (!status) continue;
+            const maskedMatch = line.match(/(\d{4,6})[•\u2022]{2,}(\d{3,4})/);
+            if (maskedMatch) {
+                last4Status.set(maskedMatch[2].slice(-4), status);
+            }
+        }
+        const approvedMatch = raw.match(/APPROVED CARDS[^\n]*\n([\s\S]*?)(?:┣|$)/i);
+        if (approvedMatch) {
+            const section = approvedMatch[1];
+            if (!section.toLowerCase().includes('none')) {
+                const approvedNums = section.match(/\d{13,19}/g);
+                if (approvedNums) {
+                    approvedNums.forEach(n => {
+                        cardStatus.set(n, 'valid');
+                        last4Status.set(n.slice(-4), 'valid');
+                    });
+                }
+            }
+        }
+    } else {
+        raw.split('\n').forEach(line => {
+            const nums = line.match(/\d{13,19}/g);
+            if (!nums) return;
+            const lower = line.toLowerCase();
+            const isValid = lower.includes('approved') || lower.includes('alive') ||
+                lower.includes('live') || lower.includes('charged') ||
+                lower.includes('valid') || lower.includes('success') ||
+                lower.includes('active') || lower.includes('cvv match') ||
+                lower.includes('ccn live') || line.includes('\u2705') ||
+                line.includes('\u{2705}');
+            cardStatus.set(nums[0], isValid ? 'valid' : 'dead');
+        });
+    }
+
+    const results = [];
+    editorCards.forEach(cardLine => {
+        const nums = cardLine.match(/\d{13,19}/g);
+        if (!nums) { results.push({ card: cardLine, status: 'no-card' }); return; }
+        let status = null;
+        if (cardStatus.has(nums[0])) status = cardStatus.get(nums[0]);
+        if (!status && last4Status.size > 0) {
+            const last4 = nums[0].slice(-4);
+            if (last4Status.has(last4)) status = last4Status.get(last4);
+        }
+        results.push({ card: cardLine, status: status || 'unchecked', num: nums[0] });
+    });
+    return { results, format: isBreakdownFormat ? 'BREAKDOWN' : 'ORIGINAL', cardStatusSize: cardStatus.size, last4StatusSize: last4Status.size };
+}
+
+const editorCards = [
+    '4017954158670993 05 27 321',
+    '5217295402122760 10 26 819',
+    '5217291934622369 01 27 185',
+    '5217291957981791 10 28 297',
+    '5523502400886386 01 28 342',
+    '5217293039207294 01 29 439',
+    '5217293027071454 08 28 095',
+    '4622391122136206 09 28 677'
+];
+
+// TEST 1: Original format
+const checker1 = `4017954158670993 |   ⛔️
+5217295402122760 |  DO NOT TRY AGAIN ⛔️
+5217291934622369 |  Approved ✅
+5217291957981791 |   ⛔️`;
+
+const t1 = testSort(editorCards, checker1);
+let html = '<h3>TEST 1: Original Format (pipe + ⛔️/✅)</h3>';
+html += `<div>Detected format: <b>${t1.format}</b> | cardStatus: ${t1.cardStatusSize} | last4Status: ${t1.last4StatusSize}</div>`;
+html += '<table style="border-collapse:collapse;margin:10px 0">';
+t1.results.forEach(r => {
+    const color = r.status === 'valid' ? '#4ade80' : r.status === 'dead' ? '#f87171' : r.status === 'unknown' ? '#facc15' : '#e0e0e0';
+    html += `<tr><td style="padding:4px 10px;color:${color}">${r.card}</td><td style="padding:4px 10px;color:${color};font-weight:bold">${r.status.toUpperCase()}</td></tr>`;
+});
+html += '</table>';
+
+// Expected: 1 valid (2369), 3 dead, 4 unchecked
+const t1Valid = t1.results.filter(r => r.status === 'valid').length;
+const t1Dead = t1.results.filter(r => r.status === 'dead').length;
+const t1Unchecked = t1.results.filter(r => r.status === 'unchecked').length;
+html += `<div style="color:${t1Valid===1 && t1Dead===3 && t1Unchecked===4 ? '#4ade80' : '#f87171'}">Result: ${t1Valid} valid, ${t1Dead} dead, ${t1Unchecked} unchecked — ${t1Valid===1 && t1Dead===3 && t1Unchecked===4 ? '✅ PASS' : '❌ FAIL (expected 1 valid, 3 dead, 4 unchecked)'}</div>`;
+
+// TEST 2: Breakdown format
+const checker2 = `RESULTS BREAKDOWN:
+┃
+┃ 9. 🔴 521729••••••7294 | 01/29 | 🇦🇺 MASTERCARD [6.39s]
+┃    └ 3-D Secure Check Failed
+┃ 10. 🔴 552350••••••6386 | 01/28 | 🇦🇺 MASTERCARD [12.62s]
+┃    └ Card declined (confirmed by 2 independent accounts via residential proxy)
+┃ 11. 🟢 521729••••••2369 | 08/28 | 🇦🇺 MASTERCARD [6.89s]
+┃    └ MasterCard •••• 2369
+┃ 12. 🔴 521729••••••3435 | 05/28 | 🇦🇺 MASTERCARD [6.79s]
+┃    └ 3-D Secure Check Failed
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ 📋 APPROVED CARDS (TAP TO COPY):
+4622391122136206|09|28|677
+5217293027071454|08|28|095`;
+
+const t2 = testSort(editorCards, checker2);
+html += '<h3>TEST 2: Breakdown Format (🔴🟢🟡 + masked cards)</h3>';
+html += `<div>Detected format: <b>${t2.format}</b> | cardStatus: ${t2.cardStatusSize} | last4Status: ${t2.last4StatusSize}</div>`;
+html += '<table style="border-collapse:collapse;margin:10px 0">';
+t2.results.forEach(r => {
+    const color = r.status === 'valid' ? '#4ade80' : r.status === 'dead' ? '#f87171' : r.status === 'unknown' ? '#facc15' : '#e0e0e0';
+    html += `<tr><td style="padding:4px 10px;color:${color}">${r.card}</td><td style="padding:4px 10px;color:${color};font-weight:bold">${r.status.toUpperCase()}</td></tr>`;
+});
+html += '</table>';
+
+// Expected: 3 valid (2369 from 🟢, 1454 from APPROVED, 6206 from APPROVED), 3 dead (7294, 6386, 3435 but 3435 not in editor), 2 unchecked
+const t2Valid = t2.results.filter(r => r.status === 'valid').length;
+const t2Dead = t2.results.filter(r => r.status === 'dead').length;
+const t2Unchecked = t2.results.filter(r => r.status === 'unchecked').length;
+// 2369 → valid (🟢), 7294 → dead (🔴), 6386 → dead (🔴), 1454 → valid (APPROVED), 6206 → valid (APPROVED)
+// Cards: 0993→unchecked, 2760→unchecked, 2369→valid, 1791→unchecked, 6386→dead, 7294→dead, 1454→valid, 6206→valid
+html += `<div style="color:${t2Valid===3 && t2Dead===2 && t2Unchecked===3 ? '#4ade80' : '#f87171'}">Result: ${t2Valid} valid, ${t2Dead} dead, ${t2Unchecked} unchecked — ${t2Valid===3 && t2Dead===2 && t2Unchecked===3 ? '✅ PASS' : '❌ FAIL (expected 3 valid, 2 dead, 3 unchecked)'}</div>`;
+
+document.getElementById('results').innerHTML = html;
+</script>
+</body>
+</html>

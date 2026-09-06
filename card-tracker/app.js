@@ -7150,54 +7150,45 @@ function renderNotes() {
                     const raw = document.getElementById('nt-sort-input').value;
                     if (!raw.trim()) { modal.remove(); return; }
 
-                    // Detect format: RESULTS BREAKDOWN (masked cards with 🔴🟡🟢)
-                    const isBreakdownFormat = /[🔴🟡🟢]/.test(raw) && /[\u2022•\*]{2,}/.test(raw);
+                    const cardStatus = new Map(); // full card number -> 'valid'|'dead'|'unknown'
+                    const last4Status = new Map(); // last4 -> 'valid'|'dead'|'unknown'
 
-                    const cardStatus = new Map(); // full card number -> status
-                    const last4Status = new Map(); // last4 -> status (for masked format)
+                    // Detect RESULTS BREAKDOWN format by the ┃ box-drawing character + masked cards
+                    const isBreakdownFormat = raw.includes('┃') && /\d{4,6}[•\u2022]{2,}\d{3,4}/.test(raw);
 
                     if (isBreakdownFormat) {
-                        // Parse RESULTS BREAKDOWN format
-                        // Lines like: ┃ 1. 🔴 521729••••••1453 | 01/29 | 🇦🇺 MASTERCARD [6.56s]
+                        // --- BREAKDOWN FORMAT ---
                         const lines = raw.split('\n');
                         for (const line of lines) {
-                            // Extract status emoji
-                            let status = null; // 'valid', 'dead', 'unknown'
-                            if (line.includes('🟢')) status = 'valid';
-                            else if (line.includes('🔴')) status = 'dead';
-                            else if (line.includes('🟡')) status = 'unknown';
+                            let status = null;
+                            if (line.includes('\u{1F7E2}')) status = 'valid';       // 🟢
+                            else if (line.includes('\u{1F534}')) status = 'dead';    // 🔴
+                            else if (line.includes('\u{1F7E1}')) status = 'unknown'; // 🟡
                             if (!status) continue;
 
-                            // Extract last 4 digits from masked card (e.g. 521729••••••1453)
-                            // Match patterns: digits followed by dots/bullets then digits
-                            const maskedMatch = line.match(/(\d{4,6})[•\u2022\*\.]{2,}(\d{3,4})/);
+                            // Match masked card: 521729••••••1453
+                            const maskedMatch = line.match(/(\d{4,6})[•\u2022]{2,}(\d{3,4})/);
                             if (maskedMatch) {
-                                const last4 = maskedMatch[2].slice(-4);
-                                last4Status.set(last4, status);
-                            }
-
-                            // Also try to extract full card numbers if present
-                            const fullNums = line.match(/\d{13,19}/g);
-                            if (fullNums) {
-                                fullNums.forEach(n => cardStatus.set(n, status));
+                                last4Status.set(maskedMatch[2].slice(-4), status);
                             }
                         }
 
-                        // Also check APPROVED CARDS section at bottom
-                        const approvedSection = raw.match(/APPROVED CARDS:\s*\n([\s\S]*?)(?:\n┣|$)/i);
-                        if (approvedSection && !approvedSection[1].toLowerCase().includes('none')) {
-                            const approvedLines = approvedSection[1].split('\n');
-                            for (const aLine of approvedLines) {
-                                const aMasked = aLine.match(/(\d{4,6})[•\u2022\*\.]{2,}(\d{3,4})/);
-                                if (aMasked) {
-                                    last4Status.set(aMasked[2].slice(-4), 'valid');
+                        // Parse APPROVED CARDS section — full card numbers after the header
+                        const approvedMatch = raw.match(/APPROVED CARDS[^\n]*\n([\s\S]*?)(?:┣|$)/i);
+                        if (approvedMatch) {
+                            const section = approvedMatch[1];
+                            if (!section.toLowerCase().includes('none')) {
+                                const approvedNums = section.match(/\d{13,19}/g);
+                                if (approvedNums) {
+                                    approvedNums.forEach(n => {
+                                        cardStatus.set(n, 'valid');
+                                        last4Status.set(n.slice(-4), 'valid');
+                                    });
                                 }
-                                const aFull = aLine.match(/\d{13,19}/g);
-                                if (aFull) aFull.forEach(n => cardStatus.set(n, 'valid'));
                             }
                         }
                     } else {
-                        // Original format: "4847835121393811 | Approved ✅" or "card - ALIVE"
+                        // --- ORIGINAL FORMAT: "card | Approved ✅" / "card | ⛔️" ---
                         raw.split('\n').forEach(line => {
                             const nums = line.match(/\d{13,19}/g);
                             if (!nums) return;
@@ -7206,14 +7197,15 @@ function renderNotes() {
                                 lower.includes('live') || lower.includes('charged') ||
                                 lower.includes('valid') || lower.includes('success') ||
                                 lower.includes('active') || lower.includes('cvv match') ||
-                                lower.includes('ccn live') || lower.includes('✅') ||
-                                line.includes('\u2705');
+                                lower.includes('ccn live') || line.includes('\u2705') ||
+                                line.includes('\u{2705}');
                             cardStatus.set(nums[0], isValid ? 'valid' : 'dead');
                         });
                     }
 
                     if (cardStatus.size === 0 && last4Status.size === 0) { toast('No card numbers found', 'error'); return; }
 
+                    // Process editor lines
                     let lineEls = editor.innerHTML.replace(/<div>/gi, '\n<div>').replace(/<br\s*\/?>/gi, '\n').split('\n').filter(l => l.trim());
                     const valid = [], dead = [], yellowUnknown = [], unchecked = [];
                     lineEls.forEach(lh => {
@@ -7230,7 +7222,7 @@ function renderNotes() {
                             status = cardStatus.get(nums[0]);
                         }
 
-                        // Try last 4 digits match (for masked format)
+                        // Try last 4 digits match (for masked/breakdown format)
                         if (!status && last4Status.size > 0) {
                             const last4 = nums[0].slice(-4);
                             if (last4Status.has(last4)) {
@@ -7238,18 +7230,14 @@ function renderNotes() {
                             }
                         }
 
-                        // Legacy boolean format compatibility
-                        if (status === true) status = 'valid';
-                        if (status === false) status = 'dead';
-
-                        if (status) {
-                            const colorMap = { valid: '#4ade80', dead: '#f87171', unknown: '#facc15' };
-                            const c = '<span style="color:' + (colorMap[status] || '#f87171') + '">' + stripped + '</span>';
-                            if (status === 'valid') valid.push(c);
-                            else if (status === 'unknown') yellowUnknown.push(c);
-                            else dead.push(c);
+                        if (status === 'valid') {
+                            valid.push('<span style="color:#4ade80">' + stripped + '</span>');
+                        } else if (status === 'dead') {
+                            dead.push('<span style="color:#f87171">' + stripped + '</span>');
+                        } else if (status === 'unknown') {
+                            yellowUnknown.push('<span style="color:#facc15">' + stripped + '</span>');
                         } else {
-                            // Not in checker results — keep white (no color wrap)
+                            // Not in checker results — stay white
                             unchecked.push(stripped);
                         }
                     });
