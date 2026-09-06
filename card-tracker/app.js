@@ -7137,8 +7137,8 @@ function renderNotes() {
                 modal.innerHTML =
                     '<div class="nt-sort-modal">' +
                     '  <div class="nt-sort-modal-header">Sort Valid Cards</div>' +
-                    '  <p class="nt-sort-modal-desc">Paste checker results (Approved / ALIVE = valid):</p>' +
-                    '  <textarea id="nt-sort-input" class="nt-sort-input" rows="10" placeholder="4847835121393811 | Approved\n3752490102710 - ALIVE"></textarea>' +
+                    '  <p class="nt-sort-modal-desc">Paste checker results — auto-detects format:</p>' +
+                    '  <textarea id="nt-sort-input" class="nt-sort-input" rows="10" placeholder="Format 1:\n4847835121393811 | Approved ✅\n3752490102710 | ⛔️\n\nFormat 2 (RESULTS BREAKDOWN):\n┃ 1. 🔴 521729••••••1453 | 01/29\n┃ 2. 🟢 521729••••••3879 | 01/28\n┃ 3. 🟡 552350••••••2728 | 02/29"></textarea>' +
                     '  <div class="nt-sort-modal-actions">' +
                     '    <button id="nt-sort-cancel" class="nt-sort-btn nt-sort-cancel">Cancel</button>' +
                     '    <button id="nt-sort-apply" class="nt-sort-btn nt-sort-apply">Sort & Color</button>' +
@@ -7149,39 +7149,116 @@ function renderNotes() {
                 document.getElementById('nt-sort-apply').onclick = () => {
                     const raw = document.getElementById('nt-sort-input').value;
                     if (!raw.trim()) { modal.remove(); return; }
-                    const cardStatus = new Map();
-                    raw.split('\n').forEach(line => {
-                        const nums = line.match(/\d{13,19}/g);
-                        if (!nums) return;
-                        const lower = line.toLowerCase();
-                        const isValid = lower.includes('approved') || lower.includes('alive') ||
-                            lower.includes('live') || lower.includes('charged') ||
-                            lower.includes('valid') || lower.includes('success') ||
-                            lower.includes('active') || lower.includes('cvv match') ||
-                            lower.includes('ccn live') || lower.includes('✅') ||
-                            line.includes('\u2705');
-                        cardStatus.set(nums[0], isValid);
-                    });
-                    if (cardStatus.size === 0) { toast('No card numbers found', 'error'); return; }
+
+                    // Detect format: RESULTS BREAKDOWN (masked cards with 🔴🟡🟢)
+                    const isBreakdownFormat = /[🔴🟡🟢]/.test(raw) && /[\u2022•\*]{2,}/.test(raw);
+
+                    const cardStatus = new Map(); // full card number -> status
+                    const last4Status = new Map(); // last4 -> status (for masked format)
+
+                    if (isBreakdownFormat) {
+                        // Parse RESULTS BREAKDOWN format
+                        // Lines like: ┃ 1. 🔴 521729••••••1453 | 01/29 | 🇦🇺 MASTERCARD [6.56s]
+                        const lines = raw.split('\n');
+                        for (const line of lines) {
+                            // Extract status emoji
+                            let status = null; // 'valid', 'dead', 'unknown'
+                            if (line.includes('🟢')) status = 'valid';
+                            else if (line.includes('🔴')) status = 'dead';
+                            else if (line.includes('🟡')) status = 'unknown';
+                            if (!status) continue;
+
+                            // Extract last 4 digits from masked card (e.g. 521729••••••1453)
+                            // Match patterns: digits followed by dots/bullets then digits
+                            const maskedMatch = line.match(/(\d{4,6})[•\u2022\*\.]{2,}(\d{3,4})/);
+                            if (maskedMatch) {
+                                const last4 = maskedMatch[2].slice(-4);
+                                last4Status.set(last4, status);
+                            }
+
+                            // Also try to extract full card numbers if present
+                            const fullNums = line.match(/\d{13,19}/g);
+                            if (fullNums) {
+                                fullNums.forEach(n => cardStatus.set(n, status));
+                            }
+                        }
+
+                        // Also check APPROVED CARDS section at bottom
+                        const approvedSection = raw.match(/APPROVED CARDS:\s*\n([\s\S]*?)(?:\n┣|$)/i);
+                        if (approvedSection && !approvedSection[1].toLowerCase().includes('none')) {
+                            const approvedLines = approvedSection[1].split('\n');
+                            for (const aLine of approvedLines) {
+                                const aMasked = aLine.match(/(\d{4,6})[•\u2022\*\.]{2,}(\d{3,4})/);
+                                if (aMasked) {
+                                    last4Status.set(aMasked[2].slice(-4), 'valid');
+                                }
+                                const aFull = aLine.match(/\d{13,19}/g);
+                                if (aFull) aFull.forEach(n => cardStatus.set(n, 'valid'));
+                            }
+                        }
+                    } else {
+                        // Original format: "4847835121393811 | Approved ✅" or "card - ALIVE"
+                        raw.split('\n').forEach(line => {
+                            const nums = line.match(/\d{13,19}/g);
+                            if (!nums) return;
+                            const lower = line.toLowerCase();
+                            const isValid = lower.includes('approved') || lower.includes('alive') ||
+                                lower.includes('live') || lower.includes('charged') ||
+                                lower.includes('valid') || lower.includes('success') ||
+                                lower.includes('active') || lower.includes('cvv match') ||
+                                lower.includes('ccn live') || lower.includes('✅') ||
+                                line.includes('\u2705');
+                            cardStatus.set(nums[0], isValid ? 'valid' : 'dead');
+                        });
+                    }
+
+                    if (cardStatus.size === 0 && last4Status.size === 0) { toast('No card numbers found', 'error'); return; }
+
                     let lineEls = editor.innerHTML.replace(/<div>/gi, '\n<div>').replace(/<br\s*\/?>/gi, '\n').split('\n').filter(l => l.trim());
                     const valid = [], dead = [], unknown = [];
                     lineEls.forEach(lh => {
                         const plain = lh.replace(/<[^>]+>/g, '');
                         const nums = plain.match(/\d{13,19}/g);
                         if (!nums) { unknown.push(lh); return; }
+
+                        let status = null;
+
+                        // Try full card number match first
                         if (cardStatus.has(nums[0])) {
-                            const ok = cardStatus.get(nums[0]);
+                            status = cardStatus.get(nums[0]);
+                        }
+
+                        // Try last 4 digits match (for masked format)
+                        if (!status && last4Status.size > 0) {
+                            const last4 = nums[0].slice(-4);
+                            if (last4Status.has(last4)) {
+                                status = last4Status.get(last4);
+                            }
+                        }
+
+                        // Legacy boolean format compatibility
+                        if (status === true) status = 'valid';
+                        if (status === false) status = 'dead';
+
+                        if (status) {
                             const s = lh.replace(/<\/?div[^>]*>/gi, '');
-                            const c = '<span style="color:' + (ok ? '#4ade80' : '#f87171') + '">' + s + '</span>';
-                            (ok ? valid : dead).push(c);
-                        } else unknown.push(lh);
+                            const colorMap = { valid: '#4ade80', dead: '#f87171', unknown: '#facc15' };
+                            const c = '<span style="color:' + (colorMap[status] || '#f87171') + '">' + s + '</span>';
+                            if (status === 'valid') valid.push(c);
+                            else if (status === 'unknown') unknown.push(c);
+                            else dead.push(c);
+                        } else {
+                            unknown.push(lh);
+                        }
                     });
                     editor.innerHTML = [...valid, ...unknown, ...dead].join('<br>');
                     _saveActiveTab();
                     const tab = _getActiveNoteTab();
                     if (tab) tab.content = editor.innerHTML;
                     save(); modal.remove(); renderNotes();
-                    toast('Sorted: ' + valid.length + ' valid, ' + dead.length + ' dead, ' + unknown.length + ' unchecked', 'success');
+                    const unchecked = unknown.filter(u => !u.includes('color:#facc15')).length;
+                    const yellowCount = unknown.length - unchecked;
+                    toast('Sorted: ' + valid.length + ' valid, ' + dead.length + ' dead' + (yellowCount > 0 ? ', ' + yellowCount + ' unknown' : '') + (unchecked > 0 ? ', ' + unchecked + ' unchecked' : ''), 'success');
                 };
             });
             menu.appendChild(sortBtn);
@@ -12999,12 +13076,11 @@ function _processValidCards(text) {
     };
 
     // Log enrichment stats
-    const enriched = validCards.filter(c => c.mm && c.yy && c.cvv && c.cvv !== '000').length;
-    console.log(`[Valid Cards] ${validCards.length} valid, ${enriched} enriched from base (${baseCards.length} cards in base)`);
+    console.log(`[Valid Cards] ${validCards.length} valid, ${enrichedCount} enriched (${Object.keys(baseMap).length} cards in base map)`);
 
     // (translated)
     navigate('new-cards');
-    toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}${enriched > 0 ? ` · 📎 ${enriched} enriched from base` : ''}`, 'success');
+    toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}${enrichedCount > 0 ? ` · 📎 ${enrichedCount} enriched from base` : ''}`, 'success');
     renderValidCardsResults();
 }
 
