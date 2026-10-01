@@ -12552,7 +12552,7 @@ function _extractCC(line) {
  */
 function _detectCheckerFormat(text) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0).slice(0, 300);
-    let classic = 0, pipe = 0, block = 0, results = 0;
+    let classic = 0, pipe = 0, block = 0, results = 0, affchecker = 0;
     for (const l of lines) {
         if (/^[\u2705\u{1F480}\u274C]/u.test(l) && /\b(ALIVE|DEAD|INVALID)\b/i.test(l)) classic++;
         if (/^\d{13,19}\s*\|/.test(l)) pipe++;
@@ -12561,10 +12561,15 @@ function _detectCheckerFormat(text) {
         if (/^\d{13,19}\s*\|.*[\u2705\u26D4]/u.test(l) || /^Результаты\s+проверки/i.test(l)) results++;
         // Also detect CARD | error_text (no emoji but known trash keywords on same line)
         if (/^\d{13,19}\s*\|.*(?:TRAN NOT ALLOWED|INV ACCT NUM|Cancelled|DO NOT TRY|Card Issuer|NOT ALLOWED)/i.test(l)) results++;
+        // AFFChecker format: masked cards like 521012••••••2728 or 456432******1828 (6 digits + mask + 4 digits)
+        // Detect by: masked card + colored circle emoji (🟢🔴🟡🚫) or SPLICE/AFFILIHATE keywords
+        if (/\d{6}[^\d\n]{1,10}\d{4}/.test(l) && /[\u{1F7E2}\u{1F534}\u{1F7E1}\u{1F6AB}]/u.test(l)) affchecker++;
+        if (/SPLICE.*GATEWAY|AFFILIHATE|BATCH REPORT/i.test(l)) affchecker++;
     }
     // results + pipe overlap: results is more specific, always include it
+    if (affchecker > 0 && classic === 0 && block === 0 && results === 0 && pipe === 0) return 'affchecker';
     if (results > 0 && classic === 0 && block === 0) return 'results';
-    const found = [classic > 0 && 'classic', pipe > 0 && !results && 'pipe', block > 0 && 'block', results > 0 && 'results'].filter(Boolean);
+    const found = [classic > 0 && 'classic', pipe > 0 && !results && 'pipe', block > 0 && 'block', results > 0 && 'results', affchecker > 0 && 'affchecker'].filter(Boolean);
     if (found.length === 0) return 'unknown';
     if (found.length === 1) return found[0];
     return 'mixed';
@@ -12682,6 +12687,144 @@ function _parseResultsFormat(text) {
 }
 
 /**
+ * Build a lookup array of all full card numbers from the loaded base (PARSER_STATE.rawMessages).
+ * Used by AFFChecker format to match masked numbers against full cards.
+ */
+function _buildFullCardLookup() {
+    const fullCards = new Set();
+    const messages = (typeof PARSER_STATE !== 'undefined' && PARSER_STATE.rawMessages) || [];
+
+    messages.forEach(msg => {
+        if (!msg) return;
+        let text = '';
+        if (typeof msg.text === 'string') {
+            text = msg.text;
+        } else if (Array.isArray(msg.text)) {
+            text = msg.text.map(t => (typeof t === 'string' ? t : (t && t.text ? String(t.text) : ''))).join('');
+        }
+        if (!text) return;
+
+        // Extract all 13-19 digit card numbers from text
+        const ccMatches = text.match(/\b\d{13,19}\b/g);
+        if (ccMatches) {
+            ccMatches.forEach(cc => fullCards.add(cc));
+        }
+    });
+
+    // Also include cards already in STATE.cards
+    if (typeof STATE !== 'undefined' && STATE.cards) {
+        STATE.cards.forEach(c => {
+            const cc = (c.cc || '').replace(/[\s\-]/g, '');
+            if (cc && cc.length >= 13) fullCards.add(cc);
+        });
+    }
+
+    return [...fullCards];
+}
+
+/**
+ * Parse AFFChecker (AFFILIHATE SPLICE VIP GATEWAY) format.
+ * This checker masks card numbers showing only first 6 + last 4 digits:
+ *   🔴 454285••••••4699 | 11/30 | VISA → trash (declined)
+ *   🟢 521012••••••2728 | 07/29 | MASTERCARD → valid (alive)
+ *   🟡 407613••••••7913 | 09/30 | VISA → skip (uncertain)
+ *   🚫 498000••••••3706 | 12/29 | VISA → trash (error)
+ * Also handles: Card: 456432******1828 + Status: DECLINED
+ * Matches masked numbers against full cards in PARSER_STATE.rawMessages / STATE.cards
+ */
+function _parseAffCheckerFormat(text) {
+    const results = [];
+    const lines = text.split(/\r?\n/);
+
+    // Build full card number lookup from loaded base
+    const fullCards = _buildFullCardLookup();
+    if (fullCards.length === 0) {
+        console.warn('[AFFChecker] No base cards loaded — cannot match masked numbers. Load result.json first.');
+        return results;
+    }
+
+    // Pattern: 6 digits + non-digit masking chars (*, •, 🔒, bell chars, etc.) + 4 digits
+    const maskedPattern = /(\d{6})[^\d\n\r]{1,10}(\d{4})/;
+    const seen = new Set();
+
+    // Skip lines that are full card numbers (APPROVED CARDS section) — those are handled by pipe format
+    const fullCardLinePattern = /^\d{13,19}\s*\|/;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Skip full card number lines (pipe format in APPROVED CARDS section)
+        if (fullCardLinePattern.test(line)) continue;
+
+        const masked = line.match(maskedPattern);
+        if (!masked) continue;
+
+        const prefix = masked[1]; // first 6 digits
+        const suffix = masked[2]; // last 4 digits
+        const maskKey = prefix + '****' + suffix;
+
+        // Skip if we already processed this masked number
+        if (seen.has(maskKey)) continue;
+        seen.add(maskKey);
+
+        // Determine status from current line + next line (description line with └)
+        const nextLine = (i + 1 < lines.length) ? lines[i + 1].trim() : '';
+        const contextLines = line + ' ' + nextLine;
+        let status = null;
+
+        // 🔴 Red circle = DEAD/DECLINED → trash
+        if (/\u{1F534}/u.test(line)) {
+            status = 'trash';
+        }
+        // 🚫 Prohibited = error → trash
+        else if (/\u{1F6AB}/u.test(line)) {
+            status = 'trash';
+        }
+        // 🟢 Green circle = ALIVE/APPROVED → valid (skip, don't add to trash)
+        else if (/\u{1F7E2}/u.test(line)) {
+            status = 'valid';
+        }
+        // 🟡 Yellow circle = uncertain → skip (don't add to trash)
+        else if (/\u{1F7E1}/u.test(line)) {
+            status = 'valid'; // treat as valid (не добавлять в trash)
+        }
+        // Fallback: check text keywords
+        else if (/DECLINED|\bDead\b|declined|3-D Secure.*Failed|expired|DO NOT HONOR|FRAUD|INSUFFICIENT/i.test(contextLines)) {
+            status = 'trash';
+        }
+        else if (/APPROVED|Approved|\u2705|\bALIVE\b/iu.test(contextLines)) {
+            status = 'valid';
+        }
+        // 💀 skull or ❌ or ⛔
+        else if (/\u{1F480}|\u274C|\u26D4/u.test(contextLines)) {
+            status = 'trash';
+        }
+
+        if (status === null) continue; // Unknown status, skip
+
+        // Find matching full card numbers from base
+        const matchingCards = fullCards.filter(cc =>
+            cc.startsWith(prefix) && cc.endsWith(suffix)
+        );
+
+        if (matchingCards.length > 0) {
+            matchingCards.forEach(cc => {
+                results.push({ cc, status });
+            });
+        } else {
+            // No match in base — log for debugging
+            console.log(`[AFFChecker] No base match for masked card ${maskKey}`);
+        }
+    }
+
+    const trashCount = results.filter(r => r.status === 'trash').length;
+    const validCount = results.filter(r => r.status === 'valid').length;
+    console.log(`[AFFChecker] Parsed ${seen.size} masked cards → ${trashCount} trash, ${validCount} valid (matched ${results.length} from base of ${fullCards.length})`);
+    return results;
+}
+
+/**
  * Multi-format parser — detects and runs all matching format parsers
  */
 function _parseMultiFormat(text) {
@@ -12691,6 +12834,7 @@ function _parseMultiFormat(text) {
     if (format === 'pipe' || format === 'mixed') all = all.concat(_parsePipeFormat(text));
     if (format === 'block' || format === 'mixed') all = all.concat(_parseBlockFormat(text));
     if (format === 'results' || format === 'mixed') all = all.concat(_parseResultsFormat(text));
+    if (format === 'affchecker' || format === 'mixed') all = all.concat(_parseAffCheckerFormat(text));
 
     // (translated)
     const statusMap = new Map();
@@ -12860,6 +13004,69 @@ function _initValidCardsModal() {
                                     statusMap[cc] = 'invalid';
                                 }
                             }
+                        }
+                    });
+
+                    // Phase 2.5: Handle AFFChecker masked cards (first 6 + last 4 digits)
+                    // AFFChecker shows: Card: 456432******1828 with status DECLINED/APPROVED
+                    // Match masked numbers against full cards in cardDataMap
+                    const maskedPattern = /(\d{6})[^\d\n\r]{1,10}(\d{4})/g;
+                    const allFullCCs = Object.keys(cardDataMap);
+
+                    messages.forEach(msg => {
+                        if (!msg) return;
+                        let text = '';
+                        if (typeof msg.text === 'string') {
+                            text = msg.text;
+                        } else if (Array.isArray(msg.text)) {
+                            text = msg.text.map(t => (typeof t === 'string' ? t : (t && t.text ? String(t.text) : ''))).join('');
+                        } else if (typeof msg === 'string') {
+                            text = msg;
+                        }
+                        if (!text.trim()) return;
+
+                        // Check if this message is from AFFChecker (contains masked card pattern + status keywords)
+                        let match;
+                        maskedPattern.lastIndex = 0;
+                        while ((match = maskedPattern.exec(text)) !== null) {
+                            const prefix = match[1];
+                            const suffix = match[2];
+
+                            // Determine status from message context
+                            let status = null;
+                            // 🔴 Red circle or 🚫 = dead/declined
+                            if (/\u{1F534}|\u{1F6AB}/u.test(text)) {
+                                status = 'dead';
+                            }
+                            // 🟢 Green circle = alive
+                            else if (/\u{1F7E2}/u.test(text)) {
+                                status = 'alive';
+                            }
+                            // 🟡 Yellow circle = uncertain, skip
+                            else if (/\u{1F7E1}/u.test(text)) {
+                                status = null; // don't assign status
+                            }
+                            // Fallback text-based detection
+                            else if (/DECLINED|Dead|declined|3-D Secure.*Failed|expired|DO NOT HONOR|FRAUD|INSUFFICIENT/i.test(text)) {
+                                status = 'dead';
+                            } else if (/APPROVED|Approved|\u2705|3D.SECURE/u.test(text)) {
+                                status = 'alive';
+                            } else if (/INVALID|\u274C/u.test(text)) {
+                                status = 'invalid';
+                            }
+
+                            if (!status) continue;
+
+                            // Find matching full card numbers
+                            const matching = allFullCCs.filter(cc =>
+                                cc.startsWith(prefix) && cc.endsWith(suffix)
+                            );
+
+                            matching.forEach(cc => {
+                                if (!statusMap[cc]) {
+                                    statusMap[cc] = status;
+                                }
+                            });
                         }
                     });
 
