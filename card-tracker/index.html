@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="parser-filters.css?v=1">
 </head>
 <body>
     <!-- MAIN APP -->
@@ -573,138 +574,68 @@
         </div>
     </div>
 
-    <!-- TRASH CARDS MODAL (с вкладками: Add to Trash + Check My List) -->
+    <!-- TRASH CARDS MODAL -->
     <div id="trash-cards-overlay" class="modal-overlay hidden">
-        <div class="modal modal-wide">
+        <div class="modal modal-wide ck-modal ck-modal-trash">
             <div class="modal-header">
                 <div>
-                    <h3 id="trash-modal-title">🗑 TRASH</h3>
-                    <p class="modal-subtitle" id="trash-modal-subtitle">Вставь вывод чекера — собирает 💀 DEAD и ❌ INVALID карты</p>
+                    <h3>🗑 TRASH</h3>
+                    <p class="modal-subtitle">Загрузи файлы чекера — добавятся ТОЛЬКО 💀 DEAD / ❌ INVALID карты. Живые пропускаются.</p>
                 </div>
-                <button class="modal-close" id="trash-cards-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-
-            <!-- Вкладки -->
-            <div class="trash-tab-bar">
-                <button class="trash-tab active" data-tab="add">➕ Add to Trash</button>
-                <button class="trash-tab" data-tab="check">🔍 Check My List</button>
-            </div>
-
-            <!-- ВКЛАДКА 1: ADD TO TRASH (существующий функционал) -->
-            <div id="trash-tab-add" class="trash-tab-panel">
-                <div class="modal-body">
-                    <div class="form-group full-width">
-                        <label>Вставь вывод чекера</label>
-                        <textarea id="trash-cards-textarea" class="list-textarea" rows="8" placeholder="Вставь вывод чекера...&#10;&#10;Форматы:&#10;✅ 5218350010045025 10 27 622 - ALIVE&#10;💀 5454781003037335 10 26 011 - DEAD&#10;❌ 4692793030263482 01 26 641 - INVALID&#10;🔴 454285••••••4699 | 11/30 | VISA - AFFChecker (маска → поиск по базе)&#10;&#10;DEAD + INVALID + 🔴 → добавляются в trash&#10;ALIVE + 🟢 → игнорируются&#10;🟡 → под вопросом (не добавляются)"></textarea>
-                    </div>
-                    <div class="list-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                        <span id="trash-cards-detected" class="list-count-badge">0 cards detected</span>
-                        <label class="pz-btn pz-btn-dim" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
-                            📁 Load .txt
-                            <input type="file" id="trash-cards-file" accept=".txt" hidden>
-                        </label>
-                        <label class="pz-btn pz-btn-trash" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
-                            💀 Mini Parser
-                            <input type="file" id="trash-mini-parser-file" accept=".json" hidden>
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                    <button class="btn-cancel" id="trash-cards-cancel">Cancel</button>
-                    <button class="pz-btn pz-btn-dim" id="trash-show-list" style="font-size:11px;padding:5px 12px">📋 Show List</button>
-                    <button class="pz-btn pz-btn-dim" id="trash-clear-all" style="font-size:11px;padding:5px 12px;color:#ef4444">🗑 Clear All</button>
-                    <span style="flex:1"></span>
-                    <button class="btn-primary" id="trash-cards-save">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                        Add to Trash
-                    </button>
-                </div>
-            </div>
-
-            <!-- ВКЛАДКА 2: CHECK MY LIST (новый функционал) -->
-            <div id="trash-tab-check" class="trash-tab-panel hidden">
-                <div class="modal-body">
-                    <div class="form-group full-width">
-                        <label>Вставь список карт для проверки против trash-базы</label>
-                        <textarea id="cml-textarea" class="list-textarea" rows="7"
-                            placeholder="Paste your cards here: card mm yy cvv&#10;&#10;Пример:&#10;4520880022987380 08 27 308&#10;5218350010045025 10 27 622&#10;4537800314042786 01 29 874&#10;&#10;⚠ Карты НЕ добавляются в trash — только проверяются!"></textarea>
-                    </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-                        <button class="pz-btn pz-btn-primary" id="cml-check-btn">🔍 CHECK MY LIST</button>
-                        <button class="pz-btn pz-btn-dim" id="cml-clear-btn" style="font-size:11px;padding:5px 12px">CLEAR</button>
-                        <span id="cml-input-count" style="font-size:11px;color:var(--text-muted)"></span>
-                    </div>
-
-                    <!-- Результаты проверки -->
-                    <div id="cml-stats" class="cml-stats" style="display:none"></div>
-                    <div id="cml-results" class="cml-results" style="display:none">
-                        <div class="cml-col">
-                            <div class="cml-col-header cml-header-trash">
-                                <span>💀 TRASH MATCHES</span>
-                                <button class="cml-action-btn" id="cml-copy-trash">📋 COPY</button>
-                            </div>
-                            <div id="cml-trash-list" class="cml-list cml-list-trash"></div>
-                        </div>
-                        <div class="cml-col">
-                            <div class="cml-col-header cml-header-clean">
-                                <span>✅ CLEAN CARDS</span>
-                                <div style="display:flex;gap:6px">
-                                    <button class="cml-action-btn" id="cml-copy-clean">📋 COPY CLEAN</button>
-                                    <button class="cml-action-btn cml-btn-export" id="cml-export-notes">📤 EXPORT TO NOTES</button>
-                                </div>
-                            </div>
-                            <div id="cml-clean-list" class="cml-list cml-list-clean"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer" style="display:flex;align-items:center;gap:8px">
-                    <button class="btn-cancel" id="cml-close-btn">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- VALID CARDS MODAL -->
-    <div id="valid-cards-overlay" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>✅ VALID CARDS</h3>
-                <p class="modal-subtitle">Вставь вывод чекера — собирает ALIVE карты, исключая DEAD/INVALID из того же файла</p>
-                <button class="modal-close" id="valid-cards-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
+                <button class="modal-close" id="trash-cards-close"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
             </div>
             <div class="modal-body">
-                <div class="form-group full-width">
-                    <label>Вставь вывод чекера</label>
-                    <textarea id="valid-cards-textarea" class="list-textarea" rows="8" placeholder="Вставь вывод чекера...&#10;&#10;Форматы:&#10;✅ 5218350010045025 10 27 622 - ALIVE&#10;💀 5454781003037335 10 26 011 - DEAD&#10;❌ 4692793030263482 01 26 641 - INVALID&#10;&#10;Служебные строки (Status code, Система, Тип, Уровень, Код региона)&#10;автоматически привязываются к карте выше.&#10;&#10;Логика: VALID = все ALIVE минус карты,&#10;которые хотя бы раз были DEAD или INVALID."></textarea>
+                <div class="smart-drop smart-drop-trash" id="trash-smart-drop" tabindex="0">
+                    <input type="file" id="trash-smart-file" accept=".json,.txt" multiple hidden>
+                    <span class="smart-drop-icon">📥</span>
+                    <span class="smart-drop-title">Перетащи файлы сюда или нажми</span>
+                    <span class="smart-drop-sub">.json (экспорт Telegram) · .txt · можно несколько файлов · или вставь список (Ctrl+V)</span>
                 </div>
-                <div class="list-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                    <span id="valid-cards-detected" class="list-count-badge">0 cards detected</span>
-                    <label class="pz-btn pz-btn-dim" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
-                        📁 Load .txt
-                        <input type="file" id="valid-cards-file" accept=".txt" hidden>
-                    </label>
-                    <label class="pz-btn pz-btn-valid" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
-                        ✅ Mini Parser
-                        <input type="file" id="valid-mini-parser-file" accept=".json" hidden>
-                    </label>
+                <div class="ck-summary" id="trash-summary">
+                    <span class="ck-summary-empty">Файлы ещё не загружены</span>
                 </div>
             </div>
-            <div class="modal-footer" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <button class="btn-cancel" id="valid-cards-cancel">Cancel</button>
+            <div class="modal-footer ck-footer">
+                <button class="btn-cancel" id="trash-cards-cancel">Cancel</button>
+                <button class="pz-btn pz-btn-dim" id="trash-show-list">📋 Show List</button>
+                <button class="pz-btn pz-btn-dim ck-btn-danger" id="trash-clear-all">🗑 Clear All</button>
                 <span style="flex:1"></span>
-                <button class="btn-primary" id="valid-cards-process">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                    Process Valid Cards
-                </button>
+                <button class="pz-btn ck-btn-trash-main" id="trash-cards-save" disabled>🗑 ADD TO TRASH</button>
             </div>
         </div>
     </div>
 
-    <!-- CHECK BASE MODAL (Trash) -->
+<!-- VALID CARDS MODAL -->
+    <div id="valid-cards-overlay" class="modal-overlay hidden">
+        <div class="modal modal-wide ck-modal ck-modal-valid">
+            <div class="modal-header">
+                <div>
+                    <h3>✅ VALID CARDS</h3>
+                    <p class="modal-subtitle">Загрузи файлы чекера — покажу ТОЛЬКО живые карты (ALIVE и ни разу не DEAD/INVALID), сгруппированные по BIN.</p>
+                </div>
+                <button class="modal-close" id="valid-cards-close"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="smart-drop smart-drop-valid" id="valid-smart-drop" tabindex="0">
+                    <input type="file" id="valid-smart-file" accept=".json,.txt" multiple hidden>
+                    <span class="smart-drop-icon">📥</span>
+                    <span class="smart-drop-title">Перетащи файлы сюда или нажми</span>
+                    <span class="smart-drop-sub">.json (экспорт Telegram) · .txt · можно несколько файлов · или вставь список (Ctrl+V)</span>
+                </div>
+                <div class="ck-summary" id="valid-summary">
+                    <span class="ck-summary-empty">Файлы ещё не загружены</span>
+                </div>
+            </div>
+            <div class="modal-footer ck-footer">
+                <button class="btn-cancel" id="valid-cards-cancel">Cancel</button>
+                <button class="pz-btn pz-btn-dim" id="valid-reset">↺ Сбросить файлы</button>
+                <span style="flex:1"></span>
+                <button class="pz-btn ck-btn-valid-main" id="valid-cards-process" disabled>✅ SHOW VALID CARDS</button>
+            </div>
+        </div>
+    </div>
+
+<!-- CHECK BASE MODAL (Trash) -->
     <div id="check-base-overlay" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
@@ -731,99 +662,6 @@
         </div>
     </div>
 
-    <!-- TODAY CARDS MODAL — мини-парсер, аналог TRASH -->
-    <div id="today-cards-overlay" class="modal-overlay hidden">
-        <div class="modal modal-wide">
-            <div class="modal-header">
-                <div>
-                    <h3>📅 TODAY CARDS</h3>
-                    <p class="modal-subtitle">Вставь вывод чекера или загрузи файл — статистика за день</p>
-                </div>
-                <button class="modal-close" id="tc-close-btn">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group full-width">
-                    <label>Paste checker results or load file</label>
-                    <textarea id="tc-textarea" class="list-textarea" rows="7"
-                        placeholder="Paste checker results here...&#10;&#10;Formats:&#10;&#x2705; 5218350010045025 10 27 622 - ALIVE&#10;&#x1F480; 5454781003037335 10 26 011 - DEAD&#10;&#x274C; 4692793030263482 01 26 641 - INVALID&#10;&#10;ALL statuses shown — this tool is for statistics only"></textarea>
-                </div>
-                <div class="list-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                    <span id="tc-detected" class="list-count-badge">0 cards detected</span>
-                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary)">
-                        🗓 Report Date:
-                        <input type="date" id="tc-date" class="tc-date-input">
-                    </label>
-                    <label class="pz-btn pz-btn-dim" style="cursor:pointer;font-size:11px;padding:4px 10px;margin:0">
-                        📁 Load File
-                        <input type="file" id="tc-file" accept=".json,.txt" hidden>
-                    </label>
-                </div>
-            </div>
-            <div id="tc-results" style="display:none;max-height:58vh;overflow-y:auto;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.07)"></div>
-            <div class="modal-footer" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <button class="btn-cancel" id="tc-cancel-btn">Close</button>
-                <button class="pz-btn pz-btn-dim" id="tc-clear-btn" style="font-size:11px;padding:5px 12px">🗑 CLEAR</button>
-                <span style="flex:1"></span>
-                <button class="pz-btn pz-btn-today" id="tc-parse-btn">⚡ PARSE</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- BASE SUBTRACT MODAL -->
-    <div id="base-subtract-overlay" class="modal-overlay hidden">
-        <div class="modal modal-wide">
-            <div class="modal-header">
-                <div>
-                    <h3>⊖ BASE SUBTRACT</h3>
-                    <p class="modal-subtitle">Load a JSON base → paste your cards → get only cards NOT in the base</p>
-                </div>
-                <button class="modal-close bs-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
-
-                <!-- Step 1: Load JSON base -->
-                <div>
-                    <div class="bs-step-label">① Load JSON base (result.json or any JSON with cards)</div>
-                    <div id="bs-drop-zone" class="bs-drop-zone">
-                        <input type="file" id="bs-file-input" accept=".json" hidden>
-                        <span class="pz-drop-text">Drop JSON base or click</span>
-                        <span class="pz-drop-hint">Cards in this file will be subtracted from your list</span>
-                    </div>
-                    <div id="bs-base-info" class="bs-base-info">No base loaded</div>
-                </div>
-
-                <!-- Step 2: Paste card list -->
-                <div>
-                    <div class="bs-step-label">② Paste your card list (any format)</div>
-                    <textarea id="bs-textarea" class="list-textarea" rows="7"
-                        placeholder="4242424242424242|09|26|123&#10;5326102343559988|03|27|789&#10;4111111111111111 05 26 456&#10;&#10;Any format is supported — pipe, space, raw number..."></textarea>
-                </div>
-
-                <!-- Stats -->
-                <div id="bs-stats" class="bs-stats" style="display:none"></div>
-
-                <!-- Result -->
-                <div id="bs-result-box" style="display:none">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                        <span class="bs-step-label" style="margin:0">✅ Clean result (not in base)</span>
-                        <button class="cml-action-btn" id="bs-copy-btn">📋 COPY ALL</button>
-                    </div>
-                    <textarea id="bs-result-area" class="list-textarea" rows="7" readonly></textarea>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex;align-items:center;gap:8px">
-                <button class="btn-cancel bs-close">Close</button>
-                <button class="pz-btn pz-btn-dim" id="bs-clear-btn">✕ CLEAR</button>
-                <span style="flex:1"></span>
-                <button class="pz-btn pz-btn-subtract" id="bs-extract-btn">⊖ SUBTRACT &amp; EXTRACT</button>
-            </div>
-        </div>
-    </div>
-
     <!-- TOAST NOTIFICATIONS -->
     <div id="toast-container" class="toast-container"></div>
 
@@ -831,7 +669,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="app.js?v=52"></script>
+    <script src="checker-extract.js?v=2"></script>
+    <script src="valid-trash-ui.js?v=2"></script>
+    <script src="valid-results.js?v=1"></script>
+    <script src="parser-filters.js?v=1"></script>
+    <script src="app.js?v=55"></script>
     <script src="bin-tester.js?v=1"></script>
     <script src="creditcard-gen.js?v=2"></script>
     <script src="dl-data.js?v=1"></script>

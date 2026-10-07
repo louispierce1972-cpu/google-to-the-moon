@@ -408,6 +408,10 @@ function load() {
                 PARSER_STATE.filters.country = pf.country || '';
                 PARSER_STATE.filters.bank = pf.bank || '';
                 PARSER_STATE.filters.excludeBanks = pf.excludeBanks || '';
+                PARSER_STATE.filters.binsEx = pf.binsEx || '';
+                PARSER_STATE.filters.countryEx = pf.countryEx || '';
+                PARSER_STATE.filters.parseAll = Boolean(pf.parseAll);
+                PARSER_STATE.filters.excludePrepaid = Boolean(pf.excludePrepaid);
                 PARSER_STATE.filters.minExpiry = pf.minExpiry || '';
                 PARSER_STATE.filters.activeTypes = pf.types || [];
                 PARSER_STATE.filters.activeNetworks = pf.networks || [];
@@ -10549,7 +10553,10 @@ let PARSER_STATE = {
     // (translated)
     testMode: false,
     // (translated)
-    filters: { bins: '', country: '', bank: '', excludeBanks: '', minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() }
+    filters: { bins: '', binsEx: '', country: '', countryEx: '', bank: '', excludeBanks: '', parseAll: false, excludePrepaid: false, minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() },
+    // Period of messages to parse (by Telegram message date); relative presets end on the last day of the base
+    period: { preset: 'all', from: '', to: '' },
+    _baseRange: null
 };
 
 // (translated)
@@ -10928,34 +10935,54 @@ function renderParser() {
             ${totalMessages > 0 ? `<div class="pz-msg-count">${totalMessages.toLocaleString()} messages loaded</div>` : ''}
         </div>
 
+        <!-- PERIOD: parse only messages from a date range -->
+        <div class="pz-stage pf-period" id="pz-period" style="display:none"></div>
+
         <!-- FILTERS (collapsible, compact) -->
-        <div class="parser-filters ${hasBase ? '' : 'pz-disabled'}">
-            <div class="parser-filter-row">
-                <div class="parser-filter-group parser-filter-bins">
-                    <label>BINs <span class="parser-filter-hint">(comma separated)</span>
+        <div class="parser-filters ${hasBase ? '' : 'pz-disabled'}${PARSER_STATE.filters.parseAll ? ' pf-off' : ''}">
+            <div class="pf-topbar">
+                <label class="pf-parse-all" title="Без фильтров: парсится вся база (период, trash и дубли работают как обычно)">
+                    <input type="checkbox" id="parser-parse-all" ${PARSER_STATE.filters.parseAll ? 'checked' : ''}>
+                    <span class="pf-parse-all-box"></span>
+                    <span class="pf-parse-all-text">ПАРСИТЬ ВСЁ <em>без фильтров</em></span>
+                </label>
+                <button type="button" class="pf-chip-btn${PARSER_STATE.filters.excludePrepaid ? ' active' : ''}" id="parser-no-prepaid" title="Убрать prepaid-карты (карты с неизвестным типом остаются)">🚫 БЕЗ PREPAID</button>
+                <span class="pf-legend"><i class="pf-dot pf-dot-in"></i>Include — оставить только это <i class="pf-dot pf-dot-ex"></i>Exclude — убрать это</span>
+            </div>
+            <div class="parser-filter-row pf-grid">
+                <div class="pf-field">
+                    <div class="pf-field-head">BINs
                         <button class="pz-list-bins-btn" id="pz-list-bins-btn" type="button" title="Paste BIN list (one per line)">📋 LIST</button>
                         <span class="pz-bins-badge" id="pz-bins-badge" style="display:none"></span>
-                    </label>
-                    <textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610...">${PARSER_STATE.filters.bins || ''}</textarea>
+                    </div>
+                    <div class="pf-pair">
+                        <div class="pf-side pf-in"><span class="pf-tag">INCLUDE</span><textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610...">${PARSER_STATE.filters.bins || ''}</textarea></div>
+                        <div class="pf-side pf-ex"><span class="pf-tag">EXCLUDE</span><textarea id="parser-bins-ex" rows="1" placeholder="BIN, которые убрать...">${PARSER_STATE.filters.binsEx || ''}</textarea></div>
+                    </div>
+                    <div class="pf-conflict" id="pf-conflict-bin" style="display:none"></div>
                 </div>
-                <div class="parser-filter-group">
-                    <label>Country</label>
-                    <input type="text" id="parser-country" placeholder="CA, US, GB..." value="${PARSER_STATE.filters.country || ''}">
+                <div class="pf-field">
+                    <div class="pf-field-head">COUNTRY</div>
+                    <div class="pf-pair">
+                        <div class="pf-side pf-in"><span class="pf-tag">INCLUDE</span><input type="text" id="parser-country" placeholder="US, GB, CA..." value="${PARSER_STATE.filters.country || ''}"></div>
+                        <div class="pf-side pf-ex"><span class="pf-tag">EXCLUDE</span><input type="text" id="parser-country-ex" placeholder="страны, которые убрать..." value="${PARSER_STATE.filters.countryEx || ''}"></div>
+                    </div>
+                    <div class="pf-conflict" id="pf-conflict-country" style="display:none"></div>
                 </div>
-                <div class="parser-filter-group">
-                    <label>Bank</label>
-                    <input type="text" id="parser-bank" placeholder="Bank name..." value="${PARSER_STATE.filters.bank || ''}">
-                </div>
-                <div class="parser-filter-group parser-filter-exclude-banks">
-                    <label>Exclude Banks
+                <div class="pf-field">
+                    <div class="pf-field-head">BANK
                         <button class="pz-list-bins-btn" id="pz-exclude-banks-btn" type="button" title="Manage excluded banks list">🚫 LIST</button>
                         <span class="pz-bins-badge pz-exclude-badge" id="pz-exclude-badge" style="display:none"></span>
-                    </label>
-                    <input type="text" id="parser-exclude-banks" placeholder="Royal, ADCB, Toronto..." value="${PARSER_STATE.filters.excludeBanks || ''}">
+                    </div>
+                    <div class="pf-pair">
+                        <div class="pf-side pf-in"><span class="pf-tag">INCLUDE</span><input type="text" id="parser-bank" placeholder="Chase, Revolut..." value="${PARSER_STATE.filters.bank || ''}"></div>
+                        <div class="pf-side pf-ex"><span class="pf-tag">EXCLUDE</span><input type="text" id="parser-exclude-banks" placeholder="Royal, ADCB, Toronto..." value="${PARSER_STATE.filters.excludeBanks || ''}"></div>
+                    </div>
+                    <div class="pf-conflict" id="pf-conflict-bank" style="display:none"></div>
                 </div>
-                <div class="parser-filter-group">
-                    <label>Min Expiry</label>
-                    <input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}">
+                <div class="pf-field pf-field-narrow">
+                    <div class="pf-field-head">MIN EXPIRY</div>
+                    <div class="pf-side pf-neutral"><input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}"></div>
                 </div>
             </div>
             <!-- Filtering system -->
@@ -11002,10 +11029,8 @@ function renderParser() {
                 <span class="pz-btn-hint">extract → filter → dedupe</span>
             </button>
             <button class="pz-btn pz-btn-dim" id="parser-clear-btn" title="Clear all loaded files and results">✕ CLEAR</button>
-            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" title="Manage dead/invalid card blacklist">🗑 TRASH (${(STATE.trashCards || []).length})</button>
-            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" title="View cards verified as ALIVE by checker">✅ VALID CARDS</button>
-            <button class="pz-btn pz-btn-today" id="parser-today-btn" title="Show cards from today's messages">📅 TODAY CARDS</button>
-            <button class="pz-btn pz-btn-subtract" id="parser-subtract-btn" title="Subtract a JSON base from your card list — removes already known cards">⊖ BASE SUBTRACT</button>
+            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" ${hasBase && PARSER_STATE._pipelineStats ? '' : 'disabled'} title="${hasBase && PARSER_STATE._pipelineStats ? 'Manage dead/invalid card blacklist' : 'Сначала загрузите основную базу и нажмите PARSE'}">🗑 TRASH (${(STATE.trashCards || []).length})</button>
+            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" ${hasBase && PARSER_STATE._pipelineStats ? '' : 'disabled'} title="${hasBase && PARSER_STATE._pipelineStats ? 'View cards verified as ALIVE by checker' : 'Сначала загрузите основную базу и нажмите PARSE'}">✅ VALID CARDS</button>
             <button class="pz-btn pz-btn-billings" id="parser-billings-btn" title="Match billing records (last 4 digits) against parsed cards">💳 FIND BILLINGS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
@@ -11107,26 +11132,16 @@ function renderParser() {
         // (translated)
         PARSER_STATE.testMode = false;
         localStorage.removeItem('ct_parser_base');
+        PARSER_STATE._baseRange = null;
+        PARSER_STATE.period = { preset: 'all', from: '', to: '' };
         renderParser();
         toast('Parser cleared', 'info');
     });
 
-    // ── TRASH BUTTON ──
-    document.getElementById('parser-trash-btn')?.addEventListener('click', () => {
-        const overlay = document.getElementById('trash-cards-overlay');
-        if (overlay) overlay.classList.remove('hidden');
-    });
+    // ── TRASH / VALID BUTTONS (need loaded + parsed base) ──
+    document.getElementById('parser-trash-btn')?.addEventListener('click', () => ckOpenModal('trash'));
+    document.getElementById('parser-valid-btn')?.addEventListener('click', () => ckOpenModal('valid'));
 
-    // ── VALID CARDS BUTTON ──
-    document.getElementById('parser-valid-btn')?.addEventListener('click', () => {
-        const overlay = document.getElementById('valid-cards-overlay');
-        if (overlay) overlay.classList.remove('hidden');
-    });
-
-    // (translated)
-    document.getElementById('parser-today-btn')?.addEventListener('click', () => {
-        _openTodayCardsModal();
-    });
     // ── FIND BILLINGS BUTTON ──
     document.getElementById('parser-billings-btn')?.addEventListener('click', _openFindBillingsModal);
     // (translated)
@@ -11228,15 +11243,8 @@ function renderParser() {
 
     _initTrashCardModal();
     _initTrashTabs();        // (translated)
-    _initTodayCardsModal(); // (translated)
     _initValidCardsModal();
-    _initBaseSubtractModal();
-
-    // Base subtract button
-    document.getElementById('parser-subtract-btn')?.addEventListener('click', () => {
-        const overlay = document.getElementById('base-subtract-overlay');
-        if (overlay) overlay.classList.remove('hidden');
-    });
+    pfBindFilterUi(); // Include/Exclude, Parse all, No prepaid, PERIOD block
 
     // (translated)
     if (VALID_STATE.cards.length > 0) {
@@ -11725,6 +11733,8 @@ function _mergeBaseMessages() {
         for (let i = 0; i < f.messages.length; i++) all.push(f.messages[i]);
     });
     PARSER_STATE.rawMessages = all;
+    PARSER_STATE._baseRange = pfBaseRange(all);
+    PARSER_STATE.period = { preset: 'all', from: '', to: '' };
 }
 
 // ──── LOAD COMPARE FILE (Stage 2) ────
@@ -11816,202 +11826,7 @@ function _rerunFromClean() {
     _rebuildBinGroups();
 }
 
-function _initTrashCardModal() {
-    const overlay = document.getElementById('trash-cards-overlay');
-    if (!overlay) return;
-
-    const textarea = document.getElementById('trash-cards-textarea');
-    const detectedEl = document.getElementById('trash-cards-detected');
-    const closeBtn = document.getElementById('trash-cards-close');
-    const cancelBtn = document.getElementById('trash-cards-cancel');
-    const saveBtn = document.getElementById('trash-cards-save');
-    const fileInput = document.getElementById('trash-cards-file');
-
-    const closeModal = () => overlay.classList.add('hidden');
-    closeBtn?.addEventListener('click', closeModal);
-    cancelBtn?.addEventListener('click', closeModal);
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-
-    const updateDetected = () => {
-        const result = _extractTrashCards(textarea.value);
-        detectedEl.textContent = result.hasMarkers
-            ? `💀 ${result.deadCards.length} DEAD/INVALID · ✅ ${result.aliveCount} ALIVE`
-            : `${result.deadCards.length} cards detected`;
-    };
-    textarea?.addEventListener('input', updateDetected);
-
-    if (fileInput) {
-        fileInput.addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = ev => {
-                textarea.value = (textarea.value ? textarea.value + '\n' : '') + ev.target.result;
-                updateDetected();
-                toast(`Loaded ${file.name}`, 'success');
-            };
-            reader.readAsText(file);
-            fileInput.value = ''
-        });
-    }
-
-    // (translated)
-    // (translated)
-    const miniParserInput = document.getElementById('trash-mini-parser-file');
-    if (miniParserInput) {
-        miniParserInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                try {
-                    const data = JSON.parse(ev.target.result);
-                    // Extract message text from Telegram JSON
-                    const messages = Array.isArray(data) ? data : (data.messages || []);
-                    if (messages.length === 0) {
-                        toast(`${file.name}: no messages found in file`, 'warning');
-                        return;
-                    }
-                    const msgLines = [];
-                    messages.forEach(msg => {
-                        if (!msg) return;
-                        let text = '';
-                        if (typeof msg.text === 'string') { text = msg.text; }
-                        else if (Array.isArray(msg.text)) {
-                            text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
-                        }
-                        if (text.trim()) msgLines.push(text.trim());
-                    });
-                    if (msgLines.length === 0) {
-                        toast(`${file.name}: no text found in messages`, 'warning');
-                        return;
-                    }
-                    const combinedText = msgLines.join('\n');
-                    // Run multiformat parser
-                    const parsed = _parseMultiFormat(combinedText);
-                    const fmtLabel = parsed.format;
-                    if (parsed.totalParsed === 0) {
-                        detectedEl.textContent = `Format: ${fmtLabel} · Nothing recognized (${messages.length} messages)`;
-                        toast(`${file.name}: checker format not recognized`, 'warning');
-                        return;
-                    }
-                    // Deduplicate against existing trash list
-                    const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
-                    let added = 0, dupes = 0;
-                    parsed.trashCards.forEach(cc => {
-                        if (!existingSet.has(cc)) {
-                            STATE.trashCards.push(cc);
-                            existingSet.add(cc);
-                            added++;
-                        } else { dupes++; }
-                    });
-                    if (added > 0) {
-                        save();
-                        const trashBtn = document.getElementById('parser-trash-btn');
-                        if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
-                        // Restart pipeline to account for new trash cards
-                        if (PARSER_STATE.rawMessages.length > 0) runParse();
-                    }
-                    // Show summary
-                    let summary = `Format: ${fmtLabel} · Total: ${parsed.totalParsed} · Trash: +${added} · Valid skipped: ${parsed.validCount}`;
-                    if (dupes > 0) summary += ` · Dupes: ${dupes}`;
-                    detectedEl.textContent = summary;
-                    if (added > 0) toast(`${file.name}: +${added} trash (${fmtLabel}) · valid: ${parsed.validCount} skipped`, 'success');
-                    else if (dupes > 0) toast(`${file.name}: all cards already in trash (${dupes} dupes)`, 'info');
-                    else toast(`${file.name}: no trash cards found (${parsed.validCount} valid skipped)`, 'info');
-                } catch (err) {
-                    toast(`${file.name}: error — ${err.message}`, 'error');
-                }
-            };
-            reader.readAsText(file);
-            miniParserInput.value = '';
-        });
-    }
-
-    // Save — APPEND only DEAD cards to existing trash, keep unique
-    saveBtn?.addEventListener('click', () => {
-        const result = _extractTrashCards(textarea.value);
-        const deadCards = result.deadCards;
-        if (deadCards.length === 0) {
-            if (result.aliveCount > 0) {
-                toast(`${result.aliveCount} ALIVE cards ignored — no DEAD cards to add`, 'info');
-            } else {
-                toast('No card numbers detected', 'warning');
-            }
-            return;
-        }
-
-        const existingSet = new Set((STATE.trashCards || []).map(n => n.replace(/[\s\-]/g, '')));
-        let added = 0, dupes = 0;
-        deadCards.forEach(n => {
-            if (!existingSet.has(n)) {
-                STATE.trashCards.push(n);
-                existingSet.add(n);
-                added++;
-            } else {
-                dupes++;
-            }
-        });
-
-        save();
-        closeModal();
-
-        // Build detailed toast message
-        let msg = `+${added} trash cards`;
-        if (dupes > 0) msg += `, ${dupes} dupes skipped`;
-        if (result.aliveCount > 0) msg += `, ${result.aliveCount} ALIVE ignored`;
-        msg += ` (${STATE.trashCards.length} total)`;
-        toast(msg, 'success');
-
-        // Update trash button count
-        const trashBtn = document.getElementById('parser-trash-btn');
-        if (trashBtn) trashBtn.textContent = `🗑 TRASH (${STATE.trashCards.length})`;
-
-        // BUG #5 FIX: Re-run pipeline after trash addition (not just re-render)
-        if (PARSER_STATE.rawMessages.length > 0) {
-            runParse();
-        }
-    });
-
-    // 🗑 Clear All trash
-    document.getElementById('trash-clear-all')?.addEventListener('click', () => {
-        const count = (STATE.trashCards || []).length;
-        if (count === 0) { toast('Trash is already empty', 'info'); return; }
-        if (!confirm(`Clear all ${count} trash cards?`)) return;
-        STATE.trashCards = [];
-        save();
-        toast(`Trash cleared (${count} cards removed)`, 'success');
-        const trashBtn = document.getElementById('parser-trash-btn');
-        if (trashBtn) trashBtn.textContent = `🗑 TRASH (0)`;
-        detectedEl.textContent = '0 cards detected';
-    });
-
-    // 📋 Show List — open trash cards in new Notes tab
-    document.getElementById('trash-show-list')?.addEventListener('click', () => {
-        const cards = STATE.trashCards || [];
-        if (cards.length === 0) { toast('Trash is empty', 'info'); return; }
-        const block = cards.join('\n');
-        const newTab = {
-            id: 'tab-trash-' + Date.now(),
-            title: 'Trash List (' + cards.length + ')',
-            content: block,
-            pinned: false,
-            tag: null,
-            created: Date.now(),
-            scrollPos: 0,
-            exportSource: 'Trash',
-            exportedAt: new Date().toISOString()
-        };
-        STATE.notesTabs.unshift(newTab);
-        STATE.notesActiveTab = newTab.id;
-        save();
-        closeModal();
-        // Switch to Notes tab
-        document.querySelector('[data-view="notes"]')?.click();
-        toast(`Trash list (${cards.length} cards) opened in Notes`, 'success');
-    });
-}
-
+// Trash modal — moved to valid-trash-ui.js / valid-results.js
 // ═══════════════════════════════════════════════════════════════════
 // (translated)
 // (translated)
@@ -12033,6 +11848,7 @@ function _initTrashTabs() {
     if (!overlay) return;
 
     const tabs = overlay.querySelectorAll('.trash-tab');
+    if (tabs.length === 0) return; // tabs removed: TRASH modal is a single drop-zone flow now
     const panels = overlay.querySelectorAll('.trash-tab-panel');
     const subtitle = document.getElementById('trash-modal-subtitle');
     const subtitles = {
@@ -12876,674 +12692,7 @@ function _extractTrashCards(text) {
 // (translated)
 // ═══════════════════════════════════════════════════════════════════
 
-// (translated)
-const VALID_STATE = {
-    cards: [],           // (translated)
-    selectedRows: new Set(), // (translated)
-    selectedCountries: new Set(), // (translated)
-    stats: { totalValid: 0, totalTrash: 0, totalUnique: 0, skippedDupes: 0 }
-};
-
-/**
- * (translated)
- */
-function _initValidCardsModal() {
-    const overlay = document.getElementById('valid-cards-overlay');
-    if (!overlay) return;
-
-    const textarea = document.getElementById('valid-cards-textarea');
-    const detectedEl = document.getElementById('valid-cards-detected');
-    const closeBtn = document.getElementById('valid-cards-close');
-    const cancelBtn = document.getElementById('valid-cards-cancel');
-    const processBtn = document.getElementById('valid-cards-process');
-    const fileInput = document.getElementById('valid-cards-file');
-
-    const close = () => overlay.classList.add('hidden');
-    closeBtn?.addEventListener('click', close);
-    cancelBtn?.addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-    // (translated)
-    const updateDetected = () => {
-        const parsed = _parseCheckerOutput(textarea.value);
-        const alive = parsed.filter(c => c.status === 'alive').length;
-        const bad = parsed.filter(c => c.status === 'dead' || c.status === 'invalid').length;
-        detectedEl.textContent = parsed.length > 0
-            ? `✅ ${alive} ALIVE · 💀/❌ ${bad} DEAD/INVALID`
-            : '0 cards detected';
-    };
-    textarea?.addEventListener('input', updateDetected);
-
-    // (translated)
-    fileInput?.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-            textarea.value = (textarea.value ? textarea.value + '\n' : '') + ev.target.result;
-            updateDetected();
-            toast(`Loaded ${file.name}`, 'success');
-        };
-        reader.readAsText(file);
-        fileInput.value = '';
-    });
-
-    // (translated)
-    // (translated)
-    const miniParserInput = document.getElementById('valid-mini-parser-file');
-    if (miniParserInput) {
-        miniParserInput.addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = ev => {
-                try {
-                    const data = JSON.parse(ev.target.result);
-                    const messages = Array.isArray(data) ? data : (data.messages || []);
-
-                    if (messages.length === 0) {
-                        toast(`${file.name}: no messages found in file`, 'warning');
-                        return;
-                    }
-
-                    // ── SMART TELEGRAM CHECKER BOT PARSER ──
-                    // Phase 1: Build card data map from ALL messages
-                    //   User sends: "4147202626727323 08 28 020"
-                    //   Format: CARD_NUMBER MM YY CVV (space-separated)
-                    // Phase 2: Extract statuses from bot check results
-                    //   Bot sends: "Результаты проверки:\n4147202626727323 | Approved ✅\n..."
-                    // Phase 3: Merge card data + status → enriched output
-
-                    const cardDataMap = {}; // cc → { mm, yy, cvv }
-                    const statusMap = {};   // cc → 'alive'|'dead'|'invalid'
-                    const ccRe = /\b(\d{13,19})\b/g;
-                    const expCvvAfterCC = /^\s*[\s|]*(\d{2})\s+(\d{2})\s+(\d{3,4})\b/;
-                    const expCvvPipe = /^\s*\|(\d{2})\|(\d{2})\|(\d{3,4})/;
-
-                    messages.forEach(msg => {
-                        if (!msg) return;
-                        let text = '';
-                        if (typeof msg.text === 'string') {
-                            text = msg.text;
-                        } else if (Array.isArray(msg.text)) {
-                            text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
-                        } else if (typeof msg === 'string') {
-                            text = msg;
-                        }
-                        if (!text.trim()) return;
-
-                        // Split into lines for per-line analysis
-                        const lines = text.split(/\n/);
-                        for (const line of lines) {
-                            const trimmed = line.trim();
-                            if (!trimmed) continue;
-
-                            // Try extracting card + exp/cvv (user message format)
-                            const ccMatch = trimmed.match(/^[^0-9]*(\d{13,19})/);
-                            if (ccMatch) {
-                                const cc = ccMatch[1];
-                                const afterCC = trimmed.substring(trimmed.indexOf(cc) + cc.length);
-
-                                // Try space-separated: MM YY CVV
-                                const spM = afterCC.match(expCvvAfterCC);
-                                if (spM) {
-                                    cardDataMap[cc] = { mm: spM[1], yy: spM[2], cvv: spM[3] };
-                                }
-                                // Try pipe-separated: |MM|YY|CVV
-                                const pM = afterCC.match(expCvvPipe);
-                                if (pM && !cardDataMap[cc]) {
-                                    cardDataMap[cc] = { mm: pM[1], yy: pM[2], cvv: pM[3] };
-                                }
-
-                                // Check for status on same line (bot result format)
-                                if (/Approved|✅/u.test(afterCC)) {
-                                    statusMap[cc] = 'alive';
-                                } else if (/⛔|INV ACCT|DECLINED|Declined|TRAN NOT|NOT ALLOWED|Card Issuer/i.test(afterCC)) {
-                                    statusMap[cc] = 'dead';
-                                } else if (/❌|INVALID/i.test(afterCC)) {
-                                    statusMap[cc] = 'invalid';
-                                }
-                            }
-                        }
-                    });
-
-                    // Phase 2.5: Handle AFFChecker masked cards (first 6 + last 4 digits)
-                    // AFFChecker shows: Card: 456432******1828 with status DECLINED/APPROVED
-                    // Match masked numbers against full cards in cardDataMap
-                    const maskedPattern = /(\d{6})[^\d\n\r]{1,10}(\d{4})/g;
-                    const allFullCCs = Object.keys(cardDataMap);
-
-                    messages.forEach(msg => {
-                        if (!msg) return;
-                        let text = '';
-                        if (typeof msg.text === 'string') {
-                            text = msg.text;
-                        } else if (Array.isArray(msg.text)) {
-                            text = msg.text.map(t => (typeof t === 'string' ? t : (t && t.text ? String(t.text) : ''))).join('');
-                        } else if (typeof msg === 'string') {
-                            text = msg;
-                        }
-                        if (!text.trim()) return;
-
-                        // Check if this message is from AFFChecker (contains masked card pattern + status keywords)
-                        let match;
-                        maskedPattern.lastIndex = 0;
-                        while ((match = maskedPattern.exec(text)) !== null) {
-                            const prefix = match[1];
-                            const suffix = match[2];
-
-                            // Determine status from message context
-                            let status = null;
-                            // 🔴 Red circle or 🚫 = dead/declined
-                            if (/\u{1F534}|\u{1F6AB}/u.test(text)) {
-                                status = 'dead';
-                            }
-                            // 🟢 Green circle = alive
-                            else if (/\u{1F7E2}/u.test(text)) {
-                                status = 'alive';
-                            }
-                            // 🟡 Yellow circle = uncertain, skip
-                            else if (/\u{1F7E1}/u.test(text)) {
-                                status = null; // don't assign status
-                            }
-                            // Fallback text-based detection
-                            else if (/DECLINED|Dead|declined|3-D Secure.*Failed|expired|DO NOT HONOR|FRAUD|INSUFFICIENT/i.test(text)) {
-                                status = 'dead';
-                            } else if (/APPROVED|Approved|\u2705|3D.SECURE/u.test(text)) {
-                                status = 'alive';
-                            } else if (/INVALID|\u274C/u.test(text)) {
-                                status = 'invalid';
-                            }
-
-                            if (!status) continue;
-
-                            // Find matching full card numbers
-                            const matching = allFullCCs.filter(cc =>
-                                cc.startsWith(prefix) && cc.endsWith(suffix)
-                            );
-
-                            matching.forEach(cc => {
-                                if (!statusMap[cc]) {
-                                    statusMap[cc] = status;
-                                }
-                            });
-                        }
-                    });
-
-                    // Phase 3: Build enriched checker text for _processValidCards
-                    const allCCs = new Set([...Object.keys(cardDataMap), ...Object.keys(statusMap)]);
-                    const enrichedLines = [];
-
-                    // Only include cards that have a status (were checked)
-                    for (const cc of allCCs) {
-                        const status = statusMap[cc];
-                        if (!status) continue; // Skip cards with no check result
-
-                        const d = cardDataMap[cc] || {};
-                        const mm = d.mm || '';
-                        const yy = d.yy || '';
-                        const cvv = d.cvv || '';
-                        const statusLabel = status === 'alive' ? 'ALIVE' : status === 'dead' ? 'DEAD' : 'INVALID';
-                        const emoji = status === 'alive' ? '✅' : status === 'dead' ? '💀' : '❌';
-
-                        // Format: ✅ CARD MM YY CVV - ALIVE
-                        if (mm && yy && cvv) {
-                            enrichedLines.push(`${emoji} ${cc} ${mm} ${yy} ${cvv} - ${statusLabel}`);
-                        } else {
-                            enrichedLines.push(`${emoji} ${cc} - ${statusLabel}`);
-                        }
-                    }
-
-                    if (enrichedLines.length === 0) {
-                        // Fallback: try old method with combined text
-                        const lines = [];
-                        messages.forEach(msg => {
-                            if (!msg) return;
-                            let text = '';
-                            if (typeof msg.text === 'string') text = msg.text;
-                            else if (Array.isArray(msg.text)) text = msg.text.map(t => (typeof t === 'string' ? t : (t.text || ''))).join('');
-                            else if (typeof msg === 'string') text = msg;
-                            if (text.trim()) lines.push(text.trim());
-                        });
-                        const combinedText = lines.join('\n');
-                        const preview = _parseCheckerOutput(combinedText);
-                        if (preview.length === 0) {
-                            toast(`${file.name}: no cards with check results found`, 'warning');
-                            return;
-                        }
-                        close();
-                        _processValidCards(combinedText);
-                        const aliveC = preview.filter(c => c.status === 'alive').length;
-                        const badC = preview.filter(c => c.status === 'dead' || c.status === 'invalid').length;
-                        toast(`${file.name}: ✅ ${aliveC} ALIVE · 💀/❌ ${badC} DEAD/INVALID`, 'success');
-                        return;
-                    }
-
-                    const enrichedText = enrichedLines.join('\n');
-                    const aliveCount = enrichedLines.filter(l => l.includes('ALIVE')).length;
-                    const badCount = enrichedLines.filter(l => l.includes('DEAD') || l.includes('INVALID')).length;
-
-                    console.log(`[Mini Parser] ${Object.keys(cardDataMap).length} cards with data, ${Object.keys(statusMap).length} with status, ${enrichedLines.length} enriched lines`);
-
-                    close();
-                    _processValidCards(enrichedText);
-                    toast(`${file.name}: ✅ ${aliveCount} ALIVE · 💀/❌ ${badCount} DEAD/INVALID — ${messages.length} msgs`, 'success');
-
-                } catch (err) {
-                    toast(`${file.name}: invalid JSON — ${err.message}`, 'error');
-                }
-            };
-            reader.readAsText(file);
-            miniParserInput.value = '';
-        });
-    }
-
-    // (translated)
-    processBtn?.addEventListener('click', () => {
-        _processValidCards(textarea.value);
-        close();
-    });
-}
-
-/**
- * (translated)
- * (translated)
- * (translated)
- */
-function _processValidCards(text) {
-    const parsed = _parseCheckerOutput(text);
-
-    // ── ENRICH: fill missing mm/yy/cvv from loaded base (result.json) ──
-    // Universal extractor: handles ALL base formats from Telegram exports
-    //   Format 1 (logs): "💳 CC: 4500 0337 2426 2090\n📅 Validity: 12 / 27\n🔐 CVV: 769"
-    //   Format 2 (pipe): "4500033724262090|12|27|769"
-    //   Format 3 (space): "4147202633282619 09 28 992"
-    const baseMap = {};
-
-    // Method 1: Try extractCardsFromMessages (handles 💳 CC: format)
-    const emojiCards = extractCardsFromMessages(PARSER_STATE.rawMessages || []);
-    emojiCards.forEach(c => {
-        const cc = (c.cc || '').replace(/\s/g, '');
-        if (cc && cc.length >= 13 && c.cvv) {
-            baseMap[cc] = { mm: c.mm || '', yy: c.yy || '', cvv: c.cvv || '' };
-        }
-    });
-
-    // Method 2: Scan raw messages for pipe/space formats (handles ALL other formats)
-    (PARSER_STATE.rawMessages || []).forEach(msg => {
-        if (!msg) return;
-        let text2 = '';
-        if (typeof msg.text === 'string') {
-            text2 = msg.text;
-        } else if (Array.isArray(msg.text)) {
-            text2 = msg.text.map(t => (typeof t === 'string' ? t : (t && t.text ? String(t.text) : ''))).join('');
-        }
-        if (!text2) return;
-
-        // Split into lines and extract card data
-        for (const line of text2.split(/\n/)) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-
-            const ccM = trimmed.match(/(\d{13,19})/);
-            if (!ccM) continue;
-            const cc = ccM[1];
-            if (baseMap[cc]) continue; // Already have data
-
-            const afterCC = trimmed.substring(trimmed.indexOf(cc) + cc.length);
-
-            // Pipe format: |12|27|769
-            const pipeM = afterCC.match(/\|(\d{2})\|(\d{2})\|(\d{3,4})/);
-            if (pipeM) {
-                baseMap[cc] = { mm: pipeM[1], yy: pipeM[2], cvv: pipeM[3] };
-                continue;
-            }
-            // Space format: 09 28 992
-            const spaceM = afterCC.match(/^\s+(0[1-9]|1[0-2])\s+(\d{2})\s+(\d{3,4})\b/);
-            if (spaceM) {
-                baseMap[cc] = { mm: spaceM[1], yy: spaceM[2], cvv: spaceM[3] };
-                continue;
-            }
-            // Slash format: 12/27 769
-            const slashM = afterCC.match(/^\s+(0[1-9]|1[0-2])\/(\d{2})\s+(\d{3,4})\b/);
-            if (slashM) {
-                baseMap[cc] = { mm: slashM[1], yy: slashM[2], cvv: slashM[3] };
-                continue;
-            }
-        }
-    });
-
-    console.log(`[Enrichment] Base map: ${Object.keys(baseMap).length} cards with mm/yy/cvv`);
-
-    // Enrich each parsed card
-    let enrichedCount = 0;
-    parsed.forEach(c => {
-        const ccClean = (c.cc || '').replace(/\s/g, '');
-        const base = baseMap[ccClean];
-        if (base) {
-            // Fill missing fields from base
-            if (!c.mm || c.mm === '00') { c.mm = base.mm || c.mm; }
-            if (!c.yy) { c.yy = base.yy || c.yy; }
-            if (!c.cvv || c.cvv === '000') { c.cvv = base.cvv || c.cvv; }
-            if (c.mm && c.yy && c.cvv) enrichedCount++;
-            // Update key with enriched data
-            c.key = `${c.cc}|${c.mm}|${c.yy}|${c.cvv}`;
-        }
-    });
-
-    // (translated)
-    const badKeys = new Set();
-    // (translated)
-    const badNums = new Set();
-    parsed.forEach(c => {
-        if (c.status === 'dead' || c.status === 'invalid') {
-            badKeys.add(c.key);
-            badNums.add(c.cc);
-        }
-    });
-
-    // (translated)
-    const allAlive = parsed.filter(c => c.status === 'alive');
-    const allBad = parsed.filter(c => c.status === 'dead' || c.status === 'invalid');
-    const totalUnique = new Set(parsed.map(c => c.key)).size;
-    const skippedDupes = parsed.length - totalUnique;
-
-    // (translated)
-    const seenKeys = new Set();
-    const validCards = [];
-    allAlive.forEach(c => {
-        // (translated)
-        if (badNums.has(c.cc)) return;
-        // (translated)
-        if (seenKeys.has(c.key)) return;
-        seenKeys.add(c.key);
-        validCards.push(c);
-    });
-
-    // (translated)
-    VALID_STATE.cards = validCards;
-    VALID_STATE.selectedRows = new Set(validCards.map((_, i) => i)); // (translated)
-    VALID_STATE.selectedCountries = new Set(); // (translated)
-    VALID_STATE.stats = {
-        totalValid: validCards.length,
-        totalTrash: allBad.length,
-        totalUnique,
-        skippedDupes
-    };
-
-    // Log enrichment stats
-    console.log(`[Valid Cards] ${validCards.length} valid, ${enrichedCount} enriched (${Object.keys(baseMap).length} cards in base map)`);
-
-    // (translated)
-    navigate('new-cards');
-    toast(`✅ Valid: ${validCards.length} · 💀 Trash: ${allBad.length}${enrichedCount > 0 ? ` · 📎 ${enrichedCount} enriched from base` : ''}`, 'success');
-    renderValidCardsResults();
-}
-
-/**
- * (translated)
- */
-function renderValidCardsResults() {
-    const area = document.getElementById('content-area');
-    const bar = document.getElementById('stats-bar');
-    bar.innerHTML = '';
-
-    const { cards, stats, selectedCountries, selectedRows } = VALID_STATE;
-
-    // (translated)
-    const countryMap = {};
-    cards.forEach(c => {
-        const geo = c.geo || 'UNKNOWN';
-        if (!countryMap[geo]) countryMap[geo] = [];
-        countryMap[geo].push(c);
-    });
-    const sortedCountries = Object.entries(countryMap).sort((a, b) => b[1].length - a[1].length);
-
-    // (translated)
-    const activeCodes = selectedCountries.size > 0 ? selectedCountries : null;
-    const displayCards = activeCodes
-        ? cards.filter((c, i) => activeCodes.has(c.geo || 'UNKNOWN'))
-        : cards;
-
-    // (translated)
-    const rows = displayCards.map((c, di) => {
-        const globalIdx = cards.indexOf(c);
-        const checked = selectedRows.has(globalIdx);
-        const masked = c.cc.replace(/(\d{4})(\d+)(\d{4})/, '$1 •••• $3');
-        const exp = c.mm && c.yy ? `${c.mm}/${c.yy}` : '—';
-        return `<tr class="valid-row ${checked ? 'selected' : ''}" data-idx="${globalIdx}">
-            <td><input type="checkbox" class="valid-check" data-idx="${globalIdx}" ${checked ? 'checked' : ''}></td>
-            <td class="vc-card">${masked}</td>
-            <td>${exp}</td>
-            <td>${c.cvv || '—'}</td>
-            <td style="font-size:10px;color:#818cf8">${c.system || '—'}</td>
-            <td style="font-size:10px;color:#60a5fa">${c.type || '—'}</td>
-            <td style="font-size:10px;color:#a78bfa">${c.level || '—'}</td>
-            <td><span class="vc-geo">${c.geo || 'UNKNOWN'}</span></td>
-            <td><span class="vc-status-alive">ALIVE</span></td>
-        </tr>`;
-    }).join('');
-
-    // (translated)
-    const countryChips = sortedCountries.map(([code, cds]) => {
-        const active = selectedCountries.has(code);
-        return `<button class="vc-country-chip ${active ? 'active' : ''}" data-country="${code}">
-            ${code} <span class="vc-chip-cnt">${cds.length}</span>
-        </button>`;
-    }).join('');
-
-    // (translated)
-    const getTabTitle = () => {
-        if (selectedCountries.size === 0) return 'VALID — ALL';
-        return 'VALID — ' + [...selectedCountries].join(', ');
-    };
-
-    // (translated)
-    const getExportList = () => {
-        // (translated)
-        const manualSelected = displayCards.filter(c => selectedRows.has(cards.indexOf(c)));
-        // (translated)
-        if (selectedCountries.size > 0 && manualSelected.length === displayCards.length) {
-            return displayCards;
-        }
-        return manualSelected;
-    };
-
-    area.innerHTML = `
-    <div class="vc-container">
-        <!-- (comment) -->
-        <div class="vc-header">
-            <button class="pz-btn pz-btn-dim vc-back-btn" id="vc-back">← Back to Parser</button>
-            <h2 class="vc-title">✅ Valid Cards Results</h2>
-        </div>
-
-        <!-- (comment) -->
-        <div class="vc-stats-row">
-            <div class="vc-stat-card vc-stat-green">
-                <span class="vc-stat-val">${stats.totalValid}</span>
-                <span class="vc-stat-lbl">TOTAL VALID</span>
-            </div>
-            <div class="vc-stat-card vc-stat-red">
-                <span class="vc-stat-val">${stats.totalTrash}</span>
-                <span class="vc-stat-lbl">TOTAL TRASH</span>
-            </div>
-            <div class="vc-stat-card vc-stat-blue">
-                <span class="vc-stat-val">${stats.totalUnique}</span>
-                <span class="vc-stat-lbl">TOTAL UNIQUE</span>
-            </div>
-            <div class="vc-stat-card vc-stat-dim">
-                <span class="vc-stat-val">${stats.skippedDupes}</span>
-                <span class="vc-stat-lbl">SKIPPED DUPES</span>
-            </div>
-        </div>
-
-        <!-- (comment) -->
-        <div class="vc-countries-block">
-            <div class="vc-countries-header">
-                <span class="vc-section-label">📍 GEO FILTER</span>
-                <button class="pz-btn pz-btn-dim vc-ctrl-btn" id="vc-select-all-geo">SELECT ALL</button>
-                <button class="pz-btn pz-btn-dim vc-ctrl-btn" id="vc-clear-geo">CLEAR</button>
-            </div>
-            <div class="vc-countries-chips" id="vc-countries-chips">
-                ${countryChips}
-            </div>
-        </div>
-
-        <!-- (comment) -->
-        <div class="vc-export-bar">
-            <button class="pz-btn pz-btn-primary vc-export-btn" id="vc-export-all">📝 EXPORT ALL TO NOTES</button>
-            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-export-selected">📝 EXPORT SELECTED TO NOTES</button>
-            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-export-minic" style="color:#22c55e;border-color:rgba(34,197,94,.25)">🚀 EXPORT TO MINIC</button>
-            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-all">📋 COPY ALL</button>
-            <button class="pz-btn pz-btn-dim vc-export-btn" id="vc-copy-selected">📋 COPY SELECTED</button>
-        </div>
-
-        <!-- (comment) -->
-        <div class="vc-table-wrap">
-            <table class="data-table parser-table vc-table">
-                <thead>
-                    <tr>
-                        <th><input type="checkbox" id="vc-select-all-rows" ${selectedRows.size === displayCards.length && displayCards.length > 0 ? 'checked' : ''}></th>
-                        <th>CARD</th><th>EXP</th><th>CVV</th>
-                        <th>SYSTEM</th><th>TYPE</th><th>LEVEL</th>
-                        <th>GEO</th><th>STATUS</th>
-                    </tr>
-                </thead>
-                <tbody>${rows || '<tr><td colspan="9" style="text-align:center;color:#6b7280;padding:24px">No valid cards found</td></tr>'}</tbody>
-            </table>
-        </div>
-    </div>`;
-
-    // ── Events ──
-
-    document.getElementById('vc-back')?.addEventListener('click', () => {
-        VALID_STATE.cards = [];
-        navigate('new-cards');
-    });
-
-    // (translated)
-    document.querySelectorAll('.vc-country-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const code = btn.dataset.country;
-            if (VALID_STATE.selectedCountries.has(code)) {
-                VALID_STATE.selectedCountries.delete(code);
-            } else {
-                VALID_STATE.selectedCountries.add(code);
-            }
-            renderValidCardsResults();
-        });
-    });
-
-    document.getElementById('vc-select-all-geo')?.addEventListener('click', () => {
-        sortedCountries.forEach(([code]) => VALID_STATE.selectedCountries.add(code));
-        renderValidCardsResults();
-    });
-
-    document.getElementById('vc-clear-geo')?.addEventListener('click', () => {
-        VALID_STATE.selectedCountries.clear();
-        renderValidCardsResults();
-    });
-
-    // (translated)
-    document.getElementById('vc-select-all-rows')?.addEventListener('change', e => {
-        if (e.target.checked) {
-            displayCards.forEach(c => VALID_STATE.selectedRows.add(cards.indexOf(c)));
-        } else {
-            displayCards.forEach(c => VALID_STATE.selectedRows.delete(cards.indexOf(c)));
-        }
-        renderValidCardsResults();
-    });
-
-    // (translated)
-    document.querySelectorAll('.valid-check').forEach(cb => {
-        cb.addEventListener('change', () => {
-            const idx = parseInt(cb.dataset.idx);
-            if (cb.checked) VALID_STATE.selectedRows.add(idx);
-            else VALID_STATE.selectedRows.delete(idx);
-        });
-    });
-
-    // Helper function: build card list for export
-    const buildExportLines = (list) => list.map(c => `${c.cc} ${(c.mm || '').padStart(2, '0')} ${c.yy || ''} ${c.cvv || '000'}`).join('\n');
-
-    // Helper function: create Notes tab
-    const exportToNotes = (list, title) => {
-        if (list.length === 0) { toast('No cards to export', 'warning'); return; }
-        const block = buildExportLines(list);
-        const newTab = {
-            id: 'tab-valid-' + Date.now(),
-            title,
-            content: block,
-            pinned: false, tag: null,
-            created: Date.now(), scrollPos: 0,
-            exportSource: 'Valid Cards',
-            exportedAt: new Date().toISOString()
-        };
-        STATE.notesTabs.unshift(newTab);
-        STATE.notesActiveTab = newTab.id;
-        save();
-        toast(`${list.length} cards → "${title}"`, 'success');
-    };
-
-    // EXPORT ALL TO NOTES
-    document.getElementById('vc-export-all')?.addEventListener('click', () => {
-        exportToNotes(displayCards, getTabTitle());
-    });
-
-    // EXPORT SELECTED TO NOTES
-    document.getElementById('vc-export-selected')?.addEventListener('click', () => {
-        const list = getExportList();
-        const selCodes = selectedCountries.size > 0 ? [...selectedCountries].join(', ') : 'ALL';
-        const hasManual = list.length < displayCards.length;
-        const title = hasManual ? `VALID — ${list.length} selected` : `VALID — ${selCodes}`;
-        exportToNotes(list, title);
-    });
-
-    // EXPORT TO MINIC
-    document.getElementById('vc-export-minic')?.addEventListener('click', () => {
-        const cards = displayCards;
-        if (cards.length === 0) { toast('No cards to export', 'warning'); return; }
-        const binSet = new Set();
-        cards.forEach(c => {
-            const bin = (c.bin || (c.cc || '').substring(0, 6));
-            if (bin && bin.length >= 6) binSet.add(bin.substring(0, 6));
-        });
-        if (binSet.size === 0) { toast('No BINs found', 'warning'); return; }
-        const tabId = 'mctab_' + Date.now();
-        const selCodes = selectedCountries.size > 0 ? [...selectedCountries].join(', ') : 'ALL';
-        const tabName = 'Parse ' + selCodes + ' ' + todayStr();
-        if (!STATE.minicTabs) STATE.minicTabs = [{ id: 'main', name: 'Main' }];
-        STATE.minicTabs.push({ id: tabId, name: tabName });
-        const existing = new Set((STATE.minicBins || []).map(b => b.bin + '|' + (b.tab || 'main')));
-        let added = 0;
-        binSet.forEach(bin => {
-            const key = bin + '|' + tabId;
-            if (existing.has(key)) return;
-            STATE.minicBins.push({ bin, tag: null, amount: '', note: '', date: todayStr(), tab: tabId });
-            existing.add(key); added++;
-        });
-        STATE.minicActiveTab = tabId;
-        save();
-        toast(added + ' BINs \u2192 "' + tabName + '"', 'success');
-        binSet.forEach(bin => { if (!BIN_CACHE[bin]) lookupBin(bin).catch(() => { }); });
-    });
-
-    // COPY ALL
-    document.getElementById('vc-copy-all')?.addEventListener('click', () => {
-        const text = buildExportLines(displayCards);
-        navigator.clipboard?.writeText(text);
-        toast(`📋 ${displayCards.length} cards copied`, 'success');
-    });
-
-    // COPY SELECTED
-    document.getElementById('vc-copy-selected')?.addEventListener('click', () => {
-        const list = getExportList();
-        const text = buildExportLines(list);
-        navigator.clipboard?.writeText(text);
-        toast(`📋 ${list.length} cards copied`, 'success');
-    });
-}
-
+// Valid cards modal + results — moved to valid-trash-ui.js / valid-results.js
 // _retagParserCards removed — workspace cards are now excluded in pipeline, no tagging needed
 
 // Keep legacy alias
@@ -13554,6 +12703,17 @@ function runParse() {
     if (!PARSER_STATE.rawMessages.length) return;
     const status = document.getElementById('parser-status');
     if (status) status.textContent = '⏳ Parsing...';
+
+    // Include/Exclude config; the same token in both lists of a field blocks the parse
+    const pfCfg = pfReadConfig();
+    const parseAll = pfCfg.parseAll;
+    const pfConflict = pfRefreshConflicts();
+    if (!parseAll && pfConflict.total > 0) {
+        const names = [...pfConflict.bin, ...pfConflict.country, ...pfConflict.bank].join(', ');
+        if (status) status.textContent = '⚠ Include и Exclude пересекаются';
+        toast(`Одно и то же в Include и Exclude: ${names}`, 'error');
+        return;
+    }
 
     // Read filters
     const binsEl = document.getElementById('parser-bins');
@@ -13574,9 +12734,10 @@ function runParse() {
     const activeTypes = filterTypes.size > 0 ? [...filterTypes].map(t => t.toLowerCase()) : [];
     const activeNetworks = filterPaymentSystems.size > 0 ? [...filterPaymentSystems] : [];
     const excludeBanksElSave = document.getElementById('parser-exclude-banks');
-    PARSER_STATE.filters = { bins: binRaw, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
+    PARSER_STATE.filters = { bins: binRaw, binsEx: document.getElementById('parser-bins-ex')?.value.trim() || '', countryEx: document.getElementById('parser-country-ex')?.value.trim() || '', parseAll, excludePrepaid: pfCfg.excludePrepaid, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
 
-    let allCards = extractCardsFromMessages(PARSER_STATE.rawMessages);
+    const periodMsgs = pfFilterByPeriod(PARSER_STATE.rawMessages, PARSER_STATE.period.from, PARSER_STATE.period.to);
+    let allCards = extractCardsFromMessages(periodMsgs);
     allCards = allCards.map(c => ({ ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode) }));
 
     // ── BIN-based bank auto-fill ──
@@ -13629,39 +12790,22 @@ function runParse() {
         return bank !== c.bank || cardType !== c.cardType ? { ...c, bank, cardType } : c;
     });
 
-    // (translated)
-    if (binFilters.length > 0) allCards = allCards.filter(c => binFilters.some(bf => c.bin.startsWith(bf)));
-    // (translated)
-    if (countryFilter) {
-        const codes = countryFilter.split(/[\s,;]+/).map(s => s.toUpperCase().trim()).filter(Boolean);
-        allCards = allCards.filter(c => {
-            const geo = (c.detectedGeo || '').toUpperCase();
-            const geoFromName = detectGeo('', c.country || '', c.countryCode || '', c.bankCountryCode || '');
-            const resolvedGeo = geo || geoFromName.toUpperCase();
-            return codes.some(code => resolvedGeo === code || resolvedGeo.startsWith(code));
-        });
-    }
-    // (translated)
-    if (bankFilter) allCards = allCards.filter(c => (c.bank || '').toLowerCase().includes(bankFilter));
-    // Exclude banks filter
-    const excludeBanksEl = document.getElementById('parser-exclude-banks');
-    const excludeBanksRaw = excludeBanksEl ? excludeBanksEl.value.trim() : '';
+    // Include / Exclude lists (BIN, country, bank) + "no prepaid" — skipped completely with "Parse all"
     let excludeBanksRemoved = 0;
-    if (excludeBanksRaw) {
-        const excludeList = excludeBanksRaw.split(/[,;\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
-        if (excludeList.length > 0) {
-            const beforeExclude = allCards.length;
-            allCards = allCards.filter(c => {
-                const bankName = (c.bank || '').toLowerCase();
-                if (!bankName) return true; // keep cards without bank info
-                return !excludeList.some(ex => bankName.includes(ex));
-            });
-            excludeBanksRemoved = beforeExclude - allCards.length;
-        }
+    let listRemoved = null;
+    if (!parseAll) {
+        const listed = pfApplyLists(allCards, {
+            ...pfCfg,
+            geoOf: c => (c.detectedGeo || '').toUpperCase() || detectGeo('', c.country || '', c.countryCode || '', c.bankCountryCode || '').toUpperCase(),
+            typeText: c => [BIN_CACHE[c.bin]?.type, c.cardType, BIN_CACHE[c.bin]?.level].filter(Boolean).join(' ')
+        });
+        allCards = listed.cards;
+        listRemoved = listed.removed;
+        excludeBanksRemoved = listed.removed.bankEx;
     }
 
     // (translated)
-    if (minExpRaw) {
+    if (minExpRaw && !parseAll) {
         const expMatch = minExpRaw.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
         if (expMatch) {
             const minVal = parseInt(expMatch[2]) * 100 + parseInt(expMatch[1]);
@@ -13676,7 +12820,7 @@ function runParse() {
 
     // TYPE filter: ANY selected type matches (OR logic)
     // e.g. CREDIT + DEBIT → cards that are CREDIT OR DEBIT
-    if (filterTypes.size > 0) {
+    if (!parseAll && filterTypes.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             // Combine all type info: BIN_CACHE type + log cardType
@@ -13690,7 +12834,7 @@ function runParse() {
         });
     }
     // CLASS filter: ANY selected class matches (OR logic)
-    if (filterClasses.size > 0) {
+    if (!parseAll && filterClasses.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             // Combine level from cache + cardType from log
@@ -13706,7 +12850,7 @@ function runParse() {
         });
     }
     // NETWORK filter: exact network match
-    if (filterPaymentSystems.size > 0) {
+    if (!parseAll && filterPaymentSystems.size > 0) {
         allCards = allCards.filter(c => {
             const network = getCardType(c.cc || '');
             const brand = (BIN_CACHE[c.bin]?.brand || '').toUpperCase();
@@ -13714,7 +12858,8 @@ function runParse() {
         });
     }
 
-    PARSER_STATE.binFilter = binFilters.length > 0 ? new Set(binFilters) : null;
+    PARSER_STATE.binFilter = !parseAll && pfCfg.binsIn.length > 0 ? new Set(pfCfg.binsIn) : null;
+    PARSER_STATE._lastRun = { period: { ...PARSER_STATE.period }, periodMessages: periodMsgs.length, listRemoved };
     _processPipeline(allCards, status, excludeBanksRemoved);
 }
 
@@ -13766,6 +12911,13 @@ function _processPipeline(allCards, status, excludeBanksRemoved) {
     if (status) status.textContent = `✅ ${allCards.length} cards ready`;
     let toastMsg = `Parsed: ${totalRaw} → clean: ${allCards.length} (trash: ${trashRemoved}, old base: ${compareRemoved}, workspace: ${workspaceRemoved}, dupes: ${dupRemoved}`;
     if (excludeBanksRemoved) toastMsg += `, 🚫banks: ${excludeBanksRemoved}`;
+    const lastRun = PARSER_STATE._lastRun;
+    if (lastRun && lastRun.listRemoved) {
+        const r = lastRun.listRemoved;
+        const parts = [['bin✗', r.binEx], ['country✗', r.countryEx], ['prepaid✗', r.prepaid], ['bin✓', r.binIn], ['country✓', r.countryIn], ['bank✓', r.bankIn]].filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`);
+        if (parts.length) toastMsg += `, filters: ${parts.join(' ')}`;
+    }
+    if (lastRun && (lastRun.period.from || lastRun.period.to)) toastMsg += `, period ${pfFmt(lastRun.period.from) || '…'}–${pfFmt(lastRun.period.to) || '…'}`;
     toastMsg += ')';
     toast(toastMsg, 'success');
     renderParser();
@@ -14717,6 +13869,10 @@ function _saveParserFilters() {
         country: document.getElementById('parser-country')?.value || '',
         bank: document.getElementById('parser-bank')?.value || '',
         excludeBanks: document.getElementById('parser-exclude-banks')?.value || '',
+        binsEx: document.getElementById('parser-bins-ex')?.value || '',
+        countryEx: document.getElementById('parser-country-ex')?.value || '',
+        parseAll: Boolean(PARSER_STATE.filters.parseAll),
+        excludePrepaid: Boolean(PARSER_STATE.filters.excludePrepaid),
         minExpiry: document.getElementById('parser-min-expiry')?.value || '',
         types: [...(PARSER_STATE.filters.filterTypes || [])],
         classes: [...(PARSER_STATE.filters.filterClasses || [])],
