@@ -5347,6 +5347,12 @@ function renderContent() {
         footer.style.display = 'none';
         return;
     }
+    // ═══════ WORKSPACE — Google Ads billing statements (billing-workspace.js) ═══════
+    if (STATE.currentView === 'all-cards' && typeof renderBillingWorkspace === 'function') {
+        renderBillingWorkspace();
+        footer.style.display = 'none';
+        return;
+    }
     footer.style.display = 'flex';
 
     if (STATE.currentView === 'docs' || STATE.currentView === 'global-docs') {
@@ -11143,7 +11149,10 @@ function renderParser() {
     document.getElementById('parser-valid-btn')?.addEventListener('click', () => ckOpenModal('valid'));
 
     // ── FIND BILLINGS BUTTON ──
-    document.getElementById('parser-billings-btn')?.addEventListener('click', _openFindBillingsModal);
+    // FIND BILLINGS now lives in the Workspace tab (billing statements → cards)
+    document.getElementById('parser-billings-btn')?.addEventListener('click', () => {
+        document.querySelector('.tn-tab[data-view="all-cards"]')?.click();
+    });
     // (translated)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
         btn.addEventListener('click', () => {
