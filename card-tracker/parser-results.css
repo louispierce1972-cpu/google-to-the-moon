@@ -48,7 +48,7 @@
 .pres-region-row, .pres-country-row {
     display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 8px;
 }
-.pres-wrap .pres-region-row { flex-wrap: wrap; overflow: visible; }
+.pres-wrap .pres-region-row, .pres-wrap .pres-country-row { flex-wrap: wrap; overflow: visible; }
 .pres-region-chip, .pres-country-chip {
     flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap;
     font: 600 12.5px/1.3 Inter, sans-serif; color: var(--text, #e2e8f0);

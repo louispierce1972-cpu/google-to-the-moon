@@ -189,7 +189,7 @@ function renderParserResults(geoFilter) {
         tableHtml = prTableHtml(prRowsHtml(shown, idxOf), sorted.length, view);
     }
 
-    const keepScroll = ['.pres-region-row', '.pres-country-row', '.pres-bins-grid']
+    const keepScroll = ['.pres-bins-grid']
         .map(sel => [sel, el.querySelector(sel)]).filter(([, n]) => n)
         .map(([sel, n]) => [sel, n.scrollLeft, n.scrollTop]);
 
@@ -310,14 +310,5 @@ function prBind(el, ctx) {
             });
             renderParserResults();
         }
-    });
-
-    // Mouse wheel scrolls chip rows horizontally
-    root.querySelectorAll('.pres-region-row, .pres-country-row').forEach(row => {
-        row.addEventListener('wheel', e => {
-            if (row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-            e.preventDefault();
-            row.scrollLeft += e.deltaY;
-        }, { passive: false });
     });
 }
