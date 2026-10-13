@@ -170,9 +170,9 @@ function bsSummarize(statement) {
             network: ev.network, last4: ev.last4, cur: ev.cur || cur,
             charged: 0, chargedCount: 0, declined: 0, declinedCount: 0,
             cancelled: 0, cancelledCount: 0, chargedBack: 0, chargedBackCount: 0,
-            firstDate: ev.date, lastDate: ev.date, reasons: []
+            firstDate: ev.date, lastDate: ev.date, reasons: [], events: []
         };
-        const next = { ...prev, cur: prev.cur || ev.cur, reasons: [...prev.reasons] };
+        const next = { ...prev, cur: prev.cur || ev.cur, reasons: [...prev.reasons], events: [...prev.events, { date: ev.date, kind: ev.kind, amount: ev.amount, reason: ev.reason }] };
         if (ev.kind === 'charge') { next.charged += ev.amount; next.chargedCount += 1; }
         else if (ev.kind === 'declined') { next.declined += ev.amount; next.declinedCount += 1; if (ev.reason && !next.reasons.includes(ev.reason)) next.reasons.push(ev.reason); }
         else if (ev.kind === 'cancelled') { next.cancelled += ev.amount; next.cancelledCount += 1; }
@@ -189,6 +189,14 @@ function bsSummarize(statement) {
 function bsMergeRecords(existing, incoming) {
     const names = new Set(incoming.map(r => r.fileName));
     return [...existing.filter(r => !names.has(r.fileName)), ...incoming];
+}
+
+/** New array: rows with the same id are replaced in place, new ids appended. */
+function bsUpsertById(existing, incoming) {
+    const byId = new Map(incoming.map(r => [r.id, r]));
+    const kept = existing.map(r => (byId.has(r.id) ? byId.get(r.id) : r));
+    const known = new Set(existing.map(r => r.id));
+    return [...kept, ...incoming.filter(r => !known.has(r.id))];
 }
 
 /* ───────────────────── MATCH WITH THE BASE ───────────────────── */
@@ -257,34 +265,113 @@ function bsTotals(rows) {
     return out;
 }
 
-function bsCsvCell(v) {
-    const s = String(v == null ? '' : v);
-    return /[",\n\r;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+/* ───────────────────── DATE RANGE ───────────────────── */
+
+/** Events of a record; records saved before events were kept get one synthetic event per kind. */
+function bsEventsOf(rec) {
+    if (Array.isArray(rec.events)) return rec.events;
+    const d = rec.lastDate || rec.firstDate || '';
+    return [
+        rec.charged ? { date: d, kind: 'charge', amount: rec.charged, count: rec.chargedCount || 1 } : null,
+        rec.declined ? { date: d, kind: 'declined', amount: rec.declined, count: rec.declinedCount || 1 } : null,
+        rec.chargedBack ? { date: d, kind: 'chargeback', amount: rec.chargedBack, count: rec.chargedBackCount || 1 } : null
+    ].filter(Boolean);
 }
 
-const BS_EXPORT_COLS = [
-    ['Card', r => r.chosen ? r.chosen.cc : ''], ['Exp', r => r.chosen ? `${r.chosen.mm}/${r.chosen.yy}` : ''],
-    ['CVV', r => r.chosen ? r.chosen.cvv : ''], ['BIN', r => r.chosen ? r.chosen.cc.slice(0, 6) : ''],
-    ['Country', r => r.chosen ? (r.chosen.country || r.chosen.countryCode || '') : ''],
-    ['Bank', r => r.chosen ? r.chosen.bank : ''], ['Type', r => r.chosen ? r.chosen.cardType : ''],
-    ['Network', r => r.network], ['Last4', r => r.last4],
-    ['Charged', r => r.charged], ['Declined', r => r.declined], ['Declined n', r => r.declinedCount],
-    ['Charged back', r => r.chargedBack], ['Cancelled', r => r.cancelled],
-    ['Campaign cost', r => r.campaignCost], ['Currency', r => r.cur],
-    ['Period from', r => r.periodFrom], ['Period to', r => r.periodTo], ['File', r => r.fileName],
-    ['Status', r => r.status]
-];
+/**
+ * Record limited to [from, to] (ISO dates, '' = open). Sums are recomputed from events;
+ * `date` = latest charge in range (or latest event). Returns null if nothing is in range.
+ */
+function bsApplyRange(rec, from, to) {
+    const events = bsEventsOf(rec).filter(e => (!from || e.date >= from) && (!to || e.date <= to));
+    if (!events.length) return null;
+    const sum = kind => events.filter(e => e.kind === kind).reduce((s, e) => s + e.amount, 0);
+    const cnt = kind => events.filter(e => e.kind === kind).reduce((s, e) => s + (e.count || 1), 0);
+    const charges = events.filter(e => e.kind === 'charge').map(e => e.date).sort();
+    const dates = events.map(e => e.date).sort();
+    return {
+        ...rec,
+        charged: sum('charge'), chargedCount: cnt('charge'),
+        declined: sum('declined'), declinedCount: cnt('declined'),
+        chargedBack: sum('chargeback'), chargedBackCount: cnt('chargeback'),
+        date: charges.length ? charges[charges.length - 1] : dates[dates.length - 1],
+        rangeFirst: dates[0], rangeLast: dates[dates.length - 1]
+    };
+}
 
-function bsToCsv(rows) {
-    const head = BS_EXPORT_COLS.map(c => bsCsvCell(c[0])).join(',');
-    const body = rows.map(r => BS_EXPORT_COLS.map(c => bsCsvCell(c[1](r))).join(','));
-    return [head, ...body].join('\n');
+/* ─────────────── MATCH: WORK BASE → MAIN BASE ─────────────── */
+
+function _bsCardView(cc, mainCard, inWork) {
+    const c = mainCard || {};
+    return {
+        cc, bin: cc.slice(0, 6), mm: c.mm || '', yy: c.yy || '', cvv: c.cvv || '',
+        bank: c.bank || '', geo: c.detectedGeo || c.countryCode || c.bankCountryCode || '', country: c.country || '',
+        cardType: c.cardType || '', holder: [c.name, c.surname].filter(Boolean).join(' '),
+        inMain: !!mainCard, inWork
+    };
+}
+
+/**
+ * Lookup context. mainCards = parsed main base (LOAD & PARSE); workNumbers = Set of full
+ * numbers from "Compare with old base" (the cards really used on Google Ads), or null.
+ */
+function bsMatchContext(mainCards, workNumbers) {
+    const mainIndex = bsBuildIndex(mainCards);
+    const mainByCc = new Map();
+    mainIndex.forEach(list => list.forEach(c => mainByCc.set(c.cc, c)));
+    const workIndex = new Map();
+    (workNumbers ? [...workNumbers] : []).forEach(raw => {
+        const cc = String(raw || '').replace(/\D/g, '');
+        if (cc.length < 12) return;
+        const l4 = cc.slice(-4);
+        workIndex.set(l4, [...new Set([...(workIndex.get(l4) || []), cc])]);
+    });
+    return { mainIndex, mainByCc, workIndex, hasWork: !!(workNumbers && workNumbers.size), hasMain: mainByCc.size > 0 };
+}
+
+function _bsNetworkOk(cc, network) {
+    const n = bsNetworkOfCc(cc);
+    return !n || !network || n === network;
+}
+
+/**
+ * 1) last4 + network in the work base → BIN / country / bank from the main base by full number.
+ * 2) Nothing in the work base → main base candidates (inWork = false).
+ * status: 'matched' | 'choose' (several candidates, no pick yet) | 'missing'.
+ */
+function bsMatchRecord(rec, ctx, selections) {
+    const workCcs = (ctx.workIndex.get(rec.last4) || []).filter(cc => _bsNetworkOk(cc, rec.network));
+    const inWork = workCcs.length > 0;
+    const candidates = inWork
+        ? workCcs.map(cc => _bsCardView(cc, ctx.mainByCc.get(cc), true))
+        : bsCandidates(rec, ctx.mainIndex).map(c => _bsCardView(c.cc, c, false));
+    const picked = selections && selections[rec.id];
+    const chosen = (picked && candidates.find(c => c.cc === picked)) || (candidates.length === 1 ? candidates[0] : null);
+    const status = chosen ? 'matched' : candidates.length > 1 ? 'choose' : 'missing';
+    return { ...rec, candidates, chosen, status, inWork };
+}
+
+/** Plain object stored in the Workspace (matched card frozen, no candidate list). */
+function bsSnapshot(row) {
+    const { candidates, chosen, ...rest } = row;
+    return { ...rest, events: bsEventsOf(row), card: chosen || null, status: row.status, inWork: !!row.inWork };
+}
+
+/** New sorted array; key 'date' | 'charged', dir 'asc' | 'desc'. */
+function bsSortRows(rows, key, dir) {
+    const sign = dir === 'asc' ? 1 : -1;
+    const val = r => (key === 'charged' ? Number(r.charged || 0) : String(r.date || r.lastDate || ''));
+    return [...rows].sort((a, b) => {
+        const x = val(a), y = val(b);
+        return x < y ? -sign : x > y ? sign : 0;
+    });
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         bsParseCsv, bsParseDate, bsParsePeriod, bsParseMoney, bsNormNetwork, bsNetworkOfCc,
         bsParseStatement, bsSummarize, bsMergeRecords, bsBuildIndex, bsCandidates,
-        bsBuildRow, bsBuildRows, bsTotals, bsToCsv
+        bsBuildRow, bsBuildRows, bsTotals, bsEventsOf, bsApplyRange,
+        bsMatchContext, bsMatchRecord, bsSnapshot, bsSortRows, bsUpsertById
     };
 }

@@ -10849,6 +10849,8 @@ function renderBuilder() {
 // ──── RENDER PARSER ────
 
 function renderParser() {
+    // FIND BILLINGS screen lives inside the Parser view (billing-find.js)
+    if (typeof FB !== 'undefined' && FB.open) return renderFindBillings();
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.innerHTML = '';
@@ -11064,9 +11066,9 @@ function renderParser() {
     document.getElementById('parser-valid-btn')?.addEventListener('click', () => ckOpenModal('valid'));
 
     // ── FIND BILLINGS BUTTON ──
-    // FIND BILLINGS now lives in the Workspace tab (billing statements → cards)
+    // Opens the Find Billings screen (upload → Parse & Match → pick rows → Add to Workspace)
     document.getElementById('parser-billings-btn')?.addEventListener('click', () => {
-        document.querySelector('.tn-tab[data-view="all-cards"]')?.click();
+        if (typeof fbOpen === 'function') fbOpen();
     });
     // (translated)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {

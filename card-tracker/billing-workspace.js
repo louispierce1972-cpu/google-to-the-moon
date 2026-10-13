@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════
    BILLING WORKSPACE — the Workspace tab.
-   Upload Google Ads "Billing activity report" CSV files (or a ZIP with
-   them) → one row per (file, card) with spend, declines, chargebacks,
-   campaign cost, period + full card data from the main base.
+   Holds the billing rows the user moved here from Find Billings
+   (Parser → FIND BILLINGS → Parse & Match → Add selected to Workspace).
+   Compact table (billing-table.js): Date · BIN · Country · Bank · Charged ·
+   Status, details on row click, date range filter, sort by date / sum.
    Pure logic lives in billing-statement.js (bs*). This file = UI only.
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -12,11 +13,7 @@ const BW_KEY_SELECT = 'ct_bw_selections';
 const BW = {
     records: bwLoad(BW_KEY_RECORDS, []),
     selections: bwLoad(BW_KEY_SELECT, {}),
-    index: null,
-    indexKey: '',
-    indexing: false,
-    status: 'all',
-    search: ''
+    view: btDefaultView()
 };
 
 function bwLoad(key, fallback) {
@@ -35,59 +32,23 @@ function bwPersist() {
     }
 }
 
-function bwEsc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/**
+ * Workspace row. Rows added from Find Billings carry a frozen `card` snapshot;
+ * legacy records (saved before snapshots) are matched live when the bases are loaded.
+ */
+function bwRowOf(rec, ctx) {
+    if (rec.card !== undefined) return { ...rec, chosen: rec.card };
+    if (ctx) return bsMatchRecord(rec, ctx, BW.selections);
+    return { ...rec, chosen: null, candidates: [], status: 'missing', inWork: false };
 }
 
-function bwMoney(n, cur) {
-    if (!n) return '<span class="bw-zero">—</span>';
-    return bwEsc(cur || '') + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+function bwAllRows() {
+    const legacy = BW.records.some(r => r.card === undefined);
+    const ctx = legacy && typeof fbEnsureContext === 'function' ? fbEnsureContext(renderBillingWorkspace) : null;
+    return BW.records.map(r => bwRowOf(r, ctx));
 }
 
-function bwMoneyMap(map) {
-    const parts = Object.entries(map).filter(([, v]) => v).map(([c, v]) => `${c}${Math.round(v).toLocaleString('en-US')}`);
-    return parts.length ? parts.join(' + ') : '—';
-}
-
-function bwDateRu(iso) {
-    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[3]}.${m[2]}.${m[1].slice(2)}` : '';
-}
-
-/** Cards of the main base, indexed by last 4 (built lazily, cached by message count). */
-function bwEnsureIndex(onReady) {
-    const raw = (typeof PARSER_STATE !== 'undefined' && PARSER_STATE.rawMessages) || [];
-    if (!raw.length) { BW.index = null; BW.indexKey = ''; return false; }
-    const key = String(raw.length);
-    if (BW.index && BW.indexKey === key) return true;
-    if (BW.indexing) return false;
-    BW.indexing = true;
-    setTimeout(() => {
-        try {
-            BW.index = bsBuildIndex(extractCardsFromMessages(raw));
-            BW.indexKey = key;
-        } catch (e) {
-            console.error('Billing index failed', e);
-            BW.index = null;
-        }
-        BW.indexing = false;
-        onReady();
-    }, 30);
-    return false;
-}
-
-function bwCurrentRows() {
-    const rows = bsBuildRows(BW.records, BW.index || new Map(), BW.selections);
-    const q = BW.search.trim().toLowerCase();
-    return rows.filter(r => {
-        if (BW.status !== 'all' && r.status !== BW.status) return false;
-        if (!q) return true;
-        const hay = [r.last4, r.network, r.fileName, r.chosen && r.chosen.cc, r.chosen && r.chosen.bank, r.chosen && r.chosen.country, r.chosen && r.chosen.countryCode].join(' ').toLowerCase();
-        return hay.includes(q);
-    });
-}
-
-/* ───────────────────────── FILES ───────────────────────── */
+/* ───────────────────────── FILES (shared with Find Billings) ───────────────────────── */
 
 function bwFileText(f) {
     if (typeof f.text === 'function') return f.text();
@@ -115,118 +76,35 @@ async function bwReadFiles(fileList) {
     return out;
 }
 
-async function bwAddFiles(fileList) {
-    const items = await bwReadFiles(fileList);
-    if (!items.length) { toast('Billing activity report CSV files are required', 'warning'); return; }
-    let added = 0, skipped = 0;
-    for (const it of items) {
-        const recs = bsSummarize(bsParseStatement(it.text, it.name));
-        if (!recs.length) { skipped++; continue; }
-        BW.records = bsMergeRecords(BW.records, recs);
-        added += recs.length;
-    }
+/* ───────────────────────── ACTIONS ───────────────────────── */
+
+function bwSetRecords(records) {
+    BW.records = records;
+    const keep = new Set(records.map(r => r.id));
+    BW.selections = Object.fromEntries(Object.entries(BW.selections).filter(([id]) => keep.has(id)));
+    BW.view = { ...BW.view, checked: new Set([...BW.view.checked].filter(id => keep.has(id))) };
     bwPersist();
-    toast(`Billing: +${added} cards from ${items.length - skipped} files${skipped ? `, ${skipped} skipped (no card payments)` : ''}`, added ? 'success' : 'warning');
     renderBillingWorkspace();
 }
 
-function bwRemoveFile(name) {
-    BW.records = BW.records.filter(r => r.fileName !== name);
-    const keep = new Set(BW.records.map(r => r.id));
-    BW.selections = Object.fromEntries(Object.entries(BW.selections).filter(([id]) => keep.has(id)));
-    bwPersist();
-    renderBillingWorkspace();
+function bwRemoveSelected() {
+    const n = BW.view.checked.size;
+    if (!n || !confirm(`Remove ${n} selected row${n > 1 ? 's' : ''} from Workspace?`)) return;
+    bwSetRecords(BW.records.filter(r => !BW.view.checked.has(r.id)));
 }
 
 function bwClearAll() {
-    if (!BW.records.length || !confirm('Clear all loaded statements in Workspace?')) return;
-    BW.records = [];
-    BW.selections = {};
-    bwPersist();
-    renderBillingWorkspace();
+    if (!BW.records.length || !confirm('Clear the whole Workspace?')) return;
+    bwSetRecords([]);
 }
 
 /* ───────────────────────── RENDER ───────────────────────── */
 
-function bwStatusCell(r) {
-    if (r.status === 'matched') return '<span class="bw-st bw-st-ok">✓ found</span>';
-    if (r.status === 'choose') return `<span class="bw-st bw-st-pick">choose (${r.candidates.length})</span>`;
-    return '<span class="bw-st bw-st-miss">not found</span>';
-}
-
-function bwCardCells(r) {
-    if (r.status === 'choose') {
-        const opts = ['<option value="">— choose —</option>'].concat(r.candidates.map(c =>
-            `<option value="${bwEsc(c.cc)}">${bwEsc(c.cc)} · ${bwEsc(c.mm)}/${bwEsc(c.yy)} · ${bwEsc(c.bank || '?')} · ${bwEsc(c.country || c.countryCode || '?')}</option>`));
-        return `<td colspan="6"><select class="bw-select" data-bw-pick="${bwEsc(r.id)}">${opts.join('')}</select></td>`;
-    }
-    if (!r.chosen) return '<td colspan="6" class="bw-dim">not in the main base</td>';
-    const c = r.chosen;
-    const copy = `${c.cc} ${c.mm} ${c.yy} ${c.cvv}`;
-    return `<td><span class="bw-copy" data-bw-copy="${bwEsc(copy)}" title="Copy: number mm yy cvv">${bwEsc(c.cc)}</span></td>
-        <td>${bwEsc(c.mm)}/${bwEsc(c.yy)}</td><td>${bwEsc(c.cvv)}</td><td>${bwEsc(c.cc.slice(0, 6))}</td>
-        <td>${bwEsc(c.country || c.countryCode || '—')}</td><td class="bw-bank">${bwEsc(c.bank || '—')}<small>${bwEsc(c.cardType || '')}</small></td>`;
-}
-
-function bwRowHtml(r, i) {
-    return `<tr class="bw-row bw-${r.status}">
-        <td class="bw-num">${i + 1}</td>
-        <td class="bw-file" title="${bwEsc(r.fileName)}">${bwEsc(r.fileName.replace(/\.csv$/i, ''))}<small>${bwDateRu(r.periodFrom)} – ${bwDateRu(r.periodTo)}</small></td>
-        <td class="bw-net"><b>${bwEsc(r.network)}</b> •••• ${bwEsc(r.last4)}<small>${bwDateRu(r.firstDate)} → ${bwDateRu(r.lastDate)}</small></td>
-        ${bwCardCells(r)}
-        <td class="bw-money bw-ok">${bwMoney(r.charged, r.cur)}<small>${r.chargedCount ? r.chargedCount + '×' : ''}</small></td>
-        <td class="bw-money bw-bad" title="${bwEsc(r.reasons.join('; '))}">${bwMoney(r.declined, r.cur)}<small>${r.declinedCount ? r.declinedCount + '×' : ''}</small></td>
-        <td class="bw-money bw-warn">${bwMoney(r.chargedBack, r.cur)}<small>${r.chargedBackCount ? r.chargedBackCount + '×' : ''}</small></td>
-        <td class="bw-money" title="${r.fileCardCount > 1 ? 'Spend of the whole file — it has several cards' : 'Campaign spend for the file period'}">${bwMoney(r.campaignCost, r.cur)}${r.fileCardCount > 1 ? '<small>file*</small>' : ''}</td>
-        <td>${bwStatusCell(r)}</td></tr>`;
-}
-
-function bwHeaderHtml(all, indexReady) {
-    const T = bsTotals(all);
-    const baseNote = indexReady ? ''
-        : `<div class="bw-banner">${BW.indexing ? '⏳ Indexing the main base…' : '⚠ Main base not loaded — load it in the Parser tab (drag & drop + PARSE) to fill in full card data.'}</div>`;
-    const files = [...new Set(BW.records.map(r => r.fileName))].map(n =>
-        `<span class="bw-fchip">${bwEsc(n.replace(/\.csv$/i, ''))}<button data-bw-del="${bwEsc(n)}" title="Remove file">✕</button></span>`).join('');
-    return `
-    <div class="bw-head">
-        <div><h2 class="bw-title">Workspace <span>Billing activity</span></h2>
-        <div class="bw-sub">Google Ads statements → cards from the main base + spend per period</div></div>
-        <div class="bw-actions">
-            <button class="bw-btn bw-btn-primary" id="bw-upload">⬆ Upload statements</button>
-            <button class="bw-btn" id="bw-copy-all" ${T.matched ? '' : 'disabled'}>📋 Cards</button>
-            <button class="bw-btn" id="bw-export" ${all.length ? '' : 'disabled'}>⬇ CSV</button>
-            <button class="bw-btn bw-btn-danger" id="bw-clear" ${all.length ? '' : 'disabled'}>Clear</button>
-            <input type="file" id="bw-file" accept=".csv,.zip" multiple hidden>
-        </div>
-    </div>
-    ${baseNote}
-    <div class="bw-stats">
-        <div class="bw-stat"><em>Files</em><b>${T.files}</b></div>
-        <div class="bw-stat"><em>Cards</em><b>${T.cards}</b></div>
-        <div class="bw-stat bw-s-ok"><em>Found</em><b>${T.matched}</b></div>
-        <div class="bw-stat bw-s-pick"><em>Choose</em><b>${T.choose}</b></div>
-        <div class="bw-stat bw-s-miss"><em>Not found</em><b>${T.missing}</b></div>
-        <div class="bw-stat bw-s-ok"><em>Charged</em><b>${bwMoneyMap(T.charged)}</b></div>
-        <div class="bw-stat bw-s-miss"><em>Declined</em><b>${bwMoneyMap(T.declined)}</b></div>
-        <div class="bw-stat bw-s-pick"><em>Chargebacks</em><b>${bwMoneyMap(T.chargedBack)}</b></div>
-        <div class="bw-stat"><em>Campaigns</em><b>${bwMoneyMap(T.campaign)}</b></div>
-    </div>
-    ${files ? `<div class="bw-files">${files}</div>` : ''}`;
-}
-
-function bwToolbarHtml() {
-    const opt = (v, t) => `<option value="${v}" ${BW.status === v ? 'selected' : ''}>${t}</option>`;
-    return `<div class="bw-toolbar">
-        <input id="bw-search" class="bw-input" placeholder="Search: last4, number, bank, country, file…" value="${bwEsc(BW.search)}">
-        <select id="bw-status" class="bw-select bw-select-sm">${opt('all', 'All')}${opt('matched', 'Found')}${opt('choose', 'Needs choice')}${opt('missing', 'Not found')}</select>
-    </div>`;
-}
-
 function bwEmptyHtml() {
-    return `<div class="bw-drop" id="bw-drop">
+    return `<div class="bw-drop" id="bw-find">
         <div class="bw-drop-ico">🧾</div>
-        <div class="bw-drop-t">Drop Google Ads statements here</div>
-        <div class="bw-drop-s">Billing activity report (.csv) — many files at once, or a .zip</div>
+        <div class="bw-drop-t">Workspace is empty</div>
+        <div class="bw-drop-s">Open <b>Find Billings</b>, upload statements, Parse &amp; Match, tick rows → Add selected to Workspace</div>
     </div>`;
 }
 
@@ -236,68 +114,42 @@ function renderBillingWorkspace() {
     if (!area) return;
     if (bar) bar.innerHTML = '';
 
-    const indexReady = bwEnsureIndex(renderBillingWorkspace);
-    const allRows = bsBuildRows(BW.records, BW.index || new Map(), BW.selections);
-    const rows = bwCurrentRows();
+    const prepared = btPrepare(bwAllRows(), BW.view);
+    const n = BW.view.checked.size;
+    const body = !BW.records.length ? bwEmptyHtml() : `
+        ${btStatsHtml(prepared)}
+        ${btToolbarHtml(BW.view)}
+        ${btTableHtml(prepared, BW.view, true)}`;
 
-    const table = !BW.records.length ? bwEmptyHtml() : `
-        ${bwToolbarHtml()}
-        <div class="bw-table-wrap"><table class="bw-table"><thead><tr>
-            <th>#</th><th>File · period</th><th>Statement card</th><th>Full number</th><th>Exp</th><th>CVV</th><th>BIN</th><th>Country</th><th>Bank</th>
-            <th>Charged</th><th>Declined</th><th>Chargebacks</th><th>Campaigns</th><th>Status</th>
-        </tr></thead><tbody>${rows.map(bwRowHtml).join('') || '<tr><td colspan="14" class="bw-dim bw-center">Nothing matches the filter</td></tr>'}</tbody></table></div>`;
-
-    area.innerHTML = `<div class="bw-wrap fade-in">${bwHeaderHtml(allRows, indexReady)}${table}</div>`;
-    bwBind(area, rows);
+    area.innerHTML = `<div class="bw-wrap fade-in">
+        <div class="bw-head">
+            <div><h2 class="bw-title">Workspace <span>Billing activity</span></h2>
+            <div class="bw-sub">Cards moved from Find Billings · click a row for full card data</div></div>
+            <div class="bw-actions">
+                <button class="bw-btn bw-btn-primary" id="bw-upload">⬆ Upload statements</button>
+                <button class="bw-btn bw-btn-danger" id="bw-remove" ${n ? '' : 'disabled'}>Remove selected${n ? ` (${n})` : ''}</button>
+                <button class="bw-btn bw-btn-danger" id="bw-clear" ${BW.records.length ? '' : 'disabled'}>Clear</button>
+            </div>
+        </div>
+        ${body}
+    </div>`;
+    bwBind(area, prepared);
 }
 
-function bwBind(area, rows) {
-    const fileInput = area.querySelector('#bw-file');
-    area.querySelector('#bw-upload')?.addEventListener('click', () => fileInput.click());
-    fileInput?.addEventListener('change', e => { if (e.target.files.length) bwAddFiles(e.target.files); });
+function bwBind(area, prepared) {
+    const goFind = () => (typeof fbOpen === 'function' ? fbOpen() : null);
+    area.querySelector('#bw-upload')?.addEventListener('click', goFind);
+    area.querySelector('#bw-find')?.addEventListener('click', goFind);
+    area.querySelector('#bw-remove')?.addEventListener('click', bwRemoveSelected);
     area.querySelector('#bw-clear')?.addEventListener('click', bwClearAll);
-
-    const wrap = area.querySelector('.bw-wrap');
-    ['dragover', 'dragenter'].forEach(ev => wrap.addEventListener(ev, e => { e.preventDefault(); wrap.classList.add('bw-dragging'); }));
-    ['dragleave', 'drop'].forEach(ev => wrap.addEventListener(ev, e => { e.preventDefault(); wrap.classList.remove('bw-dragging'); }));
-    wrap.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) bwAddFiles(e.dataTransfer.files); });
-    area.querySelector('#bw-drop')?.addEventListener('click', () => fileInput.click());
-
-    area.querySelector('#bw-search')?.addEventListener('input', e => {
-        BW.search = e.target.value;
-        const pos = e.target.selectionStart;
-        renderBillingWorkspace();
-        const el = document.getElementById('bw-search');
-        if (el) { el.focus(); el.setSelectionRange(pos, pos); }
-    });
-    area.querySelector('#bw-status')?.addEventListener('change', e => { BW.status = e.target.value; renderBillingWorkspace(); });
-
-    area.querySelectorAll('[data-bw-del]').forEach(b => b.addEventListener('click', () => bwRemoveFile(b.dataset.bwDel)));
-    area.querySelectorAll('[data-bw-pick]').forEach(s => s.addEventListener('change', () => {
-        const id = s.dataset.bwPick;
-        const next = { ...BW.selections };
-        if (s.value) next[id] = s.value; else delete next[id];
-        BW.selections = next;
-        bwPersist();
-        renderBillingWorkspace();
-    }));
-    area.querySelectorAll('[data-bw-copy]').forEach(el => el.addEventListener('click', () => {
-        navigator.clipboard && navigator.clipboard.writeText(el.dataset.bwCopy);
-        toast('Copied: ' + el.dataset.bwCopy, 'success');
-    }));
-
-    area.querySelector('#bw-copy-all')?.addEventListener('click', () => {
-        const lines = rows.filter(r => r.chosen).map(r => `${r.chosen.cc} ${r.chosen.mm} ${r.chosen.yy} ${r.chosen.cvv}`);
-        if (!lines.length) return toast('No found cards', 'warning');
-        navigator.clipboard && navigator.clipboard.writeText(lines.join('\n'));
-        toast(`Cards copied: ${lines.length}`, 'success');
-    });
-    area.querySelector('#bw-export')?.addEventListener('click', () => {
-        const blob = new Blob(['\uFEFF' + bsToCsv(rows)], { type: 'text/csv;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `workspace-billing-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    btBind(area, BW.view, prepared, {
+        setView: patch => { BW.view = { ...BW.view, ...patch }; renderBillingWorkspace(); },
+        pick: (id, cc) => {
+            const next = { ...BW.selections };
+            if (cc) next[id] = cc; else delete next[id];
+            BW.selections = next;
+            bwPersist();
+            renderBillingWorkspace();
+        }
     });
 }
