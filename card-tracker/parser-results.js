@@ -66,7 +66,10 @@ function prCopy(lines, label) {
 /* ── HTML pieces ── */
 
 function prTierChips(tree, view) {
-    return [1, 2, 3].map(t => `<button class="pres-tier-chip t${t} ${view.tiers.has(t) ? 'active' : ''}" data-act="tier" data-tier="${t}"
+    const all = tree.tierCounts[1] + tree.tierCounts[2] + tree.tierCounts[3];
+    const allChip = `<button class="pres-tier-chip all ${view.tiers.size === 0 ? 'active' : ''}" data-act="tier-clear"
+        title="Show all tiers (no tier filter)">All <span>${all}</span></button>`;
+    return allChip + [1, 2, 3].map(t => `<button class="pres-tier-chip t${t} ${view.tiers.has(t) ? 'active' : ''}" data-act="tier" data-tier="${t}"
         title="Show only Tier ${t} countries (multi-select)">Tier ${t} <span>${tree.tierCounts[t]}</span></button>`).join('');
 }
 
@@ -200,7 +203,6 @@ function renderParserResults(geoFilter) {
                 <span class="pres-total-badge">${tree.total} cards · ${totalBins} BIN</span>
                 ${testModeActive ? `<span class="pres-test-badge">🧪 TEST: ${base.length} / ${totalBins} BINs</span>` : ''}
                 <span class="pres-tier-label">Tier</span>${prTierChips(tree, view)}
-                ${view.tiers.size ? '<button class="pres-link-btn" data-act="tier-clear">reset</button>' : ''}
             </div>
             <div class="pres-topbar-right">
                 <span class="pres-scope">${prEsc(prScopeLabel(view) || 'All cards')}: ${scope.length}</span>
