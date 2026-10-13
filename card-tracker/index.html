@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Tracker — Premium Dashboard</title>
+    <title>Card Tracker вЂ” Premium Dashboard</title>
     <meta name="description" content="Premium card management and tracking dashboard for media buying operations">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="styles.css?v=26">
     <link rel="stylesheet" href="parser-filters.css?v=2">
     <link rel="stylesheet" href="billing-workspace.css?v=2">
+<link rel="stylesheet" href="parser-results.css?v=2">
 </head>
 <body>
     <!-- MAIN APP -->
@@ -37,7 +38,7 @@
                 <input type="text" id="search-input" class="tn-search" placeholder="Search..." autocomplete="off">
                 <div id="global-search-results" class="global-search-results hidden"></div>
                 <div class="tn-settings-wrap">
-                    <button id="tn-settings-btn" class="tn-settings-btn">⚙</button>
+                    <button id="tn-settings-btn" class="tn-settings-btn">вљ™</button>
                     <div id="tn-settings-dropdown" class="tn-dropdown hidden">
 
                         <button id="restore-backup-btn">Import</button>
@@ -125,7 +126,7 @@
                     </div>
                     <div class="form-group">
                         <label>CVV *</label>
-                        <input type="password" id="form-cvv" placeholder="•••" maxlength="4" required>
+                        <input type="password" id="form-cvv" placeholder="вЂўвЂўвЂў" maxlength="4" required>
                     </div>
                 </div>
                 <div class="form-row">
@@ -185,7 +186,7 @@
                 <input type="hidden" id="list-country" value="auto">
                 <div class="form-group full-width">
                     <label>Paste any text with card data</label>
-                    <textarea id="list-textarea" class="list-textarea" rows="8" placeholder="Paste anything — logs, lists, messages...&#10;&#10;Auto-detects:&#10;• Card numbers (13-19 digits)&#10;• Expiry (MM/YY, MM|YY)&#10;• CVV (3-4 digits)&#10;&#10;Examples:&#10;4242424242424242 12/28 123&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
+                    <textarea id="list-textarea" class="list-textarea" rows="8" placeholder="Paste anything вЂ” logs, lists, messages...&#10;&#10;Auto-detects:&#10;вЂў Card numbers (13-19 digits)&#10;вЂў Expiry (MM/YY, MM|YY)&#10;вЂў CVV (3-4 digits)&#10;&#10;Examples:&#10;4242424242424242 12/28 123&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
                 </div>
                 <div class="list-info">
                     <span id="list-parsed-count" class="list-count-badge">0 cards detected</span>
@@ -375,13 +376,13 @@
         </div>
     </div>
 
-    <!-- ADD COUNTRY MODAL removed — BIN checker auto-detects country -->
+    <!-- ADD COUNTRY MODAL removed вЂ” BIN checker auto-detects country -->
 
     <!-- DELETE PROJECT MODAL -->
     <div id="delete-project-overlay" class="modal-overlay hidden">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h3 class="text-danger">⚠️ DELETE PROJECT</h3>
+                <h3 class="text-danger">вљ пёЏ DELETE PROJECT</h3>
                 <p class="modal-subtitle">This will permanently delete ALL data from ALL countries</p>
                 <button class="modal-close" id="delete-project-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
@@ -441,7 +442,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3 id="doc-modal-title">ADD DOCUMENTS</h3>
-                <p class="modal-subtitle">Bulk import — paste names list</p>
+                <p class="modal-subtitle">Bulk import вЂ” paste names list</p>
                 <button class="modal-close" id="doc-modal-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                 </button>
@@ -471,7 +472,7 @@
                     <input type="text" id="doc-list-notes" placeholder="Optional shared notes...">
                 </div>
                 <div class="form-group full-width">
-                    <label>Paste names — one per line</label>
+                    <label>Paste names вЂ” one per line</label>
                     <textarea id="doc-list-textarea" class="list-textarea" rows="8" placeholder="JOHN DOE&#10;MARIA SMITH&#10;ALEX JOHNSON&#10;&#10;Each line = one document&#10;Format: NAME SURNAME"></textarea>
                 </div>
                 <div class="list-info">
@@ -493,7 +494,7 @@
     <div id="checker-overlay" class="modal-overlay hidden">
         <div class="modal checker-modal">
             <div class="modal-header">
-                <h3>🐍 VIPER CHECKER</h3>
+                <h3>рџђЌ VIPER CHECKER</h3>
                 <span class="modal-subtitle">Check cards via Viper API</span>
                 <button class="modal-close" id="checker-close">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
@@ -527,7 +528,7 @@
                 <!-- Check button -->
                 <div style="display:flex;align-items:center;gap:8px">
                     <button class="btn-primary" id="checker-check-btn" style="flex:1">
-                        ⚡ CHECK CARDS
+                        вљЎ CHECK CARDS
                     </button>
                     <span id="checker-status" class="checker-status-badge"></span>
                 </div>
@@ -535,7 +536,7 @@
                 <div class="checker-section">
                     <div class="checker-output-header">
                         <span class="checker-label">RESULTS</span>
-                        <button class="btn-copy-sm" id="checker-copy-results">📋 COPY</button>
+                        <button class="btn-copy-sm" id="checker-copy-results">рџ“‹ COPY</button>
                     </div>
                     <pre class="checker-output" id="checker-output">Results will appear here...</pre>
                 </div>
@@ -547,7 +548,7 @@
     <div id="format-modal-overlay" class="modal-overlay hidden">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h3>📋 SELECT FORMAT</h3>
+                <h3>рџ“‹ SELECT FORMAT</h3>
                 <span class="modal-subtitle">Choose export format for Notes</span>
                 <button class="modal-close" id="format-modal-close">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
@@ -556,17 +557,17 @@
             <div class="modal-body">
                 <div class="format-options">
                     <button class="format-option-btn" data-format="full">
-                        <span class="format-icon">💳</span>
+                        <span class="format-icon">рџ’і</span>
                         <span class="format-label">Full Info</span>
                         <span class="format-desc">CC, Validity, CVV, Holder, Bank, Type</span>
                     </button>
                     <button class="format-option-btn" data-format="checker">
-                        <span class="format-icon">⚡</span>
+                        <span class="format-icon">вљЎ</span>
                         <span class="format-label">Checker</span>
                         <span class="format-desc">4242424242424242 03 27 111</span>
                     </button>
                     <button class="format-option-btn" data-format="raw">
-                        <span class="format-icon">📄</span>
+                        <span class="format-icon">рџ“„</span>
                         <span class="format-label">Raw Data</span>
                         <span class="format-desc">4242424242424242|03|27|111</span>
                     </button>
@@ -580,17 +581,17 @@
         <div class="modal modal-wide ck-modal ck-modal-trash">
             <div class="modal-header">
                 <div>
-                    <h3>🗑 TRASH</h3>
-                    <p class="modal-subtitle">Load checker files — ONLY 💀 DEAD / ❌ INVALID cards are added. Alive cards are skipped.</p>
+                    <h3>рџ—‘ TRASH</h3>
+                    <p class="modal-subtitle">Load checker files вЂ” ONLY рџ’Ђ DEAD / вќЊ INVALID cards are added. Alive cards are skipped.</p>
                 </div>
                 <button class="modal-close" id="trash-cards-close"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
             </div>
             <div class="modal-body">
                 <div class="smart-drop smart-drop-trash" id="trash-smart-drop" tabindex="0">
                     <input type="file" id="trash-smart-file" accept=".json,.txt" multiple hidden>
-                    <span class="smart-drop-icon">📥</span>
+                    <span class="smart-drop-icon">рџ“Ґ</span>
                     <span class="smart-drop-title">Drop files here or click</span>
-                    <span class="smart-drop-sub">.json (Telegram export) · .txt · multiple files · or paste a list (Ctrl+V)</span>
+                    <span class="smart-drop-sub">.json (Telegram export) В· .txt В· multiple files В· or paste a list (Ctrl+V)</span>
                 </div>
                 <div class="ck-summary" id="trash-summary">
                     <span class="ck-summary-empty">No files loaded yet</span>
@@ -598,10 +599,10 @@
             </div>
             <div class="modal-footer ck-footer">
                 <button class="btn-cancel" id="trash-cards-cancel">Cancel</button>
-                <button class="pz-btn pz-btn-dim" id="trash-show-list">📋 Show List</button>
-                <button class="pz-btn pz-btn-dim ck-btn-danger" id="trash-clear-all">🗑 Clear All</button>
+                <button class="pz-btn pz-btn-dim" id="trash-show-list">рџ“‹ Show List</button>
+                <button class="pz-btn pz-btn-dim ck-btn-danger" id="trash-clear-all">рџ—‘ Clear All</button>
                 <span style="flex:1"></span>
-                <button class="pz-btn ck-btn-trash-main" id="trash-cards-save" disabled>🗑 ADD TO TRASH</button>
+                <button class="pz-btn ck-btn-trash-main" id="trash-cards-save" disabled>рџ—‘ ADD TO TRASH</button>
             </div>
         </div>
     </div>
@@ -611,17 +612,17 @@
         <div class="modal modal-wide ck-modal ck-modal-valid">
             <div class="modal-header">
                 <div>
-                    <h3>✅ VALID CARDS</h3>
-                    <p class="modal-subtitle">Load checker files — shows ONLY alive cards (latest check ALIVE), grouped by BIN. Works on the whole loaded base, independent of filters.</p>
+                    <h3>вњ… VALID CARDS</h3>
+                    <p class="modal-subtitle">Load checker files вЂ” shows ONLY alive cards (latest check ALIVE), grouped by BIN. Works on the whole loaded base, independent of filters.</p>
                 </div>
                 <button class="modal-close" id="valid-cards-close"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
             </div>
             <div class="modal-body">
                 <div class="smart-drop smart-drop-valid" id="valid-smart-drop" tabindex="0">
                     <input type="file" id="valid-smart-file" accept=".json,.txt" multiple hidden>
-                    <span class="smart-drop-icon">📥</span>
+                    <span class="smart-drop-icon">рџ“Ґ</span>
                     <span class="smart-drop-title">Drop files here or click</span>
-                    <span class="smart-drop-sub">.json (Telegram export) · .txt · multiple files · or paste a list (Ctrl+V)</span>
+                    <span class="smart-drop-sub">.json (Telegram export) В· .txt В· multiple files В· or paste a list (Ctrl+V)</span>
                 </div>
                 <div class="ck-summary" id="valid-summary">
                     <span class="ck-summary-empty">No files loaded yet</span>
@@ -629,9 +630,9 @@
             </div>
             <div class="modal-footer ck-footer">
                 <button class="btn-cancel" id="valid-cards-cancel">Cancel</button>
-                <button class="pz-btn pz-btn-dim" id="valid-reset">↺ Reset files</button>
+                <button class="pz-btn pz-btn-dim" id="valid-reset">в†є Reset files</button>
                 <span style="flex:1"></span>
-                <button class="pz-btn ck-btn-valid-main" id="valid-cards-process" disabled>✅ SHOW VALID CARDS</button>
+                <button class="pz-btn ck-btn-valid-main" id="valid-cards-process" disabled>вњ… SHOW VALID CARDS</button>
             </div>
         </div>
     </div>
@@ -640,7 +641,7 @@
     <div id="check-base-overlay" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h3>🔍 CHECK CARDS AGAINST TRASH</h3>
+                <h3>рџ”Ќ CHECK CARDS AGAINST TRASH</h3>
                 <p class="modal-subtitle">Paste cards to check against the Trash base</p>
                 <button class="modal-close" id="check-base-close">
                     <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
@@ -672,12 +673,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="checker-extract.js?v=3"></script>
     <script src="valid-trash-ui.js?v=3"></script>
-    <script src="valid-results.js?v=2"></script>
+    <script src="valid-results.js?v=3"></script>
     <script src="parser-filters.js?v=2"></script>
     <script src="parser-lists.js?v=1"></script>
     <script src="billing-statement.js?v=1"></script>
     <script src="billing-workspace.js?v=2"></script>
-    <script src="app.js?v=57"></script>
+    <script src="parser-geo.js?v=1"></script>
+<script src="parser-results.js?v=2"></script>
+<script src="app.js?v=59"></script>
     <script src="bin-tester.js?v=1"></script>
     <script src="creditcard-gen.js?v=2"></script>
     <script src="dl-data.js?v=1"></script>

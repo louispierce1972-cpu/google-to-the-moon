@@ -27,13 +27,16 @@ function ckFilteredCards() {
     });
 }
 
-/** BIN groups sorted by size; cards inside sorted by country, then name. */
-function ckGroupByBin(cards) {
+/** BIN groups sorted by size; cards inside sorted by country, then name.
+ *  `section` prefixes the group key so the same BIN can live in both sections. */
+function ckGroupByBin(cards, section = 'base') {
     const map = new Map();
     cards.forEach(c => map.set(c.bin, [...(map.get(c.bin) || []), c]));
     return [...map.entries()]
         .map(([bin, list]) => ({
             bin,
+            key: `${section}:${bin}`,
+            section,
             cards: [...list].sort((a, b) => a.geo.localeCompare(b.geo) || a.holder.localeCompare(b.holder)),
             bank: (list.find(c => c.bank) || {}).bank || '',
             type: (list.find(c => c.cardType) || {}).cardType || ''
@@ -58,24 +61,25 @@ function ckGroupRows(group) {
             <td class="vc-td-cvv">${c.cvv ? ckEsc(c.cvv) : dash}</td>
             <td class="vc-td-name">${c.holder ? ckEsc(c.holder.toUpperCase()) : dash}</td>
             <td class="vc-td-type">${c.cardType ? ckEsc(c.cardType.toUpperCase()) : dash}</td>
-            <td class="vc-td-bank" title="${ckEsc(c.bank)}">${c.bank ? ckEsc(c.bank) : dash}</td>
+            <td class="vc-td-bank" title="${ckEsc(c.bank)}">${c.bank ? ckEsc(c.bank) : (c.inBase ? dash : '<span class="ck-nobase-tag">Not in base</span>')}</td>
             <td class="vc-td-geo"><span class="ck-geo-code">${ckEsc(c.geo)}</span> ${ckEsc(ckCountryName(c.geo))}</td>
         </tr>`;
     }).join('');
 }
 
 function ckGroupHtml(group) {
-    const open = VALID_STATE.expanded.has(group.bin);
+    const open = VALID_STATE.expanded.has(group.key);
     const selCount = group.cards.filter(c => VALID_STATE.selected.has(c.cc)).length;
     const geos = ckCountBy(group.cards, 'geo').slice(0, 4)
         .map(([g, n]) => `<span class="ck-g-geo"><b>${ckEsc(g)}</b> ${n}</span>`).join('');
-    return `<div class="ck-group ${open ? 'open' : ''} ${selCount ? 'has-sel' : ''}">
-        <div class="ck-group-head" data-act="toggle" data-bin="${ckEsc(group.bin)}">
-            <input type="checkbox" class="ck-group-chk" data-bin="${ckEsc(group.bin)}"
+    const bankLabel = group.bank || (group.section === 'nobase' ? 'Not in base' : 'Unknown bank');
+    return `<div class="ck-group ${open ? 'open' : ''} ${selCount ? 'has-sel' : ''} ${group.section === 'nobase' ? 'ck-group-nobase' : ''}">
+        <div class="ck-group-head" data-act="toggle" data-bin="${ckEsc(group.key)}">
+            <input type="checkbox" class="ck-group-chk" data-bin="${ckEsc(group.key)}"
                 data-state="${selCount === 0 ? 'none' : selCount === group.cards.length ? 'all' : 'some'}">
             <span class="ck-caret">${open ? '▾' : '▸'}</span>
             <span class="ck-g-bin">${ckEsc(group.bin)}</span>
-            <span class="ck-g-bank" title="${ckEsc(group.bank)}">${ckEsc(group.bank || 'Unknown bank')}</span>
+            <span class="ck-g-bank" title="${ckEsc(group.bank)}">${ckEsc(bankLabel)}</span>
             <span class="ck-g-type">${ckEsc((group.type || '').toUpperCase())}</span>
             <span class="ck-g-geos">${geos}</span>
             <span class="ck-g-sel">${selCount ? `✓ ${selCount}/${group.cards.length}` : ''}</span>
@@ -100,6 +104,30 @@ function ckExportToNotes(list) {
     ckPushNote(ckNoteTitle(list), ckFormatLines(list, VALID_STATE.format), 'Valid Cards');
 }
 
+function ckCopyCards(list) {
+    if (list.length === 0) { toast('Nothing to copy', 'warning'); return; }
+    const text = ckFormatLines(list, VALID_STATE.format);
+    if (!navigator.clipboard) { toast('Clipboard is not available', 'error'); return; }
+    navigator.clipboard.writeText(text)
+        .then(() => toast(`${list.length} cards copied`, 'success'))
+        .catch(() => toast('Copy failed', 'error'));
+}
+
+/** Section block: header with counters + copy / notes buttons, then BIN groups. */
+function ckSectionHtml(section, title, cards, groups, hint) {
+    if (cards.length === 0) return '';
+    return `<div class="ck-section ck-section-${section}">
+        <div class="ck-section-head">
+            <span class="ck-section-title">${title}</span>
+            <span class="ck-section-meta">${groups.length} BIN · ${cards.length} cards${hint ? ` — ${hint}` : ''}</span>
+            <span class="vc-bar-spacer"></span>
+            <button class="pz-btn pz-btn-dim" data-act="copy-section" data-sec="${section}">📋 Copy (${cards.length})</button>
+            <button class="pz-btn pz-btn-dim" data-act="notes-section" data-sec="${section}">📝 → Notes</button>
+        </div>
+        <div class="ck-groups">${groups.map(ckGroupHtml).join('')}</div>
+    </div>`;
+}
+
 function renderValidCardsResults() {
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
@@ -107,7 +135,12 @@ function renderValidCardsResults() {
     const { cards, stats, countries, selected } = VALID_STATE;
 
     const filtered = ckFilteredCards();
-    const groups = ckGroupByBin(filtered);
+    const baseCards = filtered.filter(c => c.inBase);
+    const noBaseCards = filtered.filter(c => !c.inBase);
+    const baseGroups = ckGroupByBin(baseCards, 'base');
+    const noBaseGroups = ckGroupByBin(noBaseCards, 'nobase');
+    const groups = [...baseGroups, ...noBaseGroups];
+    const sections = { base: baseCards, nobase: noBaseCards };
     const countryList = ckCountBy(cards, 'geo');
     const matched = cards.filter(c => c.inBase).length;
     const hasBase = (PARSER_STATE.rawMessages || []).length > 0;
@@ -151,14 +184,17 @@ function renderValidCardsResults() {
             <button class="pz-btn pz-btn-dim" data-act="collapse-all">⊟ Collapse all</button>
             <span class="vc-bar-spacer"></span>
             <label class="vc-fmt-label">Format <select id="ck-format" class="vc-fmt-select">${formatOptions}</select></label>
+            <button class="pz-btn pz-btn-dim" data-act="copy-selected" ${selectedCards.length ? '' : 'disabled'}>📋 Copy selected (${selectedCards.length})</button>
             <button class="pz-btn pz-btn-primary" data-act="notes-selected" ${selectedCards.length ? '' : 'disabled'}>📝 Selected → Notes (${selectedCards.length})</button>
         </div>
 
         <div class="ck-groups-head">BINs: ${groups.length} · cards: ${filtered.length} — click a BIN to open its cards; the checkbox on the left selects the whole BIN</div>
-        <div class="ck-groups">${groups.map(ckGroupHtml).join('') || '<div class="vc-no-rows">Nothing found</div>'}</div>
+        ${filtered.length === 0 ? '<div class="vc-no-rows">Nothing found</div>' : ''}
+        ${ckSectionHtml('base', '📎 In base', baseCards, baseGroups, 'full data from your base')}
+        ${ckSectionHtml('nobase', '⚠ Not in base', noBaseCards, noBaseGroups, 'checker data only (card, exp, cvv)')}
     </div>`;
 
-    ckBindResults(area, groups, filtered);
+    ckBindResults(area, groups, filtered, sections);
 }
 
 /** Re-render keeping scroll position and search focus. */
@@ -189,10 +225,10 @@ function ckToggleIn(key, value) {
 }
 
 /** Event delegation for the results page (the container is recreated on every render). */
-function ckBindResults(area, groups, filtered) {
+function ckBindResults(area, groups, filtered, sections = {}) {
     const root = area.querySelector('#ck-res');
     if (!root) return;
-    const groupByBin = new Map(groups.map(g => [g.bin, g]));
+    const groupByBin = new Map(groups.map(g => [g.key, g]));
 
     root.querySelectorAll('.ck-group-chk').forEach(cb => {
         cb.checked = cb.dataset.state === 'all';
@@ -210,10 +246,19 @@ function ckBindResults(area, groups, filtered) {
         else if (act === 'country-all') VALID_STATE.countries = new Set();
         else if (act === 'sel-shown') ckSetSelected(filtered.map(c => c.cc), true);
         else if (act === 'sel-none') VALID_STATE.selected = new Set();
-        else if (act === 'expand-all') VALID_STATE.expanded = new Set(groups.map(g => g.bin));
+        else if (act === 'expand-all') VALID_STATE.expanded = new Set(groups.map(g => g.key));
         else if (act === 'collapse-all') VALID_STATE.expanded = new Set();
         else if (act === 'notes-selected') {
             ckExportToNotes(VALID_STATE.cards.filter(c => VALID_STATE.selected.has(c.cc)));
+            return;
+        } else if (act === 'copy-selected') {
+            ckCopyCards(VALID_STATE.cards.filter(c => VALID_STATE.selected.has(c.cc)));
+            return;
+        } else if (act === 'copy-section') {
+            ckCopyCards(sections[el.dataset.sec] || []);
+            return;
+        } else if (act === 'notes-section') {
+            ckExportToNotes(sections[el.dataset.sec] || []);
             return;
         } else return;
         ckRerender();
