@@ -1,17 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════
    VALID CARDS — results page.
    Cards grouped by BIN (click a BIN to open its full card list),
-   country filter (Германия 13, США 23 ...), search, per-card / per-BIN /
+   country filter (Germany 13, United States 23 ...), search, per-card / per-BIN /
    all selection, export to Notes in Checker / Pipe / Full format.
    State lives in VALID_STATE (valid-trash-ui.js).
    ═══════════════════════════════════════════════════════════════════ */
 
 const CK_REGION_NAMES = (() => {
-    try { return new Intl.DisplayNames(['ru'], { type: 'region' }); } catch (e) { return null; }
+    try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) { return null; }
 })();
 
 function ckCountryName(code) {
-    if (!code || code === '??') return 'Неизвестно';
+    if (!code || code === '??') return 'Unknown';
     try { return (CK_REGION_NAMES && CK_REGION_NAMES.of(code)) || code; } catch (e) { return code; }
 }
 
@@ -75,14 +75,14 @@ function ckGroupHtml(group) {
                 data-state="${selCount === 0 ? 'none' : selCount === group.cards.length ? 'all' : 'some'}">
             <span class="ck-caret">${open ? '▾' : '▸'}</span>
             <span class="ck-g-bin">${ckEsc(group.bin)}</span>
-            <span class="ck-g-bank" title="${ckEsc(group.bank)}">${ckEsc(group.bank || 'Банк неизвестен')}</span>
+            <span class="ck-g-bank" title="${ckEsc(group.bank)}">${ckEsc(group.bank || 'Unknown bank')}</span>
             <span class="ck-g-type">${ckEsc((group.type || '').toUpperCase())}</span>
             <span class="ck-g-geos">${geos}</span>
             <span class="ck-g-sel">${selCount ? `✓ ${selCount}/${group.cards.length}` : ''}</span>
-            <span class="ck-g-count">${group.cards.length} карт</span>
+            <span class="ck-g-count">${group.cards.length} cards</span>
         </div>
         ${open ? `<div class="ck-group-body"><table class="data-table vc-table ck-table">
-            <thead><tr><th class="vc-td-chk"></th><th>КАРТА</th><th>EXP</th><th>CVV</th><th>ИМЯ ФАМИЛИЯ</th><th>ТИП</th><th>БАНК</th><th>СТРАНА</th></tr></thead>
+            <thead><tr><th class="vc-td-chk"></th><th>CARD</th><th>EXP</th><th>CVV</th><th>NAME</th><th>TYPE</th><th>BANK</th><th>COUNTRY</th></tr></thead>
             <tbody>${ckGroupRows(group)}</tbody></table></div>` : ''}
     </div>`;
 }
@@ -96,7 +96,7 @@ function ckNoteTitle(list) {
 }
 
 function ckExportToNotes(list) {
-    if (list.length === 0) { toast('Сначала выбери карты (галочки, BIN или «Выбрать все»)', 'warning'); return; }
+    if (list.length === 0) { toast('Select cards first (checkboxes, BIN or "Select all")', 'warning'); return; }
     ckPushNote(ckNoteTitle(list), ckFormatLines(list, VALID_STATE.format), 'Valid Cards');
 }
 
@@ -114,7 +114,7 @@ function renderValidCardsResults() {
     const selectedCards = cards.filter(c => selected.has(c.cc));
 
     const countryChips = [
-        `<button class="ck-country ${countries.size === 0 ? 'active' : ''}" data-act="country-all">🌍 Все <span>${cards.length}</span></button>`,
+        `<button class="ck-country ${countries.size === 0 ? 'active' : ''}" data-act="country-all">🌍 All <span>${cards.length}</span></button>`,
         ...countryList.map(([code, n]) => `<button class="ck-country ${countries.has(code) ? 'active' : ''}" data-act="country" data-geo="${ckEsc(code)}">
             <b>${ckEsc(code)}</b> ${ckEsc(ckCountryName(code))} <span>${n}</span></button>`)
     ].join('');
@@ -128,34 +128,34 @@ function renderValidCardsResults() {
             <button class="pz-btn pz-btn-dim vc-back-btn" data-act="back">← Back to Parser</button>
             <h2 class="vc-title">✅ Valid Cards</h2>
             <span class="vc-base-note">${hasBase
-                ? `📎 Данные из базы найдены для ${matched} из ${cards.length}`
-                : '⚠ База не загружена — загрузите result.json в Parser, чтобы подтянуть имя / банк / страну'}</span>
+                ? `📎 Base data found for ${matched} of ${cards.length}`
+                : '⚠ Base not loaded — load result.json in Parser to fill in name / bank / country'}</span>
         </div>
 
         <div class="vc-stats-row">
             <div class="vc-stat-card vc-stat-green"><span class="vc-stat-val">${stats.valid}</span><span class="vc-stat-lbl">VALID</span></div>
-            <div class="vc-stat-card vc-stat-red"><span class="vc-stat-val">${stats.trash}</span><span class="vc-stat-lbl">TRASH ИСКЛЮЧЕНО</span></div>
-            <div class="vc-stat-card vc-stat-dim"><span class="vc-stat-val">${stats.inTrashBefore}</span><span class="vc-stat-lbl">УЖЕ В КОРЗИНЕ</span></div>
+            <div class="vc-stat-card vc-stat-red"><span class="vc-stat-val">${stats.trash}</span><span class="vc-stat-lbl">TRASH EXCLUDED</span></div>
+            <div class="vc-stat-card vc-stat-dim"><span class="vc-stat-val">${stats.inTrashBefore}</span><span class="vc-stat-lbl">ALREADY IN TRASH</span></div>
             <div class="vc-stat-card vc-stat-blue"><span class="vc-stat-val">${new Set(cards.map(c => c.bin)).size}</span><span class="vc-stat-lbl">BIN</span></div>
-            <div class="vc-stat-card vc-stat-blue"><span class="vc-stat-val">${countryList.length}</span><span class="vc-stat-lbl">СТРАН</span></div>
+            <div class="vc-stat-card vc-stat-blue"><span class="vc-stat-val">${countryList.length}</span><span class="vc-stat-lbl">COUNTRIES</span></div>
         </div>
 
         <div class="ck-countries">${countryChips}</div>
 
         <div class="ck-toolbar">
-            <input type="search" class="ck-search" id="ck-search" placeholder="Поиск: номер, BIN, имя, банк…" value="${ckEsc(VALID_STATE.search)}">
-            <span class="vc-sel-count">Выбрано: ${selectedCards.length}</span>
-            <button class="pz-btn pz-btn-dim" data-act="sel-shown">✓ Выбрать все показанные (${filtered.length})</button>
-            <button class="pz-btn pz-btn-dim" data-act="sel-none">☐ Снять всё</button>
-            <button class="pz-btn pz-btn-dim" data-act="expand-all">⊞ Раскрыть все</button>
-            <button class="pz-btn pz-btn-dim" data-act="collapse-all">⊟ Свернуть все</button>
+            <input type="search" class="ck-search" id="ck-search" placeholder="Search: number, BIN, name, bank…" value="${ckEsc(VALID_STATE.search)}">
+            <span class="vc-sel-count">Selected: ${selectedCards.length}</span>
+            <button class="pz-btn pz-btn-dim" data-act="sel-shown">✓ Select all shown (${filtered.length})</button>
+            <button class="pz-btn pz-btn-dim" data-act="sel-none">☐ Clear selection</button>
+            <button class="pz-btn pz-btn-dim" data-act="expand-all">⊞ Expand all</button>
+            <button class="pz-btn pz-btn-dim" data-act="collapse-all">⊟ Collapse all</button>
             <span class="vc-bar-spacer"></span>
-            <label class="vc-fmt-label">Формат <select id="ck-format" class="vc-fmt-select">${formatOptions}</select></label>
-            <button class="pz-btn pz-btn-primary" data-act="notes-selected" ${selectedCards.length ? '' : 'disabled'}>📝 Выбранные → Notes (${selectedCards.length})</button>
+            <label class="vc-fmt-label">Format <select id="ck-format" class="vc-fmt-select">${formatOptions}</select></label>
+            <button class="pz-btn pz-btn-primary" data-act="notes-selected" ${selectedCards.length ? '' : 'disabled'}>📝 Selected → Notes (${selectedCards.length})</button>
         </div>
 
-        <div class="ck-groups-head">BIN-ы: ${groups.length} · карт: ${filtered.length} — нажми на BIN, чтобы раскрыть карты; галочка слева выбирает весь BIN</div>
-        <div class="ck-groups">${groups.map(ckGroupHtml).join('') || '<div class="vc-no-rows">Ничего не найдено</div>'}</div>
+        <div class="ck-groups-head">BINs: ${groups.length} · cards: ${filtered.length} — click a BIN to open its cards; the checkbox on the left selects the whole BIN</div>
+        <div class="ck-groups">${groups.map(ckGroupHtml).join('') || '<div class="vc-no-rows">Nothing found</div>'}</div>
     </div>`;
 
     ckBindResults(area, groups, filtered);

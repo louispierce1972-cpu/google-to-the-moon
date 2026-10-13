@@ -2,7 +2,7 @@
    PARSER FILTERS — pure logic + small UI for the Parser tab.
      • Include / Exclude lists for BIN, Country, Bank
        (a token may live in only one of the two lists of a field)
-     • "Parse all" switch (no filters) and "No prepaid" switch
+     • "No prepaid" switch (lives in the TYPE row)
      • PERIOD: parse only messages inside a date range (by Telegram
        message date): all / today / 7d / 30d / 3m / 6m / custom
    Pure functions (pf*) never mutate their input. UI helpers read app.js
@@ -179,7 +179,7 @@ function pfFmt(day) {
 /* ────────────────────────── UI: PERIOD BLOCK ────────────────────────── */
 
 const PF_PRESETS = [
-    ['all', 'Вся база'], ['today', 'Сегодня'], ['7d', '7 дней'], ['30d', '30 дней'], ['3m', '3 месяца'], ['6m', '6 месяцев']
+    ['all', 'All Base'], ['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['3m', '3 months'], ['6m', '6 months']
 ];
 
 /** Renders the PERIOD block (own container → typed filter values are never lost). */
@@ -195,9 +195,9 @@ function pfRenderPeriod() {
     const presetBtns = PF_PRESETS.map(([key, label]) =>
         `<button type="button" class="pf-preset${period.preset === key ? ' active' : ''}" data-pf-preset="${key}">${label}</button>`).join('');
     const info = range.min
-        ? `База: <b>${pfFmt(range.min)}</b> → <b>${pfFmt(range.max)}</b>`
-        : 'В базе нет дат сообщений';
-    const note = period.from || period.to ? `${pfFmt(period.from) || '…'} → ${pfFmt(period.to) || '…'}` : 'вся база';
+        ? `Base: <b>${pfFmt(range.min)}</b> → <b>${pfFmt(range.max)}</b>`
+        : 'No message dates in this base';
+    const note = period.from || period.to ? `${pfFmt(period.from) || '…'} → ${pfFmt(period.to) || '…'}` : 'all base';
     box.innerHTML = `
         <div class="pz-stage-header">
             <span class="pz-stage-num">📅</span>
@@ -206,9 +206,9 @@ function pfRenderPeriod() {
         </div>
         <div class="pf-period-row">
             <div class="pf-presets">${presetBtns}</div>
-            <label class="pf-date">С <input type="date" id="pf-from" value="${period.from}" min="${range.min}" max="${range.max}"></label>
-            <label class="pf-date">По <input type="date" id="pf-to" value="${period.to}" min="${range.min}" max="${range.max}"></label>
-            <span class="pf-period-count${inPeriod === 0 ? ' pf-zero' : ''}">${note}: <b>${inPeriod.toLocaleString()}</b> из ${msgs.length.toLocaleString()} сообщ.</span>
+            <label class="pf-date">From <input type="date" id="pf-from" value="${period.from}" min="${range.min}" max="${range.max}"></label>
+            <label class="pf-date">To <input type="date" id="pf-to" value="${period.to}" min="${range.min}" max="${range.max}"></label>
+            <span class="pf-period-count${inPeriod === 0 ? ' pf-zero' : ''}">${note}: <b>${inPeriod.toLocaleString()}</b> of ${msgs.length.toLocaleString()} msgs</span>
         </div>`;
 
     box.querySelectorAll('[data-pf-preset]').forEach(btn => btn.addEventListener('click', () => {
@@ -237,8 +237,7 @@ function pfReadConfig() {
         binsIn: pfBins(val('parser-bins')), binsEx: pfBins(val('parser-bins-ex')),
         countriesIn: pfCountries(val('parser-country')), countriesEx: pfCountries(val('parser-country-ex')),
         banksIn: pfBanks(val('parser-bank')), banksEx: pfBanks(val('parser-exclude-banks')),
-        excludePrepaid: Boolean(PARSER_STATE.filters.excludePrepaid),
-        parseAll: Boolean(PARSER_STATE.filters.parseAll)
+        excludePrepaid: Boolean(PARSER_STATE.filters.excludePrepaid)
     };
 }
 
@@ -249,34 +248,30 @@ function pfRefreshConflicts() {
     [['bin', 'pf-conflict-bin'], ['country', 'pf-conflict-country'], ['bank', 'pf-conflict-bank']].forEach(([kind, id]) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.textContent = c[kind].length ? `⚠ одновременно в Include и Exclude: ${c[kind].join(', ')}` : '';
+        el.textContent = c[kind].length ? `⚠ In both Include and Exclude: ${c[kind].join(', ')}` : '';
         el.style.display = c[kind].length ? '' : 'none';
     });
     return c;
 }
 
-/** Sets the Parse-all / No-prepaid state and refreshes the look of the filter block. */
+/** Sets the No-prepaid state and refreshes the look of its button. */
 function pfSetFlag(key, value) {
     PARSER_STATE.filters = { ...PARSER_STATE.filters, [key]: Boolean(value) };
-    document.querySelector('.parser-filters')?.classList.toggle('pf-off', Boolean(PARSER_STATE.filters.parseAll));
     document.getElementById('parser-no-prepaid')?.classList.toggle('active', Boolean(PARSER_STATE.filters.excludePrepaid));
 }
 
-/** Wires PERIOD, Parse-all, No-prepaid and the live conflict hints (called from renderParser). */
+/** Wires PERIOD, list popups, No-prepaid and the live conflict hints (called from renderParser). */
 function pfBindFilterUi() {
     pfRenderPeriod();
+    if (typeof plBind === 'function') plBind();
     pfRefreshConflicts();
-    document.getElementById('parser-parse-all')?.addEventListener('change', e => {
-        pfSetFlag('parseAll', e.target.checked);
-        _saveParserFilters();
-        toast(e.target.checked ? 'Парсить всё: фильтры отключены' : 'Фильтры включены', 'info');
-    });
     document.getElementById('parser-no-prepaid')?.addEventListener('click', () => {
         pfSetFlag('excludePrepaid', !PARSER_STATE.filters.excludePrepaid);
         _saveParserFilters();
+        toast(PARSER_STATE.filters.excludePrepaid ? 'No Prepaid: prepaid cards will be excluded' : 'No Prepaid: off', 'info');
     });
     ['parser-bins', 'parser-bins-ex', 'parser-country', 'parser-country-ex', 'parser-bank', 'parser-exclude-banks'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', pfRefreshConflicts);
+        document.getElementById(id)?.addEventListener('input', () => { pfRefreshConflicts(); _saveParserFilters(); });
     });
 }
 

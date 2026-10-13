@@ -1861,7 +1861,7 @@ textarea {
     color: var(--amber)
 }
 
-/* Кнопка копирования в stat-card */
+/* Copy button in stat-card */
 .stat-copy-btn {
     position: absolute;
     top: 3px;
@@ -2151,7 +2151,7 @@ textarea {
     transform: translateY(-1px);
 }
 
-/* Результаты проверки Check Base */
+/* Check Base results */
 .check-base-results {
     margin-top: 12px;
 }
@@ -2197,7 +2197,7 @@ textarea {
     color: #22C55E;
 }
 
-/* Кнопки копирования результатов */
+/* Result copy buttons */
 .cb-copy-actions {
     display: flex;
     gap: 8px;
@@ -2238,7 +2238,7 @@ textarea {
     color: #EF4444;
 }
 
-/* Секции результатов */
+/* Result sections */
 .cb-section {
     margin-bottom: 10px;
 }
@@ -7860,7 +7860,7 @@ tr.row-selected td {
     border-bottom: 1px solid var(--border-subtle);
 }
 
-/* Drawer: тёмный фон, цветная полоса слева, отступ, плавная анимация */
+/* Drawer: dark background, colored left stripe, padding, smooth animation */
 .drawer-content {
     background: rgba(0, 0, 0, .30);
     border-left: 3px solid #38BDF8;
@@ -7870,7 +7870,7 @@ tr.row-selected td {
     animation: drawerOpen 0.3s ease forwards;
 }
 
-/* После завершения анимации — показываем скролл если записей много */
+/* After the animation ends — show the scrollbar if there are many rows */
 .drawer-content.drawer-open {
     overflow-y: auto;
     max-height: 60vh;
@@ -7927,7 +7927,7 @@ tr.row-selected td {
     color: #ef4444;
 }
 
-/* ─── Drawer rows: CSS Grid для идеального выравнивания ─── */
+/* ─── Drawer rows: CSS Grid for exact alignment ─── */
 .drawer-row {
     display: grid;
     grid-template-columns: 22px 170px 1fr 90px 72px;
@@ -7970,7 +7970,7 @@ tr.row-selected td {
     text-overflow: ellipsis;
 }
 
-/* Модификаторы: Name Drawer — карта = primary, BIN info = dim */
+/* Modifiers: Name Drawer — card = primary, BIN info = dim */
 .drawer-card-primary {
     color: var(--text-primary);
     font-weight: 600;
@@ -7996,7 +7996,7 @@ tr.row-selected td {
     white-space: nowrap;
 }
 
-/* Статусы в дровере — только визуальные, не кликабельные */
+/* Drawer statuses — visual only, not clickable */
 .drawer-status .status-btn {
     cursor: default;
     pointer-events: none;
@@ -8470,9 +8470,9 @@ tr.row-selected td {
     margin: 0 2px;
 }
 
-/* ═══════ МНОГОУРОВНЕВАЯ СИСТЕМА ФИЛЬТРАЦИИ КАРТ ═══════ */
+/* ═══════ MULTI-LEVEL CARD FILTER SYSTEM ═══════ */
 
-/* Контейнер всех уровней фильтров */
+/* Container of all filter levels */
 .parser-filter-levels {
     display: flex;
     flex-direction: column;
@@ -8480,14 +8480,14 @@ tr.row-selected td {
     padding: 8px 0 4px;
 }
 
-/* Один уровень фильтрации (ряд) */
+/* One filter level (row) */
 .parser-filter-level {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-/* Лейбл уровня (ТИП, КЛАСС, СИСТЕМА) */
+/* Level label (TYPE, CLASS, NETWORK) */
 .parser-filter-level-label {
     font-size: 9px;
     font-weight: 700;
@@ -8499,14 +8499,14 @@ tr.row-selected td {
     text-align: right;
 }
 
-/* Контейнер кнопок внутри уровня */
+/* Button container inside a level */
 .parser-filter-level-btns {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
 }
 
-/* Кнопка фильтра на любом уровне */
+/* Filter button on any level */
 .parser-level-btn {
     padding: 4px 10px;
     font-size: 10px;
@@ -8521,14 +8521,14 @@ tr.row-selected td {
     white-space: nowrap;
 }
 
-/* Ховер на кнопке фильтра */
+/* Filter button hover */
 .parser-level-btn:hover {
     border-color: rgba(255, 255, 255, .2);
     color: var(--text-secondary, #94a3b8);
     background: rgba(255, 255, 255, .06);
 }
 
-/* Активная (выбранная) кнопка фильтра */
+/* Active (selected) filter button */
 .parser-level-btn.active {
     background: rgba(99, 102, 241, .18);
     border-color: rgba(99, 102, 241, .5);
@@ -8536,7 +8536,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(99, 102, 241, .15);
 }
 
-/* Уровень 1 (Тип) — зелёный акцент при активации */
+/* Level 1 (Type) — green accent when active */
 .parser-level-btn[data-filter-type].active {
     background: rgba(34, 197, 94, .15);
     border-color: rgba(34, 197, 94, .45);
@@ -8544,7 +8544,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(34, 197, 94, .12);
 }
 
-/* Уровень 2 (Класс) — янтарный акцент при активации */
+/* Level 2 (Class) — amber accent when active */
 .parser-level-btn[data-filter-class].active {
     background: rgba(251, 191, 36, .12);
     border-color: rgba(251, 191, 36, .4);
@@ -8552,7 +8552,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(251, 191, 36, .1);
 }
 
-/* Уровень 3 (Система) — индиго акцент при активации */
+/* Level 3 (Network) — indigo accent when active */
 .parser-level-btn[data-filter-network].active {
     background: rgba(99, 102, 241, .18);
     border-color: rgba(99, 102, 241, .5);
@@ -8560,7 +8560,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(99, 102, 241, .15);
 }
 
-/* Ряд кнопок управления фильтрами (СБРОС + TEST MODE) */
+/* Filter control row (RESET + TEST MODE) */
 .parser-filter-actions-row {
     display: flex;
     align-items: center;
@@ -8568,7 +8568,7 @@ tr.row-selected td {
     margin-top: 4px;
 }
 
-/* Кнопка сброса всех фильтров */
+/* Reset-all-filters button */
 .parser-filter-reset-btn {
     align-self: flex-start;
     padding: 4px 12px;
@@ -8613,7 +8613,7 @@ tr.row-selected td {
     color: #60a5fa;
 }
 
-/* TEST MODE активирована — яркий синий акцент с свечением */
+/* TEST MODE on — bright blue accent with glow */
 .parser-test-mode-btn.active {
     background: rgba(59, 130, 246, .2);
     border-color: rgba(59, 130, 246, .6);
@@ -8622,7 +8622,7 @@ tr.row-selected td {
     text-shadow: 0 0 6px rgba(59, 130, 246, .3);
 }
 
-/* TEST MODE статистика в stats bar */
+/* TEST MODE stats in the stats bar */
 .ps-test {
     color: #60a5fa;
     font-weight: 600;
@@ -10147,7 +10147,7 @@ tr.row-selected td {
     min-height: 200px;
 }
 
-/* Фоновый свет слева */
+/* Background glow on the left */
 .pom-section::before {
     content: '';
     position: absolute;
@@ -10157,7 +10157,7 @@ tr.row-selected td {
     pointer-events: none;
     z-index: 0;
 }
-/* Фоновый свет справа */
+/* Background glow on the right */
 .pom-section::after {
     content: '';
     position: absolute;
@@ -10168,7 +10168,7 @@ tr.row-selected td {
     z-index: 0;
 }
 
-/* ── Левая панель: таймер ── */
+/* ── Left panel: timer ── */
 .pom-left {
     display: flex;
     flex-direction: column;
@@ -10182,7 +10182,7 @@ tr.row-selected td {
     background: rgba(99,102,241,0.035);
 }
 
-/* ── Режимы (25/5/15) ── */
+/* ── Modes (25/5/15) ── */
 .pom-modes {
     display: flex;
     gap: 5px;
@@ -10212,7 +10212,7 @@ tr.row-selected td {
     box-shadow: 0 2px 12px rgba(99,102,241,0.45);
 }
 
-/* ── SVG кольцо таймера ── */
+/* ── SVG timer ring ── */
 .pom-timer-wrap {
     position: relative;
     display: flex;
@@ -10228,7 +10228,7 @@ tr.row-selected td {
     width: 160px; height: 160px;
 }
 
-/* Цифры поверх кольца */
+/* Digits over the ring */
 .pom-display {
     position: relative;
     z-index: 2;
@@ -10240,7 +10240,7 @@ tr.row-selected td {
     user-select: none;
 }
 
-/* Активное состояние — пульс */
+/* Active state — pulse */
 @keyframes pomGlow {
     0%,100% { text-shadow: 0 0 20px rgba(34,197,94,0.3), 0 0 60px rgba(34,197,94,0.1); }
     50%      { text-shadow: 0 0 30px rgba(34,197,94,0.6), 0 0 90px rgba(34,197,94,0.2); }
@@ -10252,7 +10252,7 @@ tr.row-selected td {
 }
 .pom-active .pom-timer-svg { animation: pomRingPulse 2s ease-in-out infinite; }
 
-/* ── Кнопки управления ── */
+/* ── Control buttons ── */
 .pom-controls {
     display: flex;
     gap: 7px;
@@ -10303,7 +10303,7 @@ tr.row-selected td {
     color: rgba(255,255,255,0.8);
 }
 
-/* ── История томатов ── */
+/* ── Tomato history ── */
 .pom-history {
     display: flex;
     flex-direction: column;
@@ -10326,7 +10326,7 @@ tr.row-selected td {
     letter-spacing: 1px;
 }
 
-/* ── Правая панель: круги прогресса ── */
+/* ── Right panel: progress circles ── */
 .pom-right {
     display: flex;
     align-items: center;
@@ -10530,7 +10530,7 @@ tr.row-selected td {
     box-shadow: 0 0 0 1px rgba(99,102,241,0.08) inset;
 }
 
-/* Сегодняшняя колонка */
+/* Today's column */
 .tw-today {
     border-color: rgba(99,102,241,0.38) !important;
     background: rgba(99,102,241,0.04) !important;
@@ -11165,7 +11165,7 @@ tr.row-selected td {
    POMODORO TIMER + CIRCULAR PROGRESS INDICATORS
    ═══════════════════════════════════════════════════ */
 
-/* ── Главный блок: таймер слева + круги справа ── */
+/* ── Main block: timer on the left + circles on the right ── */
 .pom-section {
     display: flex;
     align-items: center;
@@ -11178,7 +11178,7 @@ tr.row-selected td {
     flex-wrap: wrap;
 }
 
-/* ── Левая колонка: таймер ── */
+/* ── Left column: timer ── */
 .pom-left {
     display: flex;
     flex-direction: column;
@@ -11187,7 +11187,7 @@ tr.row-selected td {
     flex-shrink: 0;
 }
 
-/* ── Кнопки режимов (25/5/15 мин) ── */
+/* ── Mode buttons (25/5/15 min) ── */
 .pom-modes {
     display: flex;
     gap: 6px;
@@ -11216,7 +11216,7 @@ tr.row-selected td {
     color: #22c55e;
 }
 
-/* ── SVG-кольцо таймера ── */
+/* ── SVG timer ring ── */
 .pom-timer-wrap {
     position: relative;
     display: flex;
@@ -11230,7 +11230,7 @@ tr.row-selected td {
     filter: drop-shadow(0 0 12px rgba(34,197,94,0.35));
 }
 
-/* Пульсирующая анимация кольца когда таймер идёт */
+/* Pulsing ring animation while the timer runs */
 @keyframes pom-pulse {
     0%, 100% { filter: drop-shadow(0 0 8px rgba(34,197,94,0.3)); }
     50%       { filter: drop-shadow(0 0 18px rgba(34,197,94,0.6)); }
@@ -11244,7 +11244,7 @@ tr.row-selected td {
     top: 0; left: 0;
 }
 
-/* Цифровое время — поверх SVG */
+/* Digital time — over the SVG */
 .pom-display {
     position: relative;
     z-index: 2;
@@ -11257,7 +11257,7 @@ tr.row-selected td {
     line-height: 1;
 }
 
-/* ── Кнопки управления ── */
+/* ── Control buttons ── */
 .pom-controls {
     display: flex;
     gap: 8px;
@@ -11307,7 +11307,7 @@ tr.row-selected td {
     color: #fff;
 }
 
-/* ── История помодоро (томаты) ── */
+/* ── Pomodoro history (tomatoes) ── */
 .pom-history {
     display: flex;
     flex-direction: column;
@@ -11333,7 +11333,7 @@ tr.row-selected td {
     justify-content: center;
 }
 
-/* ── Правая колонка: круговые индикаторы прогресса ── */
+/* ── Right column: circular progress indicators ── */
 .pom-right {
     flex: 1;
     display: flex;
@@ -11350,7 +11350,7 @@ tr.row-selected td {
     flex-wrap: wrap;
 }
 
-/* ── Один круговой индикатор ── */
+/* ── One circular indicator ── */
 .pom-circle-wrap {
     display: flex;
     flex-direction: column;
@@ -11364,7 +11364,7 @@ tr.row-selected td {
     filter: drop-shadow(0 0 8px rgba(0,0,0,0.4));
 }
 
-/* Анимация появления (изначально dashoffset = circumference, после рендера плавно к цели) */
+/* Appear animation (dashoffset starts at circumference, then eases to the target after render) */
 .pom-arc {
     transition: stroke-dashoffset 1s ease-out;
 }
@@ -11383,7 +11383,7 @@ tr.row-selected td {
     font-family: var(--font-mono);
 }
 
-/* ── Адаптив ── */
+/* ── Responsive ── */
 @media (max-width: 900px) {
     .pom-section { flex-direction: column; gap: 20px; }
     .pom-right { min-width: auto; }
@@ -11395,7 +11395,7 @@ tr.row-selected td {
 }
 
 /* ════════════════════════════════════════════════
-   VALID CARDS — экран результатов
+   VALID CARDS — results screen
    ════════════════════════════════════════════════ */
 
 .vc-container {
@@ -11407,7 +11407,7 @@ tr.row-selected td {
     gap: 18px;
 }
 
-/* Заголовок */
+/* Header */
 .vc-header {
     display: flex;
     align-items: center;
@@ -11425,7 +11425,7 @@ tr.row-selected td {
     flex-shrink: 0;
 }
 
-/* Статистика */
+/* Stats */
 .vc-stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -11460,7 +11460,7 @@ tr.row-selected td {
 .vc-stat-blue  .vc-stat-val { color: #60A5FA; }
 .vc-stat-dim   .vc-stat-val { color: var(--text-muted); }
 
-/* GEO фильтр */
+/* GEO filter */
 .vc-countries-block {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
@@ -11526,7 +11526,7 @@ tr.row-selected td {
     padding: 1px 6px;
 }
 
-/* Панель экспорта */
+/* Export panel */
 .vc-export-bar {
     display: flex;
     flex-wrap: wrap;
@@ -11537,7 +11537,7 @@ tr.row-selected td {
     padding: 6px 14px;
 }
 
-/* Таблица */
+/* Table */
 .vc-table-wrap {
     overflow-x: auto;
     border-radius: 10px;
@@ -11576,7 +11576,7 @@ tr.row-selected td {
     background: var(--bg-hover);
 }
 
-/* Адаптив для Valid Cards */
+/* Responsive for Valid Cards */
 @media (max-width: 800px) {
     .vc-stats-row { grid-template-columns: repeat(2, 1fr); }
 }
@@ -11586,13 +11586,13 @@ tr.row-selected td {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TRASH MODAL — таб-система и Check My List
+   TRASH MODAL — tabs and Check My List
 ═══════════════════════════════════════════════════════════════ */
 
-/* Расширенная ширина модала для Check My List */
+/* Wider modal for Check My List */
 .modal-wide { max-width: 860px; width: 95vw; }
 
-/* Панель вкладок */
+/* Tab bar */
 .trash-tab-bar {
     display: flex;
     gap: 0;
@@ -11623,11 +11623,11 @@ tr.row-selected td {
     border-bottom-color: #818cf8;
 }
 
-/* Панели вкладок */
+/* Tab panels */
 .trash-tab-panel { display: block; }
 .trash-tab-panel.hidden { display: none !important; }
 
-/* ── Check My List: статистика ── */
+/* ── Check My List: stats ── */
 .cml-stats {
     display: flex;
     gap: 16px;
@@ -11662,7 +11662,7 @@ tr.row-selected td {
 .cml-stat-val.val-clean  { color: #34d399; }
 .cml-stat-val.val-dupes  { color: #fbbf24; }
 
-/* ── Check My List: результаты (два столбца) ── */
+/* ── Check My List: results (two columns) ── */
 .cml-results {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -11711,7 +11711,7 @@ tr.row-selected td {
 }
 .cml-btn-export:hover { background: rgba(129,140,248,0.25); }
 
-/* Список карт внутри столбца */
+/* Card list inside a column */
 .cml-list {
     flex: 1;
     overflow-y: auto;
@@ -11751,7 +11751,7 @@ tr.row-selected td {
 .tc-title  { font-size:18px; font-weight:700; color:#e2e8f0; margin:0 0 4px; }
 .tc-meta   { font-size:11px; color:var(--text-muted); margin-top:2px; }
 
-/* Дата-бар */
+/* Date bar */
 .tc-date-bar   { padding:14px 24px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; flex-direction:column; gap:10px; }
 .tc-chips      { display:flex; gap:8px; flex-wrap:wrap; }
 .tc-chip       { padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:var(--text-secondary); font-size:11px; cursor:pointer; transition:all 0.2s; }
@@ -11763,19 +11763,19 @@ tr.row-selected td {
 .tc-quick-btn  { padding:4px 10px; font-size:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:var(--text-secondary); cursor:pointer; }
 .tc-quick-btn:hover { border-color:#818cf8; color:#818cf8; }
 
-/* Кнопки действий */
+/* Action buttons */
 .tc-actions  { display:flex; gap:8px; flex-wrap:wrap; padding:14px 24px 0; }
 .tc-act-btn  { padding:7px 14px; border-radius:7px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#e2e8f0; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; }
 .tc-act-btn:hover { border-color:#818cf8; background:rgba(129,140,248,0.12); }
 
-/* Контент отчёта */
+/* Report content */
 .tc-report  { padding:16px 24px 24px; }
 .tc-section { margin-top:20px; }
 .tc-section-title { font-size:12px; font-weight:700; letter-spacing:0.06em; color:#94a3b8; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
 .tc-two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
 .tc-empty   { text-align:center; color:var(--text-muted); padding:40px; }
 
-/* Сводка */
+/* Summary */
 .tc-summary-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:16px; }
 .tc-sum-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:16px; text-align:center; }
 .tc-sum-val  { font-size:42px; font-weight:800; line-height:1; }
@@ -11783,7 +11783,7 @@ tr.row-selected td {
 .tc-green    { color:#34d399; }
 .tc-peak-val { color:#f59e0b; }
 
-/* Страны */
+/* Countries */
 .tc-country-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
 .tc-flag        { font-size:16px; width:22px; }
 .tc-country-name{ flex:1; color:#e2e8f0; }
@@ -11792,19 +11792,19 @@ tr.row-selected td {
 .tc-pct         { font-size:10px; color:var(--text-muted); min-width:38px; text-align:right; }
 .tc-bar         { display:inline-block; width:calc(var(--w)*8px); height:6px; background:var(--c); border-radius:3px; flex-shrink:0; }
 
-/* Тип/Уровень */
+/* Type/Level */
 .tc-type-row    { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
 .tc-type-name   { width:90px; color:#e2e8f0; }
 .tc-type-count  { font-weight:700; min-width:32px; text-align:right; }
 
-/* Системы */
+/* Networks */
 .tc-sys-row  { display:flex; gap:10px; flex-wrap:wrap; }
 .tc-sys-card { border-radius:8px; padding:12px 16px; border:1px solid; min-width:100px; text-align:center; }
 .tc-sys-name { font-size:10px; font-weight:700; letter-spacing:0.06em; }
 .tc-sys-count{ font-size:28px; font-weight:800; color:#e2e8f0; }
 .tc-sys-pct  { font-size:10px; color:var(--text-muted); }
 
-/* Банки */
+/* Banks */
 .tc-banks-table { width:100%; border-collapse:collapse; font-size:12px; }
 .tc-banks-table th { text-align:left; padding:4px 8px; color:var(--text-muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.08); }
 .tc-banks-table td { padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.04); }
@@ -11812,7 +11812,7 @@ tr.row-selected td {
 .tc-bank-name { color:#e2e8f0; }
 .tc-bank-n    { font-weight:700; text-align:right; }
 
-/* Часовая активность */
+/* Hourly activity */
 .tc-hours    { font-family:'JetBrains Mono','Fira Code',monospace; font-size:11px; }
 .tc-hour-row { display:flex; gap:8px; padding:2px 0; color:#94a3b8; }
 .tc-hour-lbl { width:38px; flex-shrink:0; }
@@ -11821,7 +11821,7 @@ tr.row-selected td {
 .tc-peak .tc-hour-bar { color:#f59e0b; }
 .tc-peak .tc-hour-lbl,.tc-peak .tc-hour-n { color:#fbbf24; font-weight:700; }
 
-/* Таблица карт */
+/* Card table */
 .tc-table-wrap  { max-height:380px; overflow-y:auto; border:1px solid rgba(255,255,255,0.07); border-radius:8px; }
 .tc-cards-table { width:100%; border-collapse:collapse; font-size:11px; }
 .tc-cards-table th { position:sticky; top:0; background:#1e2030; padding:6px 8px; text-align:left; color:var(--text-muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); }
@@ -11831,10 +11831,10 @@ tr.row-selected td {
 .tc-t-bank { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* ═══════════════════════════════════════════
-   MERCHANT — новый 3-зонный интерфейс
+   MERCHANT — new 3-zone layout
    ═══════════════════════════════════════════ */
 
-/* ── Общий контейнер content-area для мерчантов ── */
+/* ── Shared content-area container for merchants ── */
 #content-area:has(.mr-zone1) {
     display: flex;
     flex-direction: column;
@@ -11844,7 +11844,7 @@ tr.row-selected td {
     height: 100%;
 }
 
-/* ── ЗОНА 1: быстрые кнопки копирования ── */
+/* ── ZONE 1: quick copy buttons ── */
 .mr-zone1 {
     display: flex;
     align-items: center;
@@ -11903,7 +11903,7 @@ tr.row-selected td {
 }
 .mr-add-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
 
-/* ── ЗОНА 2: BIN-поиск + суммы ── */
+/* ── ZONE 2: BIN search + amounts ── */
 .mr-zone2 {
     display: flex;
     align-items: center;
@@ -11988,7 +11988,7 @@ tr.row-selected td {
 .mr-amt-btn:hover { background: rgba(234, 179, 8, 0.22); }
 .mr-amt-btn:active { transform: scale(0.95); }
 
-/* ── ЗОНА 3: лента карточек ── */
+/* ── ZONE 3: card feed ── */
 .mr-zone3 {
     flex: 1;
     min-height: 0;
@@ -12006,7 +12006,7 @@ tr.row-selected td {
     scrollbar-width: thin;
 }
 
-/* ── Карточка мерчанта ── */
+/* ── Merchant card ── */
 .mr-card {
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
@@ -12132,7 +12132,7 @@ tr.row-selected td {
 .mr-card-note:focus { border-color: var(--border-focus); color: var(--text-secondary); }
 .mr-card-note::placeholder { color: var(--text-dim); }
 
-/* ── Кнопка Add ── */
+/* ── Add button ── */
 .mr-card-add {
     background: none;
     border: 1px dashed var(--border-default);
@@ -12153,7 +12153,7 @@ tr.row-selected td {
 .mr-card-add span { font-size: 11px; font-weight: 500; }
 .mr-card-add:hover { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.05); }
 
-/* ── Модальное окно ── */
+/* ── Modal window ── */
 .mr-modal-overlay {
     position: fixed;
     inset: 0;
@@ -12190,7 +12190,7 @@ tr.row-selected td {
 }
 .mr-modal-hd button:hover { background: var(--bg-active); color: var(--text-primary); }
 
-/* ── Форма внутри модала ── */
+/* ── Form inside the modal ── */
 .mr-form-g { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
 
 .mr-form-r {
@@ -12270,7 +12270,7 @@ tr.row-selected td {
 }
 .mr-btn-del:hover { background: rgba(239,68,68,0.22); }
 
-/* ── Контекстное меню ── */
+/* ── Context menu ── */
 .mr-ctx-menu {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
@@ -12295,7 +12295,7 @@ tr.row-selected td {
 }
 .mr-ctx-item:hover { background: var(--bg-active); color: var(--text-primary); }
 
-/* ── Список настроек ── */
+/* ── Settings list ── */
 .mr-settings-section {
     font-size: 10px;
     font-weight: 700;
@@ -12343,7 +12343,7 @@ tr.row-selected td {
 .mr-st-del:hover { background: rgba(239,68,68,0.1); color: #f87171; }
 
 
-/* ── TODAY CARDS результаты (tcr) ── */
+/* ── TODAY CARDS results (tcr) ── */
 .tcr-actions { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
 .tcr-summary { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.07); }
 .tcr-total   { display:flex; flex-direction:column; align-items:center; padding-right:14px; border-right:1px solid rgba(255,255,255,0.08); }
@@ -17030,7 +17030,7 @@ textarea {
     color: var(--amber)
 }
 
-/* Кнопка копирования в stat-card */
+/* Copy button in stat-card */
 .stat-copy-btn {
     position: absolute;
     top: 3px;
@@ -17070,7 +17070,7 @@ textarea {
     transform: translateY(-1px);
 }
 
-/* Результаты проверки Check Base */
+/* Check Base results */
 .check-base-results {
     margin-top: 12px;
 }
@@ -17116,7 +17116,7 @@ textarea {
     color: #22C55E;
 }
 
-/* Кнопки копирования результатов */
+/* Result copy buttons */
 .cb-copy-actions {
     display: flex;
     gap: 8px;
@@ -17157,7 +17157,7 @@ textarea {
     color: #EF4444;
 }
 
-/* Секции результатов */
+/* Result sections */
 .cb-section {
     margin-bottom: 10px;
 }
@@ -22779,7 +22779,7 @@ tr.row-selected td {
     border-bottom: 1px solid var(--border-subtle);
 }
 
-/* Drawer: тёмный фон, цветная полоса слева, отступ, плавная анимация */
+/* Drawer: dark background, colored left stripe, padding, smooth animation */
 .drawer-content {
     background: rgba(0, 0, 0, .30);
     border-left: 3px solid #38BDF8;
@@ -22789,7 +22789,7 @@ tr.row-selected td {
     animation: drawerOpen 0.3s ease forwards;
 }
 
-/* После завершения анимации — показываем скролл если записей много */
+/* After the animation ends — show the scrollbar if there are many rows */
 .drawer-content.drawer-open {
     overflow-y: auto;
     max-height: 60vh;
@@ -22846,7 +22846,7 @@ tr.row-selected td {
     color: #ef4444;
 }
 
-/* ─── Drawer rows: CSS Grid для идеального выравнивания ─── */
+/* ─── Drawer rows: CSS Grid for exact alignment ─── */
 .drawer-row {
     display: grid;
     grid-template-columns: 22px 170px 1fr 90px 72px;
@@ -22889,7 +22889,7 @@ tr.row-selected td {
     text-overflow: ellipsis;
 }
 
-/* Модификаторы: Name Drawer — карта = primary, BIN info = dim */
+/* Modifiers: Name Drawer — card = primary, BIN info = dim */
 .drawer-card-primary {
     color: var(--text-primary);
     font-weight: 600;
@@ -22915,7 +22915,7 @@ tr.row-selected td {
     white-space: nowrap;
 }
 
-/* Статусы в дровере — только визуальные, не кликабельные */
+/* Drawer statuses — visual only, not clickable */
 .drawer-status .status-btn {
     cursor: default;
     pointer-events: none;
@@ -23389,9 +23389,9 @@ tr.row-selected td {
     margin: 0 2px;
 }
 
-/* ═══════ МНОГОУРОВНЕВАЯ СИСТЕМА ФИЛЬТРАЦИИ КАРТ ═══════ */
+/* ═══════ MULTI-LEVEL CARD FILTER SYSTEM ═══════ */
 
-/* Контейнер всех уровней фильтров */
+/* Container of all filter levels */
 .parser-filter-levels {
     display: flex;
     flex-direction: column;
@@ -23399,14 +23399,14 @@ tr.row-selected td {
     padding: 8px 0 4px;
 }
 
-/* Один уровень фильтрации (ряд) */
+/* One filter level (row) */
 .parser-filter-level {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-/* Лейбл уровня (ТИП, КЛАСС, СИСТЕМА) */
+/* Level label (TYPE, CLASS, NETWORK) */
 .parser-filter-level-label {
     font-size: 9px;
     font-weight: 700;
@@ -23418,14 +23418,14 @@ tr.row-selected td {
     text-align: right;
 }
 
-/* Контейнер кнопок внутри уровня */
+/* Button container inside a level */
 .parser-filter-level-btns {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
 }
 
-/* Кнопка фильтра на любом уровне */
+/* Filter button on any level */
 .parser-level-btn {
     padding: 4px 10px;
     font-size: 10px;
@@ -23440,14 +23440,14 @@ tr.row-selected td {
     white-space: nowrap;
 }
 
-/* Ховер на кнопке фильтра */
+/* Filter button hover */
 .parser-level-btn:hover {
     border-color: rgba(255, 255, 255, .2);
     color: var(--text-secondary, #94a3b8);
     background: rgba(255, 255, 255, .06);
 }
 
-/* Активная (выбранная) кнопка фильтра */
+/* Active (selected) filter button */
 .parser-level-btn.active {
     background: rgba(99, 102, 241, .18);
     border-color: rgba(99, 102, 241, .5);
@@ -23455,7 +23455,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(99, 102, 241, .15);
 }
 
-/* Уровень 1 (Тип) — зелёный акцент при активации */
+/* Level 1 (Type) — green accent when active */
 .parser-level-btn[data-filter-type].active {
     background: rgba(34, 197, 94, .15);
     border-color: rgba(34, 197, 94, .45);
@@ -23463,7 +23463,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(34, 197, 94, .12);
 }
 
-/* Уровень 2 (Класс) — янтарный акцент при активации */
+/* Level 2 (Class) — amber accent when active */
 .parser-level-btn[data-filter-class].active {
     background: rgba(251, 191, 36, .12);
     border-color: rgba(251, 191, 36, .4);
@@ -23471,7 +23471,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(251, 191, 36, .1);
 }
 
-/* Уровень 3 (Система) — индиго акцент при активации */
+/* Level 3 (Network) — indigo accent when active */
 .parser-level-btn[data-filter-network].active {
     background: rgba(99, 102, 241, .18);
     border-color: rgba(99, 102, 241, .5);
@@ -23479,7 +23479,7 @@ tr.row-selected td {
     box-shadow: 0 0 8px rgba(99, 102, 241, .15);
 }
 
-/* Ряд кнопок управления фильтрами (СБРОС + TEST MODE) */
+/* Filter control row (RESET + TEST MODE) */
 .parser-filter-actions-row {
     display: flex;
     align-items: center;
@@ -23487,7 +23487,7 @@ tr.row-selected td {
     margin-top: 4px;
 }
 
-/* Кнопка сброса всех фильтров */
+/* Reset-all-filters button */
 .parser-filter-reset-btn {
     align-self: flex-start;
     padding: 4px 12px;
@@ -23532,7 +23532,7 @@ tr.row-selected td {
     color: #60a5fa;
 }
 
-/* TEST MODE активирована — яркий синий акцент с свечением */
+/* TEST MODE on — bright blue accent with glow */
 .parser-test-mode-btn.active {
     background: rgba(59, 130, 246, .2);
     border-color: rgba(59, 130, 246, .6);
@@ -23541,7 +23541,7 @@ tr.row-selected td {
     text-shadow: 0 0 6px rgba(59, 130, 246, .3);
 }
 
-/* TEST MODE статистика в stats bar */
+/* TEST MODE stats in the stats bar */
 .ps-test {
     color: #60a5fa;
     font-weight: 600;
@@ -25066,7 +25066,7 @@ tr.row-selected td {
     min-height: 200px;
 }
 
-/* Фоновый свет слева */
+/* Background glow on the left */
 .pom-section::before {
     content: '';
     position: absolute;
@@ -25076,7 +25076,7 @@ tr.row-selected td {
     pointer-events: none;
     z-index: 0;
 }
-/* Фоновый свет справа */
+/* Background glow on the right */
 .pom-section::after {
     content: '';
     position: absolute;
@@ -25087,7 +25087,7 @@ tr.row-selected td {
     z-index: 0;
 }
 
-/* ── Левая панель: таймер ── */
+/* ── Left panel: timer ── */
 .pom-left {
     display: flex;
     flex-direction: column;
@@ -25101,7 +25101,7 @@ tr.row-selected td {
     background: rgba(99,102,241,0.035);
 }
 
-/* ── Режимы (25/5/15) ── */
+/* ── Modes (25/5/15) ── */
 .pom-modes {
     display: flex;
     gap: 5px;
@@ -25131,7 +25131,7 @@ tr.row-selected td {
     box-shadow: 0 2px 12px rgba(99,102,241,0.45);
 }
 
-/* ── SVG кольцо таймера ── */
+/* ── SVG timer ring ── */
 .pom-timer-wrap {
     position: relative;
     display: flex;
@@ -25147,7 +25147,7 @@ tr.row-selected td {
     width: 160px; height: 160px;
 }
 
-/* Цифры поверх кольца */
+/* Digits over the ring */
 .pom-display {
     position: relative;
     z-index: 2;
@@ -25159,7 +25159,7 @@ tr.row-selected td {
     user-select: none;
 }
 
-/* Активное состояние — пульс */
+/* Active state — pulse */
 @keyframes pomGlow {
     0%,100% { text-shadow: 0 0 20px rgba(34,197,94,0.3), 0 0 60px rgba(34,197,94,0.1); }
     50%      { text-shadow: 0 0 30px rgba(34,197,94,0.6), 0 0 90px rgba(34,197,94,0.2); }
@@ -25171,7 +25171,7 @@ tr.row-selected td {
 }
 .pom-active .pom-timer-svg { animation: pomRingPulse 2s ease-in-out infinite; }
 
-/* ── Кнопки управления ── */
+/* ── Control buttons ── */
 .pom-controls {
     display: flex;
     gap: 7px;
@@ -25222,7 +25222,7 @@ tr.row-selected td {
     color: rgba(255,255,255,0.8);
 }
 
-/* ── История томатов ── */
+/* ── Tomato history ── */
 .pom-history {
     display: flex;
     flex-direction: column;
@@ -25245,7 +25245,7 @@ tr.row-selected td {
     letter-spacing: 1px;
 }
 
-/* ── Правая панель: круги прогресса ── */
+/* ── Right panel: progress circles ── */
 .pom-right {
     display: flex;
     align-items: center;
@@ -25449,7 +25449,7 @@ tr.row-selected td {
     box-shadow: 0 0 0 1px rgba(99,102,241,0.08) inset;
 }
 
-/* Сегодняшняя колонка */
+/* Today's column */
 .tw-today {
     border-color: rgba(99,102,241,0.38) !important;
     background: rgba(99,102,241,0.04) !important;
@@ -26084,7 +26084,7 @@ tr.row-selected td {
    POMODORO TIMER + CIRCULAR PROGRESS INDICATORS
    ═══════════════════════════════════════════════════ */
 
-/* ── Главный блок: таймер слева + круги справа ── */
+/* ── Main block: timer on the left + circles on the right ── */
 .pom-section {
     display: flex;
     align-items: center;
@@ -26097,7 +26097,7 @@ tr.row-selected td {
     flex-wrap: wrap;
 }
 
-/* ── Левая колонка: таймер ── */
+/* ── Left column: timer ── */
 .pom-left {
     display: flex;
     flex-direction: column;
@@ -26106,7 +26106,7 @@ tr.row-selected td {
     flex-shrink: 0;
 }
 
-/* ── Кнопки режимов (25/5/15 мин) ── */
+/* ── Mode buttons (25/5/15 min) ── */
 .pom-modes {
     display: flex;
     gap: 6px;
@@ -26135,7 +26135,7 @@ tr.row-selected td {
     color: #22c55e;
 }
 
-/* ── SVG-кольцо таймера ── */
+/* ── SVG timer ring ── */
 .pom-timer-wrap {
     position: relative;
     display: flex;
@@ -26149,7 +26149,7 @@ tr.row-selected td {
     filter: drop-shadow(0 0 12px rgba(34,197,94,0.35));
 }
 
-/* Пульсирующая анимация кольца когда таймер идёт */
+/* Pulsing ring animation while the timer runs */
 @keyframes pom-pulse {
     0%, 100% { filter: drop-shadow(0 0 8px rgba(34,197,94,0.3)); }
     50%       { filter: drop-shadow(0 0 18px rgba(34,197,94,0.6)); }
@@ -26163,7 +26163,7 @@ tr.row-selected td {
     top: 0; left: 0;
 }
 
-/* Цифровое время — поверх SVG */
+/* Digital time — over the SVG */
 .pom-display {
     position: relative;
     z-index: 2;
@@ -26176,7 +26176,7 @@ tr.row-selected td {
     line-height: 1;
 }
 
-/* ── Кнопки управления ── */
+/* ── Control buttons ── */
 .pom-controls {
     display: flex;
     gap: 8px;
@@ -26226,7 +26226,7 @@ tr.row-selected td {
     color: #fff;
 }
 
-/* ── История помодоро (томаты) ── */
+/* ── Pomodoro history (tomatoes) ── */
 .pom-history {
     display: flex;
     flex-direction: column;
@@ -26252,7 +26252,7 @@ tr.row-selected td {
     justify-content: center;
 }
 
-/* ── Правая колонка: круговые индикаторы прогресса ── */
+/* ── Right column: circular progress indicators ── */
 .pom-right {
     flex: 1;
     display: flex;
@@ -26269,7 +26269,7 @@ tr.row-selected td {
     flex-wrap: wrap;
 }
 
-/* ── Один круговой индикатор ── */
+/* ── One circular indicator ── */
 .pom-circle-wrap {
     display: flex;
     flex-direction: column;
@@ -26283,7 +26283,7 @@ tr.row-selected td {
     filter: drop-shadow(0 0 8px rgba(0,0,0,0.4));
 }
 
-/* Анимация появления (изначально dashoffset = circumference, после рендера плавно к цели) */
+/* Appear animation (dashoffset starts at circumference, then eases to the target after render) */
 .pom-arc {
     transition: stroke-dashoffset 1s ease-out;
 }
@@ -26302,7 +26302,7 @@ tr.row-selected td {
     font-family: var(--font-mono);
 }
 
-/* ── Адаптив ── */
+/* ── Responsive ── */
 @media (max-width: 900px) {
     .pom-section { flex-direction: column; gap: 20px; }
     .pom-right { min-width: auto; }
@@ -26314,7 +26314,7 @@ tr.row-selected td {
 }
 
 /* ════════════════════════════════════════════════
-   VALID CARDS — экран результатов
+   VALID CARDS — results screen
    ════════════════════════════════════════════════ */
 
 .vc-container {
@@ -26326,7 +26326,7 @@ tr.row-selected td {
     gap: 18px;
 }
 
-/* Заголовок */
+/* Header */
 .vc-header {
     display: flex;
     align-items: center;
@@ -26344,7 +26344,7 @@ tr.row-selected td {
     flex-shrink: 0;
 }
 
-/* Статистика */
+/* Stats */
 .vc-stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -26379,7 +26379,7 @@ tr.row-selected td {
 .vc-stat-blue  .vc-stat-val { color: #60A5FA; }
 .vc-stat-dim   .vc-stat-val { color: var(--text-muted); }
 
-/* GEO фильтр */
+/* GEO filter */
 .vc-countries-block {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
@@ -26445,7 +26445,7 @@ tr.row-selected td {
     padding: 1px 6px;
 }
 
-/* Панель экспорта */
+/* Export panel */
 .vc-export-bar {
     display: flex;
     flex-wrap: wrap;
@@ -26456,7 +26456,7 @@ tr.row-selected td {
     padding: 6px 14px;
 }
 
-/* Таблица */
+/* Table */
 .vc-table-wrap {
     overflow-x: auto;
     border-radius: 10px;
@@ -26495,7 +26495,7 @@ tr.row-selected td {
     background: var(--bg-hover);
 }
 
-/* Адаптив для Valid Cards */
+/* Responsive for Valid Cards */
 @media (max-width: 800px) {
     .vc-stats-row { grid-template-columns: repeat(2, 1fr); }
 }
@@ -26505,13 +26505,13 @@ tr.row-selected td {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TRASH MODAL — таб-система и Check My List
+   TRASH MODAL — tabs and Check My List
 ═══════════════════════════════════════════════════════════════ */
 
-/* Расширенная ширина модала для Check My List */
+/* Wider modal for Check My List */
 .modal-wide { max-width: 860px; width: 95vw; }
 
-/* Панель вкладок */
+/* Tab bar */
 .trash-tab-bar {
     display: flex;
     gap: 0;
@@ -26542,11 +26542,11 @@ tr.row-selected td {
     border-bottom-color: #818cf8;
 }
 
-/* Панели вкладок */
+/* Tab panels */
 .trash-tab-panel { display: block; }
 .trash-tab-panel.hidden { display: none !important; }
 
-/* ── Check My List: статистика ── */
+/* ── Check My List: stats ── */
 .cml-stats {
     display: flex;
     gap: 16px;
@@ -26581,7 +26581,7 @@ tr.row-selected td {
 .cml-stat-val.val-clean  { color: #34d399; }
 .cml-stat-val.val-dupes  { color: #fbbf24; }
 
-/* ── Check My List: результаты (два столбца) ── */
+/* ── Check My List: results (two columns) ── */
 .cml-results {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -26630,7 +26630,7 @@ tr.row-selected td {
 }
 .cml-btn-export:hover { background: rgba(129,140,248,0.25); }
 
-/* Список карт внутри столбца */
+/* Card list inside a column */
 .cml-list {
     flex: 1;
     overflow-y: auto;
@@ -26670,7 +26670,7 @@ tr.row-selected td {
 .tc-title  { font-size:18px; font-weight:700; color:#e2e8f0; margin:0 0 4px; }
 .tc-meta   { font-size:11px; color:var(--text-muted); margin-top:2px; }
 
-/* Дата-бар */
+/* Date bar */
 .tc-date-bar   { padding:14px 24px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; flex-direction:column; gap:10px; }
 .tc-chips      { display:flex; gap:8px; flex-wrap:wrap; }
 .tc-chip       { padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:var(--text-secondary); font-size:11px; cursor:pointer; transition:all 0.2s; }
@@ -26682,19 +26682,19 @@ tr.row-selected td {
 .tc-quick-btn  { padding:4px 10px; font-size:10px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:var(--text-secondary); cursor:pointer; }
 .tc-quick-btn:hover { border-color:#818cf8; color:#818cf8; }
 
-/* Кнопки действий */
+/* Action buttons */
 .tc-actions  { display:flex; gap:8px; flex-wrap:wrap; padding:14px 24px 0; }
 .tc-act-btn  { padding:7px 14px; border-radius:7px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:#e2e8f0; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; }
 .tc-act-btn:hover { border-color:#818cf8; background:rgba(129,140,248,0.12); }
 
-/* Контент отчёта */
+/* Report content */
 .tc-report  { padding:16px 24px 24px; }
 .tc-section { margin-top:20px; }
 .tc-section-title { font-size:12px; font-weight:700; letter-spacing:0.06em; color:#94a3b8; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
 .tc-two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
 .tc-empty   { text-align:center; color:var(--text-muted); padding:40px; }
 
-/* Сводка */
+/* Summary */
 .tc-summary-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:16px; }
 .tc-sum-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:16px; text-align:center; }
 .tc-sum-val  { font-size:42px; font-weight:800; line-height:1; }
@@ -26702,7 +26702,7 @@ tr.row-selected td {
 .tc-green    { color:#34d399; }
 .tc-peak-val { color:#f59e0b; }
 
-/* Страны */
+/* Countries */
 .tc-country-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
 .tc-flag        { font-size:16px; width:22px; }
 .tc-country-name{ flex:1; color:#e2e8f0; }
@@ -26711,19 +26711,19 @@ tr.row-selected td {
 .tc-pct         { font-size:10px; color:var(--text-muted); min-width:38px; text-align:right; }
 .tc-bar         { display:inline-block; width:calc(var(--w)*8px); height:6px; background:var(--c); border-radius:3px; flex-shrink:0; }
 
-/* Тип/Уровень */
+/* Type/Level */
 .tc-type-row    { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
 .tc-type-name   { width:90px; color:#e2e8f0; }
 .tc-type-count  { font-weight:700; min-width:32px; text-align:right; }
 
-/* Системы */
+/* Networks */
 .tc-sys-row  { display:flex; gap:10px; flex-wrap:wrap; }
 .tc-sys-card { border-radius:8px; padding:12px 16px; border:1px solid; min-width:100px; text-align:center; }
 .tc-sys-name { font-size:10px; font-weight:700; letter-spacing:0.06em; }
 .tc-sys-count{ font-size:28px; font-weight:800; color:#e2e8f0; }
 .tc-sys-pct  { font-size:10px; color:var(--text-muted); }
 
-/* Банки */
+/* Banks */
 .tc-banks-table { width:100%; border-collapse:collapse; font-size:12px; }
 .tc-banks-table th { text-align:left; padding:4px 8px; color:var(--text-muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.08); }
 .tc-banks-table td { padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.04); }
@@ -26731,7 +26731,7 @@ tr.row-selected td {
 .tc-bank-name { color:#e2e8f0; }
 .tc-bank-n    { font-weight:700; text-align:right; }
 
-/* Часовая активность */
+/* Hourly activity */
 .tc-hours    { font-family:'JetBrains Mono','Fira Code',monospace; font-size:11px; }
 .tc-hour-row { display:flex; gap:8px; padding:2px 0; color:#94a3b8; }
 .tc-hour-lbl { width:38px; flex-shrink:0; }
@@ -26740,7 +26740,7 @@ tr.row-selected td {
 .tc-peak .tc-hour-bar { color:#f59e0b; }
 .tc-peak .tc-hour-lbl,.tc-peak .tc-hour-n { color:#fbbf24; font-weight:700; }
 
-/* Таблица карт */
+/* Card table */
 .tc-table-wrap  { max-height:380px; overflow-y:auto; border:1px solid rgba(255,255,255,0.07); border-radius:8px; }
 .tc-cards-table { width:100%; border-collapse:collapse; font-size:11px; }
 .tc-cards-table th { position:sticky; top:0; background:#1e2030; padding:6px 8px; text-align:left; color:var(--text-muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); }
@@ -26750,10 +26750,10 @@ tr.row-selected td {
 .tc-t-bank { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* ═══════════════════════════════════════════
-   MERCHANT — новый 3-зонный интерфейс
+   MERCHANT — new 3-zone layout
    ═══════════════════════════════════════════ */
 
-/* ── Общий контейнер content-area для мерчантов ── */
+/* ── Shared content-area container for merchants ── */
 #content-area:has(.mr-zone1) {
     display: flex;
     flex-direction: column;
@@ -26763,7 +26763,7 @@ tr.row-selected td {
     height: 100%;
 }
 
-/* ── ЗОНА 1: быстрые кнопки копирования ── */
+/* ── ZONE 1: quick copy buttons ── */
 .mr-zone1 {
     display: flex;
     align-items: center;
@@ -26822,7 +26822,7 @@ tr.row-selected td {
 }
 .mr-add-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
 
-/* ── ЗОНА 2: BIN-поиск + суммы ── */
+/* ── ZONE 2: BIN search + amounts ── */
 .mr-zone2 {
     display: flex;
     align-items: center;
@@ -26907,7 +26907,7 @@ tr.row-selected td {
 .mr-amt-btn:hover { background: rgba(234, 179, 8, 0.22); }
 .mr-amt-btn:active { transform: scale(0.95); }
 
-/* ── ЗОНА 3: лента карточек ── */
+/* ── ZONE 3: card feed ── */
 .mr-zone3 {
     flex: 1;
     min-height: 0;
@@ -26925,7 +26925,7 @@ tr.row-selected td {
     scrollbar-width: thin;
 }
 
-/* ── Карточка мерчанта ── */
+/* ── Merchant card ── */
 .mr-card {
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
@@ -27051,7 +27051,7 @@ tr.row-selected td {
 .mr-card-note:focus { border-color: var(--border-focus); color: var(--text-secondary); }
 .mr-card-note::placeholder { color: var(--text-dim); }
 
-/* ── Кнопка Add ── */
+/* ── Add button ── */
 .mr-card-add {
     background: none;
     border: 1px dashed var(--border-default);
@@ -27072,7 +27072,7 @@ tr.row-selected td {
 .mr-card-add span { font-size: 11px; font-weight: 500; }
 .mr-card-add:hover { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.05); }
 
-/* ── Модальное окно ── */
+/* ── Modal window ── */
 .mr-modal-overlay {
     position: fixed;
     inset: 0;
@@ -27109,7 +27109,7 @@ tr.row-selected td {
 }
 .mr-modal-hd button:hover { background: var(--bg-active); color: var(--text-primary); }
 
-/* ── Форма внутри модала ── */
+/* ── Form inside the modal ── */
 .mr-form-g { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
 
 .mr-form-r {
@@ -27189,7 +27189,7 @@ tr.row-selected td {
 }
 .mr-btn-del:hover { background: rgba(239,68,68,0.22); }
 
-/* ── Контекстное меню ── */
+/* ── Context menu ── */
 .mr-ctx-menu {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
@@ -27214,7 +27214,7 @@ tr.row-selected td {
 }
 .mr-ctx-item:hover { background: var(--bg-active); color: var(--text-primary); }
 
-/* ── Список настроек ── */
+/* ── Settings list ── */
 .mr-settings-section {
     font-size: 10px;
     font-weight: 700;
@@ -27262,7 +27262,7 @@ tr.row-selected td {
 .mr-st-del:hover { background: rgba(239,68,68,0.1); color: #f87171; }
 
 
-/* ── TODAY CARDS результаты (tcr) ── */
+/* ── TODAY CARDS results (tcr) ── */
 .tcr-actions { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
 .tcr-summary { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; padding:10px 14px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.07); }
 .tcr-total   { display:flex; flex-direction:column; align-items:center; padding-right:14px; border-right:1px solid rgba(255,255,255,0.08); }

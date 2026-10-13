@@ -42,9 +42,9 @@ function _zipRenderModal(){
         btnId='zp-modal-apply-names';
         hint='<div class="zp-modal-hint">'+
           '<span class="zp-modal-hint-icon">📦</span>'+
-          '<span>В архиве <b>'+total+'</b> папок — вставьте <b>'+total+'</b> имён, каждое на новой строке</span>'+
+          '<span>The archive has <b>'+total+'</b> folders — paste <b>'+total+'</b> names, one per line</span>'+
         '</div>'+
-        '<div class="zp-modal-counter" id="zp-modal-counter">Строк: 0 / '+total+'</div>';
+        '<div class="zp-modal-counter" id="zp-modal-counter">Lines: 0 / '+total+'</div>';
     } else if(m==='bulktxt'){
         title='📝 Bulk TXT Content';
         placeholder='Enter text content that will be added to ALL folders as info.txt:\n\nName: ...\nAddress: ...\nDOB: ...';
@@ -52,7 +52,7 @@ function _zipRenderModal(){
         btnId='zp-modal-apply-txt';
         hint='<div class="zp-modal-hint">'+
           '<span class="zp-modal-hint-icon">📝</span>'+
-          '<span>Этот текст будет добавлен как info.txt в каждую из <b>'+total+'</b> папок</span>'+
+          '<span>This text will be added as info.txt to each of the <b>'+total+'</b> folders</span>'+
         '</div>';
     }
 
@@ -254,7 +254,7 @@ function _zipBindEvents(){
             var lines=modalTa.value.split('\n').filter(function(l){return l.trim().length>0;});
             var total=_ZIP_STATE.folders.length;
             var count=lines.length;
-            counterEl.textContent='Строк: '+count+' / '+total;
+            counterEl.textContent='Lines: '+count+' / '+total;
             counterEl.className='zp-modal-counter'+(count===total?' zp-counter-match':count>total?' zp-counter-over':' zp-counter-under');
         };
         modalTa.addEventListener('input',_updateCounter);

@@ -1,6 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════
    TRASH + VALID modals (Parser tab).
-   Both buttons are enabled only after the main base is loaded AND parsed.
+   TRASH is enabled after the main base is loaded AND the Parse & Clean
+   pipeline has run. VALID is independent of the pipeline: it only needs
+   the base in memory and PARSE pressed at least once; it always checks
+   the WHOLE loaded base (no filters / period / trash / dedupe).
    Same flow for both: drop / pick / paste checker files → summary →
    main button. Parsing is shared (checker-extract.js); all loaded files
    are parsed together, every card gets the status of its NEWEST check and
@@ -39,17 +42,46 @@ function ckSaveTrashDates(dates) {
     try { localStorage.setItem(CK_TRASH_DATES_KEY, JSON.stringify(dates)); } catch (e) { console.error('trash dates save:', e); }
 }
 
-/** TRASH / VALID work only after the main base is loaded and parsed. */
+/** TRASH works only after the main base is loaded and the Parse & Clean pipeline has run. */
 function ckBaseReady() {
     return (PARSER_STATE.rawMessages || []).length > 0 && Boolean(PARSER_STATE._pipelineStats);
 }
 
+/** VALID only needs parsed data in memory: base loaded + PARSE pressed at least once. */
+function ckValidReady() {
+    return (PARSER_STATE.rawMessages || []).length > 0 && Boolean(PARSER_STATE._parsedOnce);
+}
+
 function ckOpenModal(kind) {
-    if (!ckBaseReady()) {
-        toast('Сначала загрузите основную базу (result.json) и нажмите PARSE', 'warning');
+    const ready = kind === 'valid' ? ckValidReady() : ckBaseReady();
+    if (!ready) {
+        toast('Load the main base (result.json) and press PARSE first', 'warning');
         return;
     }
     document.getElementById(`${kind}-cards-overlay`)?.classList.remove('hidden');
+}
+
+/** Enables / disables TRASH and VALID according to their own readiness rules. */
+function ckRefreshGateButtons() {
+    const gate = (id, ready, title) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = !ready;
+        btn.title = ready ? title : 'Load the main base and press PARSE first';
+    };
+    gate('parser-trash-btn', ckBaseReady(), 'Manage dead/invalid card blacklist');
+    gate('parser-valid-btn', ckValidReady(), 'Check the whole loaded base against checker results (independent of filters)');
+}
+
+/** All cards of the whole loaded base (cached per base array; filters / period are NOT applied). */
+let CK_BASE_CARDS = { ref: null, cards: [] };
+function ckBaseCards() {
+    const raw = PARSER_STATE.rawMessages || [];
+    if (CK_BASE_CARDS.ref !== raw || (raw.length && !CK_BASE_CARDS.cards.length)) {
+        const cards = typeof extractCardsFromMessages === 'function' ? extractCardsFromMessages(raw) : [];
+        CK_BASE_CARDS = { ref: raw, cards };
+    }
+    return CK_BASE_CARDS.cards;
 }
 
 function ckEsc(value) {
@@ -94,7 +126,7 @@ async function ckReadFiles(kind, files, onDone) {
             const { chunks, messages } = ckFileToChunks(file.name, raw, file.lastModified);
             ckAddSource(kind, file.name, chunks, messages);
         } catch (err) {
-            toast(`${file.name}: не удалось прочитать — ${err.message}`, 'error');
+            toast(`${file.name}: could not read — ${err.message}`, 'error');
         }
     }
     onDone();
@@ -128,7 +160,7 @@ function ckBindDrop(kind, onChange) {
         const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
         if (!text.trim()) return;
         e.preventDefault();
-        ckAddSource(kind, 'Вставленный текст', [{ text, ts: Date.now() }], 0);
+        ckAddSource(kind, 'Pasted text', [{ text, ts: Date.now() }], 0);
         onChange();
     });
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
@@ -139,18 +171,18 @@ function ckBindDrop(kind, onChange) {
 }
 
 function ckFileChips(files) {
-    return files.map(f => `<span class="ck-file-chip">📄 ${ckEsc(f.name)}${f.messages ? ` · ${f.messages.toLocaleString()} сообщ.` : ''} · ${f.cards} карт</span>`).join('');
+    return files.map(f => `<span class="ck-file-chip">📄 ${ckEsc(f.name)}${f.messages ? ` · ${f.messages.toLocaleString()} msgs` : ''} · ${f.cards} cards</span>`).join('');
 }
 
 function ckMaskedWarning(pending) {
     if (!pending.maskedUnmatched) return '';
-    return `<div class="ck-sum-warn">⚠ ${pending.maskedUnmatched} маскированных карт (AFFChecker) не найдено ни в чате, ни в базе — пропущены</div>`;
+    return `<div class="ck-sum-warn">⚠ ${pending.maskedUnmatched} masked cards (AFFChecker) not found in the chat or in the base — skipped</div>`;
 }
 
 /** "checks → unique cards, duplicates removed" line. */
 function ckDedupeLine(pending) {
     const { checks, duplicates } = pending.stats || { checks: 0, duplicates: 0 };
-    return `<span>🔁 проверок: ${checks} · дублей убрано: ${duplicates} · статус по последней дате</span>`;
+    return `<span>🔁 checks: ${checks} · duplicates removed: ${duplicates} · status by latest date</span>`;
 }
 
 /* ────────────────────────── TRASH ────────────────────────── */
@@ -168,7 +200,7 @@ function ckRenderTrashSummary() {
     const pending = CK_PENDING.trash;
     if (!box) return;
     if (pending.files.length === 0) {
-        box.innerHTML = '<span class="ck-summary-empty">Файлы ещё не загружены</span>';
+        box.innerHTML = '<span class="ck-summary-empty">No files loaded yet</span>';
         if (btn) btn.disabled = true;
         return;
     }
@@ -177,17 +209,17 @@ function ckRenderTrashSummary() {
     box.innerHTML = `
         <div class="ck-file-chips">${ckFileChips(pending.files)}</div>
         <div class="ck-sum-row">
-            <span class="ck-sum-big ck-c-red">💀 ${found}</span><span class="ck-sum-lbl">trash (последняя проверка — dead)</span>
-            <span class="ck-sum-pill ck-c-red">новых: ${fresh.length}</span>
-            <span class="ck-sum-pill">уже в корзине: ${already}</span>
-            ${restore.length ? `<span class="ck-sum-pill ck-c-green">♻ вернуть из корзины: ${restore.length}</span>` : ''}
+            <span class="ck-sum-big ck-c-red">💀 ${found}</span><span class="ck-sum-lbl">trash (latest check — dead)</span>
+            <span class="ck-sum-pill ck-c-red">new: ${fresh.length}</span>
+            <span class="ck-sum-pill">already in trash: ${already}</span>
+            ${restore.length ? `<span class="ck-sum-pill ck-c-green">♻ restore from trash: ${restore.length}</span>` : ''}
         </div>
         <div class="ck-sum-row ck-sum-dim">
-            <span>✅ живые пропущены: ${counts.valid}</span>
-            <span>❔ без статуса (не трогаем): ${counts.unknown}</span>
+            <span>✅ alive skipped: ${counts.valid}</span>
+            <span>❔ no status (untouched): ${counts.unknown}</span>
         </div>
         <div class="ck-sum-row ck-sum-dim">${ckDedupeLine(pending)}</div>
-        ${restore.length ? `<div class="ck-sum-row ck-sum-dim"><span>♻ ${restore.length} карт уже в корзине, но более новая проверка — живая: они будут убраны из корзины</span></div>` : ''}
+        ${restore.length ? `<div class="ck-sum-row ck-sum-dim"><span>♻ ${restore.length} cards are in trash, but a newer check is alive: they will be removed from trash</span></div>` : ''}
         ${ckMaskedWarning(pending)}`;
     const changes = fresh.length + restore.length;
     if (btn) {
@@ -207,7 +239,7 @@ function _initTrashCardModal() {
 
     document.getElementById('trash-cards-save')?.addEventListener('click', () => {
         const { fresh, already, restore, dates } = ckTrashNumbers();
-        if (fresh.length === 0 && restore.length === 0) { toast('Новых trash-карт нет', 'info'); return; }
+        if (fresh.length === 0 && restore.length === 0) { toast('No new trash cards', 'info'); return; }
         const restoreSet = new Set(restore);
         const oldDates = ckTrashDates();
         const keptDates = Object.fromEntries(Object.entries(oldDates).filter(([cc]) => !restoreSet.has(cc)));
@@ -216,9 +248,9 @@ function _initTrashCardModal() {
         save();
         ckUpdateTrashButton();
         const parts = [`+${fresh.length} trash`];
-        if (already) parts.push(`${already} уже были`);
-        if (restore.length) parts.push(`♻ ${restore.length} возвращено`);
-        toast(`${parts.join(', ')} (всего ${STATE.trashCards.length})`, 'success');
+        if (already) parts.push(`${already} already there`);
+        if (restore.length) parts.push(`♻ ${restore.length} restored`);
+        toast(`${parts.join(', ')} (total ${STATE.trashCards.length})`, 'success');
         close();
         if ((PARSER_STATE.rawMessages || []).length > 0) runParse();
     });
@@ -266,7 +298,7 @@ function ckRenderValidSummary() {
     const pending = CK_PENDING.valid;
     if (!box) return;
     if (pending.files.length === 0) {
-        box.innerHTML = '<span class="ck-summary-empty">Файлы ещё не загружены</span>';
+        box.innerHTML = '<span class="ck-summary-empty">No files loaded yet</span>';
         if (btn) btn.disabled = true;
         return;
     }
@@ -275,13 +307,13 @@ function ckRenderValidSummary() {
     box.innerHTML = `
         <div class="ck-file-chips">${ckFileChips(pending.files)}</div>
         <div class="ck-sum-row">
-            <span class="ck-sum-big ck-c-green">✅ ${valid.length}</span><span class="ck-sum-lbl">валидных карт</span>
+            <span class="ck-sum-big ck-c-green">✅ ${valid.length}</span><span class="ck-sum-lbl">valid cards</span>
             <span class="ck-sum-pill">BIN: ${new Set(valid.map(v => v.cc.slice(0, 6))).size}</span>
         </div>
         <div class="ck-sum-row ck-sum-dim">
-            <span>💀 последняя проверка dead: ${counts.trash}</span>
-            <span>🗑 в корзине позже проверки: ${inTrashBefore}</span>
-            <span>❔ без статуса: ${counts.unknown}</span>
+            <span>💀 latest check dead: ${counts.trash}</span>
+            <span>🗑 trashed after the check: ${inTrashBefore}</span>
+            <span>❔ no status: ${counts.unknown}</span>
         </div>
         <div class="ck-sum-row ck-sum-dim">${ckDedupeLine(pending)}</div>
         ${ckMaskedWarning(pending)}`;
@@ -303,7 +335,7 @@ function _initValidCardsModal() {
     document.getElementById('valid-cards-process')?.addEventListener('click', () => {
         const counts = ckCounts(CK_PENDING.valid.records);
         const { valid, inTrashBefore } = ckValidRecords();
-        if (valid.length === 0) { toast('Валидных карт не найдено', 'warning'); return; }
+        if (valid.length === 0) { toast('No valid cards found', 'warning'); return; }
         ckShowValid(valid, {
             valid: valid.length, trash: counts.trash, inTrashBefore,
             unknown: counts.unknown, files: CK_PENDING.valid.files.length
@@ -312,10 +344,9 @@ function _initValidCardsModal() {
     });
 }
 
-/** Build VALID_STATE from valid records and open the results page. */
+/** Build VALID_STATE from valid records (enriched from the WHOLE base) and open the results page. */
 function ckShowValid(records, stats) {
-    const base = typeof extractCardsFromMessages === 'function' ? extractCardsFromMessages(PARSER_STATE.rawMessages || []) : [];
-    VALID_STATE.cards = ckEnrich(records, base);
+    VALID_STATE.cards = ckEnrich(records, ckBaseCards());
     VALID_STATE.selected = new Set();
     VALID_STATE.countries = new Set();
     VALID_STATE.expanded = new Set();
@@ -323,7 +354,7 @@ function ckShowValid(records, stats) {
     VALID_STATE.stats = stats;
     navigate('new-cards');
     renderValidCardsResults();
-    toast(`✅ ${records.length} валидных карт`, 'success');
+    toast(`✅ ${records.length} valid cards`, 'success');
 }
 
 /* ────────────────────────── ENRICH ────────────────────────── */

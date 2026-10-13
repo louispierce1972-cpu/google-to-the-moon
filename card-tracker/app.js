@@ -410,8 +410,7 @@ function load() {
                 PARSER_STATE.filters.excludeBanks = pf.excludeBanks || '';
                 PARSER_STATE.filters.binsEx = pf.binsEx || '';
                 PARSER_STATE.filters.countryEx = pf.countryEx || '';
-                PARSER_STATE.filters.parseAll = Boolean(pf.parseAll);
-                PARSER_STATE.filters.excludePrepaid = Boolean(pf.excludePrepaid);
+                        PARSER_STATE.filters.excludePrepaid = Boolean(pf.excludePrepaid);
                 PARSER_STATE.filters.minExpiry = pf.minExpiry || '';
                 PARSER_STATE.filters.activeTypes = pf.types || [];
                 PARSER_STATE.filters.activeNetworks = pf.networks || [];
@@ -2649,7 +2648,7 @@ function _renderCCGlue() {
             <div class="ck-title">
                 <span class="ck-icon">🃏</span>
                 <span>CC GLUE</span>
-                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Склейка по BIN</span>
+                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Merge by BIN</span>
             </div>
             <div class="ck-modes">
                 ${Object.keys(modeIcons).map(m => `
@@ -3009,7 +3008,7 @@ function _renderGlue() {
             <div class="ck-title">
                 <span class="ck-icon">🔗</span>
                 <span>GLUE</span>
-                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Склейка</span>
+                <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:4px">Merge</span>
             </div>
             <div class="ck-modes">
                 <button class="ck-mode-btn" data-mode="proxy"><span class="ck-mode-icon">🌐</span><span class="ck-mode-label">Proxy</span></button>
@@ -10559,7 +10558,7 @@ let PARSER_STATE = {
     // (translated)
     testMode: false,
     // (translated)
-    filters: { bins: '', binsEx: '', country: '', countryEx: '', bank: '', excludeBanks: '', parseAll: false, excludePrepaid: false, minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() },
+    filters: { bins: '', binsEx: '', country: '', countryEx: '', bank: '', excludeBanks: '', excludePrepaid: false, minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() },
     // Period of messages to parse (by Telegram message date); relative presets end on the last day of the base
     period: { preset: 'all', from: '', to: '' },
     _baseRange: null
@@ -10945,47 +10944,14 @@ function renderParser() {
         <div class="pz-stage pf-period" id="pz-period" style="display:none"></div>
 
         <!-- FILTERS (collapsible, compact) -->
-        <div class="parser-filters ${hasBase ? '' : 'pz-disabled'}${PARSER_STATE.filters.parseAll ? ' pf-off' : ''}">
+        <div class="parser-filters ${hasBase ? '' : 'pz-disabled'}">
             <div class="pf-topbar">
-                <label class="pf-parse-all" title="Без фильтров: парсится вся база (период, trash и дубли работают как обычно)">
-                    <input type="checkbox" id="parser-parse-all" ${PARSER_STATE.filters.parseAll ? 'checked' : ''}>
-                    <span class="pf-parse-all-box"></span>
-                    <span class="pf-parse-all-text">ПАРСИТЬ ВСЁ <em>без фильтров</em></span>
-                </label>
-                <button type="button" class="pf-chip-btn${PARSER_STATE.filters.excludePrepaid ? ' active' : ''}" id="parser-no-prepaid" title="Убрать prepaid-карты (карты с неизвестным типом остаются)">🚫 БЕЗ PREPAID</button>
-                <span class="pf-legend"><i class="pf-dot pf-dot-in"></i>Include — оставить только это <i class="pf-dot pf-dot-ex"></i>Exclude — убрать это</span>
+                <span class="pf-legend"><i class="pf-dot pf-dot-in"></i>Include — keep only these <i class="pf-dot pf-dot-ex"></i>Exclude — remove these</span>
             </div>
             <div class="parser-filter-row pf-grid">
-                <div class="pf-field">
-                    <div class="pf-field-head">BINs
-                        <button class="pz-list-bins-btn" id="pz-list-bins-btn" type="button" title="Paste BIN list (one per line)">📋 LIST</button>
-                        <span class="pz-bins-badge" id="pz-bins-badge" style="display:none"></span>
-                    </div>
-                    <div class="pf-pair">
-                        <div class="pf-side pf-in"><span class="pf-tag">INCLUDE</span><textarea id="parser-bins" rows="1" placeholder="450003, 424242, 532610...">${PARSER_STATE.filters.bins || ''}</textarea></div>
-                        <div class="pf-side pf-ex"><span class="pf-tag">EXCLUDE</span><textarea id="parser-bins-ex" rows="1" placeholder="BIN, которые убрать...">${PARSER_STATE.filters.binsEx || ''}</textarea></div>
-                    </div>
-                    <div class="pf-conflict" id="pf-conflict-bin" style="display:none"></div>
-                </div>
-                <div class="pf-field">
-                    <div class="pf-field-head">COUNTRY</div>
-                    <div class="pf-pair">
-                        <div class="pf-side pf-in"><span class="pf-tag">INCLUDE</span><input type="text" id="parser-country" placeholder="US, GB, CA..." value="${PARSER_STATE.filters.country || ''}"></div>
-                        <div class="pf-side pf-ex"><span class="pf-tag">EXCLUDE</span><input type="text" id="parser-country-ex" placeholder="страны, которые убрать..." value="${PARSER_STATE.filters.countryEx || ''}"></div>
-                    </div>
-                    <div class="pf-conflict" id="pf-conflict-country" style="display:none"></div>
-                </div>
-                <div class="pf-field">
-                    <div class="pf-field-head">BANK
-                        <button class="pz-list-bins-btn" id="pz-exclude-banks-btn" type="button" title="Manage excluded banks list">🚫 LIST</button>
-                        <span class="pz-bins-badge pz-exclude-badge" id="pz-exclude-badge" style="display:none"></span>
-                    </div>
-                    <div class="pf-pair">
-                        <div class="pf-side pf-in"><span class="pf-tag">INCLUDE</span><input type="text" id="parser-bank" placeholder="Chase, Revolut..." value="${PARSER_STATE.filters.bank || ''}"></div>
-                        <div class="pf-side pf-ex"><span class="pf-tag">EXCLUDE</span><input type="text" id="parser-exclude-banks" placeholder="Royal, ADCB, Toronto..." value="${PARSER_STATE.filters.excludeBanks || ''}"></div>
-                    </div>
-                    <div class="pf-conflict" id="pf-conflict-bank" style="display:none"></div>
-                </div>
+                ${plFieldHtml('bin', { in: PARSER_STATE.filters.bins, ex: PARSER_STATE.filters.binsEx })}
+                ${plFieldHtml('country', { in: PARSER_STATE.filters.country, ex: PARSER_STATE.filters.countryEx })}
+                ${plFieldHtml('bank', { in: PARSER_STATE.filters.bank, ex: PARSER_STATE.filters.excludeBanks })}
                 <div class="pf-field pf-field-narrow">
                     <div class="pf-field-head">MIN EXPIRY</div>
                     <div class="pf-side pf-neutral"><input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}"></div>
@@ -11000,6 +10966,7 @@ function renderParser() {
                         ${['CREDIT', 'DEBIT', 'PREPAID', 'BUSINESS'].map(t =>
         `<button class="parser-level-btn${PARSER_STATE.filters.filterTypes.has(t) ? ' active' : ''}" data-filter-type="${t}">${t}</button>`
     ).join('')}
+                        <button type="button" class="parser-level-btn pf-noprepaid-btn${PARSER_STATE.filters.excludePrepaid ? ' active' : ''}" id="parser-no-prepaid" title="Exclude all prepaid cards from the parse result (cards with unknown type are kept)">🚫 NO PREPAID</button>
                     </div>
                 </div>
                 <!-- Level 2 — Card Class -->
@@ -11035,8 +11002,8 @@ function renderParser() {
                 <span class="pz-btn-hint">extract → filter → dedupe</span>
             </button>
             <button class="pz-btn pz-btn-dim" id="parser-clear-btn" title="Clear all loaded files and results">✕ CLEAR</button>
-            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" ${hasBase && PARSER_STATE._pipelineStats ? '' : 'disabled'} title="${hasBase && PARSER_STATE._pipelineStats ? 'Manage dead/invalid card blacklist' : 'Сначала загрузите основную базу и нажмите PARSE'}">🗑 TRASH (${(STATE.trashCards || []).length})</button>
-            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" ${hasBase && PARSER_STATE._pipelineStats ? '' : 'disabled'} title="${hasBase && PARSER_STATE._pipelineStats ? 'View cards verified as ALIVE by checker' : 'Сначала загрузите основную базу и нажмите PARSE'}">✅ VALID CARDS</button>
+            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" ${ckBaseReady() ? '' : 'disabled'} title="${ckBaseReady() ? 'Manage dead/invalid card blacklist' : 'Load the main base and press PARSE first'}">🗑 TRASH (${(STATE.trashCards || []).length})</button>
+            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" ${ckValidReady() ? '' : 'disabled'} title="${ckValidReady() ? 'Check the whole loaded base against checker results (independent of filters)' : 'Load the main base and press PARSE first'}">✅ VALID CARDS</button>
             <button class="pz-btn pz-btn-billings" id="parser-billings-btn" title="Match billing records (last 4 digits) against parsed cards">💳 FIND BILLINGS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
@@ -11053,7 +11020,7 @@ function renderParser() {
             <span class="ps-item ps-test" id="ps-test-mode" style="display:none">🧪 Test: <strong id="ps-test-cards">0</strong> cards (<strong id="ps-test-bins">0</strong> BINs)</span>
         </div>
 
-        <!-- STAGE 2: COMPARE — всегда видим, загрузка старой базы до парсинга -->
+        <!-- STAGE 2: COMPARE — always visible, the old base can be loaded before parsing -->
         <div class="pz-stage pz-stage-2">
             <div class="pz-stage-header">
                 <span class="pz-stage-num">2</span>
@@ -11135,6 +11102,7 @@ function renderParser() {
         PARSER_STATE.statusFilter = 'ALL';
         PARSER_STATE._compareSet = null;
         PARSER_STATE._pipelineStats = null;
+        PARSER_STATE._parsedOnce = false;
         // (translated)
         PARSER_STATE.testMode = false;
         localStorage.removeItem('ct_parser_base');
@@ -11200,6 +11168,7 @@ function renderParser() {
         PARSER_STATE.filters.filterClasses.clear();
         PARSER_STATE.filters.filterPaymentSystems.clear();
         document.querySelectorAll('.parser-level-btn').forEach(b => b.classList.remove('active'));
+        pfSetFlag('excludePrepaid', false);
         // (translated)
         PARSER_STATE.testMode = false;
         const tmBtn = document.getElementById('parser-test-mode');
@@ -11208,27 +11177,9 @@ function renderParser() {
         toast('Filters reset', 'info');
     });
 
-    // Save filters on text field input
-    ['parser-bins', 'parser-country', 'parser-bank', 'parser-min-expiry'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', _saveParserFilters);
-    });
+    // Save filters on text field input (list fields are saved by parser-lists.js)
+    document.getElementById('parser-min-expiry')?.addEventListener('input', _saveParserFilters);
 
-    // ── LIST BINS popup ──
-    document.getElementById('pz-list-bins-btn')?.addEventListener('click', () => {
-        _openBinListPopup();
-    });
-    // Update BIN badge on load
-    _updateBinsBadge();
-
-    // ── EXCLUDE BANKS popup ──
-    document.getElementById('pz-exclude-banks-btn')?.addEventListener('click', () => {
-        _openExcludeBanksPopup();
-    });
-    document.getElementById('parser-exclude-banks')?.addEventListener('input', () => {
-        _updateExcludeBadge();
-        _saveParserFilters();
-    });
-    _updateExcludeBadge();
 
     // (translated)
     document.getElementById('parser-test-mode')?.addEventListener('click', () => {
@@ -11262,230 +11213,7 @@ function renderParser() {
         renderParserResults();
     }
 }
-// ──── LIST BINS — popup для вставки BIN списком (столбиком) ────
-
-/** Обновляет бейдж кол-ва BIN рядом с кнопкой LIST */
-function _updateBinsBadge() {
-    const badge = document.getElementById('pz-bins-badge');
-    const binsEl = document.getElementById('parser-bins');
-    if (!badge || !binsEl) return;
-    const bins = binsEl.value.trim()
-        .split(/[\s,;|]+/)
-        .map(b => b.replace(/\D/g, '').slice(0, 6))
-        .filter(b => b.length >= 4);
-    if (bins.length > 0) {
-        badge.textContent = bins.length;
-        badge.style.display = '';
-    } else {
-        badge.style.display = 'none';
-    }
-}
-
-/** Открывает popup для вставки BIN столбиком */
-function _openBinListPopup() {
-    // Если уже открыт — закрыть
-    const existing = document.getElementById('pz-bin-list-overlay');
-    if (existing) { existing.remove(); return; }
-
-    // Прочитать текущие BINs из поля и показать столбиком
-    const binsEl = document.getElementById('parser-bins');
-    const currentBins = binsEl ? binsEl.value.trim()
-        .split(/[\s,;|]+/)
-        .map(b => b.replace(/\D/g, '').slice(0, 6))
-        .filter(b => b.length >= 4) : [];
-
-    const overlay = document.createElement('div');
-    overlay.id = 'pz-bin-list-overlay';
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal" style="width:420px;max-width:90vw">
-            <div class="modal-header">
-                <div>
-                    <h3>📋 LIST BINS</h3>
-                    <p class="modal-subtitle">Вставь список BIN — каждый на новой строке</p>
-                </div>
-                <button class="modal-close" id="pz-bl-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <textarea id="pz-bl-textarea" class="list-textarea" rows="14"
-                    placeholder="Вставь BIN-ы столбиком:&#10;&#10;450003&#10;424242&#10;532610&#10;471539&#10;...&#10;&#10;Поддерживает 4-6 цифр">${currentBins.join('\n')}</textarea>
-                <div class="list-info" style="display:flex;align-items:center;gap:10px;margin-top:8px">
-                    <span id="pz-bl-count" class="list-count-badge">${currentBins.length} BINs</span>
-                    <span style="font-size:11px;color:var(--text-muted)">Дубликаты удаляются автоматически</span>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex;gap:8px">
-                <button class="btn-cancel" id="pz-bl-cancel">Cancel</button>
-                <button class="pz-btn pz-btn-dim" id="pz-bl-clear" style="font-size:11px;padding:5px 12px">🗑 CLEAR ALL</button>
-                <span style="flex:1"></span>
-                <button class="pz-btn pz-btn-primary" id="pz-bl-apply">✅ APPLY</button>
-            </div>
-        </div>`;
-
-    document.body.appendChild(overlay);
-
-    const ta = document.getElementById('pz-bl-textarea');
-    const countEl = document.getElementById('pz-bl-count');
-
-    // Счётчик при вводе
-    const updateCount = () => {
-        const bins = ta.value.trim().split(/[\s,;|]+/)
-            .map(b => b.replace(/\D/g, '').slice(0, 6))
-            .filter(b => b.length >= 4);
-        const unique = [...new Set(bins)];
-        countEl.textContent = `${unique.length} BINs`;
-    };
-    ta.addEventListener('input', updateCount);
-
-    // Закрытие
-    const close = () => overlay.remove();
-    document.getElementById('pz-bl-close').addEventListener('click', close);
-    document.getElementById('pz-bl-cancel').addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-    // CLEAR ALL
-    document.getElementById('pz-bl-clear').addEventListener('click', () => {
-        ta.value = '';
-        updateCount();
-        // Также очистить основное поле
-        if (binsEl) binsEl.value = '';
-        _updateBinsBadge();
-        _saveParserFilters();
-        toast('BIN list cleared', 'info');
-    });
-
-    // APPLY
-    document.getElementById('pz-bl-apply').addEventListener('click', () => {
-        const bins = ta.value.trim().split(/[\s,;|]+/)
-            .map(b => b.replace(/\D/g, '').slice(0, 6))
-            .filter(b => b.length >= 4);
-        const unique = [...new Set(bins)];
-
-        if (binsEl) {
-            binsEl.value = unique.join(', ');
-        }
-        _updateBinsBadge();
-        _saveParserFilters();
-        close();
-        toast(`${unique.length} BINs loaded into filter`, 'success');
-    });
-
-    // Фокус на textarea
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
-}
-
-// ──── EXCLUDE BANKS BADGE ────
-function _updateExcludeBadge() {
-    const badge = document.getElementById('pz-exclude-badge');
-    if (!badge) return;
-    const el = document.getElementById('parser-exclude-banks');
-    const val = el ? el.value.trim() : '';
-    const count = val ? val.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean).length : 0;
-    if (count > 0) {
-        badge.textContent = count;
-        badge.style.display = 'inline-flex';
-    } else {
-        badge.style.display = 'none';
-    }
-}
-
-// ──── EXCLUDE BANKS POPUP ────
-function _openExcludeBanksPopup() {
-    // Если уже открыт — закрыть
-    const existing = document.getElementById('pz-exclude-banks-overlay');
-    if (existing) { existing.remove(); return; }
-
-    // Прочитать текущий список
-    const excludeEl = document.getElementById('parser-exclude-banks');
-    const currentBanks = excludeEl ? excludeEl.value.trim()
-        .split(/[,;\n]+/)
-        .map(b => b.trim())
-        .filter(Boolean) : [];
-
-    const overlay = document.createElement('div');
-    overlay.id = 'pz-exclude-banks-overlay';
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal" style="width:460px;max-width:90vw">
-            <div class="modal-header">
-                <div>
-                    <h3>🚫 EXCLUDE BANKS</h3>
-                    <p class="modal-subtitle">Банки из этого списка будут исключены из парсинга (частичное совпадение)</p>
-                </div>
-                <button class="modal-close" id="pz-eb-close">
-                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <textarea id="pz-eb-textarea" class="list-textarea" rows="14"
-                    placeholder="Введи названия банков — каждый на новой строке:&#10;&#10;Royal Bank&#10;ADCB&#10;Toronto-Dominion&#10;National Bank&#10;...&#10;&#10;Частичное совпадение: 'Royal' исключит все банки с 'Royal' в названии">${currentBanks.join('\n')}</textarea>
-                <div class="list-info" style="display:flex;align-items:center;gap:10px;margin-top:8px">
-                    <span id="pz-eb-count" class="list-count-badge" style="background:var(--danger,#e74c3c);color:#fff">${currentBanks.length} banks</span>
-                    <span style="font-size:11px;color:var(--text-muted)">Дубликаты удаляются автоматически</span>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex;gap:8px">
-                <button class="btn-cancel" id="pz-eb-cancel">Cancel</button>
-                <button class="pz-btn pz-btn-dim" id="pz-eb-clear" style="font-size:11px;padding:5px 12px">🗑 CLEAR ALL</button>
-                <span style="flex:1"></span>
-                <button class="pz-btn pz-btn-primary" id="pz-eb-apply">✅ APPLY</button>
-            </div>
-        </div>`;
-
-    document.body.appendChild(overlay);
-
-    const ta = document.getElementById('pz-eb-textarea');
-    const countEl = document.getElementById('pz-eb-count');
-
-    // Счётчик при вводе
-    const updateCount = () => {
-        const banks = ta.value.trim().split(/[\n]+/)
-            .map(b => b.trim())
-            .filter(Boolean);
-        const unique = [...new Set(banks.map(b => b.toLowerCase()))];
-        countEl.textContent = `${unique.length} banks`;
-    };
-    ta.addEventListener('input', updateCount);
-
-    // Закрытие
-    const close = () => overlay.remove();
-    document.getElementById('pz-eb-close').addEventListener('click', close);
-    document.getElementById('pz-eb-cancel').addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-    // CLEAR ALL
-    document.getElementById('pz-eb-clear').addEventListener('click', () => {
-        ta.value = '';
-        updateCount();
-        if (excludeEl) excludeEl.value = '';
-        _updateExcludeBadge();
-        _saveParserFilters();
-        toast('Exclude banks list cleared', 'info');
-    });
-
-    // APPLY
-    document.getElementById('pz-eb-apply').addEventListener('click', () => {
-        const banks = ta.value.trim().split(/[\n]+/)
-            .map(b => b.trim())
-            .filter(Boolean);
-        const unique = [...new Set(banks)];
-
-        if (excludeEl) {
-            excludeEl.value = unique.join(', ');
-        }
-        _updateExcludeBadge();
-        _saveParserFilters();
-        close();
-        toast(`${unique.length} banks added to exclude list`, 'success');
-    });
-
-    // Фокус на textarea
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
-}
+// LIST popups for BINs / Country / Bank live in parser-lists.js
 
 // ──── BIN DATABASE HELPERS ────
 function _loadBinDb() {
@@ -12072,10 +11800,10 @@ function _renderCMLLists() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// BASE SUBTRACT — вычитание одной базы из другой
+// BASE SUBTRACT — subtract one base from another (legacy, button removed)
 // ═══════════════════════════════════════════════════════════════════
 
-let _bsBaseSet = null; // Set<string> — нормализованные номера из JSON-файла
+let _bsBaseSet = null; // Set<string> — normalized card numbers from the JSON file
 let _bsBaseFileName = '';
 let _bsBaseCardCount = 0;
 
@@ -12252,7 +11980,7 @@ function _parseCheckerOutput(text) {
         if (/(?:\u2705|ALIVE|Approved|APPROVED)/iu.test(line)) return 'alive';
         if (/(?:\u{1F480}|DEAD|Declined|DECLINED)/iu.test(line)) return 'dead';
         if (/(?:\u274C|INVALID|Invalid)/iu.test(line)) return 'invalid';
-        // ⛔ format from Russian checker (Результаты проверки)
+        // ⛔ format from the Russian-language checker ("results" header)
         if (/\u26D4/u.test(line)) return 'dead';
         // Lines with only CARD | and trash text but no emoji
         if (/TRAN NOT ALLOWED|INV ACCT NUM|DO NOT TRY AGAIN|CANCELLED|NOT ALLOWED|NOPERMISSION|Card Issuer Declined/i.test(line)) return 'dead';
@@ -12382,7 +12110,7 @@ function _detectCheckerFormat(text) {
         if (/^[\u2705\u{1F480}\u274C]/u.test(l) && /\b(ALIVE|DEAD|INVALID)\b/i.test(l)) classic++;
         if (/^\d{13,19}\s*\|/.test(l)) pipe++;
         if (/\u{1F7E9}{2,}|\u{1F7E5}{2,}/u.test(l)) block++;
-        // "Результаты проверки" format: CARD | Approved ✅ or CARD | ⛔ or header line
+        // Russian checker "results" format: CARD | Approved ✅ or CARD | ⛔ or header line
         if (/^\d{13,19}\s*\|.*[\u2705\u26D4]/u.test(l) || /^Результаты\s+проверки/i.test(l)) results++;
         // Also detect CARD | error_text (no emoji but known trash keywords on same line)
         if (/^\d{13,19}\s*\|.*(?:TRAN NOT ALLOWED|INV ACCT NUM|Cancelled|DO NOT TRY|Card Issuer|NOT ALLOWED)/i.test(l)) results++;
@@ -12460,7 +12188,7 @@ function _parseBlockFormat(text) {
 }
 
 /**
- * Parse "Результаты проверки" format from Russian checker bot.
+ * Parse the "results" format from the Russian-language checker bot.
  * Handles single-line and multi-line patterns:
  *   CARD | Approved ✅         → valid
  *   CARD | TRAN NOT ALLOWED ⛔ → trash
@@ -12612,7 +12340,7 @@ function _parseAffCheckerFormat(text) {
         }
         // 🟡 Yellow circle = uncertain → skip (don't add to trash)
         else if (/\u{1F7E1}/u.test(line)) {
-            status = 'valid'; // treat as valid (не добавлять в trash)
+            status = 'valid'; // treat as valid (do not add to trash)
         }
         // Fallback: check text keywords
         else if (/DECLINED|\bDead\b|declined|3-D Secure.*Failed|expired|DO NOT HONOR|FRAUD|INSUFFICIENT/i.test(contextLines)) {
@@ -12712,15 +12440,17 @@ function runParse() {
     if (!PARSER_STATE.rawMessages.length) return;
     const status = document.getElementById('parser-status');
     if (status) status.textContent = '⏳ Parsing...';
+    // VALID CARDS only needs the base in memory + PARSE pressed once (independent of the pipeline below)
+    PARSER_STATE._parsedOnce = true;
+    if (typeof ckRefreshGateButtons === 'function') ckRefreshGateButtons();
 
     // Include/Exclude config; the same token in both lists of a field blocks the parse
     const pfCfg = pfReadConfig();
-    const parseAll = pfCfg.parseAll;
     const pfConflict = pfRefreshConflicts();
-    if (!parseAll && pfConflict.total > 0) {
+    if (pfConflict.total > 0) {
         const names = [...pfConflict.bin, ...pfConflict.country, ...pfConflict.bank].join(', ');
-        if (status) status.textContent = '⚠ Include и Exclude пересекаются';
-        toast(`Одно и то же в Include и Exclude: ${names}`, 'error');
+        if (status) status.textContent = '⚠ Include and Exclude overlap';
+        toast(`Same value in Include and Exclude: ${names}`, 'error');
         return;
     }
 
@@ -12743,7 +12473,7 @@ function runParse() {
     const activeTypes = filterTypes.size > 0 ? [...filterTypes].map(t => t.toLowerCase()) : [];
     const activeNetworks = filterPaymentSystems.size > 0 ? [...filterPaymentSystems] : [];
     const excludeBanksElSave = document.getElementById('parser-exclude-banks');
-    PARSER_STATE.filters = { bins: binRaw, binsEx: document.getElementById('parser-bins-ex')?.value.trim() || '', countryEx: document.getElementById('parser-country-ex')?.value.trim() || '', parseAll, excludePrepaid: pfCfg.excludePrepaid, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
+    PARSER_STATE.filters = { bins: binRaw, binsEx: document.getElementById('parser-bins-ex')?.value.trim() || '', countryEx: document.getElementById('parser-country-ex')?.value.trim() || '', excludePrepaid: pfCfg.excludePrepaid, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
 
     const periodMsgs = pfFilterByPeriod(PARSER_STATE.rawMessages, PARSER_STATE.period.from, PARSER_STATE.period.to);
     let allCards = extractCardsFromMessages(periodMsgs);
@@ -12799,10 +12529,10 @@ function runParse() {
         return bank !== c.bank || cardType !== c.cardType ? { ...c, bank, cardType } : c;
     });
 
-    // Include / Exclude lists (BIN, country, bank) + "no prepaid" — skipped completely with "Parse all"
+    // Include / Exclude lists (BIN, country, bank) + "no prepaid"
     let excludeBanksRemoved = 0;
     let listRemoved = null;
-    if (!parseAll) {
+    {
         const listed = pfApplyLists(allCards, {
             ...pfCfg,
             geoOf: c => (c.detectedGeo || '').toUpperCase() || detectGeo('', c.country || '', c.countryCode || '', c.bankCountryCode || '').toUpperCase(),
@@ -12814,7 +12544,7 @@ function runParse() {
     }
 
     // (translated)
-    if (minExpRaw && !parseAll) {
+    if (minExpRaw) {
         const expMatch = minExpRaw.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
         if (expMatch) {
             const minVal = parseInt(expMatch[2]) * 100 + parseInt(expMatch[1]);
@@ -12829,7 +12559,7 @@ function runParse() {
 
     // TYPE filter: ANY selected type matches (OR logic)
     // e.g. CREDIT + DEBIT → cards that are CREDIT OR DEBIT
-    if (!parseAll && filterTypes.size > 0) {
+    if (filterTypes.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             // Combine all type info: BIN_CACHE type + log cardType
@@ -12843,7 +12573,7 @@ function runParse() {
         });
     }
     // CLASS filter: ANY selected class matches (OR logic)
-    if (!parseAll && filterClasses.size > 0) {
+    if (filterClasses.size > 0) {
         allCards = allCards.filter(c => {
             const info = BIN_CACHE[c.bin];
             // Combine level from cache + cardType from log
@@ -12859,7 +12589,7 @@ function runParse() {
         });
     }
     // NETWORK filter: exact network match
-    if (!parseAll && filterPaymentSystems.size > 0) {
+    if (filterPaymentSystems.size > 0) {
         allCards = allCards.filter(c => {
             const network = getCardType(c.cc || '');
             const brand = (BIN_CACHE[c.bin]?.brand || '').toUpperCase();
@@ -12867,7 +12597,7 @@ function runParse() {
         });
     }
 
-    PARSER_STATE.binFilter = !parseAll && pfCfg.binsIn.length > 0 ? new Set(pfCfg.binsIn) : null;
+    PARSER_STATE.binFilter = pfCfg.binsIn.length > 0 ? new Set(pfCfg.binsIn) : null;
     PARSER_STATE._lastRun = { period: { ...PARSER_STATE.period }, periodMessages: periodMsgs.length, listRemoved };
     _processPipeline(allCards, status, excludeBanksRemoved);
 }
@@ -12912,6 +12642,7 @@ function _processPipeline(allCards, status, excludeBanksRemoved) {
 
     // Save stats
     PARSER_STATE._pipelineStats = { totalRaw, trashRemoved, compareRemoved, workspaceRemoved, dupRemoved, excludeBanksRemoved: excludeBanksRemoved || 0 };
+    if (typeof ckRefreshGateButtons === 'function') ckRefreshGateButtons();
 
     // Finish
     PARSER_STATE.collected = allCards;
@@ -13435,7 +13166,7 @@ function addCollectedToCards() {
     const saved = localStorage.getItem('ct_density') || 'default';
     applyDensity(saved);
 
-    document.getElementById('density-switcher').addEventListener('click', (e) => {
+    document.getElementById('density-switcher')?.addEventListener('click', (e) => {
         const btn = e.target.closest('.density-btn');
         if (!btn) return;
         const density = btn.dataset.density;
@@ -13880,7 +13611,6 @@ function _saveParserFilters() {
         excludeBanks: document.getElementById('parser-exclude-banks')?.value || '',
         binsEx: document.getElementById('parser-bins-ex')?.value || '',
         countryEx: document.getElementById('parser-country-ex')?.value || '',
-        parseAll: Boolean(PARSER_STATE.filters.parseAll),
         excludePrepaid: Boolean(PARSER_STATE.filters.excludePrepaid),
         minExpiry: document.getElementById('parser-min-expiry')?.value || '',
         types: [...(PARSER_STATE.filters.filterTypes || [])],

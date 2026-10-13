@@ -31,7 +31,7 @@ function bwPersist() {
         localStorage.setItem(BW_KEY_RECORDS, JSON.stringify(BW.records));
         localStorage.setItem(BW_KEY_SELECT, JSON.stringify(BW.selections));
     } catch (e) {
-        if (typeof toast === 'function') toast('Не удалось сохранить Workspace (localStorage переполнен)', 'error');
+        if (typeof toast === 'function') toast('Could not save Workspace (localStorage is full)', 'error');
     }
 }
 
@@ -117,7 +117,7 @@ async function bwReadFiles(fileList) {
 
 async function bwAddFiles(fileList) {
     const items = await bwReadFiles(fileList);
-    if (!items.length) { toast('Нужны CSV-файлы «Billing activity report»', 'warning'); return; }
+    if (!items.length) { toast('Billing activity report CSV files are required', 'warning'); return; }
     let added = 0, skipped = 0;
     for (const it of items) {
         const recs = bsSummarize(bsParseStatement(it.text, it.name));
@@ -126,7 +126,7 @@ async function bwAddFiles(fileList) {
         added += recs.length;
     }
     bwPersist();
-    toast(`Billing: +${added} карт из ${items.length - skipped} файлов${skipped ? `, пропущено ${skipped} (нет платежей по картам)` : ''}`, added ? 'success' : 'warning');
+    toast(`Billing: +${added} cards from ${items.length - skipped} files${skipped ? `, ${skipped} skipped (no card payments)` : ''}`, added ? 'success' : 'warning');
     renderBillingWorkspace();
 }
 
@@ -139,7 +139,7 @@ function bwRemoveFile(name) {
 }
 
 function bwClearAll() {
-    if (!BW.records.length || !confirm('Очистить все загруженные выписки в Workspace?')) return;
+    if (!BW.records.length || !confirm('Clear all loaded statements in Workspace?')) return;
     BW.records = [];
     BW.selections = {};
     bwPersist();
@@ -149,21 +149,21 @@ function bwClearAll() {
 /* ───────────────────────── RENDER ───────────────────────── */
 
 function bwStatusCell(r) {
-    if (r.status === 'matched') return '<span class="bw-st bw-st-ok">✓ найдена</span>';
-    if (r.status === 'choose') return `<span class="bw-st bw-st-pick">выберите (${r.candidates.length})</span>`;
-    return '<span class="bw-st bw-st-miss">не найдена</span>';
+    if (r.status === 'matched') return '<span class="bw-st bw-st-ok">✓ found</span>';
+    if (r.status === 'choose') return `<span class="bw-st bw-st-pick">choose (${r.candidates.length})</span>`;
+    return '<span class="bw-st bw-st-miss">not found</span>';
 }
 
 function bwCardCells(r) {
     if (r.status === 'choose') {
-        const opts = ['<option value="">— выбрать —</option>'].concat(r.candidates.map(c =>
+        const opts = ['<option value="">— choose —</option>'].concat(r.candidates.map(c =>
             `<option value="${bwEsc(c.cc)}">${bwEsc(c.cc)} · ${bwEsc(c.mm)}/${bwEsc(c.yy)} · ${bwEsc(c.bank || '?')} · ${bwEsc(c.country || c.countryCode || '?')}</option>`));
         return `<td colspan="6"><select class="bw-select" data-bw-pick="${bwEsc(r.id)}">${opts.join('')}</select></td>`;
     }
-    if (!r.chosen) return '<td colspan="6" class="bw-dim">нет в общей базе</td>';
+    if (!r.chosen) return '<td colspan="6" class="bw-dim">not in the main base</td>';
     const c = r.chosen;
     const copy = `${c.cc} ${c.mm} ${c.yy} ${c.cvv}`;
-    return `<td><span class="bw-copy" data-bw-copy="${bwEsc(copy)}" title="Копировать: номер мм гг cvv">${bwEsc(c.cc)}</span></td>
+    return `<td><span class="bw-copy" data-bw-copy="${bwEsc(copy)}" title="Copy: number mm yy cvv">${bwEsc(c.cc)}</span></td>
         <td>${bwEsc(c.mm)}/${bwEsc(c.yy)}</td><td>${bwEsc(c.cvv)}</td><td>${bwEsc(c.cc.slice(0, 6))}</td>
         <td>${bwEsc(c.country || c.countryCode || '—')}</td><td class="bw-bank">${bwEsc(c.bank || '—')}<small>${bwEsc(c.cardType || '')}</small></td>`;
 }
@@ -177,39 +177,39 @@ function bwRowHtml(r, i) {
         <td class="bw-money bw-ok">${bwMoney(r.charged, r.cur)}<small>${r.chargedCount ? r.chargedCount + '×' : ''}</small></td>
         <td class="bw-money bw-bad" title="${bwEsc(r.reasons.join('; '))}">${bwMoney(r.declined, r.cur)}<small>${r.declinedCount ? r.declinedCount + '×' : ''}</small></td>
         <td class="bw-money bw-warn">${bwMoney(r.chargedBack, r.cur)}<small>${r.chargedBackCount ? r.chargedBackCount + '×' : ''}</small></td>
-        <td class="bw-money" title="${r.fileCardCount > 1 ? 'Расход по всему файлу — в нём несколько карт' : 'Расход кампаний за период файла'}">${bwMoney(r.campaignCost, r.cur)}${r.fileCardCount > 1 ? '<small>файл*</small>' : ''}</td>
+        <td class="bw-money" title="${r.fileCardCount > 1 ? 'Spend of the whole file — it has several cards' : 'Campaign spend for the file period'}">${bwMoney(r.campaignCost, r.cur)}${r.fileCardCount > 1 ? '<small>file*</small>' : ''}</td>
         <td>${bwStatusCell(r)}</td></tr>`;
 }
 
 function bwHeaderHtml(all, indexReady) {
     const T = bsTotals(all);
     const baseNote = indexReady ? ''
-        : `<div class="bw-banner">${BW.indexing ? '⏳ Индексирую общую базу…' : '⚠ Общая база не загружена — загрузите её во вкладке Parser (drag & drop + PARSE), чтобы подтянуть полные данные карт.'}</div>`;
+        : `<div class="bw-banner">${BW.indexing ? '⏳ Indexing the main base…' : '⚠ Main base not loaded — load it in the Parser tab (drag & drop + PARSE) to fill in full card data.'}</div>`;
     const files = [...new Set(BW.records.map(r => r.fileName))].map(n =>
-        `<span class="bw-fchip">${bwEsc(n.replace(/\.csv$/i, ''))}<button data-bw-del="${bwEsc(n)}" title="Убрать файл">✕</button></span>`).join('');
+        `<span class="bw-fchip">${bwEsc(n.replace(/\.csv$/i, ''))}<button data-bw-del="${bwEsc(n)}" title="Remove file">✕</button></span>`).join('');
     return `
     <div class="bw-head">
         <div><h2 class="bw-title">Workspace <span>Billing activity</span></h2>
-        <div class="bw-sub">Выписки Google Ads → карты из общей базы + траты за период</div></div>
+        <div class="bw-sub">Google Ads statements → cards from the main base + spend per period</div></div>
         <div class="bw-actions">
-            <button class="bw-btn bw-btn-primary" id="bw-upload">⬆ Загрузить выписки</button>
-            <button class="bw-btn" id="bw-copy-all" ${T.matched ? '' : 'disabled'}>📋 Карты</button>
+            <button class="bw-btn bw-btn-primary" id="bw-upload">⬆ Upload statements</button>
+            <button class="bw-btn" id="bw-copy-all" ${T.matched ? '' : 'disabled'}>📋 Cards</button>
             <button class="bw-btn" id="bw-export" ${all.length ? '' : 'disabled'}>⬇ CSV</button>
-            <button class="bw-btn bw-btn-danger" id="bw-clear" ${all.length ? '' : 'disabled'}>Очистить</button>
+            <button class="bw-btn bw-btn-danger" id="bw-clear" ${all.length ? '' : 'disabled'}>Clear</button>
             <input type="file" id="bw-file" accept=".csv,.zip" multiple hidden>
         </div>
     </div>
     ${baseNote}
     <div class="bw-stats">
-        <div class="bw-stat"><em>Файлов</em><b>${T.files}</b></div>
-        <div class="bw-stat"><em>Карт</em><b>${T.cards}</b></div>
-        <div class="bw-stat bw-s-ok"><em>Найдено</em><b>${T.matched}</b></div>
-        <div class="bw-stat bw-s-pick"><em>Выбрать</em><b>${T.choose}</b></div>
-        <div class="bw-stat bw-s-miss"><em>Не найдено</em><b>${T.missing}</b></div>
-        <div class="bw-stat bw-s-ok"><em>Списано</em><b>${bwMoneyMap(T.charged)}</b></div>
-        <div class="bw-stat bw-s-miss"><em>Отклонено</em><b>${bwMoneyMap(T.declined)}</b></div>
-        <div class="bw-stat bw-s-pick"><em>Возвраты</em><b>${bwMoneyMap(T.chargedBack)}</b></div>
-        <div class="bw-stat"><em>Кампании</em><b>${bwMoneyMap(T.campaign)}</b></div>
+        <div class="bw-stat"><em>Files</em><b>${T.files}</b></div>
+        <div class="bw-stat"><em>Cards</em><b>${T.cards}</b></div>
+        <div class="bw-stat bw-s-ok"><em>Found</em><b>${T.matched}</b></div>
+        <div class="bw-stat bw-s-pick"><em>Choose</em><b>${T.choose}</b></div>
+        <div class="bw-stat bw-s-miss"><em>Not found</em><b>${T.missing}</b></div>
+        <div class="bw-stat bw-s-ok"><em>Charged</em><b>${bwMoneyMap(T.charged)}</b></div>
+        <div class="bw-stat bw-s-miss"><em>Declined</em><b>${bwMoneyMap(T.declined)}</b></div>
+        <div class="bw-stat bw-s-pick"><em>Chargebacks</em><b>${bwMoneyMap(T.chargedBack)}</b></div>
+        <div class="bw-stat"><em>Campaigns</em><b>${bwMoneyMap(T.campaign)}</b></div>
     </div>
     ${files ? `<div class="bw-files">${files}</div>` : ''}`;
 }
@@ -217,16 +217,16 @@ function bwHeaderHtml(all, indexReady) {
 function bwToolbarHtml() {
     const opt = (v, t) => `<option value="${v}" ${BW.status === v ? 'selected' : ''}>${t}</option>`;
     return `<div class="bw-toolbar">
-        <input id="bw-search" class="bw-input" placeholder="Поиск: last4, номер, банк, страна, файл…" value="${bwEsc(BW.search)}">
-        <select id="bw-status" class="bw-select bw-select-sm">${opt('all', 'Все')}${opt('matched', 'Найденные')}${opt('choose', 'Нужно выбрать')}${opt('missing', 'Не найденные')}</select>
+        <input id="bw-search" class="bw-input" placeholder="Search: last4, number, bank, country, file…" value="${bwEsc(BW.search)}">
+        <select id="bw-status" class="bw-select bw-select-sm">${opt('all', 'All')}${opt('matched', 'Found')}${opt('choose', 'Needs choice')}${opt('missing', 'Not found')}</select>
     </div>`;
 }
 
 function bwEmptyHtml() {
     return `<div class="bw-drop" id="bw-drop">
         <div class="bw-drop-ico">🧾</div>
-        <div class="bw-drop-t">Перетащите сюда выписки Google Ads</div>
-        <div class="bw-drop-s">Billing activity report (.csv) — можно много файлов сразу, либо .zip</div>
+        <div class="bw-drop-t">Drop Google Ads statements here</div>
+        <div class="bw-drop-s">Billing activity report (.csv) — many files at once, or a .zip</div>
     </div>`;
 }
 
@@ -243,9 +243,9 @@ function renderBillingWorkspace() {
     const table = !BW.records.length ? bwEmptyHtml() : `
         ${bwToolbarHtml()}
         <div class="bw-table-wrap"><table class="bw-table"><thead><tr>
-            <th>#</th><th>Файл · период</th><th>Карта в выписке</th><th>Полный номер</th><th>Exp</th><th>CVV</th><th>BIN</th><th>Страна</th><th>Банк</th>
-            <th>Списано</th><th>Отклонено</th><th>Возвраты</th><th>Кампании</th><th>Статус</th>
-        </tr></thead><tbody>${rows.map(bwRowHtml).join('') || '<tr><td colspan="14" class="bw-dim bw-center">Ничего не найдено по фильтру</td></tr>'}</tbody></table></div>`;
+            <th>#</th><th>File · period</th><th>Statement card</th><th>Full number</th><th>Exp</th><th>CVV</th><th>BIN</th><th>Country</th><th>Bank</th>
+            <th>Charged</th><th>Declined</th><th>Chargebacks</th><th>Campaigns</th><th>Status</th>
+        </tr></thead><tbody>${rows.map(bwRowHtml).join('') || '<tr><td colspan="14" class="bw-dim bw-center">Nothing matches the filter</td></tr>'}</tbody></table></div>`;
 
     area.innerHTML = `<div class="bw-wrap fade-in">${bwHeaderHtml(allRows, indexReady)}${table}</div>`;
     bwBind(area, rows);
@@ -283,14 +283,14 @@ function bwBind(area, rows) {
     }));
     area.querySelectorAll('[data-bw-copy]').forEach(el => el.addEventListener('click', () => {
         navigator.clipboard && navigator.clipboard.writeText(el.dataset.bwCopy);
-        toast('Скопировано: ' + el.dataset.bwCopy, 'success');
+        toast('Copied: ' + el.dataset.bwCopy, 'success');
     }));
 
     area.querySelector('#bw-copy-all')?.addEventListener('click', () => {
         const lines = rows.filter(r => r.chosen).map(r => `${r.chosen.cc} ${r.chosen.mm} ${r.chosen.yy} ${r.chosen.cvv}`);
-        if (!lines.length) return toast('Нет найденных карт', 'warning');
+        if (!lines.length) return toast('No found cards', 'warning');
         navigator.clipboard && navigator.clipboard.writeText(lines.join('\n'));
-        toast(`Скопировано карт: ${lines.length}`, 'success');
+        toast(`Cards copied: ${lines.length}`, 'success');
     });
     area.querySelector('#bw-export')?.addEventListener('click', () => {
         const blob = new Blob(['\uFEFF' + bsToCsv(rows)], { type: 'text/csv;charset=utf-8' });

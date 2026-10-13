@@ -17,8 +17,8 @@
                            Masked numbers are resolved from full numbers sent in
                            the same chat (expiry used to disambiguate), then from
                            the loaded base.
-     Sombrero:             "Результаты проверки: CARD | Approved ✅ / … ⛔️"
-                           ("— Не удалось / Неверный формат" replies are ignored)
+     Sombrero:             Russian "results" header, then CARD | Approved ✅ / … ⛔️
+                           (Russian "failed / wrong format" replies are ignored)
      Generic:              ✅/💀/❌ + ALIVE/DEAD/INVALID, 🟩/🟥 blocks, CARD | keyword
    Uses app.js helpers at call time: _parseCheckerOutput, _parseBlockFormat,
    _parseClassicFormat, _lineIsTrash, _buildFullCardLookup, PARSER_STATE.
@@ -366,10 +366,10 @@ function ckIsValidNow(rec, trashSet, trashDates) {
  *   full:    4147202626727323 08 28 020 | JOHN DOE | VISA CREDIT | BANK | US
  */
 const CK_FORMATS = {
-    checker: { label: 'Чекер: CC MM YY CVV', line: c => `${c.cc} ${c.mm || '00'} ${c.yy || '00'} ${c.cvv || '000'}` },
+    checker: { label: 'Checker: CC MM YY CVV', line: c => `${c.cc} ${c.mm || '00'} ${c.yy || '00'} ${c.cvv || '000'}` },
     pipe: { label: 'Pipe: CC|MM|YY|CVV', line: c => `${c.cc}|${c.mm || '00'}|${c.yy || '00'}|${c.cvv || '000'}` },
     full: {
-        label: 'Полный: + имя · тип · банк · страна',
+        label: 'Full: + name · type · bank · country',
         line: c => `${c.cc} ${c.mm || '00'} ${c.yy || '00'} ${c.cvv || '000'} | ${c.holder || '-'} | ${c.cardType || '-'} | ${c.bank || '-'} | ${c.geo || '-'}`
     }
 };
