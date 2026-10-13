@@ -71,9 +71,12 @@ function prTierChips(tree, view) {
 }
 
 function prRegionChips(tree, view) {
-    return tree.regions.map(r => `<button class="pres-region-chip ${r.name === view.region ? 'active' : ''}" data-act="region" data-region="${prEsc(r.name)}">
-        <span class="pres-region-ico">${r.icon}</span>${prEsc(r.name)} <span class="pres-chip-count">${r.count}</span>
-        <span class="pres-caret">${r.name === view.region ? '▾' : '▸'}</span></button>`).join('');
+    return tree.regions.map(r => {
+        const info = geoRegionInfo(r.name);
+        return `<button class="pres-region-chip ${r.name === view.region ? 'active' : ''}" data-act="region" data-region="${prEsc(r.name)}" title="${prEsc(info.tip)}">
+        <span class="pres-region-ico">${r.icon}</span>${prEsc(info.label)} <span class="pres-chip-count">${r.count}</span>
+        <span class="pres-caret">${r.name === view.region ? '▾' : '▸'}</span></button>`;
+    }).join('');
 }
 
 function prCountryChips(region, view) {
@@ -213,7 +216,7 @@ function renderParserResults(geoFilter) {
         <div class="pres-region-row pres-scroll">${prRegionChips(tree, view) || '<span class="pres-empty-inline">No cards for the selected tier</span>'}</div>
 
         ${region ? `
-        <div class="pres-level-label">${region.icon} ${prEsc(region.name)} · ${region.countries.length} countries <span>— click a country to open its BINs</span></div>
+        <div class="pres-level-label" title="${prEsc(geoRegionInfo(region.name).tip)}">${region.icon} ${prEsc(geoRegionInfo(region.name).label)} · ${region.countries.length} countries <span>— click a country to open its BINs</span></div>
         <div class="pres-country-row pres-scroll">${prCountryChips(region, view)}</div>` : ''}
 
         ${country ? `

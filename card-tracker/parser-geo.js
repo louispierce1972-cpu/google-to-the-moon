@@ -33,7 +33,6 @@ const GEO_TIER_2 = [
     'AE QA KW SA BH OM IL'
 ].join(' ');
 
-const GEO_ALIASES = { UK: 'GB', EL: 'GR' };
 
 const GEO_REGION_BY_CODE = Object.freeze(Object.entries(GEO_REGION_LISTS).reduce((acc, [region, list]) => {
     list.split(' ').forEach(code => { acc[code] = region; });
@@ -45,10 +44,43 @@ const GEO_TIER_BY_CODE = Object.freeze([[GEO_TIER_2, 2], [GEO_TIER_1, 1]].reduce
     return acc;
 }, {}));
 
-/** Normalised ISO-2 code ('' if unknown). */
+/** ISO 3166-1 alpha-3 → alpha-2 (checker logs use both, e.g. [PSE], [LIE], [KHM]). */
+const GEO_ALPHA3_LIST = 'AFG:AF ALA:AX ALB:AL DZA:DZ ASM:AS AND:AD AGO:AO AIA:AI ATG:AG ARG:AR ARM:AM ABW:AW AUS:AU AUT:AT AZE:AZ BHS:BS BHR:BH BGD:BD BRB:BB BLR:BY BEL:BE BLZ:BZ BEN:BJ BMU:BM BTN:BT BOL:BO BES:BQ BIH:BA BWA:BW BRA:BR VGB:VG BRN:BN BGR:BG BFA:BF BDI:BI KHM:KH CMR:CM CAN:CA CPV:CV CYM:KY CAF:CF TCD:TD CHL:CL CHN:CN COL:CO COM:KM COG:CG COD:CD COK:CK CRI:CR CIV:CI HRV:HR CUB:CU CUW:CW CYP:CY CZE:CZ DNK:DK DJI:DJ DMA:DM DOM:DO ECU:EC EGY:EG SLV:SV GNQ:GQ ERI:ER EST:EE ETH:ET FRO:FO FJI:FJ FIN:FI FRA:FR GUF:GF PYF:PF GAB:GA GMB:GM GEO:GE DEU:DE GHA:GH GIB:GI GRC:GR GRL:GL GRD:GD GLP:GP GUM:GU GTM:GT GGY:GG GIN:GN GNB:GW GUY:GY HTI:HT HND:HN HKG:HK HUN:HU ISL:IS IND:IN IDN:ID IRN:IR IRQ:IQ IRL:IE IMN:IM ISR:IL ITA:IT JAM:JM JPN:JP JEY:JE JOR:JO KAZ:KZ KEN:KE KIR:KI XKX:XK KWT:KW KGZ:KG LAO:LA LVA:LV LBN:LB LSO:LS LBR:LR LBY:LY LIE:LI LTU:LT LUX:LU MAC:MO MKD:MK MDG:MG MWI:MW MYS:MY MDV:MV MLI:ML MLT:MT MHL:MH MTQ:MQ MRT:MR MUS:MU MYT:YT MEX:MX FSM:FM MDA:MD MCO:MC MNG:MN MNE:ME MSR:MS MAR:MA MOZ:MZ MMR:MM NAM:NA NRU:NR NPL:NP NLD:NL NCL:NC NZL:NZ NIC:NI NER:NE NGA:NG NIU:NU PRK:KP MNP:MP NOR:NO OMN:OM PAK:PK PLW:PW PSE:PS PAN:PA PNG:PG PRY:PY PER:PE PHL:PH POL:PL PRT:PT PRI:PR QAT:QA REU:RE ROU:RO RUS:RU RWA:RW BLM:BL SHN:SH KNA:KN LCA:LC MAF:MF SPM:PM VCT:VC WSM:WS SMR:SM STP:ST SAU:SA SEN:SN SRB:RS SYC:SC SLE:SL SGP:SG SXM:SX SVK:SK SVN:SI SLB:SB SOM:SO ZAF:ZA KOR:KR SSD:SS ESP:ES LKA:LK SDN:SD SUR:SR SWZ:SZ SWE:SE CHE:CH SYR:SY TWN:TW TJK:TJ TZA:TZ THA:TH TLS:TL TGO:TG TON:TO TTO:TT TUN:TN TUR:TR TKM:TM TCA:TC TUV:TV UGA:UG UKR:UA ARE:AE GBR:GB USA:US VIR:VI URY:UY UZB:UZ VUT:VU VAT:VA VEN:VE VNM:VN WLF:WF ESH:EH YEM:YE ZMB:ZM ZWE:ZW';
+
+const GEO_ALPHA3 = Object.freeze(GEO_ALPHA3_LIST.split(' ').reduce((acc, pair) => {
+    const [a3, a2] = pair.split(':');
+    acc[a3] = a2;
+    return acc;
+}, {}));
+
+/** Every assigned ISO-2 code known to the tool. */
+const GEO_ISO2 = new Set(Object.values(GEO_ALPHA3));
+
+const GEO_ALIASES = { UK: 'GB', EL: 'GR', UAE: 'AE', KSA: 'SA' };
+
+/** Normalised ISO-2 code ('' if it is not a country code). Accepts ISO-2, ISO-3 and a few aliases. */
 function geoCode(raw) {
     const code = String(raw || '').trim().toUpperCase();
-    return GEO_ALIASES[code] || code;
+    if (GEO_ALIASES[code]) return GEO_ALIASES[code];
+    if (code.length === 3 && GEO_ALPHA3[code]) return GEO_ALPHA3[code];
+    return code.length === 2 && GEO_ISO2.has(code) ? code : '';
+}
+
+/** Display label + Russian tooltip for a region (the key stays the same for filtering). */
+const GEO_REGION_INFO = {
+    'North America': { label: 'North America', tip: 'Северная Америка (США, Канада)' },
+    Europe: { label: 'Europe', tip: 'Европа (западная и восточная, без СНГ)' },
+    'Latin America': { label: 'Latin America', tip: 'Латинская Америка (Мексика, Бразилия, Центральная и Южная Америка, Карибы)' },
+    CIS: { label: 'CIS (ex-USSR)', tip: 'CIS — СНГ, бывший СССР: Россия, Украина, Беларусь, Казахстан, Узбекистан, Закавказье, Центральная Азия (без балтийских стран)' },
+    Asia: { label: 'Asia', tip: 'Азия (Китай, Япония, Индия, Юго-Восточная Азия и т.д.)' },
+    MENA: { label: 'MENA (Middle East & North Africa)', tip: 'MENA — Ближний Восток и Северная Африка: ОАЭ, Саудовская Аравия, Израиль, Турция, Египет, Марокко, Тунис и др.' },
+    Africa: { label: 'Africa', tip: 'Африка южнее Сахары (север континента входит в MENA)' },
+    Oceania: { label: 'Oceania', tip: 'Океания (Австралия, Новая Зеландия, острова Тихого океана)' },
+    Other: { label: 'Other (unknown country)', tip: 'Неизвестная страна: не удалось определить ни по BIN, ни по банку, ни по billing' }
+};
+
+function geoRegionInfo(name) {
+    return GEO_REGION_INFO[name] || { label: name, tip: name };
 }
 
 function geoRegion(raw) {
@@ -138,5 +170,5 @@ function buildGeoTree(cards, tiers) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { geoCode, geoRegion, geoTier, geoFlag, geoName, filterScope, buildGeoTree, GEO_REGION_ORDER };
+    module.exports = { GEO_ISO2, GEO_ALPHA3, GEO_REGION_BY_CODE, geoRegionInfo, geoCode, geoRegion, geoTier, geoFlag, geoName, filterScope, buildGeoTree, GEO_REGION_ORDER };
 }
