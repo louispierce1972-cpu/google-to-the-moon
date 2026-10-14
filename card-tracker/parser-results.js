@@ -21,7 +21,7 @@ function prFlag(code) {
 }
 
 function prView() {
-    return PARSER_STATE.resView || { tiers: new Set(), region: '', country: '', bin: '', showAll: false };
+    return PARSER_STATE.resView || { tiers: new Set(), region: '', country: '', bin: '', showAll: false, multi: new Set() };
 }
 
 function prSetView(patch) {
@@ -36,6 +36,11 @@ function prCardLine(c) {
 function prScopeLabel(view) {
     const parts = [];
     if (view.tiers.size) parts.push(`Tier ${[...view.tiers].sort().join('+')}`);
+    if (view.multi && view.multi.size) {
+        const codes = [...view.multi];
+        parts.push(codes.length <= 4 ? codes.join('+') : `${codes.length} countries`);
+        return parts.join(' · ');
+    }
     if (view.country) parts.push(view.country);
     else if (view.region) parts.push(view.region);
     if (view.bin) parts.push(`BIN ${view.bin}`);
@@ -83,9 +88,20 @@ function prRegionChips(tree, view) {
 }
 
 function prCountryChips(region, view) {
-    return region.countries.map(c => `<button class="pres-country-chip ${c.code === view.country ? 'active' : ''}" data-act="country" data-country="${prEsc(c.code)}" title="${prEsc(c.name)}">
+    const multi = view.multi || new Set();
+    return region.countries.map(c => `<div class="pres-country-chip ${c.code === view.country ? 'active' : ''} ${multi.has(c.code) ? 'multi' : ''}" role="button" tabindex="0" data-act="country" data-country="${prEsc(c.code)}" title="${prEsc(c.name)} — click to open its BINs, tick the box to add it to the multi-selection">
+        <input type="checkbox" class="pres-multi-check" data-multi="${prEsc(c.code)}" ${multi.has(c.code) ? 'checked' : ''} title="Add to multi-selection">
         <span class="pres-flag">${prFlag(c.code)}</span><b>${prEsc(c.code || '??')}</b><span class="pres-cname">${prEsc(c.name)}</span>
-        <span class="pres-tier-badge t${c.tier}">T${c.tier}</span><span class="pres-chip-count">${c.count}</span></button>`).join('');
+        <span class="pres-tier-badge t${c.tier}">T${c.tier}</span><span class="pres-chip-count">${c.count}</span></div>`).join('');
+}
+
+/** Tags of the chosen countries (removable) + quick actions. */
+function prMultiBar(view, region, count) {
+    if (!view.multi || !view.multi.size) return '';
+    const tags = [...view.multi].map(code => `<span class="pres-mtag">${prFlag(code)} <b>${prEsc(code)}</b><button data-act="multi-remove" data-country="${prEsc(code)}" title="Remove">✕</button></span>`).join('');
+    const regionBtn = region ? `<button class="pres-link-btn" data-act="multi-region" data-region="${prEsc(region.name)}">+ all of ${prEsc(geoRegionInfo(region.name).label)}</button>` : '';
+    return `<div class="pres-multibar"><span class="pres-multi-label">Selected countries (${view.multi.size}) · ${count} cards</span>${tags}${regionBtn}
+        <button class="pres-link-btn" data-act="multi-clear">clear</button></div>`;
 }
 
 function prBinCards(country, view) {
@@ -143,7 +159,10 @@ function prSortCards(cards) {
 }
 
 /** Resets parts of the view that no longer exist after a re-parse / filter change. */
-function prSanitizeView(view, tree) {
+function prSanitizeView(rawView, tree) {
+    const known = new Set(tree.regions.flatMap(r => r.countries.map(c => c.code)));
+    const multi = new Set([...(rawView.multi || [])].filter(code => known.has(code)));
+    const view = { ...rawView, multi };
     const region = tree.regions.find(r => r.name === view.region);
     if (!region) return { ...view, region: '', country: '', bin: '' };
     const country = region.countries.find(c => c.code === view.country);
@@ -178,7 +197,10 @@ function renderParserResults(geoFilter) {
 
     const region = tree.regions.find(r => r.name === view.region);
     const country = region && region.countries.find(c => c.code === view.country);
-    const scope = filterScope(base, view);
+    const viewScope = filterScope(base, view);
+    // Several countries ticked → export / select-all / copy work on all of them together
+    const multiOn = view.multi.size > 0;
+    const scope = multiOn ? filterMultiScope(base, view.tiers, view.multi) : viewScope;
     const idxOf = new Map(all.map((c, i) => [c, i]));
     const selInScope = scope.filter(c => PARSER_STATE.selected.has(idxOf.get(c))).length;
     const exportCount = selInScope || scope.length;
@@ -187,7 +209,7 @@ function renderParserResults(geoFilter) {
 
     let tableHtml = '';
     if (country) {
-        const sorted = prSortCards(scope);
+        const sorted = prSortCards(viewScope);
         const shown = view.showAll ? sorted : sorted.slice(0, PR_ROW_LIMIT);
         tableHtml = prTableHtml(prRowsHtml(shown, idxOf), sorted.length, view);
     }
@@ -209,6 +231,7 @@ function renderParserResults(geoFilter) {
                 <label class="pres-selall-label">
                     <input type="checkbox" id="parser-select-all" ${selInScope === scope.length && scope.length > 0 ? 'checked' : ''}> Select all
                 </label>
+                <span class="pres-sel-counter ${selInScope ? 'on' : ''}" id="pres-sel-counter">${prEsc(multiOn ? prScopeLabel(view) : 'Selected')}: ${selInScope} selected</span>
                 <button class="pres-btn pres-btn-copy" data-act="copy-scope" title="Copy cards of the current view (selected ones, or all if none selected)">📋 Copy (${exportHint})</button>
                 <button class="pres-btn pres-btn-export" id="parser-import-btn" data-act="notes-scope" title="Export cards of the current view to Notes">📝 Export to Notes (${exportCount})</button>
             </div>
@@ -216,6 +239,7 @@ function renderParserResults(geoFilter) {
 
         <div class="pres-level-label">Regions <span>— click a region to open its countries</span></div>
         <div class="pres-region-row pres-scroll">${prRegionChips(tree, view) || '<span class="pres-empty-inline">No cards for the selected tier</span>'}</div>
+        ${prMultiBar(view, region, scope.length)}
 
         ${region ? `
         <div class="pres-level-label" title="${prEsc(geoRegionInfo(region.name).tip)}">${region.icon} ${prEsc(geoRegionInfo(region.name).label)} · ${region.countries.length} countries <span>— click a country to open its BINs</span></div>
@@ -266,6 +290,13 @@ function prHandleAction(act, ds, ctx) {
         case 'bin': return prSetView({ bin: ds.bin === view.bin ? '' : ds.bin, showAll: false });
         case 'bin-clear': return prSetView({ bin: '', showAll: false });
         case 'show-all': return prSetView({ showAll: true });
+        case 'multi-remove': return prSetView({ multi: new Set([...view.multi].filter(code => code !== ds.country)) });
+        case 'multi-clear': return prSetView({ multi: new Set() });
+        case 'multi-region': {
+            const tree = buildGeoTree(base, view.tiers);
+            const reg = tree.regions.find(r => r.name === ds.region);
+            return reg ? prSetView({ multi: new Set([...view.multi, ...reg.countries.map(c => c.code)]) }) : undefined;
+        }
         case 'sort-bin':
             PARSER_STATE.sortBy = PARSER_STATE.sortBy === 'bin-desc' ? 'bin-asc' : 'bin-desc';
             return renderParserResults();
@@ -301,7 +332,11 @@ function prBind(el, ctx) {
 
     root.addEventListener('change', e => {
         const t = e.target;
-        if (t.classList.contains('parser-check')) {
+        if (t.classList.contains('pres-multi-check')) {
+            const next = new Set(prView().multi);
+            if (t.checked) next.add(t.dataset.multi); else next.delete(t.dataset.multi);
+            prSetView({ multi: next });
+        } else if (t.classList.contains('parser-check')) {
             const idx = parseInt(t.dataset.idx, 10);
             if (t.checked) PARSER_STATE.selected.add(idx); else PARSER_STATE.selected.delete(idx);
             renderParserResults();

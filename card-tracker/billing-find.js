@@ -224,8 +224,9 @@ function renderFindBillings() {
     const bar = document.getElementById('stats-bar');
     if (!area) return;
     if (bar) bar.innerHTML = '';
+    const entering = !area.querySelector('.fb-wrap');
     const prepared = FB.rows && !FB.matching ? btPrepare(FB.rows, FB.view) : [];
-    area.innerHTML = `<div class="bw-wrap fb-wrap fade-in">
+    area.innerHTML = `<div class="bw-wrap fb-wrap ${entering ? 'bt-enter' : ''}">
         <div class="bw-head">
             <div><button class="bt-link fb-back" id="fb-back">← Back to Parser</button>
             <h2 class="bw-title">Find Billings <span>statements → work base → main base</span></h2>

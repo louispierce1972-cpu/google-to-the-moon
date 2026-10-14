@@ -138,3 +138,15 @@
     font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
     background: rgba(245, 158, 11, .18); color: #fcd34d;
 }
+
+/* Multi-country selection */
+.pres-multi-check { width: 14px; height: 14px; margin: 0 2px 0 0; accent-color: #22c55e; cursor: pointer; flex: 0 0 auto; }
+.pres-country-chip.multi { border-color: rgba(34, 197, 94, .6); background: rgba(34, 197, 94, .1); }
+.pres-country-chip:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 1px; }
+.pres-sel-counter { font-size: 12px; font-weight: 700; color: var(--text-dim, #94a3b8); font-variant-numeric: tabular-nums; transition: color .15s; }
+.pres-sel-counter.on { color: #4ade80; }
+.pres-multibar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; padding: 8px 10px; border: 1px dashed rgba(34, 197, 94, .4); border-radius: 10px; background: rgba(34, 197, 94, .05); }
+.pres-multi-label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #86efac; margin-right: 4px; }
+.pres-mtag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px 2px 8px; font-size: 12px; border-radius: 999px; background: rgba(34, 197, 94, .15); border: 1px solid rgba(34, 197, 94, .35); }
+.pres-mtag button { border: 0; background: transparent; color: #94a3b8; cursor: pointer; width: 18px; height: 18px; border-radius: 50%; font-size: 10px; }
+.pres-mtag button:hover { color: #fff; background: rgba(239, 68, 68, .55); }

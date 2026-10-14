@@ -42,35 +42,30 @@ function ckSaveTrashDates(dates) {
     try { localStorage.setItem(CK_TRASH_DATES_KEY, JSON.stringify(dates)); } catch (e) { console.error('trash dates save:', e); }
 }
 
-/** TRASH works only after the main base is loaded and the Parse & Clean pipeline has run. */
+/** TRASH is always available: it only stores dead/invalid card numbers, no main base needed. */
 function ckBaseReady() {
-    return (PARSER_STATE.rawMessages || []).length > 0 && Boolean(PARSER_STATE._pipelineStats);
+    return true;
 }
 
-/** VALID only needs parsed data in memory: base loaded + PARSE pressed at least once. */
+/** VALID is always available: without a loaded base the alive cards are listed as "not in base". */
 function ckValidReady() {
-    return (PARSER_STATE.rawMessages || []).length > 0 && Boolean(PARSER_STATE._parsedOnce);
+    return true;
 }
 
 function ckOpenModal(kind) {
-    const ready = kind === 'valid' ? ckValidReady() : ckBaseReady();
-    if (!ready) {
-        toast('Load the main base (result.json) and press PARSE first', 'warning');
-        return;
-    }
     document.getElementById(`${kind}-cards-overlay`)?.classList.remove('hidden');
 }
 
-/** Enables / disables TRASH and VALID according to their own readiness rules. */
+/** Kept for callers; TRASH and VALID are enabled regardless of the loaded base. */
 function ckRefreshGateButtons() {
-    const gate = (id, ready, title) => {
+    const gate = (id, title) => {
         const btn = document.getElementById(id);
         if (!btn) return;
-        btn.disabled = !ready;
-        btn.title = ready ? title : 'Load the main base and press PARSE first';
+        btn.disabled = false;
+        btn.title = title;
     };
-    gate('parser-trash-btn', ckBaseReady(), 'Manage dead/invalid card blacklist');
-    gate('parser-valid-btn', ckValidReady(), 'Check the whole loaded base against checker results (independent of filters)');
+    gate('parser-trash-btn', 'Manage dead/invalid card blacklist');
+    gate('parser-valid-btn', 'Check the whole loaded base against checker results (independent of filters)');
 }
 
 /** All cards of the whole loaded base (cached per base array; filters / period are NOT applied). */

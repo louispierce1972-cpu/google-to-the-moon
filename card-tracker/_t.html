@@ -1,0 +1,696 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Tracker вЂ” Premium Dashboard</title>
+    <meta name="description" content="Premium card management and tracking dashboard for media buying operations">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="parser-filters.css?v=2">
+    <link rel="stylesheet" href="billing-workspace.css?v=2">
+    <link rel="stylesheet" href="billing-table.css?v=2">
+<link rel="stylesheet" href="parser-results.css?v=5">
+</head>
+<body>
+    <!-- MAIN APP -->
+    <div id="app" class="app">
+        <!-- TOP NAV (trading-style) -->
+        <nav id="top-nav" class="top-nav">
+            <div class="tn-left">
+            </div>
+            <div class="tn-tabs" id="tn-tabs">
+                
+                <a class="tn-tab active" data-view="all-cards" href="#workspace">Workspace</a>
+                <a class="tn-tab" data-view="global-docs" href="#documents">Documents</a>
+                <a class="tn-tab" data-view="new-cards" href="#parser">Parser</a>
+                <a class="tn-tab" data-view="checker" href="#checker">Checker</a>
+                <a class="tn-tab" data-view="notes" href="#notes">Notes</a>
+                <a class="tn-tab" data-view="minic-bins" href="#minic">Minic</a>
+                <a class="tn-tab" data-view="generator-view" href="#generator">Generator</a>
+                <a class="tn-tab" data-view="google-format" href="#google-format">Google Format</a>
+                <a class="tn-tab" data-view="domain" href="#domain">Domain</a>
+                <a class="tn-tab" data-view="prompts" href="#prompts">Prompts</a>
+                <a class="tn-tab" data-view="bin-db-view" href="#bin-database">Bin Database</a>
+            </div>
+            <div class="tn-right">
+                <input type="text" id="search-input" class="tn-search" placeholder="Search..." autocomplete="off">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+                <div class="tn-settings-wrap">
+                    <button id="tn-settings-btn" class="tn-settings-btn">вљ™</button>
+                    <div id="tn-settings-dropdown" class="tn-dropdown hidden">
+
+                        <button id="restore-backup-btn">Import</button>
+                        <button id="backup-btn">Backup</button>
+                        <button id="delete-project-btn" class="danger">Delete</button>
+
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main id="main-content" class="main-content">
+            <!-- STATS BAR -->
+            <div id="stats-bar" class="stats-bar"></div>
+
+            <!-- CONTENT AREA -->
+            <div id="content-area" class="content-area">
+                <!-- Cards table / Notes / etc rendered by JS -->
+            </div>
+
+            <!-- FOOTER -->
+            <footer id="table-footer" class="table-footer">
+                <span id="records-count">0 records</span>
+                <div class="pagination">
+                    <button id="prev-page" class="btn-page" disabled>
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <span id="page-info">Page 1 of 1</span>
+                    <button id="next-page" class="btn-page" disabled>
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+                    </button>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- ADD CARD MODAL -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="add-card-modal" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">ADD FULL INFO</h3>
+                <p class="modal-subtitle">Add one card or paste a list</p>
+                <button class="modal-close" id="modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="form">FORM</button>
+                <button class="modal-tab" data-tab="list">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
+                    LIST
+                </button>
+            </div>
+
+            <!-- FORM TAB -->
+            <div id="form-tab" class="modal-body tab-content active">
+                <input type="hidden" id="form-country" value="auto">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="form-name" placeholder="First name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Surname *</label>
+                        <input type="text" id="form-surname" placeholder="Last name" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width card-number-group">
+                        <label>Card Number *</label>
+                        <input type="text" id="form-card" placeholder="0000 0000 0000 0000" maxlength="19" required>
+                        <span id="card-type-badge" class="card-type-badge"></span>
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Month *</label>
+                        <input type="text" id="form-month" placeholder="MM" maxlength="2" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Year *</label>
+                        <input type="text" id="form-year" placeholder="YY" maxlength="2" required>
+                    </div>
+                    <div class="form-group">
+                        <label>CVV *</label>
+                        <input type="password" id="form-cvv" placeholder="вЂўвЂўвЂў" maxlength="4" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Document</label>
+                        <select id="form-doc" class="form-select">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" id="form-amount" placeholder="0.00" step="0.01">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <input type="text" id="form-notes" placeholder="Add note...">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Status</label>
+                        <div class="status-checkboxes">
+                            <label class="checkbox-label cb-green">
+                                <input type="checkbox" id="form-status-add"> CARD ADD
+                            </label>
+                            <label class="checkbox-label cb-blue">
+                                <input type="checkbox" id="form-status-ads"> RUN ADS
+                            </label>
+                            <label class="checkbox-label cb-amber">
+                                <input type="checkbox" id="form-status-verify"> VERIFY
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Mail Status</label>
+                        <div class="status-checkboxes">
+                            <label class="checkbox-label cb-green">
+                                <input type="checkbox" id="form-mail-verify"> Verify Card
+                            </label>
+                            <label class="checkbox-label cb-blue">
+                                <input type="checkbox" id="form-mail-submit"> Submit Documents
+                            </label>
+                            <label class="checkbox-label cb-red">
+                                <input type="checkbox" id="form-mail-none"> No Mail: Spending
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIST TAB -->
+            <div id="list-tab" class="modal-body tab-content">
+                <input type="hidden" id="list-country" value="auto">
+                <div class="form-group full-width">
+                    <label>Paste any text with card data</label>
+                    <textarea id="list-textarea" class="list-textarea" rows="8" placeholder="Paste anything вЂ” logs, lists, messages...&#10;&#10;Auto-detects:&#10;вЂў Card numbers (13-19 digits)&#10;вЂў Expiry (MM/YY, MM|YY)&#10;вЂў CVV (3-4 digits)&#10;&#10;Examples:&#10;4242424242424242 12/28 123&#10;5326 1023 4355 9988|03|27|789&#10;Random text 4111111111111111 exp 05/26 cvv 456"></textarea>
+                </div>
+                <div class="list-info">
+                    <span id="list-parsed-count" class="list-count-badge">0 cards detected</span>
+                </div>
+                <div id="list-preview" class="list-preview"></div>
+                <div class="list-status-block">
+                    <label class="list-status-title">STATUS FOR ALL:</label>
+                    <div class="list-status-checks">
+                        <label class="list-status-check"><input type="checkbox" id="list-status-add"> Card Add</label>
+                        <label class="list-status-check"><input type="checkbox" id="list-status-ads"> Run Ads</label>
+                        <label class="list-status-check"><input type="checkbox" id="list-status-verify"> Verify</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" id="modal-cancel">Cancel</button>
+                <button class="btn-primary" id="modal-save">
+                    <span id="save-btn-text">Add Card</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT CARD MODAL -->
+    <div id="edit-modal-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>EDIT CARD</h3>
+                <button class="modal-close" id="edit-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" id="edit-name">
+                    </div>
+                    <div class="form-group">
+                        <label>Surname</label>
+                        <input type="text" id="edit-surname">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width card-number-group">
+                        <label>Card Number</label>
+                        <input type="text" id="edit-card" maxlength="19">
+                        <span id="edit-card-type-badge" class="card-type-badge"></span>
+                    </div>
+                </div>
+                <div class="form-row three-col">
+                    <div class="form-group">
+                        <label>Month</label>
+                        <input type="text" id="edit-month" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>Year</label>
+                        <input type="text" id="edit-year" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>CVV</label>
+                        <input type="password" id="edit-cvv" maxlength="4">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" id="edit-amount" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <input type="text" id="edit-notes">
+                    </div>
+                </div>
+                <input type="hidden" id="edit-country" value="auto">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Mail Status</label>
+                        <div class="status-checkboxes">
+                            <label class="checkbox-label cb-green">
+                                <input type="checkbox" id="edit-mail-verify"> Verify Card
+                            </label>
+                            <label class="checkbox-label cb-blue">
+                                <input type="checkbox" id="edit-mail-submit"> Submit Documents
+                            </label>
+                            <label class="checkbox-label cb-red">
+                                <input type="checkbox" id="edit-mail-none"> No Mail: Spending
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="edit-cancel">Cancel</button>
+                <button class="btn-primary" id="edit-save">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTEXT MENU -->
+    <div id="context-menu" class="context-menu hidden">
+        <button class="ctx-item" data-action="copy">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+            Copy
+        </button>
+        <button class="ctx-item" data-action="edit">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+            Edit
+        </button>
+        <button class="ctx-item" data-action="clone">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"/><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z"/></svg>
+            Clone
+        </button>
+        <div class="ctx-divider"></div>
+        <button class="ctx-item danger" data-action="delete">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            Delete
+        </button>
+    </div>
+
+    <!-- BACKUP IMPORT MODAL -->
+    <div id="backup-import-overlay" class="modal-overlay hidden">
+        <div class="modal backup-modal">
+            <div class="modal-header">
+                <div class="backup-modal-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M2 8h20"/><circle cx="12" cy="14" r="2"/><path d="M12 16v2"/></svg>
+                </div>
+                <div>
+                    <h3>FULL PROJECT BACKUP</h3>
+                    <p class="modal-subtitle">This file contains a complete backup of all tables.</p>
+                </div>
+                <button class="modal-close" id="backup-import-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body backup-body">
+                <div class="backup-meta" id="backup-meta"></div>
+                <div class="backup-stats" id="backup-stats"></div>
+
+                <!-- STEP 1: Choose mode -->
+                <div id="backup-step1">
+                    <div class="backup-mode-label">Choose import mode:</div>
+                    <div class="backup-modes">
+                        <button class="backup-mode-btn replace" id="backup-replace">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115.36-6.36L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15.36 6.36L3 16"/></svg>
+                            <span class="mode-title">REPLACE ALL</span>
+                            <span class="mode-desc">Clear database & restore</span>
+                        </button>
+                        <button class="backup-mode-btn merge" id="backup-merge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 00-1.172-2.872L3 3"/><path d="M15 9l6-6"/></svg>
+                            <span class="mode-title">ADD TO EXISTING</span>
+                            <span class="mode-desc">Smart merge with duplicate detection</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Duplicate resolution (hidden by default) -->
+                <div id="backup-step2" class="hidden">
+                    <div class="dup-summary" id="dup-summary"></div>
+                    <div class="dup-actions">
+                        <button class="dup-action-btn skip" id="dup-skip">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                            <span class="dup-btn-title">SKIP DUPLICATES</span>
+                            <span class="dup-btn-desc">Add only new records</span>
+                        </button>
+                        <button class="dup-action-btn replace-dup" id="dup-replace">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+                            <span class="dup-btn-title">REPLACE EXISTING</span>
+                            <span class="dup-btn-desc">Update existing with new data</span>
+                        </button>
+                        <button class="dup-action-btn add-dup" id="dup-add">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg>
+                            <span class="dup-btn-title">ALLOW DUPLICATES</span>
+                            <span class="dup-btn-desc">Keep both versions</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer backup-footer">
+                <button class="btn-cancel" id="backup-import-cancel">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                    CANCEL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD COUNTRY MODAL removed вЂ” BIN checker auto-detects country -->
+
+    <!-- DELETE PROJECT MODAL -->
+    <div id="delete-project-overlay" class="modal-overlay hidden">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3 class="text-danger">вљ пёЏ DELETE PROJECT</h3>
+                <p class="modal-subtitle">This will permanently delete ALL data from ALL countries</p>
+                <button class="modal-close" id="delete-project-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="delete-warning">
+                    <p>This action <strong>CANNOT</strong> be undone. It will:</p>
+                    <ul class="delete-list">
+                        <li>Delete ALL cards from ALL countries</li>
+                        <li>Delete ALL documents</li>
+                        <li>Delete ALL notes</li>
+                        <li>Empty the trash</li>
+                    </ul>
+                </div>
+                <div class="form-group">
+                    <label>Type <strong class="text-danger">DELETE</strong> to confirm</label>
+                    <input type="text" id="delete-confirm-input" placeholder="Type DELETE here..." />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="delete-project-cancel">Cancel</button>
+                <button class="btn-primary btn-danger" id="delete-project-confirm" disabled>
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                    Delete Everything
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UNIVERSAL MINI-MODAL (replaces all prompt() calls) -->
+    <div id="mini-modal-overlay" class="modal-overlay hidden">
+        <div class="modal modal-xs">
+            <div class="modal-header">
+                <h3 id="mini-modal-title">Edit</h3>
+                <button class="modal-close" id="mini-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label id="mini-modal-label">Value</label>
+                    <input type="text" id="mini-modal-input" placeholder="" autocomplete="off" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="mini-modal-cancel">Cancel</button>
+                <button class="btn-primary" id="mini-modal-save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHECKER MODAL is defined below (single instance) -->
+
+    <!-- ADD DOCUMENT MODAL -->
+    <div id="add-doc-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="doc-modal-title">ADD DOCUMENTS</h3>
+                <p class="modal-subtitle">Bulk import вЂ” paste names list</p>
+                <button class="modal-close" id="doc-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+
+            <div class="modal-body" id="doc-list-tab">
+                <input type="hidden" id="doc-list-country" value="auto">
+                <div class="form-row">
+                    <div class="form-group">
+                    </div>
+                    <div class="form-group">
+                        <label>Document Type</label>
+                        <select id="doc-list-type" class="form-select">
+                            <option value="PP">PP (Passport)</option>
+                            <option value="DL">DL (Driver License)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Preview Image</label>
+                        <input type="file" id="doc-list-preview-img" accept="image/*" class="form-file-input">
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label>Notes (for all)</label>
+                    <input type="text" id="doc-list-notes" placeholder="Optional shared notes...">
+                </div>
+                <div class="form-group full-width">
+                    <label>Paste names вЂ” one per line</label>
+                    <textarea id="doc-list-textarea" class="list-textarea" rows="8" placeholder="JOHN DOE&#10;MARIA SMITH&#10;ALEX JOHNSON&#10;&#10;Each line = one document&#10;Format: NAME SURNAME"></textarea>
+                </div>
+                <div class="list-info">
+                    <span id="doc-list-parsed-count" class="list-count-badge">0 documents detected</span>
+                </div>
+                <div id="doc-list-preview" class="list-preview"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-cancel" id="doc-modal-cancel">Cancel</button>
+                <button class="btn-primary" id="doc-modal-save">
+                    <span id="doc-save-btn-text">Add Documents</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHECKER OVERLAY -->
+    <div id="checker-overlay" class="modal-overlay hidden">
+        <div class="modal checker-modal">
+            <div class="modal-header">
+                <h3>рџђЌ VIPER CHECKER</h3>
+                <span class="modal-subtitle">Check cards via Viper API</span>
+                <button class="modal-close" id="checker-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body checker-body">
+                <!-- Controls -->
+                <div class="checker-controls">
+                    <div class="checker-token-row">
+                        <span class="checker-label">API TOKEN</span>
+                        <input type="password" id="checker-token" class="checker-token-input" placeholder="VIPER-xxxxxxxxxxxx">
+                        <button class="btn-sm" id="checker-balance-btn">BALANCE</button>
+                        <span class="checker-balance" id="checker-balance-display"></span>
+                    </div>
+                    <div class="checker-method-row">
+                        <span class="checker-label">METHOD</span>
+                        <select id="checker-method" class="checker-method-select">
+                            <option value="AUTH">AUTH (default)</option>
+                        </select>
+                        <button class="btn-sm" id="checker-load-methods">LOAD</button>
+                    </div>
+                </div>
+                <!-- Input -->
+                <div class="checker-section">
+                    <div class="checker-output-header">
+                        <span class="checker-label">CARDS INPUT</span>
+                        <span id="checker-input-count" style="font-size:10px;color:var(--text-dim)">0 cards</span>
+                    </div>
+                    <textarea id="checker-input" class="checker-textarea" rows="5" placeholder="4242424242424242 03 27 111&#10;5555555555554444 12 28 222&#10;&#10;One card per line: CCN MM YY CVV"></textarea>
+                </div>
+                <!-- Check button -->
+                <div style="display:flex;align-items:center;gap:8px">
+                    <button class="btn-primary" id="checker-check-btn" style="flex:1">
+                        вљЎ CHECK CARDS
+                    </button>
+                    <span id="checker-status" class="checker-status-badge"></span>
+                </div>
+                <!-- Output -->
+                <div class="checker-section">
+                    <div class="checker-output-header">
+                        <span class="checker-label">RESULTS</span>
+                        <button class="btn-copy-sm" id="checker-copy-results">рџ“‹ COPY</button>
+                    </div>
+                    <pre class="checker-output" id="checker-output">Results will appear here...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMAT SELECTION MODAL -->
+    <div id="format-modal-overlay" class="modal-overlay hidden">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>рџ“‹ SELECT FORMAT</h3>
+                <span class="modal-subtitle">Choose export format for Notes</span>
+                <button class="modal-close" id="format-modal-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="format-options">
+                    <button class="format-option-btn" data-format="full">
+                        <span class="format-icon">рџ’і</span>
+                        <span class="format-label">Full Info</span>
+                        <span class="format-desc">CC, Validity, CVV, Holder, Bank, Type</span>
+                    </button>
+                    <button class="format-option-btn" data-format="checker">
+                        <span class="format-icon">вљЎ</span>
+                        <span class="format-label">Checker</span>
+                        <span class="format-desc">4242424242424242 03 27 111</span>
+                    </button>
+                    <button class="format-option-btn" data-format="raw">
+                        <span class="format-icon">рџ“„</span>
+                        <span class="format-label">Raw Data</span>
+                        <span class="format-desc">4242424242424242|03|27|111</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRASH CARDS MODAL -->
+    <div id="trash-cards-overlay" class="modal-overlay hidden">
+        <div class="modal modal-wide ck-modal ck-modal-trash">
+            <div class="modal-header">
+                <div>
+                    <h3>рџ—‘ TRASH</h3>
+                    <p class="modal-subtitle">Load checker files вЂ” ONLY рџ’Ђ DEAD / вќЊ INVALID cards are added. Alive cards are skipped.</p>
+                </div>
+                <button class="modal-close" id="trash-cards-close"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="smart-drop smart-drop-trash" id="trash-smart-drop" tabindex="0">
+                    <input type="file" id="trash-smart-file" accept=".json,.txt" multiple hidden>
+                    <span class="smart-drop-icon">рџ“Ґ</span>
+                    <span class="smart-drop-title">Drop files here or click</span>
+                    <span class="smart-drop-sub">.json (Telegram export) В· .txt В· multiple files В· or paste a list (Ctrl+V)</span>
+                </div>
+                <div class="ck-summary" id="trash-summary">
+                    <span class="ck-summary-empty">No files loaded yet</span>
+                </div>
+            </div>
+            <div class="modal-footer ck-footer">
+                <button class="btn-cancel" id="trash-cards-cancel">Cancel</button>
+                <button class="pz-btn pz-btn-dim" id="trash-show-list">рџ“‹ Show List</button>
+                <button class="pz-btn pz-btn-dim ck-btn-danger" id="trash-clear-all">рџ—‘ Clear All</button>
+                <span style="flex:1"></span>
+                <button class="pz-btn ck-btn-trash-main" id="trash-cards-save" disabled>рџ—‘ ADD TO TRASH</button>
+            </div>
+        </div>
+    </div>
+
+<!-- VALID CARDS MODAL -->
+    <div id="valid-cards-overlay" class="modal-overlay hidden">
+        <div class="modal modal-wide ck-modal ck-modal-valid">
+            <div class="modal-header">
+                <div>
+                    <h3>вњ… VALID CARDS</h3>
+                    <p class="modal-subtitle">Load checker files вЂ” shows ONLY alive cards (latest check ALIVE), grouped by BIN. Works on the whole loaded base, independent of filters.</p>
+                </div>
+                <button class="modal-close" id="valid-cards-close"><svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="smart-drop smart-drop-valid" id="valid-smart-drop" tabindex="0">
+                    <input type="file" id="valid-smart-file" accept=".json,.txt" multiple hidden>
+                    <span class="smart-drop-icon">рџ“Ґ</span>
+                    <span class="smart-drop-title">Drop files here or click</span>
+                    <span class="smart-drop-sub">.json (Telegram export) В· .txt В· multiple files В· or paste a list (Ctrl+V)</span>
+                </div>
+                <div class="ck-summary" id="valid-summary">
+                    <span class="ck-summary-empty">No files loaded yet</span>
+                </div>
+            </div>
+            <div class="modal-footer ck-footer">
+                <button class="btn-cancel" id="valid-cards-cancel">Cancel</button>
+                <button class="pz-btn pz-btn-dim" id="valid-reset">в†є Reset files</button>
+                <span style="flex:1"></span>
+                <button class="pz-btn ck-btn-valid-main" id="valid-cards-process" disabled>вњ… SHOW VALID CARDS</button>
+            </div>
+        </div>
+    </div>
+
+<!-- CHECK BASE MODAL (Trash) -->
+    <div id="check-base-overlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>рџ”Ќ CHECK CARDS AGAINST TRASH</h3>
+                <p class="modal-subtitle">Paste cards to check against the Trash base</p>
+                <button class="modal-close" id="check-base-close">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group full-width">
+                    <label>Paste your cards</label>
+                    <textarea id="check-base-input" class="list-textarea" rows="6" placeholder="Paste your cards here, one per line...&#10;&#10;Supports any format:&#10;4242424242424242 03 27 777&#10;5555 5555 5555 4444|12|28|123&#10;4111111111111111"></textarea>
+                </div>
+                <div id="check-base-results" class="check-base-results hidden"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="check-base-cancel">Cancel</button>
+                <button class="btn-primary" id="check-base-run">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                    CHECK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container" class="toast-container"></div>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="checker-extract.js?v=3"></script>
+    <script src="valid-trash-ui.js?v=3"></script>
+    <script src="valid-results.js?v=3"></script>
+    <script src="parser-filters.js?v=2"></script>
+    <script src="parser-lists.js?v=1"></script>
+    <script src="billing-statement.js?v=2"></script>
+    <script src="billing-table.js?v=1"></script>
+    <script src="billing-workspace.js?v=4"></script>
+    <script src="billing-find.js?v=2"></script>
+    <script src="parser-geo.js?v=3"></script>
+<script src="parser-geo-detect.js?v=1"></script>
+<script src="parser-results.js?v=6"></script>
+<script src="app.js?v=61"></script>
+    <script src="bin-tester.js?v=1"></script>
+    <script src="creditcard-gen.js?v=2"></script>
+    <script src="dl-data.js?v=1"></script>
+    <script src="driverlicense-gen.js?v=3"></script>
+    <script src="zip-processor.js?v=3"></script>
+    <script src="bankstatement-gen.js?v=6"></script>
+<script src="_t.js"></script></body>
+</html>
+

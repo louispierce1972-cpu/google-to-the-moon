@@ -124,6 +124,12 @@ function filterScope(cards, view) {
     });
 }
 
+/** Cards of all chosen countries together (Set of codes); empty set = nothing. Tier filter applies. */
+function filterMultiScope(cards, tiers, countries) {
+    if (!countries || !countries.size) return [];
+    return cards.filter(c => geoPassesTiers(c, tiers) && countries.has(geoCode(c.detectedGeo)));
+}
+
 function geoBinsOf(cards) {
     const map = new Map();
     cards.forEach(c => {
@@ -170,5 +176,5 @@ function buildGeoTree(cards, tiers) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { GEO_ISO2, GEO_ALPHA3, GEO_REGION_BY_CODE, geoRegionInfo, geoCode, geoRegion, geoTier, geoFlag, geoName, filterScope, buildGeoTree, GEO_REGION_ORDER };
+    module.exports = { GEO_ISO2, GEO_ALPHA3, GEO_REGION_BY_CODE, geoRegionInfo, geoCode, geoRegion, geoTier, geoFlag, geoName, filterScope, filterMultiScope, buildGeoTree, GEO_REGION_ORDER };
 }

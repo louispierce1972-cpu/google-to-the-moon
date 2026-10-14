@@ -114,6 +114,7 @@ function renderBillingWorkspace() {
     if (!area) return;
     if (bar) bar.innerHTML = '';
 
+    const entering = !area.querySelector('[data-screen="workspace"]');
     const prepared = btPrepare(bwAllRows(), BW.view);
     const n = BW.view.checked.size;
     const body = !BW.records.length ? bwEmptyHtml() : `
@@ -121,7 +122,7 @@ function renderBillingWorkspace() {
         ${btToolbarHtml(BW.view)}
         ${btTableHtml(prepared, BW.view, true)}`;
 
-    area.innerHTML = `<div class="bw-wrap fade-in">
+    area.innerHTML = `<div class="bw-wrap ${entering ? 'bt-enter' : ''}" data-screen="workspace">
         <div class="bw-head">
             <div><h2 class="bw-title">Workspace <span>Billing activity</span></h2>
             <div class="bw-sub">Cards moved from Find Billings · click a row for full card data</div></div>
