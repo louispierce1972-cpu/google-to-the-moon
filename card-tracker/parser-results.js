@@ -21,7 +21,7 @@ function prFlag(code) {
 }
 
 function prView() {
-    return PARSER_STATE.resView || { tiers: new Set(), region: '', country: '', bin: '', showAll: false, multi: new Set() };
+    return PARSER_STATE.resView || { tiers: new Set(), region: '', country: '', bin: '', showAll: false, multi: new Set(), full: false, expanded: new Set() };
 }
 
 function prSetView(patch) {
@@ -116,39 +116,80 @@ function prBinCards(country, view) {
     </div>`).join('');
 }
 
+function prBinInfo(c) {
+    return typeof BIN_CACHE !== 'undefined' ? BIN_CACHE[c.bin] : null;
+}
+
+function prNetworkOf(cc) {
+    return typeof getCardType === 'function' ? String(getCardType(cc || '') || '').toUpperCase() : '';
+}
+
+function prDesc(c) {
+    return cdDescribe(c, prBinInfo(c), prNetworkOf);
+}
+
 function prTableHtml(rows, total, view) {
     const sortBy = PARSER_STATE.sortBy || 'index';
     const binSortIcon = sortBy === 'bin-desc' ? '↓' : sortBy === 'bin-asc' ? '↑' : '↕';
     const more = total > rows.length
         ? `<button class="pres-more-btn" data-act="show-all">Show all ${total} cards (${total - rows.length} hidden)</button>` : '';
-    return `<div class="pres-table-wrap">
+    const full = !!view.full;
+    const cols = full
+        ? '<col style="width:28px"><col style="width:12%"><col style="width:17%"><col style="width:6%"><col style="width:13%"><col style="width:6%"><col style="width:7%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:6%"><col style="width:9%">'
+        : '<col style="width:28px"><col style="width:15%"><col style="width:16%"><col style="width:18%"><col style="width:52px"><col style="width:72px"><col style="width:80px">';
+    const head = full
+        ? '<th></th><th>NAME</th><th>CARD (FULL)</th><th>CVV</th><th>BANK</th><th>EXP</th><th>TYPE</th><th>CLASS</th><th>NETWORK</th><th class="pres-sort-th" data-act="sort-bin">BIN ' + binSortIcon + '</th><th>GEO</th>'
+        : '<th></th><th>NAME</th><th>CARD</th><th>BANK</th><th>EXP</th><th class="pres-sort-th" data-act="sort-bin">BIN ' + binSortIcon + '</th><th>GEO</th>';
+    return `<div class="pres-table-tools">
+            <button class="pres-link-btn pres-full-toggle ${full ? 'on' : ''}" data-act="toggle-full" title="Add the full number, CVV, type, class and network columns">${full ? '☑' : '☐'} Show full details</button>
+            <span class="pres-hint">Click a row to open all fields of the card</span>
+        </div>
+        <div class="pres-table-wrap ${full ? 'pres-table-full' : ''}">
         <table class="pres-table">
-            <colgroup><col style="width:28px"><col style="width:15%"><col style="width:16%"><col style="width:18%">
-                <col style="width:52px"><col style="width:72px"><col style="width:80px"></colgroup>
-            <thead><tr><th></th><th>NAME</th><th>CARD</th><th>BANK</th><th>EXP</th>
-                <th class="pres-sort-th" data-act="sort-bin">BIN ${binSortIcon}</th><th>GEO</th></tr></thead>
+            <colgroup>${cols}</colgroup>
+            <thead><tr>${head}</tr></thead>
             <tbody>${rows}</tbody>
         </table>
     </div>${more}`;
 }
 
-function prRowsHtml(cards, idxOf) {
+function prDetailsHtml(c, idx) {
+    const cells = cdDetailRows(c, prBinInfo(c), prNetworkOf)
+        .map(r => `<div class="pres-d"><em>${prEsc(r.label)}</em><span>${r.value ? prEsc(r.value) : '<i>—</i>'}</span></div>`).join('');
+    return `<div class="pres-details">${cells}
+        <button class="pres-link-btn pres-d-copy" data-act="row-copy" data-idx="${idx}" title="Copy: number mm yy cvv">📋 Copy card</button></div>`;
+}
+
+function prRowsHtml(cards, idxOf, view) {
+    const full = !!(view && view.full);
+    const expanded = (view && view.expanded) || new Set();
+    const span = full ? 11 : 7;
     return cards.map(c => {
         const idx = idxOf.get(c);
         const code = geoCode(c.detectedGeo);
+        const d = prDesc(c);
+        const open = expanded.has(idx);
         const name = `${(c.name || '').toUpperCase()} ${(c.surname || '').toUpperCase()}`.trim();
-        return `<tr>
+        const geoTitle = typeof geoName === 'function' && code ? geoName(code) : (d.countryName || '');
+        const tailCols = full ? `
+            <td class="pc-type">${prEsc(d.type || '—')}</td>
+            <td class="pc-class">${prEsc(d.cardClass || '—')}</td>
+            <td class="pc-net">${prEsc(d.network || '—')}</td>` : '';
+        const cardCol = full ? '' : `<td class="pc-card">${formatCardBin(c.cc)}</td>`;
+        const head = full
+            ? `<td class="pc-fullnum">${prEsc(d.fullNumber)}</td><td class="pc-cvv">${prEsc(d.cvv)}</td>`
+            : cardCol;
+        return `<tr class="pres-row ${open ? 'open' : ''}" data-act="row-toggle" data-idx="${idx}">
             <td class="pc-chk"><input type="checkbox" ${PARSER_STATE.selected.has(idx) ? 'checked' : ''} data-idx="${idx}" class="parser-check"></td>
             <td class="pc-holder">${prEsc(name)}</td>
-            <td class="pc-card">${formatCardBin(c.cc)}</td>
+            ${head}
             <td class="pc-bank" title="${prEsc(c.bank || '')}">${prEsc(c.bank || '—')}</td>
-            <td class="pc-exp">${prEsc(c.validity || '')}</td>
+            <td class="pc-exp">${prEsc(d.exp)}</td>${tailCols}
             <td class="pc-bin">${prEsc(c.bin)}</td>
-            <td class="pc-geo">${code ? `${prFlag(code)} ${prEsc(code)} <span class="pres-tier-badge t${geoTier(code)}">T${geoTier(code)}</span>` : '—'}</td>
-        </tr>`;
+            <td class="pc-geo" title="${prEsc(geoTitle)}">${code ? `${prFlag(code)} ${prEsc(code)} <span class="pres-tier-badge t${geoTier(code)}">T${geoTier(code)}</span>` : '—'}</td>
+        </tr>${open ? `<tr class="pres-drow"><td colspan="${span}">${prDetailsHtml(c, idx)}</td></tr>` : ''}`;
     }).join('');
 }
-
 function prSortCards(cards) {
     const sortBy = PARSER_STATE.sortBy || 'index';
     if (sortBy === 'index') return cards;
@@ -211,7 +252,7 @@ function renderParserResults(geoFilter) {
     if (country) {
         const sorted = prSortCards(viewScope);
         const shown = view.showAll ? sorted : sorted.slice(0, PR_ROW_LIMIT);
-        tableHtml = prTableHtml(prRowsHtml(shown, idxOf), sorted.length, view);
+        tableHtml = prTableHtml(prRowsHtml(shown, idxOf, view), sorted.length, view);
     }
 
     const keepScroll = ['.pres-bins-grid']
@@ -290,6 +331,17 @@ function prHandleAction(act, ds, ctx) {
         case 'bin': return prSetView({ bin: ds.bin === view.bin ? '' : ds.bin, showAll: false });
         case 'bin-clear': return prSetView({ bin: '', showAll: false });
         case 'show-all': return prSetView({ showAll: true });
+        case 'toggle-full': return prSetView({ full: !view.full });
+        case 'row-toggle': {
+            const idx = Number(ds.idx);
+            const next = new Set(view.expanded || []);
+            if (next.has(idx)) next.delete(idx); else next.add(idx);
+            return prSetView({ expanded: next });
+        }
+        case 'row-copy': {
+            const card = ctx.all[Number(ds.idx)];
+            return card ? prCopy([prCardLine(card)], 'Card') : undefined;
+        }
         case 'multi-remove': return prSetView({ multi: new Set([...view.multi].filter(code => code !== ds.country)) });
         case 'multi-clear': return prSetView({ multi: new Set() });
         case 'multi-region': {

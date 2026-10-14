@@ -10951,8 +10951,8 @@ function renderParser() {
                 <span class="pz-btn-hint">extract → filter → dedupe</span>
             </button>
             <button class="pz-btn pz-btn-dim" id="parser-clear-btn" title="Clear all loaded files and results">✕ CLEAR</button>
-            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" ${ckBaseReady() ? '' : 'disabled'} title="${ckBaseReady() ? 'Manage dead/invalid card blacklist' : 'Load the main base and press PARSE first'}">🗑 TRASH (${(STATE.trashCards || []).length})</button>
-            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" ${ckValidReady() ? '' : 'disabled'} title="${ckValidReady() ? 'Check the whole loaded base against checker results (independent of filters)' : 'Load the main base and press PARSE first'}">✅ VALID CARDS</button>
+            <button class="pz-btn pz-btn-trash" id="parser-trash-btn" title="Manage dead/invalid card blacklist">🗑 TRASH (${(STATE.trashCards || []).length})</button>
+            <button class="pz-btn pz-btn-valid" id="parser-valid-btn" title="Check the whole loaded base against checker results (independent of filters)">✅ VALID CARDS</button>
             <button class="pz-btn pz-btn-billings" id="parser-billings-btn" title="Match billing records (last 4 digits) against parsed cards">💳 FIND BILLINGS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
