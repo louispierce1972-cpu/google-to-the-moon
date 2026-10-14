@@ -98,3 +98,11 @@
 /* Entry animation only on first show (re-renders must not flash) */
 .bt-enter { animation: btEnter .18s ease-out; }
 @keyframes btEnter { from { opacity: .7; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+/* Auto-picked match hint */
+.bt-alt { display: inline-block; margin-left: 6px; padding: 2px 8px; font: 700 10px/1.4 inherit; color: #fbbf24; background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .4); border-radius: 999px; cursor: pointer; white-space: nowrap; transition: background .15s, transform .15s; }
+.bt-alt:hover { background: rgba(245, 158, 11, .22); transform: translateY(-1px); }
+.bt-alt.open { background: rgba(245, 158, 11, .25); }
+.bt-alt.manual { color: #93c5fd; background: rgba(59, 130, 246, .1); border-color: rgba(59, 130, 246, .4); }
+.bt-alt.static { cursor: help; }
+.bt-alt-list { display: block; margin-top: 6px; max-width: 360px; }

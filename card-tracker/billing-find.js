@@ -27,7 +27,7 @@ function fbParser() {
 
 function fbCtxKey() {
     const P = fbParser();
-    return `${(P.rawMessages || []).length}|${P._compareSet ? P._compareSet.size : 0}|${P.compareFile ? P.compareFile.name : ''}`;
+    return `${(P.rawMessages || []).length}|${P._compareSet ? P._compareSet.size : 0}|${P._compareDates ? P._compareDates.size : 0}|${P.compareFile ? P.compareFile.name : ''}`;
 }
 
 function fbBuildContextNow() {
@@ -36,7 +36,7 @@ function fbBuildContextNow() {
     const main = raw.length ? extractCardsFromMessages(raw).map(c => ({
         ...c, detectedGeo: detectGeo(c.billing, c.country, c.countryCode, c.bankCountryCode, c.bank)
     })) : [];
-    return bsMatchContext(main, P._compareSet || null);
+    return bsMatchContext(main, P._compareSet || null, P._compareDates || null);
 }
 
 /** Matching context (cached by base sizes). Returns it, or null and calls onReady when built. */

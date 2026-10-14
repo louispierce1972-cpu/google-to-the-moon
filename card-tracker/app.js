@@ -10656,8 +10656,9 @@ function flattenText(textArray) {
 // - "4242-4242-4242-4242" (dashed)
 // - emoji format "💳 CC: 4242 4242 4242 4242"
 // - JSON fields: card_number, cardNumber, cc, pan, number, etc.
-function extractAllCardNumbersFromJSON(data) {
+function extractAllCardNumbersFromJSON(data, datesOut) {
     const seen = new Set();
+    let currentDate = '';   // date of the Telegram message being scanned (ISO day)
 
     function isLuhnValid(num) {
         let sum = 0, alt = false;
@@ -10675,6 +10676,8 @@ function extractAllCardNumbersFromJSON(data) {
         const cleaned = String(str).replace(/[\s\-\.]/g, '');
         if (/^\d{13,19}$/.test(cleaned) && isLuhnValid(cleaned)) {
             seen.add(cleaned);
+            // keep the earliest date a card appears in the file
+            if (datesOut && currentDate && (!datesOut.has(cleaned) || currentDate < datesOut.get(cleaned))) datesOut.set(cleaned, currentDate);
         }
     }
 
@@ -10724,6 +10727,9 @@ function extractAllCardNumbersFromJSON(data) {
             return;
         }
         if (typeof val === 'object') {
+            const prevDate = currentDate;
+            const dm = typeof val.date === 'string' && val.date.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (dm) currentDate = dm[1];
             // Check known card-number field names
             const cardFields = ['cc', 'card_number', 'cardNumber', 'card', 'number', 'pan', 'card_no', 'cardNo', 'card_num', 'cardNum', 'credit_card', 'creditCard'];
             for (const key of cardFields) {
@@ -10738,6 +10744,7 @@ function extractAllCardNumbersFromJSON(data) {
             for (const key of Object.keys(val)) {
                 if (typeof val[key] === 'object' && val[key] !== null) scanValue(val[key]);
             }
+            currentDate = prevDate;
         }
     }
 
@@ -11049,7 +11056,7 @@ function renderParser() {
         PARSER_STATE.binFilter = null;
         PARSER_STATE.sortBy = 'index';
         PARSER_STATE.statusFilter = 'ALL';
-        PARSER_STATE._compareSet = null;
+        PARSER_STATE._compareSet = null; PARSER_STATE._compareDates = null;
         PARSER_STATE._pipelineStats = null;
         PARSER_STATE._parsedOnce = false;
         // (translated)
@@ -11430,7 +11437,8 @@ function _loadCompareFile(file) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            const compareNumbers = extractAllCardNumbersFromJSON(data);
+            const compareDates = new Map();
+            const compareNumbers = extractAllCardNumbersFromJSON(data, compareDates);
 
             PARSER_STATE.compareFile = {
                 name: file.name,
@@ -11438,6 +11446,7 @@ function _loadCompareFile(file) {
                 cardCount: compareNumbers.size
             };
             PARSER_STATE._compareSet = compareNumbers;
+            PARSER_STATE._compareDates = compareDates;
 
             // Apply compare to clean collected
             if (PARSER_STATE._cleanCollected.length > 0) {
@@ -11455,7 +11464,7 @@ function _loadCompareFile(file) {
 
 function _removeCompare() {
     PARSER_STATE.compareFile = null;
-    PARSER_STATE._compareSet = null;
+    PARSER_STATE._compareSet = null; PARSER_STATE._compareDates = null;
     // Re-run workspace+dedup from clean state
     if (PARSER_STATE._cleanCollected.length > 0) {
         if (PARSER_STATE._pipelineStats) PARSER_STATE._pipelineStats.compareRemoved = 0;

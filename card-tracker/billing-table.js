@@ -7,7 +7,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 function btDefaultView() {
-    return { from: '', to: '', sortKey: 'date', sortDir: 'desc', status: 'all', search: '', expanded: new Set(), checked: new Set() };
+    return { from: '', to: '', sortKey: 'date', sortDir: 'desc', status: 'all', search: '', expanded: new Set(), checked: new Set(), alts: new Set() };
 }
 
 function btEsc(s) {
@@ -86,15 +86,41 @@ function btToolbarHtml(view) {
     </div>`;
 }
 
-function btStatusHtml(r) {
+function btShort(iso) {
+    const m = String(iso || '').match(/^\d{4}-(\d{2})-(\d{2})$/);
+    return m ? `${m[2]}.${m[1]}` : '';
+}
+
+/** One option of a candidate list: BIN…last4 · bank · geo · added dd.mm (±N d from the operation). */
+function btCandLabel(c) {
+    const added = c.added ? ` · added ${btShort(c.added)}${c.distanceDays != null ? ` (${c.distanceDays} d)` : ''}` : ' · no date';
+    return `${c.bin}…${c.cc.slice(-4)} · ${c.bank || '?'} · ${c.geo || '?'}${added}${c.inWork ? '' : ' · main'}`;
+}
+
+function btAltsHtml(r, view) {
+    const n = r.alternates || 0;
+    if (!n) return '';
+    if (!Array.isArray(r.candidates)) {
+        return `<span class="bt-alt static" title="Several cards had these last 4 digits; the one added closest to the operation date was picked">⚠ ${n} alternate${n > 1 ? 's' : ''}</span>`;
+    }
+    const open = view.alts && view.alts.has(r.id);
+    const badge = `<button class="bt-alt ${r.autoPicked ? 'auto' : 'manual'} ${open ? 'open' : ''}" data-bt-alt="${btEsc(r.id)}" title="${r.autoPicked ? 'Auto-picked by the nearest date to the operation — click to review the other candidates' : 'Picked manually — click to see the other candidates'}">⚠ ${n} alternate${n > 1 ? 's' : ''}</button>`;
+    if (!open) return badge;
+    const chosenCc = r.chosen && r.chosen.cc;
+    const opts = [`<option value="">↺ auto (nearest date)</option>`].concat(r.candidates.map(c =>
+        `<option value="${btEsc(c.cc)}" ${c.cc === chosenCc ? 'selected' : ''}>${btEsc(btCandLabel(c))}${c.cc === chosenCc ? '  ✓' : ''}</option>`));
+    return `${badge}<select class="bt-input bt-pick bt-alt-list" data-bt-pick="${btEsc(r.id)}">${opts.join('')}</select>`;
+}
+
+function btStatusHtml(r, view) {
     if (r.status === 'choose' && Array.isArray(r.candidates)) {
         const opts = ['<option value="">— choose (' + r.candidates.length + ') —</option>'].concat(r.candidates.map(c =>
-            `<option value="${btEsc(c.cc)}">${btEsc(c.bin)}…${btEsc(c.cc.slice(-4))} · ${btEsc(c.bank || '?')} · ${btEsc(c.geo || '?')}</option>`));
+            `<option value="${btEsc(c.cc)}">${btEsc(btCandLabel(c))}</option>`));
         return `<select class="bt-input bt-pick" data-bt-pick="${btEsc(r.id)}">${opts.join('')}</select>`;
     }
     if (r.status === 'choose') return '<span class="bt-st pick">choose</span>';
     if (r.status === 'missing') return '<span class="bt-st miss">not found</span>';
-    return `<span class="bt-st ok">✓ found</span>${r.inWork ? '' : '<span class="bt-tag" title="Not in Compare with old base — matched in the main base only">main base only</span>'}`;
+    return `<span class="bt-st ok">✓ found</span>${r.inWork ? '' : '<span class="bt-tag" title="Not in Compare with old base — matched in the main base only">main base only</span>'}${btAltsHtml(r, view || btDefaultView())}`;
 }
 
 function btDetailsHtml(r) {
@@ -108,6 +134,7 @@ function btDetailsHtml(r) {
         ${cell('Full number', c ? `<span class="bt-copy" data-bt-copy="${btEsc(copy)}" title="Copy: number mm yy cvv">${btEsc(c.cc)} 📋</span>` : '—')}
         ${cell('Exp / CVV', c && c.mm ? `${btEsc(c.mm)}/${btEsc(c.yy)} · ${btEsc(c.cvv)}` : '—')}
         ${cell('Holder', c && c.holder ? btEsc(c.holder) : '—')}
+        ${cell('Added to base', c && c.added ? `${btDate(c.added)}${c.distanceDays != null ? ` (${c.distanceDays} d from the operation)` : ''}` : '—')}
         ${cell('Type', c && c.cardType ? btEsc(c.cardType) : '—')}
         ${cell('File', btEsc(r.fileName))}
         ${cell('Period', `${btDate(r.periodFrom)} – ${btDate(r.periodTo)}`)}
@@ -130,7 +157,7 @@ function btRowHtml(r, view, selectable) {
         <td class="bt-country">${btCountry(c && c.geo)}</td>
         <td class="bt-bank" title="${btEsc(c ? c.bank : '')}">${c && c.bank ? btEsc(c.bank) : '<span class="bt-dim">—</span>'}</td>
         <td class="bt-money">${btMoney(r.charged, r.cur)}${r.chargedCount > 1 ? `<small>${r.chargedCount}×</small>` : ''}</td>
-        <td class="bt-status">${btStatusHtml(r)}</td>
+        <td class="bt-status">${btStatusHtml(r, view)}</td>
         <td class="bt-caret">${open ? '▾' : '▸'}</td>
     </tr>${open ? `<tr class="bt-drow"><td colspan="${selectable ? 8 : 7}">${btDetailsHtml(r)}</td></tr>` : ''}`;
 }
@@ -179,6 +206,13 @@ function btBind(root, view, rows, handlers) {
         handlers.setView({ checked: next });
     }));
     root.querySelectorAll('[data-bt-pick]').forEach(s => s.addEventListener('change', () => handlers.pick(s.dataset.btPick, s.value)));
+    root.querySelectorAll('[data-bt-alt]').forEach(b => b.addEventListener('click', e => {
+        e.stopPropagation();
+        const next = new Set(view.alts || []);
+        const id = b.dataset.btAlt;
+        if (next.has(id)) next.delete(id); else next.add(id);
+        handlers.setView({ alts: next });
+    }));
     root.querySelectorAll('[data-bt-copy]').forEach(el => el.addEventListener('click', e => {
         e.stopPropagation();
         if (!navigator.clipboard) return toast('Clipboard is not available', 'error');

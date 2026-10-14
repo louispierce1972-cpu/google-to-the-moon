@@ -301,12 +301,14 @@ function bsApplyRange(rec, from, to) {
 
 /* ─────────────── MATCH: WORK BASE → MAIN BASE ─────────────── */
 
-function _bsCardView(cc, mainCard, inWork) {
+function _bsCardView(cc, mainCard, inWork, workDate) {
     const c = mainCard || {};
     return {
         cc, bin: cc.slice(0, 6), mm: c.mm || '', yy: c.yy || '', cvv: c.cvv || '',
         bank: c.bank || '', geo: c.detectedGeo || c.countryCode || c.bankCountryCode || '', country: c.country || '',
         cardType: c.cardType || '', holder: [c.name, c.surname].filter(Boolean).join(' '),
+        // date the card was added to the base: work file date first, else its main-base message date
+        added: _bsDay(workDate) || _bsDay(c.msgDate),
         inMain: !!mainCard, inWork
     };
 }
@@ -314,8 +316,9 @@ function _bsCardView(cc, mainCard, inWork) {
 /**
  * Lookup context. mainCards = parsed main base (LOAD & PARSE); workNumbers = Set of full
  * numbers from "Compare with old base" (the cards really used on Google Ads), or null.
+ * workDates = optional Map fullNumber → ISO date the card was added to the work file.
  */
-function bsMatchContext(mainCards, workNumbers) {
+function bsMatchContext(mainCards, workNumbers, workDates) {
     const mainIndex = bsBuildIndex(mainCards);
     const mainByCc = new Map();
     mainIndex.forEach(list => list.forEach(c => mainByCc.set(c.cc, c)));
@@ -326,7 +329,7 @@ function bsMatchContext(mainCards, workNumbers) {
         const l4 = cc.slice(-4);
         workIndex.set(l4, [...new Set([...(workIndex.get(l4) || []), cc])]);
     });
-    return { mainIndex, mainByCc, workIndex, hasWork: !!(workNumbers && workNumbers.size), hasMain: mainByCc.size > 0 };
+    return { mainIndex, mainByCc, workIndex, workDates: workDates || null, hasWork: !!(workNumbers && workNumbers.size), hasMain: mainByCc.size > 0 };
 }
 
 function _bsNetworkOk(cc, network) {
@@ -334,21 +337,65 @@ function _bsNetworkOk(cc, network) {
     return !n || !network || n === network;
 }
 
+function _bsDay(s) {
+    const m = String(s || '').match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
+}
+
+function _bsDayNum(day) {
+    const m = String(day || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 : null;
+}
+
+/** Date of the operation a row stands for: latest charge, else latest event of the record. */
+function bsRefDate(rec) {
+    const ev = bsEventsOf(rec);
+    const charges = ev.filter(e => e.kind === 'charge').map(e => e.date).sort();
+    const all = ev.map(e => e.date).sort();
+    return charges[charges.length - 1] || all[all.length - 1] || rec.lastDate || '';
+}
+
 /**
- * 1) last4 + network in the work base → BIN / country / bank from the main base by full number.
+ * Candidates with `distanceDays` = |added − operation|, nearest first.
+ * Equal distance: the card added before the operation wins. Undated cards go last.
+ */
+function bsRankByDate(candidates, refDay) {
+    const ref = _bsDayNum(refDay);
+    const scored = candidates.map(c => {
+        const d = _bsDayNum(c.added);
+        return { ...c, distanceDays: d == null || ref == null ? null : Math.abs(d - ref), _signed: d == null || ref == null ? 0 : d - ref };
+    });
+    return scored.sort((a, b) => {
+        if ((a.distanceDays == null) !== (b.distanceDays == null)) return a.distanceDays == null ? 1 : -1;
+        if (a.distanceDays !== b.distanceDays) return (a.distanceDays || 0) - (b.distanceDays || 0);
+        if (a._signed !== b._signed) return a._signed - b._signed;
+        return a.cc.localeCompare(b.cc);
+    }).map(({ _signed, ...c }) => c);
+}
+
+/**
+ * 1) last4 + network in the work base (priority) → BIN / country / bank from the main base by full number.
  * 2) Nothing in the work base → main base candidates (inWork = false).
- * status: 'matched' | 'choose' (several candidates, no pick yet) | 'missing'.
+ * Several candidates → the one added closest to the operation date is picked automatically
+ * (autoPicked, alternates = how many others); without any dates → status 'choose'.
+ * status: 'matched' | 'choose' | 'missing'.
  */
 function bsMatchRecord(rec, ctx, selections) {
     const workCcs = (ctx.workIndex.get(rec.last4) || []).filter(cc => _bsNetworkOk(cc, rec.network));
     const inWork = workCcs.length > 0;
-    const candidates = inWork
-        ? workCcs.map(cc => _bsCardView(cc, ctx.mainByCc.get(cc), true))
+    const raw = inWork
+        ? workCcs.map(cc => _bsCardView(cc, ctx.mainByCc.get(cc), true, ctx.workDates && ctx.workDates.get(cc)))
         : bsCandidates(rec, ctx.mainIndex).map(c => _bsCardView(c.cc, c, false));
+    const candidates = raw.length > 1 ? bsRankByDate(raw, bsRefDate(rec)) : raw;
     const picked = selections && selections[rec.id];
-    const chosen = (picked && candidates.find(c => c.cc === picked)) || (candidates.length === 1 ? candidates[0] : null);
+    const manual = picked && candidates.find(c => c.cc === picked);
+    const auto = !manual && candidates.length > 1 && candidates[0].distanceDays != null ? candidates[0] : null;
+    const chosen = manual || auto || (candidates.length === 1 ? candidates[0] : null);
     const status = chosen ? 'matched' : candidates.length > 1 ? 'choose' : 'missing';
-    return { ...rec, candidates, chosen, status, inWork };
+    return {
+        ...rec, candidates, chosen, status, inWork,
+        autoPicked: !!auto, alternates: candidates.length > 1 ? candidates.length - 1 : 0
+    };
 }
 
 /** Plain object stored in the Workspace (matched card frozen, no candidate list). */
@@ -372,6 +419,6 @@ if (typeof module !== 'undefined' && module.exports) {
         bsParseCsv, bsParseDate, bsParsePeriod, bsParseMoney, bsNormNetwork, bsNetworkOfCc,
         bsParseStatement, bsSummarize, bsMergeRecords, bsBuildIndex, bsCandidates,
         bsBuildRow, bsBuildRows, bsTotals, bsEventsOf, bsApplyRange,
-        bsMatchContext, bsMatchRecord, bsSnapshot, bsSortRows, bsUpsertById
+        bsMatchContext, bsMatchRecord, bsSnapshot, bsSortRows, bsUpsertById, bsRefDate, bsRankByDate
     };
 }
