@@ -412,6 +412,7 @@ function load() {
                 PARSER_STATE.filters.countryEx = pf.countryEx || '';
                         PARSER_STATE.filters.excludePrepaid = Boolean(pf.excludePrepaid);
                 PARSER_STATE.filters.minExpiry = pf.minExpiry || '';
+                PARSER_STATE.filters.maxExpiry = pf.maxExpiry || '';
                 PARSER_STATE.filters.activeTypes = pf.types || [];
                 PARSER_STATE.filters.activeNetworks = pf.networks || [];
                 PARSER_STATE.filters.filterTypes = new Set(pf.types || []);
@@ -10175,7 +10176,7 @@ let PARSER_STATE = {
     // (translated)
     testMode: false,
     // (translated)
-    filters: { bins: '', binsEx: '', country: '', countryEx: '', bank: '', excludeBanks: '', excludePrepaid: false, minExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() },
+    filters: { bins: '', binsEx: '', country: '', countryEx: '', bank: '', excludeBanks: '', excludePrepaid: false, minExpiry: '', maxExpiry: '', activeTypes: [], activeNetworks: [], filterTypes: new Set(), filterClasses: new Set(), filterPaymentSystems: new Set() },
     // Period of messages to parse (by Telegram message date); relative presets end on the last day of the base
     period: { preset: 'all', from: '', to: '' },
     _baseRange: null
@@ -10528,6 +10529,10 @@ function renderParser() {
                 <div class="pf-field pf-field-narrow">
                     <div class="pf-field-head">MIN EXPIRY</div>
                     <div class="pf-side pf-neutral"><input type="text" id="parser-min-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.minExpiry || ''}"></div>
+                </div>
+                <div class="pf-field pf-field-narrow">
+                    <div class="pf-field-head">MAX EXPIRY</div>
+                    <div class="pf-side pf-neutral"><input type="text" id="parser-max-expiry" placeholder="MM/YY" maxlength="5" value="${PARSER_STATE.filters.maxExpiry || ''}"></div>
                 </div>
             </div>
             <!-- Filtering system -->
@@ -12039,6 +12044,7 @@ function runParse() {
     const bankFilter = bankEl ? bankEl.value.trim().toLowerCase() : '';
     const minExpEl = document.getElementById('parser-min-expiry');
     const minExpRaw = minExpEl ? minExpEl.value.trim() : '';
+    const maxExpRaw = (document.getElementById('parser-max-expiry')?.value || '').trim();
 
     // (translated)
     const filterTypes = PARSER_STATE.filters.filterTypes;
@@ -12048,7 +12054,7 @@ function runParse() {
     const activeTypes = filterTypes.size > 0 ? [...filterTypes].map(t => t.toLowerCase()) : [];
     const activeNetworks = filterPaymentSystems.size > 0 ? [...filterPaymentSystems] : [];
     const excludeBanksElSave = document.getElementById('parser-exclude-banks');
-    PARSER_STATE.filters = { bins: binRaw, binsEx: document.getElementById('parser-bins-ex')?.value.trim() || '', countryEx: document.getElementById('parser-country-ex')?.value.trim() || '', excludePrepaid: pfCfg.excludePrepaid, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
+    PARSER_STATE.filters = { bins: binRaw, binsEx: document.getElementById('parser-bins-ex')?.value.trim() || '', countryEx: document.getElementById('parser-country-ex')?.value.trim() || '', excludePrepaid: pfCfg.excludePrepaid, country: countryEl ? countryEl.value.trim() : '', bank: bankEl ? bankEl.value.trim() : '', excludeBanks: excludeBanksElSave ? excludeBanksElSave.value.trim() : '', minExpiry: minExpRaw, maxExpiry: maxExpRaw, activeTypes, activeNetworks, filterTypes, filterClasses, filterPaymentSystems };
 
     const periodMsgs = pfFilterByPeriod(PARSER_STATE.rawMessages, PARSER_STATE.period.from, PARSER_STATE.period.to);
     let allCards = extractCardsFromMessages(periodMsgs);
@@ -12136,6 +12142,18 @@ function runParse() {
                 const cyy = parseInt(c.yy) || 0;
                 if (!cmm || !cyy) return true; // (translated)
                 return (cyy * 100 + cmm) >= minVal;
+            });
+        }
+    }
+    if (maxExpRaw) {
+        const mx = maxExpRaw.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+        if (mx) {
+            const maxVal = parseInt(mx[2]) * 100 + parseInt(mx[1]);
+            allCards = allCards.filter(c => {
+                const cmm = parseInt(c.mm) || 0;
+                const cyy = parseInt(c.yy) || 0;
+                if (!cmm || !cyy) return true;
+                return (cyy * 100 + cmm) <= maxVal;
             });
         }
     }
@@ -12963,6 +12981,7 @@ function _saveParserFilters() {
         countryEx: document.getElementById('parser-country-ex')?.value || '',
         excludePrepaid: Boolean(PARSER_STATE.filters.excludePrepaid),
         minExpiry: document.getElementById('parser-min-expiry')?.value || '',
+        maxExpiry: document.getElementById('parser-max-expiry')?.value || '',
         types: [...(PARSER_STATE.filters.filterTypes || [])],
         classes: [...(PARSER_STATE.filters.filterClasses || [])],
         networks: [...(PARSER_STATE.filters.filterPaymentSystems || [])]
