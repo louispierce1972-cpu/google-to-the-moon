@@ -5987,7 +5987,7 @@ window._ntStartRename = function (tabId) {
         <div class="bv-edit-box">
             <div class="bv-edit-title">Rename Tab</div>
             <label class="bv-edit-lbl">Tab Name</label>
-            <input id="nt-rename-input" class="bv-edit-inp" type="text" value="${tab.title.replace(/"/g, '&quot;')}" maxlength="50">
+            <input id="nt-rename-input" class="bv-edit-inp" type="text" value="${String((window.NotesModel ? NotesModel.displayName(tab) : tab.title) || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" maxlength="120" placeholder="Empty = automatic name">
             <div class="bv-edit-btns">
                 <button class="bv-edit-save" onclick="_ntDoRename('${tabId}')">Save</button>
                 <button class="bv-edit-cancel" onclick="document.getElementById('bv-edit-modal').style.display='none'">Cancel</button>
@@ -6019,12 +6019,14 @@ window._ntDoRename = function (tabId) {
     const tab = STATE.notesTabs.find(t => t.id === tabId);
     if (!tab) return;
     const val = document.getElementById('nt-rename-input').value.trim();
-    if (!val) { toast('Name cannot be empty', 'error'); return; }
-    tab.title = val;
+    if (!val && !window.NotesModel) { toast('Name cannot be empty', 'error'); return; }
+    // Manual name (customName) always wins over the auto name; empty → back to the auto name
+    const renamed = window.NotesModel ? NotesModel.rename(tab, val) : { ...tab, title: val };
+    STATE.notesTabs = STATE.notesTabs.map(t => (t.id === tabId ? renamed : t));
     save();
     document.getElementById('bv-edit-modal').style.display = 'none';
     renderNotes();
-    toast('Tab renamed', 'success');
+    toast(val ? 'Tab renamed' : 'Automatic name restored', 'success');
 };
 // Country filter
 window._bvFilterCountry = function (cc) {
@@ -6317,29 +6319,32 @@ function _getEditorText(editor) {
     return editor.innerText || '';
 }
 
+// Writes the editor into the active tab only when the user actually changed it
+// (viewing a tab must not touch its content / modifiedAt).
+function _ntSyncEditorToTab(editor) {
+    const tab = _getActiveNoteTab();
+    const html = editor.innerHTML;
+    if (tab) {
+        if (window._ntLoadedHtml === undefined || html !== window._ntLoadedHtml) {
+            tab.content = html; // store HTML to preserve colors
+            window._ntLoadedHtml = html;
+        }
+        tab.scrollPos = editor.scrollTop;
+    }
+    STATE.notes = html;
+}
+
 function _saveActiveTab() {
     const editor = document.getElementById('notes-editor');
     if (!editor) return;
-    const tab = _getActiveNoteTab();
-    if (tab) {
-        tab.content = editor.innerHTML; // store HTML to preserve colors
-        tab.scrollPos = editor.scrollTop;
-    }
-    STATE.notes = editor.innerHTML;
+    _ntSyncEditorToTab(editor);
     STATE.notesLastSaved = Date.now();
     save();
 }
 
 function _saveAllTabs() {
     const editor = document.getElementById('notes-editor');
-    if (editor) {
-        const tab = _getActiveNoteTab();
-        if (tab) {
-            tab.content = editor.innerHTML;
-            tab.scrollPos = editor.scrollTop;
-        }
-        STATE.notes = editor.innerHTML;
-    }
+    if (editor) _ntSyncEditorToTab(editor);
     STATE.notesLastSaved = Date.now();
     save();
     toast('All tabs saved', 'success');
@@ -6414,39 +6419,9 @@ function _wireLinePinClicks(container) {
 function renderNotes() {
     const area = document.getElementById('content-area');
 
-    // Auto-cleanup
-    if (STATE.notesTabs.length > 1) {
-        const _normC = (html) => {
-            if (!html) return '';
-            return html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>\s*<div/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
-        };
-        const now = Date.now();
-        const nonEmpty = STATE.notesTabs.filter(t =>
-            _normC(t.content) || t.id === STATE.notesActiveTab || (t.created && (now - t.created) < 60000)
-        );
-        if (nonEmpty.length > 0 && nonEmpty.length < STATE.notesTabs.length) {
-            STATE.notesTabs = nonEmpty;
-        }
-        // Remove exact content duplicates (keep newest)
-        const seen = new Map();
-        const unique = [];
-        // Sort by created DESC so newest comes first
-        const sorted = [...STATE.notesTabs].sort((a, b) => (b.created || 0) - (a.created || 0));
-        for (const tab of sorted) {
-            const norm = _normC(tab.content);
-            if (!norm || !seen.has(norm)) {
-                if (norm) seen.set(norm, true);
-                unique.push(tab);
-            }
-        }
-        if (unique.length < STATE.notesTabs.length) {
-            STATE.notesTabs = unique;
-            if (!STATE.notesTabs.find(t => t.id === STATE.notesActiveTab)) {
-                STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
-            }
-            save();
-        }
-    }
+    // Notes organizer: migration (once, with backup) + change tracking. Never deletes tabs.
+    const _org = typeof NotesOrg !== 'undefined' ? NotesOrg : null;
+    if (_org) _org.prepare();
     const activeTab = _getActiveNoteTab();
     if (!activeTab) return;
     if (!activeTab.pinnedLines) activeTab.pinnedLines = [];
@@ -6462,16 +6437,19 @@ function renderNotes() {
     const lineCount = plainText.split('\n').length || 1;
     const lineNumsHTML = _buildLineNumsHTML(lineCount, activeTab.pinnedLines);
 
-    // Sort: pinned tabs first
-    const sortedTabs = [...tabs].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    // Sort: pinned tabs first (archived tabs live only in the sidebar Archive folder)
+    const barTabs = _org ? _org.tabBarTabs(tabs) : tabs;
+    const sortedTabs = [...barTabs].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    const _escT = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     // Tab bar
     let tabsHTML = sortedTabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
         const pinIcon = t.pinned ? '<span class="nt-pin-icon">📌</span>' : '';
-        return `<button class="nt-tab ${isActive ? 'active' : ''} ${t.pinned ? 'nt-pinned' : ''}" data-tab="${t.id}" ondblclick="_ntStartRename('${t.id}')">
-            ${pinIcon}<span class="nt-tab-title" data-tab="${t.id}">${t.title}</span><span class="nt-tab-edit" onclick="event.stopPropagation();_ntStartRename('${t.id}')" title="Rename">✏️</span>
-            ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}">×</span>` : ''}
+        const closeTitle = _org ? 'Move to Archive' : 'Close';
+        return `<button class="nt-tab ${isActive ? 'active' : ''} ${t.pinned ? 'nt-pinned' : ''} ${t.status === 'used' ? 'nt-used' : ''}" data-tab="${t.id}" ondblclick="_ntStartRename('${t.id}')">
+            ${pinIcon}<span class="nt-tab-title" data-tab="${t.id}">${_escT(t.title)}</span><span class="nt-tab-edit" onclick="event.stopPropagation();_ntStartRename('${t.id}')" title="Rename">✏️</span>
+            ${tabs.length > 1 ? `<span class="nt-tab-close" data-tab="${t.id}" title="${closeTitle}">×</span>` : ''}
         </button>`;
     }).join('');
     tabsHTML += `<button class="nt-new-tab" id="nt-new-tab" title="New tab">+</button>`;
@@ -6482,8 +6460,8 @@ function renderNotes() {
         return (plain.match(/\d{13,19}/g) || []).length;
     };
 
-    // ── Sidebar item list (full, for the drawer) ──
-    const sidebarItemsHTML = tabs.map(t => {
+    // ── Sidebar item list (full, for the drawer) — legacy fallback if notes-org.js is missing ──
+    const sidebarItemsHTML = _org ? '' : tabs.map(t => {
         const isActive = t.id === STATE.notesActiveTab;
         const cardCount = _countCards(t.content);
         const srcBadge = t.exportSource ? `<span class="nt-meta-source" title="From ${t.exportSource}">${t.exportSource}</span>` : '';
@@ -6499,7 +6477,7 @@ function renderNotes() {
         <div class="nt-sidebar-overlay" id="nt-sidebar-overlay"></div>
 
         <!-- Sidebar drawer -->
-        <div class="nt-sidebar" id="nt-sidebar">
+        <div class="nt-sidebar" id="nt-sidebar">${_org ? _org.sidebarHtml() : `
             <div class="nt-sidebar-header">
                 <span class="nt-sidebar-title">📝 All Tabs (${tabs.length})</span>
                 <button class="nt-sidebar-close" id="nt-sidebar-close">×</button>
@@ -6507,23 +6485,25 @@ function renderNotes() {
             <div class="nt-sidebar-new">
                 <button class="nt-sidebar-new-btn" id="nt-sidebar-new-btn">+ New Tab</button>
             </div>
-            <div class="nt-sidebar-list" id="nt-sidebar-list">${sidebarItemsHTML}</div>
+            <div class="nt-sidebar-list" id="nt-sidebar-list">${sidebarItemsHTML}</div>`}
         </div>
 
         <div class="notes-container">
             <div class="nt-tab-bar">
                 <div class="nt-tabs-scroll">
                     <!-- Sidebar toggle -->
-                    <button class="nt-sidebar-toggle" id="nt-sidebar-open" title="All tabs">☰ Tabs</button>
+                    <button class="nt-sidebar-toggle" id="nt-sidebar-open" title="All tabs: folders, search, cleanup">☰ Tabs</button>
                     ${tabsHTML}
                 </div>
                 <div class="nt-toolbar-right">
+                    ${_org ? _org.toolbarHtml(activeTab) : ''}
                     <button class="nt-tool-btn" id="notes-pin-btn" title="Pin/Unpin tab">📌 PIN</button>
                     <button class="nt-tool-btn" id="notes-rename-btn" title="Rename tab">RENAME</button>
                     <button class="nt-tool-btn" id="notes-clear-btn" title="Clear current tab">CLEAR</button>
                     <button class="nt-tool-btn" id="notes-save-btn">SAVE</button>
                 </div>
             </div>
+            ${_org ? _org.quickBarHtml() : ''}
             <div class="notes-editor-wrap">
                 <div class="notes-line-numbers" id="notes-line-nums">${lineNumsHTML}</div>
                 <div class="notes-editor" id="notes-editor" contenteditable="true" spellcheck="false" style="font-size:${STATE.notesFontSize}px" data-placeholder="Write notes..."></div>
@@ -6571,13 +6551,14 @@ function renderNotes() {
 
     // ── Sidebar: new tab ──
     const _createNewTab = () => {
+        _saveActiveTab();
         const newTab = {
             id: 'tab-' + Date.now(),
             title: 'Tab ' + (STATE.notesTabs.length + 1),
-            content: '', pinned: false, tag: null,
+            content: '', pinned: false, tag: null, folder: 'manual',
             created: Date.now(), scrollPos: 0
         };
-        STATE.notesTabs.unshift(newTab);
+        STATE.notesTabs = [newTab, ...STATE.notesTabs];
         STATE.notesActiveTab = newTab.id;
         save();
         closeSidebar();
@@ -6619,6 +6600,7 @@ function renderNotes() {
     if (editor) {
         editor.innerHTML = content; // Set HTML content (preserves colored spans)
         if (!content) editor.innerHTML = ''; // empty state shows placeholder via CSS
+        window._ntLoadedHtml = editor.innerHTML; // baseline: only real edits are written back
     }
 
     // ── Wire pin clicks on line numbers ──
@@ -6988,6 +6970,18 @@ function renderNotes() {
             e.stopPropagation();
             const tabId = btn.dataset.tab;
             if (STATE.notesTabs.length <= 1) return;
+            if (_org) {
+                // × moves the tab to Archive (restorable) instead of deleting it
+                _saveActiveTab();
+                STATE.notesTabs = STATE.notesTabs.map(t => (t.id === tabId ? { ...t, status: 'archived', pinned: false } : t));
+                if (STATE.notesActiveTab === tabId) {
+                    STATE.notesActiveTab = (STATE.notesTabs.find(t => t.status !== 'archived') || STATE.notesTabs[0]).id;
+                }
+                save();
+                renderNotes();
+                toast('Tab moved to Archive', 'info');
+                return;
+            }
             STATE.notesTabs = STATE.notesTabs.filter(t => t.id !== tabId);
             if (STATE.notesActiveTab === tabId) STATE.notesActiveTab = STATE.notesTabs[0]?.id || '';
             save();
@@ -7012,7 +7006,7 @@ function renderNotes() {
             const finish = () => {
                 span.contentEditable = 'false';
                 const newName = span.textContent.trim();
-                if (newName && newName !== tab.title) { tab.title = newName; save(); }
+                if (newName && newName !== tab.title) { tab.title = newName; tab.customName = newName; save(); }
                 span.textContent = tab.title;
             };
             span.addEventListener('blur', finish, { once: true });
@@ -7086,6 +7080,9 @@ function renderNotes() {
             }
         }
     });
+
+    // ── Notes organizer: sidebar folders, search, cleanup, quick inserts ──
+    if (_org) { _org.wire(); _org.afterRender(); }
 }
 
 function renderFooter(count, page, totalPages) {
@@ -7894,12 +7891,14 @@ function bulkSendToNotes() {
         text = cards.map(c => formatCardForCopy(c)).join('\n\n');
     }
     if (!text) { toast('Nothing selected', 'error'); return; }
+    const isMinic = view === 'minic-bins';
     const newTab = {
-        id: 'tab-' + Date.now(), title: 'Selection ' + new Date().toLocaleTimeString(),
+        id: 'tab-' + Date.now(), title: (isMinic ? 'Minic ' : 'Selection ') + new Date().toLocaleTimeString(),
         content: text.replace(/\n/g, '<br>'), pinned: false, tag: null,
-        created: Date.now(), scrollPos: 0, exportSource: 'Selection'
+        created: Date.now(), scrollPos: 0, exportSource: isMinic ? 'Minic' : 'Selection',
+        ...(isMinic ? { folder: 'minic' } : {})
     };
-    STATE.notesTabs.unshift(newTab);
+    STATE.notesTabs = [newTab, ...STATE.notesTabs];
     STATE.notesActiveTab = newTab.id;
     save();
     clearSelection();
