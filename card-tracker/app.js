@@ -7791,11 +7791,10 @@ function formatCardForCopy(card) {
 function bulkCopyCards() {
     const view = STATE.currentView;
     if (view === 'minic-bins') {
-        const bins = (STATE.minicBins || []).filter((b, i) => _selectedCards.has('mc-' + i));
-        if (bins.length === 0) { toast('Nothing selected', 'warning'); return; }
-        const text = bins.map(b => b.bin + (b.note ? ' — ' + b.note : '')).join('\n');
+        const text = typeof window._mnBulkText === 'function' ? window._mnBulkText(_selectedCards) : '';
+        if (!text) { toast('Nothing selected', 'warning'); return; }
         navigator.clipboard?.writeText(text);
-        toast(`${bins.length} BINs copied`, 'success');
+        toast(`${window._mnBulkCount(_selectedCards)} cards copied`, 'success');
         clearSelection(); return;
     }
     if (view === 'global-docs' || view === 'docs') {
@@ -7817,14 +7816,9 @@ function bulkCopyCards() {
 function bulkDeleteCards() {
     const view = STATE.currentView;
     if (view === 'minic-bins') {
-        const ids = [..._selectedCards];
-        const indices = ids.map(id => parseInt(id.replace('mc-', ''))).filter(i => !isNaN(i)).sort((a, b) => b - a);
-        if (indices.length === 0) { toast('Nothing selected', 'warning'); return; }
-        _bvShowConfirm('Delete ' + indices.length + ' BINs?', () => {
-            indices.forEach(i => STATE.minicBins.splice(i, 1));
-            save(); clearSelection(); renderMinicBins();
-            toast(indices.length + ' BINs deleted', 'info');
-        }); return;
+        const n = typeof window._mnBulkDelete === 'function' ? window._mnBulkDelete(_selectedCards, clearSelection) : 0;
+        if (!n) toast('Nothing selected', 'warning');
+        return;
     }
     if (view === 'global-docs' || view === 'docs') {
         const ids = [..._selectedCards];
@@ -7894,8 +7888,7 @@ function bulkSendToNotes() {
         const recs = (STATE.docRecords || []).filter(r => _selectedCards.has(r.id));
         text = recs.map(r => 'Name: ' + r.name + '\nSurname: ' + r.surname + '\nAddress: ' + r.address + '\nDOB: ' + r.dob).join('\n\n');
     } else if (view === 'minic-bins') {
-        const bins = (STATE.minicBins || []).filter((b, i) => _selectedCards.has(b.id || 'mc-' + i));
-        text = bins.map(b => b.bin + (b.note ? ' — ' + b.note : '')).join('\n');
+        text = typeof window._mnBulkText === 'function' ? window._mnBulkText(_selectedCards) : '';
     } else {
         const cards = STATE.cards.filter(c => _selectedCards.has(c.id));
         text = cards.map(c => formatCardForCopy(c)).join('\n\n');
@@ -9810,9 +9803,11 @@ function importExtras(data) {
     }
     // Minic
     if (data.minicBins && Array.isArray(data.minicBins)) {
-        const existingBins = new Set((STATE.minicBins || []).map(b => b.bin));
+        // Entries are profiles ({ id, name, cards[] }) or legacy flat rows; minic.js migrates on render.
+        const minicKey = b => (b && b.id) || JSON.stringify(b);
+        const existingBins = new Set((STATE.minicBins || []).map(minicKey));
         data.minicBins.forEach(b => {
-            if (!existingBins.has(b.bin)) { STATE.minicBins.push(b); existingBins.add(b.bin); }
+            if (b && !existingBins.has(minicKey(b))) { STATE.minicBins.push(b); existingBins.add(minicKey(b)); }
         });
     }
     if (data.minicTags && Array.isArray(data.minicTags)) {
