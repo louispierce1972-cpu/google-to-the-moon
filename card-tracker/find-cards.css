@@ -1,0 +1,101 @@
+/* ═══════════════════════════════════════════
+ * FIND CARDS — BIN stock screen (find-cards.js). Reuses bw-* layout from billing-workspace.css.
+ * ═══════════════════════════════════════════ */
+
+/* Parser button (always clickable, like the other aux buttons) */
+#parser-cards-btn { opacity: 1 !important; pointer-events: auto !important; }
+.pz-btn-cards {
+    background: rgba(167, 139, 250, .10) !important;
+    border: 1px solid rgba(167, 139, 250, .34) !important;
+    color: #c4b5fd !important;
+}
+.pz-btn-cards:hover { background: rgba(167, 139, 250, .2) !important; }
+
+.fc-wrap { display: flex; flex-direction: column; gap: 14px; }
+.fc-drop { cursor: pointer; }
+.fc-drop.fc-loaded { padding-top: 14px; padding-bottom: 14px; border-style: solid; border-color: rgba(167,139,250,.3); background: rgba(167,139,250,.05); }
+.fc-drop.fc-loaded .bw-drop-ico { font-size: 22px; }
+
+.fc-card {
+    padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08);
+    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.01));
+    display: flex; flex-direction: column; gap: 10px;
+}
+.fc-card-h { font-size: 13px; font-weight: 700; color: var(--text-primary, #eee); display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fc-muted { font-size: 11px; font-weight: 500; color: var(--text-dim, #808080); }
+.fc-spacer { flex: 1; }
+
+/* Check my BINs */
+.fc-input {
+    width: 100%; box-sizing: border-box; min-height: 92px; max-height: 260px; resize: vertical; padding: 10px 12px;
+    background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.1); border-radius: 8px;
+    color: var(--text-primary, #eee); font: 12px/1.5 var(--font-mono, ui-monospace, monospace); outline: none;
+    transition: border-color .15s;
+}
+.fc-input:focus { border-color: rgba(167,139,250,.55); }
+.fc-actions { display: flex; align-items: center; gap: 8px; }
+.fc-result { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; animation: fc-in .18s ease-out; }
+.fc-res-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fc-pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.fc-pill b { margin-left: 3px; }
+.fc-pill.ok { color: #4ade80; background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.3); }
+.fc-pill.miss { color: #f87171; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.28); }
+.fc-sub-h { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #f87171; }
+.fc-missing { display: flex; flex-wrap: wrap; gap: 5px; }
+.fc-missing span {
+    font: 12px var(--font-mono, ui-monospace, monospace); color: #fca5a5; padding: 2px 8px; border-radius: 5px;
+    background: rgba(248,113,113,.07); border: 1px solid rgba(248,113,113,.2);
+}
+
+/* Geo chips */
+.fc-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.fc-geo-chips { max-height: 168px; overflow-y: auto; padding-right: 4px; }
+.fc-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    font-size: 11px; font-weight: 600; color: var(--text-secondary, #bbb); font-family: var(--font-sans, inherit);
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09);
+    transition: background .12s, border-color .12s, color .12s, transform .1s;
+}
+.fc-chip b { color: var(--text-primary, #eee); font-weight: 700; }
+.fc-chip i { font-style: normal; color: var(--text-dim, #808080); font-weight: 500; }
+.fc-chip:hover { background: rgba(167,139,250,.1); border-color: rgba(167,139,250,.35); color: #ddd6fe; }
+.fc-chip:active { transform: scale(.96); }
+.fc-chip.on { background: rgba(167,139,250,.2); border-color: rgba(167,139,250,.6); color: #ede9fe; }
+.fc-chip.on i { color: #c4b5fd; }
+.fc-tier.on { background: rgba(250,204,21,.14); border-color: rgba(250,204,21,.5); color: #fde68a; }
+.fc-chips-sm .fc-chip { padding: 3px 8px; font-size: 10.5px; }
+.fc-flag { font-size: 13px; line-height: 1; margin-right: 2px; }
+
+.fc-query {
+    width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 8px; outline: none;
+    background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.1); color: var(--text-primary, #eee); font-size: 12px;
+}
+.fc-query:focus { border-color: rgba(167,139,250,.55); }
+.fc-count { margin-bottom: 6px; }
+
+/* Table */
+.fc-table-wrap { overflow-x: auto; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; }
+.fc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fc-table th {
+    position: sticky; top: 0; background: #15161a; text-align: left; padding: 7px 10px; white-space: nowrap;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--text-dim, #808080);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.fc-table th.fc-sort { cursor: pointer; user-select: none; }
+.fc-table th.fc-sort:hover, .fc-table th.fc-sort.on { color: #c4b5fd; }
+.fc-table td { padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,.04); color: var(--text-secondary, #ccc); vertical-align: middle; }
+.fc-table tbody tr:hover td { background: rgba(167,139,250,.05); }
+.fc-bin { font: 600 12.5px var(--font-mono, ui-monospace, monospace); color: var(--text-primary, #f1f1f1) !important; letter-spacing: .5px; }
+.fc-num { text-align: right; font-variant-numeric: tabular-nums; color: #fde68a !important; font-weight: 600; }
+.fc-geo { white-space: nowrap; }
+.fc-bank { color: var(--text-primary, #e5e5e5) !important; word-break: break-word; }
+.fc-tag, .fc-brand { font-size: 10px; font-weight: 700; letter-spacing: .4px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.06); }
+.fc-tag.fc-credit { color: #4ade80; background: rgba(74,222,128,.1); }
+.fc-tag.fc-debit { color: #60a5fa; background: rgba(96,165,250,.1); }
+.fc-brand.fc-visa { color: #93c5fd; }
+.fc-brand.fc-mastercard { color: #fdba74; }
+.fc-brand.fc-american-express, .fc-brand.fc-amex { color: #5eead4; }
+.fc-empty { padding: 16px; text-align: center; font-size: 12px; color: var(--text-dim, #808080); }
+.fc-more { display: block; margin: 8px auto 0; }
+
+@keyframes fc-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }

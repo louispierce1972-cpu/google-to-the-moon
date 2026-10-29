@@ -10470,6 +10470,8 @@ function renderBuilder() {
 function renderParser() {
     // FIND BILLINGS screen lives inside the Parser view (billing-find.js)
     if (typeof FB !== 'undefined' && FB.open) return renderFindBillings();
+    // FIND CARDS screen (BIN stock lookup) also lives inside the Parser view (find-cards.js)
+    if (window.FindCards && FindCards.isOpen()) return FindCards.render();
     const area = document.getElementById('content-area');
     const bar = document.getElementById('stats-bar');
     bar.innerHTML = '';
@@ -10577,6 +10579,7 @@ function renderParser() {
             <button class="pz-btn pz-btn-trash" id="parser-trash-btn" title="Manage dead/invalid card blacklist">🗑 TRASH (${(STATE.trashCards || []).length})</button>
             <button class="pz-btn pz-btn-valid" id="parser-valid-btn" title="Check the whole loaded base against checker results (independent of filters)">✅ VALID CARDS</button>
             <button class="pz-btn pz-btn-billings" id="parser-billings-btn" title="Match billing records (last 4 digits) against parsed cards">💳 FIND BILLINGS</button>
+            <button class="pz-btn pz-btn-cards" id="parser-cards-btn" title="Load a BIN stock file: all BINs with bank and geo, check your BIN list">📦 FIND CARDS</button>
             <span class="parser-status" id="parser-status"></span>
         </div>
 
@@ -10691,7 +10694,12 @@ function renderParser() {
     // ── FIND BILLINGS BUTTON ──
     // Opens the Find Billings screen (upload → Parse & Match → pick rows → Add to Workspace)
     document.getElementById('parser-billings-btn')?.addEventListener('click', () => {
+        if (window.FindCards) FindCards.hide();
         if (typeof fbOpen === 'function') fbOpen();
+    });
+    // ── FIND CARDS BUTTON ── (BIN stock: geo breakdown + check my BINs)
+    document.getElementById('parser-cards-btn')?.addEventListener('click', () => {
+        if (window.FindCards) FindCards.open();
     });
     // (translated)
     document.querySelectorAll('.parser-level-btn[data-filter-type]').forEach(btn => {
